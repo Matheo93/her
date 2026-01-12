@@ -231,9 +231,11 @@ export default function AvatarGPUPage() {
                 playsInline
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-violet-400 to-pink-500 animate-pulse" />
-              </div>
+              <img
+                src="/avatars/eva.jpg"
+                alt="Eva"
+                className="w-full h-full object-cover"
+              />
             )}
           </div>
 
