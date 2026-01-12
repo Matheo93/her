@@ -1,0 +1,21 @@
+# Avatar Engine API requirements
+# For real-time Wav2Lip lip-sync
+
+# Core
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+
+# ML/AI
+torch>=2.0.0
+numpy>=1.24.0
+opencv-python>=4.8.0
+
+# Audio
+librosa>=0.10.0
+
+# Face detection
+batch-face>=1.4.0
+
+# Async
+asyncio
