@@ -810,11 +810,14 @@ async def lifespan(app: FastAPI):
     model_name = GROQ_MODEL_FAST if USE_FAST_MODEL else GROQ_MODEL_QUALITY
     print(f"✅ Groq LLM connected ({model_name})")
 
-    # Whisper (optional)
+    # Whisper (optional) - GPU accelerated
     try:
         from faster_whisper import WhisperModel
-        whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
-        print("✅ Whisper STT loaded (base model)")
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        compute = "float16" if device == "cuda" else "int8"
+        whisper_model = WhisperModel("large-v3", device=device, compute_type=compute)
+        print(f"✅ Whisper STT loaded (large-v3 on {device.upper()})")
     except ImportError:
         print("⚠️  Whisper not installed - STT via browser only")
 
