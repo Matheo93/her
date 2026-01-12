@@ -1511,6 +1511,173 @@ async def voice_pipeline(
         }
     }
 
+# ============================================
+# LIP-SYNC VIDEO GENERATION (MuseTalk)
+# ============================================
+
+LIPSYNC_SERVICE_URL = os.getenv("LIPSYNC_SERVICE_URL", "http://localhost:8001")
+
+@app.post("/voice/lipsync")
+async def voice_lipsync_pipeline(
+    request: Request,
+    file: UploadFile = File(...),
+    session_id: str = Query("default"),
+    voice: str = Query(DEFAULT_VOICE),
+    _: str = Depends(verify_api_key)
+):
+    """Pipeline complet avec lip-sync: Audio -> STT -> LLM -> TTS -> Lip-Sync Video
+
+    Génère une vidéo de l'avatar Eva qui parle avec lip-sync synchronisé.
+    """
+    client_id = get_client_id(request)
+
+    if not rate_limiter.is_allowed(client_id):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    total_start = time.time()
+
+    # 1. STT
+    stt_start = time.time()
+    audio_bytes = await file.read()
+
+    if len(audio_bytes) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 5MB)")
+
+    user_text = await transcribe_audio(audio_bytes)
+    stt_time = (time.time() - stt_start) * 1000
+
+    if not user_text or "[" in user_text:
+        raise HTTPException(status_code=400, detail="Could not transcribe audio")
+
+    # 2. LLM
+    llm_start = time.time()
+    eva_response = await get_llm_response(session_id, user_text)
+    llm_time = (time.time() - llm_start) * 1000
+
+    # 3. TTS
+    tts_start = time.time()
+    current_mood = session_moods[session_id]
+    mood_settings = EVA_MOODS.get(current_mood, EVA_MOODS["default"])
+
+    audio_response = await text_to_speech(
+        eva_response,
+        voice,
+        rate=mood_settings["voice_rate"],
+        pitch=mood_settings["voice_pitch"]
+    )
+    tts_time = (time.time() - tts_start) * 1000
+
+    # 4. Generate lip-sync video
+    lipsync_start = time.time()
+    video_base64 = None
+    lipsync_time = 0
+
+    if audio_response:
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                # Send audio to MuseTalk service
+                files = {"audio": ("speech.mp3", audio_response, "audio/mpeg")}
+                response = await client.post(f"{LIPSYNC_SERVICE_URL}/lipsync", files=files)
+
+                if response.status_code == 200:
+                    lipsync_data = response.json()
+                    video_base64 = lipsync_data.get("video_base64")
+                    lipsync_time = lipsync_data.get("generation_time_ms", 0)
+                else:
+                    print(f"Lip-sync service error: {response.status_code}")
+        except Exception as e:
+            print(f"Lip-sync service unavailable: {e}")
+
+    lipsync_time = (time.time() - lipsync_start) * 1000 if lipsync_time == 0 else lipsync_time
+
+    total_time = (time.time() - total_start) * 1000
+    log_usage(session_id, "voice_lipsync_pipeline", int(total_time))
+
+    return {
+        "user_text": user_text,
+        "eva_response": eva_response,
+        "audio_base64": base64.b64encode(audio_response).decode() if audio_response else None,
+        "video_base64": video_base64,
+        "mood": current_mood,
+        "latency": {
+            "stt_ms": round(stt_time),
+            "llm_ms": round(llm_time),
+            "tts_ms": round(tts_time),
+            "lipsync_ms": round(lipsync_time),
+            "total_ms": round(total_time)
+        }
+    }
+
+@app.post("/tts/lipsync")
+async def tts_lipsync(
+    request: Request,
+    data: dict,
+    _: str = Depends(verify_api_key)
+):
+    """Text to Speech + Lip-Sync Video
+
+    Génère audio + vidéo lip-sync à partir de texte.
+    """
+    client_id = get_client_id(request)
+
+    if not rate_limiter.is_allowed(client_id):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    text = data.get("text", "")
+    voice = data.get("voice", DEFAULT_VOICE)
+    rate = data.get("rate", "+10%")
+    pitch = data.get("pitch", "+0Hz")
+
+    if not text:
+        raise HTTPException(status_code=400, detail="text required")
+
+    if len(text) > 1000:
+        raise HTTPException(status_code=400, detail="text too long (max 1000 chars)")
+
+    total_start = time.time()
+
+    # 1. TTS
+    tts_start = time.time()
+    audio = await text_to_speech(text, voice, rate, pitch)
+    tts_time = (time.time() - tts_start) * 1000
+
+    if not audio:
+        raise HTTPException(status_code=503, detail="TTS not available")
+
+    # 2. Generate lip-sync video
+    lipsync_start = time.time()
+    video_base64 = None
+    lipsync_time = 0
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            files = {"audio": ("speech.mp3", audio, "audio/mpeg")}
+            response = await client.post(f"{LIPSYNC_SERVICE_URL}/lipsync", files=files)
+
+            if response.status_code == 200:
+                lipsync_data = response.json()
+                video_base64 = lipsync_data.get("video_base64")
+                lipsync_time = lipsync_data.get("generation_time_ms", 0)
+            else:
+                print(f"Lip-sync service error: {response.status_code}")
+    except Exception as e:
+        print(f"Lip-sync service unavailable: {e}")
+
+    lipsync_time = (time.time() - lipsync_start) * 1000 if lipsync_time == 0 else lipsync_time
+
+    total_time = (time.time() - total_start) * 1000
+
+    return {
+        "text": text,
+        "audio_base64": base64.b64encode(audio).decode(),
+        "video_base64": video_base64,
+        "latency": {
+            "tts_ms": round(tts_time),
+            "lipsync_ms": round(lipsync_time),
+            "total_ms": round(total_time)
+        }
+    }
+
 @app.get("/stats")
 async def get_stats(_: str = Depends(verify_api_key)):
     """Get usage statistics"""
