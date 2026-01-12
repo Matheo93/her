@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+*_venv/
+.env
+
+# Node
+node_modules/
+.next/
+bun.lock
+*.tsbuildinfo
+
+# Logs & DB
+*.log
+*.db
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Backups
+*.backup
+.env
