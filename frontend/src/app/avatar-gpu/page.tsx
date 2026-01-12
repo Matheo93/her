@@ -242,18 +242,19 @@ export default function AvatarGPUPage() {
             {/* Background glow effect */}
             <div className="absolute inset-0 bg-gradient-to-t from-purple-600/20 to-transparent" />
 
-            {/* Avatar video with idle animation */}
+            {/* Avatar video with idle animation - random variety like D-ID */}
             <div className={`relative w-full h-full ${isSpeaking ? 'avatar-speaking' : ''}`}>
               <video
+                ref={videoRef}
+                key={currentIdleIndex}
                 autoPlay
-                loop
                 muted
                 playsInline
+                onEnded={handleVideoEnd}
                 className="w-full h-full object-cover object-top scale-125"
                 style={{ marginTop: '-10%' }}
-              >
-                <source src="/avatars/eva_idle.mp4" type="video/mp4" />
-              </video>
+                src={idleVideos[currentIdleIndex]}
+              />
             </div>
           </div>
 
