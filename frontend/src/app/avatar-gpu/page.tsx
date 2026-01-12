@@ -227,22 +227,18 @@ export default function AvatarGPUPage() {
             {/* Background glow effect */}
             <div className="absolute inset-0 bg-gradient-to-t from-purple-600/20 to-transparent" />
 
-            {/* Avatar image with idle animation */}
-            <div className={`relative w-full h-full ${isSpeaking ? 'avatar-speaking' : 'avatar-idle'}`}>
-              <img
-                src="/avatars/eva_nobg.png"
-                alt="Eva"
-                className="w-full h-full object-cover object-top scale-110"
-                style={{ marginTop: '-5%' }}
-              />
-              {/* Blink overlay effect */}
-              <div
-                className={`absolute inset-0 ${!isSpeaking ? 'eye-blink' : ''}`}
-                style={{
-                  background: 'linear-gradient(transparent 40%, rgba(0,0,0,0.03) 45%, rgba(0,0,0,0.03) 47%, transparent 52%)',
-                  pointerEvents: 'none'
-                }}
-              />
+            {/* Avatar video with idle animation */}
+            <div className={`relative w-full h-full ${isSpeaking ? 'avatar-speaking' : ''}`}>
+              <video
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full h-full object-cover object-top scale-125"
+                style={{ marginTop: '-10%' }}
+              >
+                <source src="/avatars/eva_idle.mp4" type="video/mp4" />
+              </video>
             </div>
           </div>
 
