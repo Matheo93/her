@@ -22,8 +22,23 @@ export default function AvatarGPUPage() {
   const [error, setError] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+
+  // Multiple idle videos for variety (like D-ID/Simli)
+  const idleVideos = [
+    "/avatars/eva_idle.mp4",
+    "/avatars/eva_idle_2.mp4",
+    "/avatars/eva_idle_3.mp4",
+  ];
+  const [currentIdleIndex, setCurrentIdleIndex] = useState(0);
+
+  // Change idle video randomly when loop ends
+  const handleVideoEnd = () => {
+    const newIndex = Math.floor(Math.random() * idleVideos.length);
+    setCurrentIdleIndex(newIndex);
+  };
 
   // Start recording
   const startRecording = async () => {
