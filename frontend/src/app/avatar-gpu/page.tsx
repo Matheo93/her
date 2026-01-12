@@ -10,6 +10,7 @@ interface Timings {
   total?: number;
   stt?: number;
   llm?: number;
+  lipsync?: number;
 }
 
 export default function AvatarGPUPage() {
@@ -20,9 +21,11 @@ export default function AvatarGPUPage() {
   const [response, setResponse] = useState("");
   const [timings, setTimings] = useState<Timings>({});
   const [error, setError] = useState<string | null>(null);
+  const [useLipsync, setUseLipsync] = useState(true);
 
   const audioRef = useRef<HTMLAudioElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const idleVideoRef = useRef<HTMLVideoElement>(null);
+  const speakingVideoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
@@ -33,11 +36,24 @@ export default function AvatarGPUPage() {
     "/avatars/eva_idle_3.mp4",
   ];
   const [currentIdleIndex, setCurrentIdleIndex] = useState(0);
+  const [speakingVideoSrc, setSpeakingVideoSrc] = useState<string | null>(null);
 
   // Change idle video randomly when loop ends
-  const handleVideoEnd = () => {
-    const newIndex = Math.floor(Math.random() * idleVideos.length);
-    setCurrentIdleIndex(newIndex);
+  const handleIdleVideoEnd = () => {
+    if (!isSpeaking) {
+      const newIndex = Math.floor(Math.random() * idleVideos.length);
+      setCurrentIdleIndex(newIndex);
+    }
+  };
+
+  // When speaking video ends, return to idle
+  const handleSpeakingVideoEnd = () => {
+    setIsSpeaking(false);
+    setSpeakingVideoSrc(null);
+    // Resume idle video
+    if (idleVideoRef.current) {
+      idleVideoRef.current.play();
+    }
   };
 
   // Start recording
@@ -76,62 +92,61 @@ export default function AvatarGPUPage() {
     }
   };
 
-  // Process audio through the pipeline
+  // Process audio through the pipeline with lip-sync
   const processAudio = async (audioBlob: Blob) => {
     setIsProcessing(true);
     setTranscript("");
     setResponse("");
     setTimings({});
 
-    const startTime = performance.now();
-
     try {
-      // 1. STT
       const formData = new FormData();
-      formData.append("audio", audioBlob);
+      formData.append("file", audioBlob, "audio.webm");
 
-      const sttStart = performance.now();
-      const sttResponse = await fetch(`${BACKEND_URL}/stt`, {
+      // Use lip-sync endpoint if enabled, otherwise regular voice endpoint
+      const endpoint = useLipsync ? "/voice/lipsync" : "/voice";
+      const voiceResponse = await fetch(`${BACKEND_URL}${endpoint}?voice=eva`, {
         method: "POST",
         body: formData,
       });
 
-      if (!sttResponse.ok) throw new Error("STT failed");
+      if (!voiceResponse.ok) throw new Error("Voice processing failed");
 
-      const sttData = await sttResponse.json();
-      const sttTime = performance.now() - sttStart;
-      setTranscript(sttData.text);
-      setTimings((t) => ({ ...t, stt: Math.round(sttTime) }));
+      const data = await voiceResponse.json();
 
-      // 2. Chat + TTS
-      const llmStart = performance.now();
-      const chatResponse = await fetch(`${BACKEND_URL}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: sttData.text,
-          voice: "eva",
-        }),
+      setTranscript(data.user_text);
+      setResponse(data.eva_response);
+      setTimings({
+        stt: data.latency?.stt_ms,
+        llm: data.latency?.llm_ms,
+        tts: data.latency?.tts_ms,
+        lipsync: data.latency?.lipsync_ms,
+        total: data.latency?.total_ms,
       });
 
-      if (!chatResponse.ok) throw new Error("Chat failed");
+      // Play lip-sync video if available
+      if (data.video_base64 && speakingVideoRef.current) {
+        const videoSrc = `data:video/mp4;base64,${data.video_base64}`;
+        setSpeakingVideoSrc(videoSrc);
+        setIsSpeaking(true);
 
-      const chatData = await chatResponse.json();
-      const llmTime = performance.now() - llmStart;
-      setResponse(chatData.text);
-      setTimings((t) => ({ ...t, llm: Math.round(llmTime), tts: chatData.tts_ms }));
+        // Pause idle video
+        if (idleVideoRef.current) {
+          idleVideoRef.current.pause();
+        }
 
-      // Play audio
-      if (chatData.audio_base64 && audioRef.current) {
-        const audioSrc = `data:audio/mp3;base64,${chatData.audio_base64}`;
+        // Play speaking video
+        speakingVideoRef.current.src = videoSrc;
+        speakingVideoRef.current.play();
+      }
+      // Fallback: play audio only (no lip-sync video)
+      else if (data.audio_base64 && audioRef.current) {
+        const audioSrc = `data:audio/mp3;base64,${data.audio_base64}`;
         audioRef.current.src = audioSrc;
         setIsSpeaking(true);
         audioRef.current.play();
         audioRef.current.onended = () => setIsSpeaking(false);
       }
-
-      const totalTime = performance.now() - startTime;
-      setTimings((t) => ({ ...t, total: Math.round(totalTime) }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Processing failed");
     } finally {
@@ -139,7 +154,7 @@ export default function AvatarGPUPage() {
     }
   };
 
-  // Send text directly
+  // Send text directly with lip-sync
   const sendText = async (text: string) => {
     if (!text.trim()) return;
 
@@ -147,29 +162,82 @@ export default function AvatarGPUPage() {
     setTranscript(text);
     setTimings({});
 
-    const startTime = performance.now();
-
     try {
-      const llmStart = performance.now();
-      const chatResponse = await fetch(`${BACKEND_URL}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, voice: "eva" }),
-      });
+      // Use TTS + lip-sync endpoint
+      const endpoint = useLipsync ? "/tts/lipsync" : "/tts";
 
-      const chatData = await chatResponse.json();
-      setResponse(chatData.text);
-      setTimings((t) => ({ ...t, llm: Math.round(performance.now() - llmStart), tts: chatData.tts_ms }));
+      if (useLipsync) {
+        const response = await fetch(`${BACKEND_URL}/tts/lipsync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, voice: "eva" }),
+        });
 
-      if (chatData.audio_base64 && audioRef.current) {
-        const audioSrc = `data:audio/mp3;base64,${chatData.audio_base64}`;
-        audioRef.current.src = audioSrc;
-        setIsSpeaking(true);
-        audioRef.current.play();
-        audioRef.current.onended = () => setIsSpeaking(false);
+        const data = await response.json();
+
+        // Also get LLM response
+        const chatResponse = await fetch(`${BACKEND_URL}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text }),
+        });
+        const chatData = await chatResponse.json();
+        setResponse(chatData.response);
+
+        // Now generate lip-sync for the response
+        const llmLipsyncResponse = await fetch(`${BACKEND_URL}/tts/lipsync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: chatData.response, voice: "eva" }),
+        });
+        const llmLipsyncData = await llmLipsyncResponse.json();
+
+        setTimings({
+          llm: chatData.latency_ms,
+          tts: llmLipsyncData.latency?.tts_ms,
+          lipsync: llmLipsyncData.latency?.lipsync_ms,
+          total: llmLipsyncData.latency?.total_ms,
+        });
+
+        // Play lip-sync video
+        if (llmLipsyncData.video_base64 && speakingVideoRef.current) {
+          const videoSrc = `data:video/mp4;base64,${llmLipsyncData.video_base64}`;
+          setSpeakingVideoSrc(videoSrc);
+          setIsSpeaking(true);
+
+          if (idleVideoRef.current) {
+            idleVideoRef.current.pause();
+          }
+
+          speakingVideoRef.current.src = videoSrc;
+          speakingVideoRef.current.play();
+        } else if (llmLipsyncData.audio_base64 && audioRef.current) {
+          const audioSrc = `data:audio/mp3;base64,${llmLipsyncData.audio_base64}`;
+          audioRef.current.src = audioSrc;
+          setIsSpeaking(true);
+          audioRef.current.play();
+          audioRef.current.onended = () => setIsSpeaking(false);
+        }
+      } else {
+        // Fallback without lip-sync
+        const chatResponse = await fetch(`${BACKEND_URL}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text, voice: "eva" }),
+        });
+
+        const chatData = await chatResponse.json();
+        setResponse(chatData.text || chatData.response);
+        setTimings({ llm: chatData.latency_ms, tts: chatData.tts_ms });
+
+        if (chatData.audio_base64 && audioRef.current) {
+          const audioSrc = `data:audio/mp3;base64,${chatData.audio_base64}`;
+          audioRef.current.src = audioSrc;
+          setIsSpeaking(true);
+          audioRef.current.play();
+          audioRef.current.onended = () => setIsSpeaking(false);
+        }
       }
-
-      setTimings((t) => ({ ...t, total: Math.round(performance.now() - startTime) }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
     } finally {
@@ -179,43 +247,21 @@ export default function AvatarGPUPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
-      {/* Styles for idle animations */}
+      {/* Styles for animations */}
       <style jsx>{`
-        @keyframes breathe {
-          0%, 100% { transform: scale(1) translateY(0); }
-          50% { transform: scale(1.02) translateY(-2px); }
-        }
-        @keyframes blink {
-          0%, 90%, 100% { clip-path: inset(0 0 0 0); }
-          95% { clip-path: inset(42% 0 42% 0); }
-        }
-        @keyframes subtle-move {
-          0%, 100% { transform: rotate(0deg) translateX(0); }
-          25% { transform: rotate(0.3deg) translateX(1px); }
-          75% { transform: rotate(-0.3deg) translateX(-1px); }
-        }
         @keyframes glow {
           0%, 100% { box-shadow: 0 0 30px rgba(147, 51, 234, 0.3); }
           50% { box-shadow: 0 0 50px rgba(147, 51, 234, 0.5); }
         }
-        @keyframes speaking {
-          0%, 100% { transform: scale(1); }
-          25% { transform: scale(1.01) translateY(-1px); }
-          50% { transform: scale(0.99); }
-          75% { transform: scale(1.01) translateY(1px); }
+        @keyframes speaking-glow {
+          0%, 100% { box-shadow: 0 0 30px rgba(236, 72, 153, 0.4); }
+          50% { box-shadow: 0 0 60px rgba(236, 72, 153, 0.7); }
         }
         .avatar-container {
           animation: glow 3s ease-in-out infinite;
         }
-        .avatar-idle {
-          animation: breathe 4s ease-in-out infinite, subtle-move 8s ease-in-out infinite;
-        }
-        .avatar-speaking {
-          animation: speaking 0.3s ease-in-out infinite;
-        }
-        .eye-blink {
-          animation: blink 4s ease-in-out infinite;
-          animation-delay: 2s;
+        .avatar-container.speaking {
+          animation: speaking-glow 1s ease-in-out infinite;
         }
       `}</style>
 
@@ -228,42 +274,62 @@ export default function AvatarGPUPage() {
             <div className={`w-3 h-3 rounded-full ${isSpeaking ? 'bg-pink-500 animate-pulse' : 'bg-green-500'}`} />
             <h1 className="text-xl font-light tracking-wide">EVA</h1>
             <span className="text-xs bg-purple-600/80 px-2 py-1 rounded-full">RTX 4090</span>
+            {useLipsync && <span className="text-xs bg-pink-600/80 px-2 py-1 rounded-full">Lip-Sync</span>}
           </div>
-          <a href="/" className="text-purple-400 hover:text-purple-300 text-sm">
-            ← Retour
-          </a>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useLipsync}
+                onChange={(e) => setUseLipsync(e.target.checked)}
+                className="w-4 h-4 accent-pink-500"
+              />
+              <span className="text-slate-400">Lip-Sync</span>
+            </label>
+            <a href="/" className="text-purple-400 hover:text-purple-300 text-sm">
+              Retour
+            </a>
+          </div>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto p-6">
         {/* Avatar Display */}
         <div className="flex flex-col items-center mb-8">
-          <div className={`avatar-container relative w-72 h-72 rounded-full overflow-hidden bg-gradient-to-br from-purple-900/50 to-pink-900/50 border-2 border-purple-500/30`}>
+          <div className={`avatar-container ${isSpeaking ? 'speaking' : ''} relative w-72 h-72 rounded-full overflow-hidden bg-gradient-to-br from-purple-900/50 to-pink-900/50 border-2 ${isSpeaking ? 'border-pink-500/50' : 'border-purple-500/30'}`}>
             {/* Background glow effect */}
             <div className="absolute inset-0 bg-gradient-to-t from-purple-600/20 to-transparent" />
 
-            {/* Avatar video with idle animation - random variety like D-ID */}
-            <div className={`relative w-full h-full ${isSpeaking ? 'avatar-speaking' : ''}`}>
-              <video
-                ref={videoRef}
-                key={currentIdleIndex}
-                autoPlay
-                muted
-                playsInline
-                onEnded={handleVideoEnd}
-                className="w-full h-full object-cover object-top scale-125"
-                style={{ marginTop: '-10%' }}
-                src={idleVideos[currentIdleIndex]}
-              />
-            </div>
+            {/* Idle video (hidden when speaking) */}
+            <video
+              ref={idleVideoRef}
+              autoPlay
+              muted
+              playsInline
+              loop={false}
+              onEnded={handleIdleVideoEnd}
+              className={`absolute inset-0 w-full h-full object-cover object-top scale-125 transition-opacity duration-300 ${isSpeaking ? 'opacity-0' : 'opacity-100'}`}
+              style={{ marginTop: '-10%' }}
+              src={idleVideos[currentIdleIndex]}
+            />
+
+            {/* Speaking video (shown when speaking) */}
+            <video
+              ref={speakingVideoRef}
+              muted={false}
+              playsInline
+              onEnded={handleSpeakingVideoEnd}
+              className={`absolute inset-0 w-full h-full object-cover object-top scale-125 transition-opacity duration-300 ${isSpeaking ? 'opacity-100' : 'opacity-0'}`}
+              style={{ marginTop: '-10%' }}
+            />
           </div>
 
           {/* Status */}
           <div className="mt-4 text-center">
             {isProcessing && (
-              <p className="text-purple-400 animate-pulse">Je réfléchis...</p>
+              <p className="text-purple-400 animate-pulse">Je reflechis...</p>
             )}
-            {isSpeaking && (
+            {isSpeaking && !isProcessing && (
               <p className="text-pink-400 animate-pulse">Je parle...</p>
             )}
             {error && <p className="text-red-400">{error}</p>}
@@ -274,16 +340,17 @@ export default function AvatarGPUPage() {
         </div>
 
         {/* Timings Dashboard */}
-        <div className="grid grid-cols-4 gap-3 mb-8">
+        <div className="grid grid-cols-5 gap-3 mb-8">
           {[
-            { label: "STT", value: timings.stt, target: 100, icon: "🎤" },
-            { label: "LLM", value: timings.llm, target: 500, icon: "🧠" },
-            { label: "TTS", value: timings.tts, target: 100, icon: "🔊" },
-            { label: "Total", value: timings.total, target: 800, icon: "⚡" },
+            { label: "STT", value: timings.stt, target: 100, icon: "\u{1F3A4}" },
+            { label: "LLM", value: timings.llm, target: 500, icon: "\u{1F9E0}" },
+            { label: "TTS", value: timings.tts, target: 100, icon: "\u{1F50A}" },
+            { label: "Lip", value: timings.lipsync, target: 2000, icon: "\u{1F444}" },
+            { label: "Total", value: timings.total, target: 3000, icon: "\u{26A1}" },
           ].map((item) => (
             <div
               key={item.label}
-              className={`p-4 rounded-xl text-center transition-all ${
+              className={`p-3 rounded-xl text-center transition-all ${
                 item.value
                   ? item.value <= item.target
                     ? "bg-green-900/30 border border-green-500/50"
@@ -295,7 +362,7 @@ export default function AvatarGPUPage() {
             >
               <div className="text-lg mb-1">{item.icon}</div>
               <div className="text-xs text-slate-400 mb-1">{item.label}</div>
-              <div className="text-xl font-mono font-bold">
+              <div className="text-lg font-mono font-bold">
                 {item.value ? `${item.value}` : "-"}
               </div>
               <div className="text-xs text-slate-500">ms</div>
@@ -329,7 +396,7 @@ export default function AvatarGPUPage() {
             onMouseLeave={stopRecording}
             onTouchStart={startRecording}
             onTouchEnd={stopRecording}
-            disabled={isProcessing}
+            disabled={isProcessing || isSpeaking}
             className={`p-6 rounded-full transition-all transform ${
               isRecording
                 ? "bg-red-500 scale-110 shadow-lg shadow-red-500/50"
@@ -346,7 +413,7 @@ export default function AvatarGPUPage() {
             </svg>
           </button>
           <p className="text-slate-500 text-sm">
-            {isRecording ? "🔴 Enregistrement..." : "Maintiens pour parler"}
+            {isRecording ? "\u{1F534} Enregistrement..." : "Maintiens pour parler"}
           </p>
         </div>
 
@@ -354,10 +421,10 @@ export default function AvatarGPUPage() {
         <div className="mt-6">
           <input
             type="text"
-            placeholder="Ou écris-moi..."
+            placeholder="Ou ecris-moi..."
             className="w-full p-4 rounded-xl bg-slate-800/50 border border-slate-700/50 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/20 text-slate-200 placeholder-slate-500"
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !isProcessing) {
+              if (e.key === "Enter" && !isProcessing && !isSpeaking) {
                 sendText((e.target as HTMLInputElement).value);
                 (e.target as HTMLInputElement).value = "";
               }
@@ -370,11 +437,13 @@ export default function AvatarGPUPage() {
       <footer className="fixed bottom-0 left-0 right-0 p-3 bg-slate-950/80 backdrop-blur-sm border-t border-slate-800/50">
         <div className="max-w-4xl mx-auto flex justify-center gap-4 text-xs text-slate-500">
           <span>Whisper large-v3</span>
-          <span>•</span>
+          <span>*</span>
           <span>Groq LLM</span>
-          <span>•</span>
+          <span>*</span>
           <span>Edge-TTS</span>
-          <span>•</span>
+          <span>*</span>
+          <span>MuseTalk</span>
+          <span>*</span>
           <span>RTX 4090</span>
         </div>
       </footer>
