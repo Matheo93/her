@@ -887,6 +887,71 @@ async def warmup_connections():
         except Exception as e:
             print(f"   TTS warm-up failed: {e}")
 
+
+# Store pending proactive messages per user (for SSE delivery)
+_proactive_messages: dict[str, list[dict]] = {}
+
+
+async def proactive_scheduler():
+    """Background task that periodically checks for proactive messages.
+
+    HER feature: Eva can initiate conversations based on:
+    - Time since last interaction
+    - Remembered events/interests
+    - Emotional state patterns
+    - Random "thinking of you" moments
+    """
+    print("🎯 Proactive scheduler started")
+
+    while True:
+        try:
+            # Check every 60 seconds
+            await asyncio.sleep(60)
+
+            if not HER_AVAILABLE:
+                continue
+
+            # Get all active users from memory system
+            from eva_inner_thoughts import get_inner_thoughts
+
+            inner_thoughts = get_inner_thoughts()
+            if not inner_thoughts:
+                continue
+
+            # Check each tracked user
+            for user_id in inner_thoughts.get_tracked_users():
+                # Get proactive message if Eva should initiate
+                proactive = get_proactive_message(user_id)
+
+                if proactive and proactive.get("should_speak"):
+                    # Store for later delivery via SSE or polling
+                    if user_id not in _proactive_messages:
+                        _proactive_messages[user_id] = []
+
+                    _proactive_messages[user_id].append({
+                        "type": proactive["type"],
+                        "content": proactive["content"],
+                        "motivation": proactive.get("motivation_score", 0.5),
+                        "timestamp": time.time()
+                    })
+
+                    print(f"💭 Proactive message queued for {user_id}: {proactive['type']}")
+
+                    # Keep only last 5 messages per user
+                    _proactive_messages[user_id] = _proactive_messages[user_id][-5:]
+
+        except Exception as e:
+            print(f"⚠️ Proactive scheduler error: {e}")
+            await asyncio.sleep(30)  # Back off on error
+
+
+def get_pending_proactive(user_id: str) -> Optional[dict]:
+    """Get and consume the oldest pending proactive message for a user."""
+    if user_id in _proactive_messages and _proactive_messages[user_id]:
+        return _proactive_messages[user_id].pop(0)
+    return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global groq_client, cerebras_client, whisper_model, tts_available, http_client
