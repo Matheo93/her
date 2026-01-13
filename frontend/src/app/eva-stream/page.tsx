@@ -23,6 +23,9 @@ function getStreamingUrl(): string {
     const params = new URLSearchParams(window.location.search);
     const custom = params.get("streaming");
     if (custom) return custom;
+    if (window.location.hostname.includes("trycloudflare.com")) {
+      return "https://expanded-conferences-partially-punk.trycloudflare.com";
+    }
   }
   return process.env.NEXT_PUBLIC_STREAMING_URL || "http://localhost:8002";
 }
