@@ -17,7 +17,7 @@ _device = None
 _sample_rate = 16000
 
 def init_fast_tts():
-    """Initialize MMS-TTS French model on GPU"""
+    """Initialize MMS-TTS French model on GPU with maximum optimizations"""
     global _tts_model, _tts_tokenizer, _device, _sample_rate
 
     if _tts_model is not None:
@@ -27,22 +27,34 @@ def init_fast_tts():
         from transformers import VitsModel, AutoTokenizer
 
         _device = "cuda" if torch.cuda.is_available() else "cpu"
-        print(f"🚀 Loading MMS-TTS French on {_device.upper()}...")
+        print(f"🚀 Loading MMS-TTS French on {_device.upper()} (OPTIMIZED)...")
 
-        # Load model
-        _tts_model = VitsModel.from_pretrained("facebook/mms-tts-fra").to(_device)
+        # Load model with fp16 for faster inference
+        _tts_model = VitsModel.from_pretrained(
+            "facebook/mms-tts-fra",
+            torch_dtype=torch.float16 if _device == "cuda" else torch.float32
+        ).to(_device)
         _tts_tokenizer = AutoTokenizer.from_pretrained("facebook/mms-tts-fra")
         _tts_model.eval()
 
+        # Try to compile model for faster inference (PyTorch 2.0+)
+        try:
+            _tts_model = torch.compile(_tts_model, mode="reduce-overhead")
+            print("   torch.compile enabled")
+        except Exception:
+            pass  # torch.compile not available
+
         _sample_rate = _tts_model.config.sampling_rate
 
-        # Warmup
-        warmup_text = "Bonjour"
-        inputs = _tts_tokenizer(warmup_text, return_tensors="pt").to(_device)
-        with torch.no_grad():
-            _ = _tts_model(**inputs).waveform
+        # Warmup (multiple times for torch.compile)
+        for _ in range(3):
+            inputs = _tts_tokenizer("Bonjour", return_tensors="pt").to(_device)
+            if _device == "cuda":
+                inputs = {k: v.to(_device) for k, v in inputs.items()}
+            with torch.no_grad(), torch.cuda.amp.autocast(enabled=(_device == "cuda")):
+                _ = _tts_model(**inputs).waveform
 
-        print(f"✅ MMS-TTS ready (sample rate: {_sample_rate}Hz)")
+        print(f"✅ MMS-TTS ready (sample rate: {_sample_rate}Hz, fp16={_device=='cuda'})")
         return True
 
     except Exception as e:
