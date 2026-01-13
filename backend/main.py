@@ -2243,19 +2243,41 @@ async def her_voice_emotion(file: UploadFile = File(...), _: str = Depends(verif
 
 
 @app.get("/her/backchannel")
-async def her_backchannel(emotion: str = "neutral", _: str = Depends(verify_api_key)):
-    """Get backchannel suggestion based on current conversation state."""
+async def her_backchannel(
+    emotion: str = "neutral",
+    with_audio: bool = True,
+    _: str = Depends(verify_api_key)
+):
+    """Get backchannel suggestion with pre-generated audio.
+
+    Returns:
+    - should_backchannel: bool
+    - sound: text of the backchannel (e.g., "mmhmm")
+    - type: category (acknowledgment, empathy, etc.)
+    - audio_base64: pre-generated audio (if with_audio=True)
+    """
     if not HER_AVAILABLE:
         return {"should_backchannel": False}
 
     result = should_backchannel(emotion)
     if result:
         sound, bc_type = result
-        return {
+
+        response = {
             "should_backchannel": True,
             "sound": sound,
             "type": bc_type
         }
+
+        # Add pre-generated audio if requested
+        if with_audio:
+            audio_result = get_backchannel_audio(bc_type)
+            if audio_result:
+                audio_text, audio_bytes = audio_result
+                response["audio_base64"] = base64.b64encode(audio_bytes).decode()
+                response["audio_sound"] = audio_text
+
+        return response
     return {"should_backchannel": False}
 
 
