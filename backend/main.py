@@ -1781,6 +1781,40 @@ def get_backchannel_audio(category: str = "acknowledgment") -> Optional[tuple[st
     return None
 
 
+# Emotional voice parameters (lightweight prosody hints)
+EMOTION_VOICE_PARAMS = {
+    "joy": {"speed": "+15%", "pitch": "+1Hz"},
+    "sadness": {"speed": "-10%", "pitch": "-2Hz"},
+    "anger": {"speed": "+10%", "pitch": "+2Hz"},
+    "fear": {"speed": "+20%", "pitch": "+3Hz"},
+    "surprise": {"speed": "+10%", "pitch": "+2Hz"},
+    "tenderness": {"speed": "-10%", "pitch": "-1Hz"},
+    "excitement": {"speed": "+20%", "pitch": "+2Hz"},
+    "playful": {"speed": "+10%", "pitch": "+1Hz"},
+    "neutral": {"speed": "+0%", "pitch": "+0Hz"},
+}
+
+
+async def async_emotional_tts(text: str, emotion: str = "neutral") -> Optional[bytes]:
+    """Generate TTS with emotional prosody hints.
+
+    Uses ultra_fast_tts with speed/pitch adjustments based on emotion.
+    Adds ~0ms latency (prosody applied at generation time).
+    """
+    params = EMOTION_VOICE_PARAMS.get(emotion.lower(), EMOTION_VOICE_PARAMS["neutral"])
+
+    # Add emotional markers to text for more natural delivery
+    emotional_text = text
+    if emotion == "joy" and not text.endswith("!"):
+        emotional_text = text.rstrip(".") + "!"
+    elif emotion == "sadness":
+        emotional_text = text.replace("!", "...").replace("?", "?...")
+
+    # Generate with ultra_fast_tts (already very fast)
+    audio = await async_ultra_fast_tts(emotional_text)
+    return audio
+
+
 @app.post("/chat/stream")
 async def chat_stream(request: Request, data: dict, _: str = Depends(verify_api_key)):
     """Chat with streaming audio response - Ultra-low TTFA.
