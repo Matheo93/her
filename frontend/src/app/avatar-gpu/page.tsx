@@ -431,14 +431,14 @@ export default function AvatarGPUPage() {
         {/* Avatar Display */}
         <div className="flex flex-col items-center mb-8">
           <div className={`avatar-container ${isSpeaking ? 'speaking' : ''} relative w-72 h-72 rounded-full overflow-hidden border-2 ${isSpeaking ? 'border-pink-500/30' : 'border-slate-600/30'}`}>
-            {/* Clean light background */}
+            {/* Light pink background */}
             <div
-              className="absolute inset-0 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300"
+              className="absolute inset-0 bg-gradient-to-b from-pink-100 via-rose-50 to-pink-200"
               style={{ zIndex: 0 }}
             />
-            {/* Subtle soft shadow at bottom */}
+            {/* Subtle soft glow */}
             <div
-              className="absolute inset-0 bg-gradient-to-t from-slate-400/20 to-transparent"
+              className="absolute inset-0 bg-gradient-to-t from-pink-300/15 to-transparent"
               style={{ zIndex: 1 }}
             />
 
