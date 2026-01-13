@@ -57,7 +57,11 @@ export default function EvaLivePage() {
   // Connect to HER WebSocket
   useEffect(() => {
     const connect = () => {
-      const ws = new WebSocket(`${BACKEND_URL.replace("http", "ws")}/ws/her`);
+      const backendUrl = getBackendUrl();
+      const wsUrl = backendUrl.replace("https://", "wss://").replace("http://", "ws://");
+      console.log("Connecting to:", wsUrl);
+
+      const ws = new WebSocket(`${wsUrl}/ws/her`);
 
       ws.onopen = () => {
         setIsConnected(true);
