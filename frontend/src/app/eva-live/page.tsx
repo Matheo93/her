@@ -12,7 +12,7 @@ function getBackendUrl(): string {
 
     // If accessed via cloudflare tunnel, use the backend tunnel
     if (window.location.hostname.includes("trycloudflare.com")) {
-      return "https://dive-cheaper-dietary-nat.trycloudflare.com";
+      return "https://safari-launches-decor-reader.trycloudflare.com";
     }
   }
   return process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
