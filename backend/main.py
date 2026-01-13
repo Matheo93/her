@@ -3947,6 +3947,8 @@ async def ws_her(ws: WebSocket):
     connected = True
     is_speaking = False
     is_interrupted = False
+    interrupt_event = asyncio.Event()  # For real-time interrupt detection
+    message_queue: asyncio.Queue = asyncio.Queue()  # Queue for incoming messages
 
     # Register connection for proactive push
     _her_connections[user_id] = ws
