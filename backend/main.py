@@ -4172,42 +4172,43 @@ async def ws_her(ws: WebSocket):
 
                 # Handle remaining text
                 if sentence_buffer.strip() and not is_interrupted:
-                        sentence = sentence_buffer.strip()
-                        audio_chunk = await async_emotional_tts(sentence, "neutral")
-                        if audio_chunk:
-                            await safe_ws_send(ws, {
-                                "type": "speech",
-                                "audio_base64": base64.b64encode(audio_chunk).decode(),
-                                "text": sentence,
-                                "emotion": "neutral"
-                            })
+                    sentence = sentence_buffer.strip()
+                    audio_chunk = await async_emotional_tts(sentence, "neutral")
+                    if audio_chunk:
+                        await safe_ws_send(ws, {
+                            "type": "speech",
+                            "audio_base64": base64.b64encode(audio_chunk).decode(),
+                            "text": sentence,
+                            "emotion": "neutral"
+                        })
 
-                    # 5. Store in memory
-                    if HER_AVAILABLE and full_response:
-                        await her_store_interaction(
-                            user_id, content, full_response,
-                            her_context.get("response_emotion", "neutral")
-                        )
+                # 5. Store in memory
+                if HER_AVAILABLE and full_response:
+                    await her_store_interaction(
+                        user_id, content, full_response,
+                        her_context.get("response_emotion", "neutral")
+                    )
 
-                    # 6. Done
-                    is_speaking = False
-                    total_ms = (time.time() - total_start) * 1000
+                # 6. Done
+                is_speaking = False
+                total_ms = (time.time() - total_start) * 1000
+                if not is_interrupted:  # Don't send duplicate speaking_end
                     await safe_ws_send(ws, {
                         "type": "speaking_end",
-                        "reason": "complete" if not is_interrupted else "interrupted",
+                        "reason": "complete",
                         "total_ms": round(total_ms)
                     })
 
-            # Handle binary audio (for STT)
-            elif "bytes" in msg:
-                audio_bytes = msg["bytes"]
-                # Transcribe
-                text = await transcribe_audio(audio_bytes)
-                if text:
-                    # Echo the transcription
-                    await safe_ws_send(ws, {"type": "transcription", "text": text})
-                    # Process as message (reuse message handling)
-                    # This allows voice input to trigger the same flow
+            # Handle audio (from message_queue via audio_binary type)
+            elif msg_type == "audio_binary":
+                audio_bytes = data.get("data")
+                if audio_bytes:
+                    # Transcribe
+                    text = await transcribe_audio(audio_bytes)
+                    if text:
+                        await safe_ws_send(ws, {"type": "transcription", "text": text})
+                        # Queue as message to process
+                        await message_queue.put({"type": "message", "content": text})
 
     except WebSocketDisconnect:
         print(f"💜 HER WebSocket disconnected: {session_id}")
