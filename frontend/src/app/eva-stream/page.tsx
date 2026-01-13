@@ -186,9 +186,9 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
 
   return (
     <div className="relative w-full h-full">
-      {/* Idle video - shown when not speaking */}
+      {/* Idle video - subtle movements, no mouth */}
       <video
-        src="/avatars/eva_idle_transparent.webm"
+        src="/avatars/eva_idle_static.webm"
         autoPlay
         loop
         muted
