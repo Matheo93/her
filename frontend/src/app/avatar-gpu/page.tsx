@@ -1,8 +1,92 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
+// Canvas-based chroma key hook (2D context, simpler than WebGL)
+function useChromaKey2D(
+  videoRef: React.RefObject<HTMLVideoElement | null>,
+  canvasRef: React.RefObject<HTMLCanvasElement | null>,
+  isActive: boolean
+) {
+  const animationRef = useRef<number>(0);
+
+  const render = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    if (!video || !canvas || video.paused || video.ended || video.readyState < 2) {
+      if (isActive) {
+        animationRef.current = requestAnimationFrame(render);
+      }
+      return;
+    }
+
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+
+    // Match canvas size to video
+    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+      canvas.width = video.videoWidth || 512;
+      canvas.height = video.videoHeight || 512;
+    }
+
+    // Draw video frame
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Get image data and apply chroma key
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    // Chroma key parameters
+    const keyR = 0, keyG = 255, keyB = 0; // Pure green
+    const tolerance = 100; // Color distance tolerance
+    const edgeBlend = 30; // Soft edge blending
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      // Calculate distance from key color
+      const dist = Math.sqrt(
+        Math.pow(r - keyR, 2) +
+        Math.pow(g - keyG, 2) +
+        Math.pow(b - keyB, 2)
+      );
+
+      // Check if pixel is green-ish (high green, low red and blue)
+      const isGreen = g > 150 && g > r * 1.2 && g > b * 1.2;
+
+      if (isGreen && dist < tolerance) {
+        // Fully transparent
+        data[i + 3] = 0;
+      } else if (isGreen && dist < tolerance + edgeBlend) {
+        // Soft edge - partial transparency
+        const alpha = ((dist - tolerance) / edgeBlend) * 255;
+        data[i + 3] = Math.min(255, Math.max(0, alpha));
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+
+    if (isActive) {
+      animationRef.current = requestAnimationFrame(render);
+    }
+  }, [videoRef, canvasRef, isActive]);
+
+  useEffect(() => {
+    if (isActive) {
+      animationRef.current = requestAnimationFrame(render);
+    }
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [isActive, render]);
+}
 
 interface Timings {
   tts?: number;
