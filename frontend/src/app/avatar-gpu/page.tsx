@@ -421,9 +421,17 @@ export default function AvatarGPUPage() {
       <main className="max-w-4xl mx-auto p-6">
         {/* Avatar Display */}
         <div className="flex flex-col items-center mb-8">
-          <div className={`avatar-container ${isSpeaking ? 'speaking' : ''} relative w-72 h-72 rounded-full overflow-hidden bg-gradient-to-br from-purple-900/50 to-pink-900/50 border-2 ${isSpeaking ? 'border-pink-500/50' : 'border-purple-500/30'}`}>
-            {/* Background glow effect */}
-            <div className="absolute inset-0 bg-gradient-to-t from-purple-600/20 to-transparent" />
+          <div className={`avatar-container ${isSpeaking ? 'speaking' : ''} relative w-72 h-72 rounded-full overflow-hidden border-2 ${isSpeaking ? 'border-pink-500/50' : 'border-purple-500/30'}`}>
+            {/* Background gradient - z-index 0 */}
+            <div
+              className="absolute inset-0 bg-gradient-to-br from-purple-900/60 via-slate-900 to-pink-900/60"
+              style={{ zIndex: 0 }}
+            />
+            {/* Subtle glow overlay */}
+            <div
+              className="absolute inset-0 bg-gradient-to-t from-purple-600/30 to-transparent"
+              style={{ zIndex: 1 }}
+            />
 
             {/* Hidden video sources for chroma key */}
             <video
@@ -433,7 +441,7 @@ export default function AvatarGPUPage() {
               playsInline
               loop={true}
               className="absolute opacity-0 pointer-events-none"
-              style={{ width: 1, height: 1 }}
+              style={{ width: 1, height: 1, zIndex: -1 }}
               src={idleVideos[currentIdleIndex]}
             />
             <video
@@ -442,30 +450,28 @@ export default function AvatarGPUPage() {
               playsInline
               onEnded={handleSpeakingVideoEnd}
               className="absolute opacity-0 pointer-events-none"
-              style={{ width: 1, height: 1 }}
+              style={{ width: 1, height: 1, zIndex: -1 }}
             />
 
-            {/* Chroma-keyed canvas - idle */}
+            {/* Chroma-keyed canvas - idle (z-index 2 = on top of gradient) */}
             <canvas
               ref={idleCanvasRef}
-              className={`absolute inset-0 w-full h-full object-cover scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-0' : 'opacity-100'}`}
+              className={`absolute inset-0 w-full h-full scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-0' : 'opacity-100'}`}
               style={{
+                zIndex: 2,
                 objectFit: 'cover',
-                objectPosition: 'top',
-                background: 'transparent',
-                imageRendering: 'auto'
+                objectPosition: 'top'
               }}
             />
 
             {/* Chroma-keyed canvas - speaking */}
             <canvas
               ref={speakingCanvasRef}
-              className={`absolute inset-0 w-full h-full object-cover scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-100' : 'opacity-0'}`}
+              className={`absolute inset-0 w-full h-full scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-100' : 'opacity-0'}`}
               style={{
+                zIndex: 2,
                 objectFit: 'cover',
-                objectPosition: 'top',
-                background: 'transparent',
-                imageRendering: 'auto'
+                objectPosition: 'top'
               }}
             />
           </div>
