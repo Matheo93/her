@@ -2180,6 +2180,26 @@ async def her_proactive(user_id: str, _: str = Depends(verify_api_key)):
     return {"should_initiate": False, "reason": "No relevant topic"}
 
 
+@app.get("/her/proactive/pending/{user_id}")
+async def her_proactive_pending(user_id: str, _: str = Depends(verify_api_key)):
+    """Poll for pending proactive messages from the background scheduler.
+
+    Call this periodically to check if Eva wants to initiate conversation.
+    Messages are consumed once retrieved (won't be returned again).
+
+    Returns:
+    - has_message: bool
+    - message: {type, content, motivation, timestamp} if has_message
+    """
+    pending = get_pending_proactive(user_id)
+    if pending:
+        return {
+            "has_message": True,
+            "message": pending
+        }
+    return {"has_message": False}
+
+
 @app.post("/her/chat")
 async def her_chat(request: Request, data: dict, _: str = Depends(verify_api_key)):
     """Chat with full HER pipeline - Memory + Emotion + Presence.
