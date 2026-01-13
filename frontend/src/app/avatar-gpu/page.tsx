@@ -39,45 +39,36 @@ function useChromaKey2D(
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
-    // SURGICAL chroma key - maximum precision
+    // ULTRA SURGICAL chroma key - pixel perfect
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
 
-      // Green dominance metrics
-      const greenOverRed = g - r;
-      const greenOverBlue = g - b;
-      const minDominance = Math.min(greenOverRed, greenOverBlue);
       const maxRB = Math.max(r, b);
+      const avgRB = (r + b) / 2;
+      const greenExcess = g - maxRB;
 
-      // 1. Pure green background - FULLY transparent
-      if (g > 150 && r < 150 && b < 150 && minDominance > 60) {
+      // 1. Any pixel where green clearly dominates = transparent
+      if (greenExcess > 40 && g > 100) {
         data[i + 3] = 0;
       }
-      // 2. Strong green tint - high transparency + strong despill
-      else if (minDominance > 20 && g > 80) {
-        const spillStrength = Math.min(1, minDominance / 80);
-
-        // Transparency based on how green it is
-        data[i + 3] = Math.round(255 * (1 - spillStrength * 0.95));
-
-        // Aggressive despill - match green to max of R/B
-        data[i + 1] = Math.round(g - (g - maxRB) * spillStrength);
+      // 2. Green tint detected = partial transparency + despill
+      else if (greenExcess > 15) {
+        const alpha = Math.max(0, 255 - (greenExcess - 15) * 8);
+        data[i + 3] = Math.round(alpha);
+        data[i + 1] = maxRB; // Kill the green
       }
-      // 3. Subtle green tint - just despill, keep opaque
-      else if (minDominance > 8 && g > 60) {
-        const spillStrength = Math.min(1, minDominance / 40);
-        // Subtle despill
-        data[i + 1] = Math.round(g - (g - maxRB) * spillStrength * 0.6);
+      // 3. Slight green = despill only
+      else if (greenExcess > 5) {
+        data[i + 1] = Math.round(maxRB + (g - maxRB) * 0.2);
       }
 
-      // 4. Final pass: any remaining greenish pixel gets despilled
+      // 4. Global despill pass - NO green should exceed avg(R,B) by much
       if (data[i + 3] > 0) {
-        const finalG = data[i + 1];
-        const avgRB = (r + b) / 2;
-        if (finalG > avgRB + 10) {
-          data[i + 1] = Math.round(avgRB + (finalG - avgRB) * 0.3);
+        const currentG = data[i + 1];
+        if (currentG > avgRB + 5) {
+          data[i + 1] = Math.round(avgRB + 5);
         }
       }
     }
