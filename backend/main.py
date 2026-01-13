@@ -1133,8 +1133,8 @@ async def text_to_speech(
             print(f"🔊 TTS: 0ms (cached, {len(cached)} bytes)")
             return cached
 
-        # Generate with MMS-TTS
-        audio_data = await async_fast_tts(processed_text)
+        # Generate with MMS-TTS (MP3 format for smaller size)
+        audio_data = await async_fast_tts_mp3(processed_text)
         if audio_data:
             # Cache short phrases
             if len(processed_text) < 200:
