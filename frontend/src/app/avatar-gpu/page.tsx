@@ -430,7 +430,7 @@ export default function AvatarGPUPage() {
       <main className="max-w-4xl mx-auto p-6">
         {/* Avatar Display */}
         <div className="flex flex-col items-center mb-8">
-          <div className={`avatar-container ${isSpeaking ? 'speaking' : ''} relative w-72 h-72 rounded-full overflow-hidden border-2 ${isSpeaking ? 'border-pink-500/30' : 'border-slate-600/30'}`}>
+          <div className={`avatar-container ${isSpeaking ? 'speaking' : ''} relative w-72 h-72 rounded-full overflow-hidden border-2 ${isSpeaking ? 'border-pink-400/50' : 'border-pink-300/40'}`}>
             {/* Light pink background */}
             <div
               className="absolute inset-0 bg-gradient-to-b from-pink-100 via-rose-50 to-pink-200"
