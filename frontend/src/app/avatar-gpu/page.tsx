@@ -66,23 +66,27 @@ function useChromaKey2D(
       return;
     }
 
-    // ULTRA AGGRESSIVE CHROMA KEY
-    // If green is significantly higher than red and blue → REMOVE IT
+    // OPTIMIZED CHROMA KEY - using Uint32Array for faster pixel access
+    const pixels = new Uint32Array(data.buffer);
+    const len = pixels.length;
 
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i], g = data[i + 1], b = data[i + 2];
-      const maxRB = Math.max(r, b);
+    for (let i = 0; i < len; i++) {
+      const pixel = pixels[i];
+      // Extract RGBA (little-endian: ABGR)
+      const r = pixel & 0xFF;
+      const g = (pixel >> 8) & 0xFF;
+      const b = (pixel >> 16) & 0xFF;
+
+      const maxRB = r > b ? r : b;
       const greenDominance = g - maxRB;
 
-      // TRANSPARENT: green dominates by >50 AND green is bright (>100)
       if (greenDominance > 50 && g > 100) {
-        data[i + 3] = 0;
-      }
-      // DESPILL: any green excess gets reduced
-      else if (greenDominance > 10) {
-        // Keep visible but kill the green
-        const newG = maxRB + greenDominance * 0.15;
-        data[i + 1] = Math.round(newG);
+        // Make transparent (set alpha to 0)
+        pixels[i] = pixel & 0x00FFFFFF; // Clear alpha byte
+      } else if (greenDominance > 10) {
+        // Despill: reduce green
+        const newG = (maxRB + (greenDominance * 0.15)) | 0;
+        pixels[i] = (pixel & 0xFF0000FF) | (newG << 8) | (b << 16) | 0xFF000000;
       }
     }
 
