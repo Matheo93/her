@@ -1605,20 +1605,44 @@ async def voice_lipsync_pipeline(
     total_time = (time.time() - total_start) * 1000
     log_usage(session_id, "voice_lipsync_pipeline", int(total_time))
 
+    # Return audio IMMEDIATELY - video will be available via /lipsync/status/{task_id}
     return {
         "user_text": user_text,
         "eva_response": eva_response,
         "audio_base64": base64.b64encode(audio_response).decode() if audio_response else None,
-        "video_base64": video_base64,
+        "lipsync_task_id": task_id,  # Frontend polls this for video
         "mood": current_mood,
         "latency": {
             "stt_ms": round(stt_time),
             "llm_ms": round(llm_time),
             "tts_ms": round(tts_time),
-            "lipsync_ms": round(lipsync_time),
-            "total_ms": round(total_time)
+            "total_ms": round(total_time)  # Much faster! No lip-sync wait
         }
     }
+
+@app.get("/lipsync/status/{task_id}")
+async def get_lipsync_status(task_id: str):
+    """Poll pour récupérer la vidéo lip-sync quand elle est prête"""
+    if task_id not in lipsync_tasks:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    task = lipsync_tasks[task_id]
+
+    if task["status"] == "ready":
+        # Clean up old tasks (keep for 5 min)
+        video = task["video_base64"]
+        gen_time = task.get("generation_time_ms", 0)
+        # Don't delete immediately - frontend might poll multiple times
+        return {
+            "status": "ready",
+            "video_base64": video,
+            "generation_time_ms": gen_time
+        }
+    elif task["status"] == "error":
+        return {"status": "error"}
+    else:
+        elapsed = (time.time() - task["start_time"]) * 1000
+        return {"status": "processing", "elapsed_ms": round(elapsed)}
 
 @app.post("/tts/lipsync")
 async def tts_lipsync(
