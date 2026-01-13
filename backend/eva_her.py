@@ -154,7 +154,7 @@ class EvaHER:
             "should_stay_silent": False
         }
 
-        # 1. Detect emotion from voice (if available)
+        # 1. Detect emotion from voice (if available) OR from text
         if voice_audio and self.voice_emotion:
             voice_emotion = detect_voice_emotion(voice_audio)
             result["user_emotion"] = voice_emotion.emotion
@@ -164,6 +164,9 @@ class EvaHER:
                 "valence": voice_emotion.valence,
                 "arousal": voice_emotion.arousal
             }
+        else:
+            # Fallback: detect emotion from text (critical for HER-like empathy)
+            result["user_emotion"] = self._detect_text_emotion(message)
 
         # 2. Get memory context
         if self.memory:
