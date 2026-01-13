@@ -110,14 +110,18 @@ export default function AvatarGPUPage() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const idleVideoRef = useRef<HTMLVideoElement>(null);
   const speakingVideoRef = useRef<HTMLVideoElement>(null);
+  const idleCanvasRef = useRef<HTMLCanvasElement>(null);
+  const speakingCanvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
-  // Idle videos
+  // Apply chroma key to videos
+  useChromaKey2D(idleVideoRef, idleCanvasRef, !isSpeaking);
+  useChromaKey2D(speakingVideoRef, speakingCanvasRef, isSpeaking);
+
+  // Green screen idle video for chroma key
   const idleVideos = [
-    "/avatars/eva_idle.mp4",
-    "/avatars/eva_idle_2.mp4",
-    "/avatars/eva_idle_3.mp4",
+    "/avatars/eva_idle_transparent.webm",
   ];
   const [currentIdleIndex, setCurrentIdleIndex] = useState(0);
   const [speakingVideoSrc, setSpeakingVideoSrc] = useState<string | null>(null);
