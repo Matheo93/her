@@ -388,24 +388,38 @@ export default function AvatarGPUPage() {
             {/* Background glow effect */}
             <div className="absolute inset-0 bg-gradient-to-t from-purple-600/20 to-transparent" />
 
-            {/* Idle video */}
+            {/* Hidden video sources for chroma key */}
             <video
               ref={idleVideoRef}
               autoPlay
               muted
               playsInline
               loop={true}
-              className={`absolute inset-0 w-full h-full object-cover object-top scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-0' : 'opacity-100'}`}
+              className="absolute opacity-0 pointer-events-none"
+              style={{ width: 1, height: 1 }}
               src={idleVideos[currentIdleIndex]}
             />
-
-            {/* Speaking video */}
             <video
               ref={speakingVideoRef}
               muted={false}
               playsInline
               onEnded={handleSpeakingVideoEnd}
-              className={`absolute inset-0 w-full h-full object-cover object-top scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-100' : 'opacity-0'}`}
+              className="absolute opacity-0 pointer-events-none"
+              style={{ width: 1, height: 1 }}
+            />
+
+            {/* Chroma-keyed canvas - idle */}
+            <canvas
+              ref={idleCanvasRef}
+              className={`absolute inset-0 w-full h-full object-cover scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-0' : 'opacity-100'}`}
+              style={{ objectFit: 'cover', objectPosition: 'top' }}
+            />
+
+            {/* Chroma-keyed canvas - speaking */}
+            <canvas
+              ref={speakingCanvasRef}
+              className={`absolute inset-0 w-full h-full object-cover scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-100' : 'opacity-0'}`}
+              style={{ objectFit: 'cover', objectPosition: 'top' }}
             />
           </div>
 
