@@ -29,11 +29,9 @@ export default function AvatarGPUPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
-  // Multiple idle videos for variety (like D-ID/Simli)
+  // Transparent idle video (WebM with alpha channel)
   const idleVideos = [
-    "/avatars/eva_idle.mp4",
-    "/avatars/eva_idle_2.mp4",
-    "/avatars/eva_idle_3.mp4",
+    "/avatars/eva_idle_transparent.webm",
   ];
   const [currentIdleIndex, setCurrentIdleIndex] = useState(0);
   const [speakingVideoSrc, setSpeakingVideoSrc] = useState<string | null>(null);
