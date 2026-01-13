@@ -141,8 +141,8 @@ def fast_tts_mp3(text: str, speed: float = 1.0) -> Optional[bytes]:
         # Generate audio directly (skip WAV intermediate)
         inputs = _tts_tokenizer(text, return_tensors="pt").to(_device)
 
-        # Generate with fp16 autocast for speed
-        with torch.no_grad():
+        # Generate with inference_mode + autocast for maximum speed
+        with torch.inference_mode():
             if _device == "cuda":
                 with torch.amp.autocast("cuda"):
                     output = _tts_model(**inputs).waveform
