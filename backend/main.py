@@ -1517,6 +1517,9 @@ async def voice_pipeline(
 
 LIPSYNC_SERVICE_URL = os.getenv("LIPSYNC_SERVICE_URL", "http://localhost:8001")
 
+# Background lip-sync tasks storage
+lipsync_tasks = {}
+
 @app.post("/voice/lipsync")
 async def voice_lipsync_pipeline(
     request: Request,
@@ -1525,9 +1528,13 @@ async def voice_lipsync_pipeline(
     voice: str = Query(DEFAULT_VOICE),
     _: str = Depends(verify_api_key)
 ):
-    """Pipeline complet avec lip-sync: Audio -> STT -> LLM -> TTS -> Lip-Sync Video
+    """Pipeline OPTIMISÉ: Retourne audio immédiatement, lip-sync en background
 
-    Génère une vidéo de l'avatar Eva qui parle avec lip-sync synchronisé.
+    Flow:
+    1. STT -> LLM -> TTS (rapide)
+    2. Retourne audio + task_id immédiatement
+    3. Lip-sync génère en background
+    4. Frontend poll /lipsync/status/{task_id} pour la vidéo
     """
     client_id = get_client_id(request)
 
@@ -1567,28 +1574,33 @@ async def voice_lipsync_pipeline(
     )
     tts_time = (time.time() - tts_start) * 1000
 
-    # 4. Generate lip-sync video
-    lipsync_start = time.time()
-    video_base64 = None
-    lipsync_time = 0
+    # 4. Start lip-sync generation in BACKGROUND
+    task_id = hashlib.md5(f"{time.time()}{user_text}".encode()).hexdigest()[:12]
+    lipsync_tasks[task_id] = {"status": "processing", "video_base64": None, "start_time": time.time()}
 
-    if audio_response:
+    # Launch background task
+    async def generate_lipsync_background():
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
-                # Send audio to MuseTalk service
                 files = {"audio": ("speech.mp3", audio_response, "audio/mpeg")}
                 response = await client.post(f"{LIPSYNC_SERVICE_URL}/lipsync", files=files)
 
                 if response.status_code == 200:
                     lipsync_data = response.json()
-                    video_base64 = lipsync_data.get("video_base64")
-                    lipsync_time = lipsync_data.get("generation_time_ms", 0)
+                    lipsync_tasks[task_id]["video_base64"] = lipsync_data.get("video_base64")
+                    lipsync_tasks[task_id]["status"] = "ready"
+                    lipsync_tasks[task_id]["generation_time_ms"] = lipsync_data.get("generation_time_ms", 0)
                 else:
-                    print(f"Lip-sync service error: {response.status_code}")
+                    lipsync_tasks[task_id]["status"] = "error"
         except Exception as e:
-            print(f"Lip-sync service unavailable: {e}")
+            lipsync_tasks[task_id]["status"] = "error"
+            print(f"Background lip-sync error: {e}")
 
-    lipsync_time = (time.time() - lipsync_start) * 1000 if lipsync_time == 0 else lipsync_time
+    # Start background generation (don't await!)
+    asyncio.create_task(generate_lipsync_background())
+
+    # Return IMMEDIATELY with audio (don't wait for lip-sync!)
+    audio_time = (time.time() - total_start) * 1000
 
     total_time = (time.time() - total_start) * 1000
     log_usage(session_id, "voice_lipsync_pipeline", int(total_time))
