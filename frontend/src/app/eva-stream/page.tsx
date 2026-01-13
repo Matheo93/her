@@ -132,7 +132,7 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
 
     let frameCount = 0;
