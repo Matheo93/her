@@ -463,7 +463,7 @@ export default function AvatarGPUPage() {
             {/* Background glow effect */}
             <div className="absolute inset-0 bg-gradient-to-t from-purple-600/20 to-transparent" />
 
-            {/* Idle video with CSS chroma key effect */}
+            {/* Idle video */}
             <video
               ref={idleVideoRef}
               autoPlay
@@ -471,18 +471,16 @@ export default function AvatarGPUPage() {
               playsInline
               loop={true}
               className={`absolute inset-0 w-full h-full object-cover object-top scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-0' : 'opacity-100'}`}
-              style={{ mixBlendMode: 'multiply' }}
               src={idleVideos[currentIdleIndex]}
             />
 
-            {/* Speaking video with CSS chroma key effect */}
+            {/* Speaking video */}
             <video
               ref={speakingVideoRef}
               muted={false}
               playsInline
               onEnded={handleSpeakingVideoEnd}
               className={`absolute inset-0 w-full h-full object-cover object-top scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-100' : 'opacity-0'}`}
-              style={{ mixBlendMode: 'multiply' }}
             />
           </div>
 
