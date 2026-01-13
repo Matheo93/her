@@ -208,6 +208,79 @@ class EvaHER:
         }
         return emotion_responses.get(user_emotion, "neutral")
 
+    def _detect_text_emotion(self, text: str) -> str:
+        """Detect emotion from text content (fallback when no voice audio).
+
+        Critical for HER-like empathy - Eva needs to understand emotional
+        content even without voice cues.
+        """
+        text_lower = text.lower()
+
+        # Sadness indicators (French)
+        sadness_words = [
+            "triste", "déprimé", "mal", "pleure", "pleurer", "malheureux",
+            "douleur", "souffre", "souffrir", "seul", "solitude", "perdu",
+            "désespoir", "déçu", "déception", "mélancolie", "chagrin",
+            "difficile", "dur", "galère", "nul", "marre", "épuisé"
+        ]
+
+        # Joy indicators
+        joy_words = [
+            "content", "heureux", "joie", "super", "génial", "incroyable",
+            "fantastique", "merveilleux", "excellent", "parfait", "ravi",
+            "excité", "enthousiaste", "adore", "aime", "magnifique"
+        ]
+
+        # Anger indicators
+        anger_words = [
+            "énervé", "colère", "furieux", "frustré", "agacé", "rage",
+            "déteste", "horrible", "merde", "putain", "bordel", "con",
+            "insupportable", "injuste", "révoltant"
+        ]
+
+        # Fear/worry indicators
+        fear_words = [
+            "peur", "inquiet", "angoisse", "anxieux", "stressé", "terrifié",
+            "effrayé", "nerveux", "paniqué", "crainte", "flippe"
+        ]
+
+        # Surprise indicators
+        surprise_words = [
+            "surpris", "choqué", "étonnant", "incroyable", "fou", "dingue",
+            "quoi", "sérieux", "comment", "impossible"
+        ]
+
+        # Check for emotion keywords
+        for word in sadness_words:
+            if word in text_lower:
+                return "sadness"
+
+        for word in joy_words:
+            if word in text_lower:
+                return "joy"
+
+        for word in anger_words:
+            if word in text_lower:
+                return "anger"
+
+        for word in fear_words:
+            if word in text_lower:
+                return "fear"
+
+        for word in surprise_words:
+            if word in text_lower:
+                return "surprise"
+
+        # Check punctuation patterns
+        if text.count("!") >= 2:
+            return "excitement"
+        if text.count("?") >= 2:
+            return "curiosity"
+        if "..." in text:
+            return "sadness"  # Often indicates melancholy
+
+        return "neutral"
+
     async def generate_response_audio(
         self,
         text: str,
