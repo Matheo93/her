@@ -42,33 +42,28 @@ function useChromaKey2D(
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
-    // SMOOTH CHROMA KEY with soft hair edges
-    // Green screen: H≈120°, high saturation, bright green channel
+    // PROFESSIONAL CHROMA KEY - preserve hair, eliminate green
+    // Strategy: Only make PURE green screen transparent
+    // For edges/hair: keep OPAQUE but REMOVE green tint
 
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i], g = data[i + 1], b = data[i + 2];
 
-      // Quick greenness check: green must dominate
+      // Skip obviously non-green pixels
+      if (g <= r || g <= b) continue;
+
       const greenExcess = g - Math.max(r, b);
-
-      // Not green-ish at all = keep fully opaque
-      if (greenExcess < 20) continue;
-
-      // Calculate how "green screen" this pixel is (0-1)
-      // Based on: green dominance + brightness + saturation
-
       const max = Math.max(r, g, b);
       const min = Math.min(r, g, b);
       const delta = max - min;
 
-      // Saturation (0-1)
+      // Saturation check
       const l = (max + min) / 2;
       const s = delta === 0 ? 0 : delta / (255 - Math.abs(2 * l - 255));
 
-      // Calculate hue only if saturated
-      let isGreenHue = false;
-      if (s > 0.25) {
-        let h = 0;
+      // Calculate hue
+      let h = 0;
+      if (delta > 0) {
         if (max === g) {
           h = 60 * (((b - r) / delta) + 2);
         } else if (max === r) {
@@ -77,42 +72,48 @@ function useChromaKey2D(
           h = 60 * (((r - g) / delta) + 4);
         }
         if (h < 0) h += 360;
-        // Green hue range: 80-160°
-        isGreenHue = h >= 80 && h <= 160;
       }
 
-      // Calculate "greenness" score (0 = pure green screen, 1 = not green)
-      let greenness = 0;
+      // Is this in the green hue range? (90-150°)
+      const isGreenHue = h >= 90 && h <= 150;
 
-      if (isGreenHue) {
-        // How pure is the green? (high saturation + green dominance)
-        const satScore = Math.min(1, s / 0.6);      // Saturation contribution
-        const domScore = Math.min(1, greenExcess / 100); // Green dominance
-        const brightScore = Math.min(1, g / 180);   // Brightness contribution
+      // PURE GREEN SCREEN detection (very strict)
+      // Must be: bright green, high saturation, correct hue, green dominates heavily
+      const isPureGreen = isGreenHue &&
+                          s > 0.55 &&
+                          g > 120 &&
+                          greenExcess > 50;
 
-        greenness = satScore * domScore * brightScore;
+      if (isPureGreen) {
+        // Pure green screen = fully transparent
+        data[i + 3] = 0;
+      } else {
+        // NOT pure green = keep FULLY VISIBLE
+        // But REMOVE any green tint (despill)
+        data[i + 3] = 255;
+
+        // Aggressive despill: neutralize green cast
+        if (greenExcess > 5) {
+          // Calculate how much green to remove
+          // More green excess + closer to green hue = more removal
+          let despillStrength = 0;
+
+          if (isGreenHue && s > 0.2) {
+            // Green-ish pixel: strong despill
+            despillStrength = Math.min(1, greenExcess / 60) * Math.min(1, s / 0.4);
+          } else if (greenExcess > 15) {
+            // Not green hue but green excess: moderate despill
+            despillStrength = Math.min(0.7, greenExcess / 100);
+          }
+
+          if (despillStrength > 0) {
+            // Remove green by bringing it down toward max(r,b)
+            const target = Math.max(r, b);
+            const newG = Math.round(g - (g - target) * despillStrength * 0.9);
+            data[i + 1] = Math.max(target, newG);
+          }
+        }
       }
-
-      // Convert greenness to alpha with SMOOTH transition
-      // greenness 0.7+ = fully transparent
-      // greenness 0.3-0.7 = soft gradient
-      // greenness <0.3 = fully visible
-      let alpha = 1;
-      if (greenness > 0.7) {
-        alpha = 0;
-      } else if (greenness > 0.2) {
-        // Smooth cubic transition for soft edges on hair
-        const t = 1 - (greenness - 0.2) / 0.5;
-        alpha = t * t * (3 - 2 * t); // Smooth step
-      }
-
-      // Subtle spill removal on visible pixels
-      if (alpha > 0.3 && greenExcess > 15) {
-        const spillRemove = greenExcess * 0.5 * (1 - alpha * 0.8);
-        data[i + 1] = Math.round(g - spillRemove);
-      }
-
-      data[i + 3] = Math.round(alpha * 255);
     }
 
     ctx.putImageData(imageData, 0, 0);
