@@ -35,11 +35,6 @@ export default function EvaPage() {
   const [inputText, setInputText] = useState("");
   const [mouthOpen, setMouthOpen] = useState(0);
 
-  // Simple animation states
-  const [headX, setHeadX] = useState(0);
-  const [headY, setHeadY] = useState(0);
-  const [headRotate, setHeadRotate] = useState(0);
-
   const wsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
@@ -50,23 +45,6 @@ export default function EvaPage() {
   const audioContextRef = useRef<AudioContext | null>(null);
 
   const emotion = EMOTIONS[evaEmotion] || EMOTIONS.neutral;
-
-  // Head movement animation - runs continuously
-  useEffect(() => {
-    const moveHead = () => {
-      // Random subtle movement
-      setHeadX((Math.random() - 0.5) * 10);
-      setHeadY((Math.random() - 0.5) * 8);
-      setHeadRotate((Math.random() - 0.5) * 4);
-    };
-
-    // Initial movement
-    moveHead();
-
-    // Move every 2-4 seconds
-    const interval = setInterval(moveHead, 2000 + Math.random() * 2000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Connect WebSocket
   useEffect(() => {
