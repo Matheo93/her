@@ -2,7 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+// Auto-detect if accessed via tunnel and use appropriate URLs
+const isPublic = typeof window !== "undefined" && window.location.hostname.includes("trycloudflare.com");
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ||
+  (isPublic ? "https://dive-cheaper-dietary-nat.trycloudflare.com" : "http://localhost:8000");
 const LIPSYNC_URL = process.env.NEXT_PUBLIC_LIPSYNC_URL || "http://localhost:8001";
 
 // Emotion styles
