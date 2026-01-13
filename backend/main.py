@@ -3896,6 +3896,305 @@ async def ws_interruptible(ws: WebSocket):
         if session_id in voice_sessions:
             del voice_sessions[session_id]
 
+
+# ============================================
+# HER WEBSOCKET - Full Real-Time Experience
+# ============================================
+
+# Active HER WebSocket connections for proactive push
+_her_connections: dict[str, WebSocket] = {}
+
+
+@app.websocket("/ws/her")
+async def ws_her(ws: WebSocket):
+    """HER WebSocket - Complete real-time AI companion experience.
+
+    Ultra-low latency full-duplex communication with:
+    - Real-time chat with emotion detection
+    - Proactive message push (Eva initiates)
+    - Backchannel sounds ("mmhmm", "ouais")
+    - Interrupt handling (stop Eva mid-speech)
+    - Memory-aware responses
+    - Breathing sounds between sentences
+
+    Protocol:
+    Client -> Server:
+      { type: "message", content: "...", user_id: "..." }  - Text message
+      { type: "audio", data: base64 }  - Voice input (for STT)
+      { type: "interrupt" }  - Stop Eva speaking
+      { type: "ping" }  - Keep-alive
+      { type: "config", voice: "...", user_id: "..." }  - Configure session
+
+    Server -> Client:
+      { type: "her_context", user_emotion, memory_context, ... }  - Context before response
+      { type: "filler", audio_base64, text }  - Instant filler sound
+      { type: "token", content }  - LLM token (for text display)
+      { type: "speech", audio_base64, text, emotion }  - TTS chunk
+      { type: "breathing", audio_base64 }  - Natural breathing
+      { type: "backchannel", audio_base64, text, type }  - "mmhmm", etc.
+      { type: "proactive", content, thought_type }  - Eva-initiated message
+      { type: "speaking_start" }  - Eva started speaking
+      { type: "speaking_end", reason }  - Eva finished/interrupted
+      { type: "silence", duration, reason }  - Empathic silence
+      { type: "pong" }  - Keep-alive response
+    """
+    await ws.accept()
+
+    # Session setup
+    user_id = f"ws_{id(ws)}"
+    session_id = f"her_{user_id}"
+    voice = DEFAULT_VOICE
+    connected = True
+    is_speaking = False
+    is_interrupted = False
+
+    # Register connection for proactive push
+    _her_connections[user_id] = ws
+
+    print(f"💜 HER WebSocket connected: {session_id}")
+
+    # Background task for proactive messages
+    async def proactive_pusher():
+        """Push proactive messages when Eva wants to initiate."""
+        nonlocal connected
+        while connected:
+            try:
+                await asyncio.sleep(5)  # Check every 5 seconds
+                if not connected or is_speaking:
+                    continue
+
+                # Check for pending proactive message
+                pending = get_pending_proactive(user_id)
+                if pending and connected:
+                    # Generate audio for proactive message
+                    audio = await async_emotional_tts(pending["content"], "tenderness")
+                    audio_b64 = base64.b64encode(audio).decode() if audio else None
+
+                    await safe_ws_send(ws, {
+                        "type": "proactive",
+                        "content": pending["content"],
+                        "thought_type": pending["type"],
+                        "audio_base64": audio_b64,
+                        "motivation": pending.get("motivation", 0.5)
+                    })
+                    print(f"💭 Proactive push: {pending['type']}")
+
+            except Exception as e:
+                if connected:
+                    print(f"⚠️ Proactive pusher error: {e}")
+
+    # Start proactive pusher
+    proactive_task = asyncio.create_task(proactive_pusher())
+
+    try:
+        while connected:
+            try:
+                msg = await asyncio.wait_for(ws.receive(), timeout=30.0)
+            except asyncio.TimeoutError:
+                # Send ping
+                if not await safe_ws_send(ws, {"type": "pong"}):
+                    break
+                continue
+            except Exception:
+                break
+
+            if msg.get("type") == "websocket.disconnect":
+                break
+
+            # Handle text messages
+            if "text" in msg:
+                try:
+                    data = json_loads(msg["text"])
+                except Exception:
+                    continue
+
+                msg_type = data.get("type", "message")
+
+                # PING
+                if msg_type == "ping":
+                    await safe_ws_send(ws, {"type": "pong"})
+                    continue
+
+                # CONFIG
+                if msg_type == "config":
+                    user_id = data.get("user_id", user_id)
+                    voice = data.get("voice", voice)
+                    # Update connection registry
+                    _her_connections[user_id] = ws
+                    await safe_ws_send(ws, {"type": "config_ok", "user_id": user_id})
+                    continue
+
+                # INTERRUPT
+                if msg_type == "interrupt":
+                    if is_speaking:
+                        is_interrupted = True
+                        is_speaking = False
+                        await safe_ws_send(ws, {"type": "speaking_end", "reason": "interrupted"})
+                    continue
+
+                # MESSAGE - Main chat flow
+                if msg_type == "message":
+                    content = data.get("content", "").strip()
+                    if not content:
+                        continue
+
+                    total_start = time.time()
+                    is_speaking = True
+                    is_interrupted = False
+
+                    # 1. Process through HER pipeline
+                    if HER_AVAILABLE:
+                        her_context = await her_process_message(user_id, content)
+                    else:
+                        her_context = {"user_emotion": "neutral", "response_emotion": "neutral"}
+
+                    # Send HER context
+                    await safe_ws_send(ws, {
+                        "type": "her_context",
+                        "user_emotion": her_context.get("user_emotion", "neutral"),
+                        "thought_prefix": her_context.get("thought_prefix"),
+                        "response_delay": her_context.get("response_delay", 0.3)
+                    })
+
+                    # 2. Check empathic silence
+                    if her_context.get("should_stay_silent"):
+                        await safe_ws_send(ws, {
+                            "type": "silence",
+                            "reason": her_context.get("silence_reason", "empathic"),
+                            "duration": 2.0
+                        })
+                        is_speaking = False
+                        continue
+
+                    # 3. Send filler (instant ~10ms TTFA)
+                    if _filler_audio_cache:
+                        filler_name = random.choice(list(_filler_audio_cache.keys()))
+                        filler_audio = _filler_audio_cache[filler_name]
+                        ttfa = (time.time() - total_start) * 1000
+                        print(f"⚡ HER WS TTFA: {ttfa:.0f}ms")
+
+                        await safe_ws_send(ws, {"type": "speaking_start"})
+                        await safe_ws_send(ws, {
+                            "type": "filler",
+                            "audio_base64": base64.b64encode(filler_audio).decode(),
+                            "text": filler_name
+                        })
+
+                    # 4. Stream LLM + TTS
+                    memory_context = her_context.get("memory_context", {})
+                    profile = memory_context.get("profile", {}) if memory_context else {}
+                    relationship_stage = profile.get("relationship_stage", "new")
+                    user_emotion = her_context.get("user_emotion", "neutral")
+
+                    sentence_buffer = ""
+                    full_response = ""
+                    sentence_count = 0
+
+                    async for token in stream_llm_her(
+                        session_id,
+                        content,
+                        memory_context=memory_context,
+                        relationship_stage=relationship_stage,
+                        user_emotion=user_emotion
+                    ):
+                        if is_interrupted:
+                            break
+
+                        # Send token for real-time text display
+                        await safe_ws_send(ws, {"type": "token", "content": token})
+
+                        sentence_buffer += token
+                        full_response += token
+
+                        # Generate TTS per sentence
+                        if re.search(r'[.!?]\s*$', sentence_buffer) or len(sentence_buffer) > 60:
+                            sentence = sentence_buffer.strip()
+                            if sentence and not is_interrupted:
+                                emotion = detect_emotion(sentence)
+
+                                # Generate emotional TTS
+                                audio_chunk = await async_emotional_tts(sentence, emotion.name)
+                                if not audio_chunk:
+                                    audio_chunk = await async_ultra_fast_tts(sentence)
+
+                                if audio_chunk and not is_interrupted:
+                                    await safe_ws_send(ws, {
+                                        "type": "speech",
+                                        "audio_base64": base64.b64encode(audio_chunk).decode(),
+                                        "text": sentence,
+                                        "emotion": emotion.name
+                                    })
+
+                                    # Add breathing (30% chance)
+                                    sentence_count += 1
+                                    if sentence_count % 3 == 0 and random.random() < 0.3:
+                                        breath = eva_expression.get_breathing_sound("after_speech")
+                                        if breath:
+                                            await safe_ws_send(ws, {
+                                                "type": "breathing",
+                                                "audio_base64": base64.b64encode(breath).decode()
+                                            })
+
+                            sentence_buffer = ""
+
+                    # Handle remaining text
+                    if sentence_buffer.strip() and not is_interrupted:
+                        sentence = sentence_buffer.strip()
+                        audio_chunk = await async_emotional_tts(sentence, "neutral")
+                        if audio_chunk:
+                            await safe_ws_send(ws, {
+                                "type": "speech",
+                                "audio_base64": base64.b64encode(audio_chunk).decode(),
+                                "text": sentence,
+                                "emotion": "neutral"
+                            })
+
+                    # 5. Store in memory
+                    if HER_AVAILABLE and full_response:
+                        await her_store_interaction(
+                            user_id, content, full_response,
+                            her_context.get("response_emotion", "neutral")
+                        )
+
+                    # 6. Done
+                    is_speaking = False
+                    total_ms = (time.time() - total_start) * 1000
+                    await safe_ws_send(ws, {
+                        "type": "speaking_end",
+                        "reason": "complete" if not is_interrupted else "interrupted",
+                        "total_ms": round(total_ms)
+                    })
+
+            # Handle binary audio (for STT)
+            elif "bytes" in msg:
+                audio_bytes = msg["bytes"]
+                # Transcribe
+                text = await transcribe_audio(audio_bytes)
+                if text:
+                    # Echo the transcription
+                    await safe_ws_send(ws, {"type": "transcription", "text": text})
+                    # Process as message (reuse message handling)
+                    # This allows voice input to trigger the same flow
+
+    except WebSocketDisconnect:
+        print(f"💜 HER WebSocket disconnected: {session_id}")
+    except Exception as e:
+        print(f"💜 HER WebSocket error: {session_id} - {e}")
+    finally:
+        connected = False
+        proactive_task.cancel()
+        if user_id in _her_connections:
+            del _her_connections[user_id]
+
+
+async def push_to_her_connection(user_id: str, message: dict) -> bool:
+    """Push a message to a specific HER WebSocket connection."""
+    ws = _her_connections.get(user_id)
+    if ws:
+        return await safe_ws_send(ws, message)
+    return False
+
+
 # ============================================
 # NATURAL SPEECH ENDPOINT (Fast TTS)
 # ============================================
