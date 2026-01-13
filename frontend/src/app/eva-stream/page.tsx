@@ -142,10 +142,10 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
       }
       lastFrameTimeRef.current = timestamp;
 
-      // Get next frame from lip-sync queue (priority over idle)
+      // Get next frame from lip-sync queue
       if (frameQueueRef.current.length > 0) {
         const frameData = frameQueueRef.current.shift()!;
-        setStats(s => ({ ...s, queueSize: frameQueueRef.current.length, mode: "speaking" }));
+        setStats(s => ({ ...s, queueSize: frameQueueRef.current.length }));
 
         // Decode and draw
         const img = new Image();
