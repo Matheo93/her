@@ -66,47 +66,33 @@ function useChromaKey2D(
       return;
     }
 
-    // PRECISE CHROMA KEY - strict green screen only, preserve all hair
-    // Two-step: 1) Remove ONLY pure green screen, 2) Despill everything else
+    // AGGRESSIVE CHROMA KEY - remove all green, keep subject
+    // Simple rule: if green dominates by a lot, it's background
 
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i], g = data[i + 1], b = data[i + 2];
 
-      // Skip if green is not dominant
-      if (g <= r && g <= b) continue;
+      // Green screen detection: green must be dominant
+      // Pure green screen: G=255, R≈0, B≈0
+      // We remove if: green is high AND much higher than red and blue
 
-      const greenExcess = g - Math.max(r, b);
+      const maxRB = Math.max(r, b);
+      const greenDominance = g - maxRB;
 
-      // VERY STRICT pure green screen detection
-      // Only remove pixels that are CLEARLY background green screen
-      // Criteria: high green (>180), low R and B (<80), huge green excess (>100)
-      const isPureGreenScreen =
-        g > 180 &&           // Very bright green
-        r < 80 &&            // Low red
-        b < 80 &&            // Low blue
-        greenExcess > 100;   // Massive green dominance
-
-      if (isPureGreenScreen) {
-        // Pure green screen = transparent
-        data[i + 3] = 0;
-      } else {
-        // Everything else stays FULLY VISIBLE
-        data[i + 3] = 255;
-
-        // But we DESPILL aggressively to remove green tint
-        // This removes green reflection from hair/skin without making it transparent
-        if (greenExcess > 5) {
-          const avgRB = (r + b) / 2;
-          // The more green exceeds avg of R+B, the more we reduce it
-          // But we never go below the max of R,B
-          const maxRB = Math.max(r, b);
-          const excess = g - maxRB;
-
-          // Strong despill: remove 80% of green excess
-          const newG = maxRB + excess * 0.2;
-          data[i + 1] = Math.round(Math.max(maxRB, newG));
-        }
+      // REMOVE: green > 150 AND dominance > 80
+      // This catches all green screen including slightly darker variants
+      if (g > 150 && greenDominance > 80) {
+        data[i + 3] = 0; // Fully transparent
       }
+      // EDGE: green is somewhat dominant but not pure background
+      // Keep visible but despill
+      else if (greenDominance > 20) {
+        data[i + 3] = 255; // Keep visible
+        // Remove 90% of green excess
+        const newG = maxRB + greenDominance * 0.1;
+        data[i + 1] = Math.round(newG);
+      }
+      // Otherwise: keep as-is
     }
 
     ctx.putImageData(imageData, 0, 0);
