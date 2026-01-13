@@ -151,26 +151,12 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
         const frameData = frameQueueRef.current.shift()!;
         setStats(s => ({ ...s, queueSize: frameQueueRef.current.length }));
 
-        // Decode and draw with chroma key
+        // Decode and draw
         const img = new Image();
         img.onload = () => {
           canvas.width = img.width;
           canvas.height = img.height;
           ctx.drawImage(img, 0, 0);
-
-          // Apply chroma key to remove green background
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const data = imageData.data;
-          for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-            // Detect green screen (high green, low red/blue)
-            if (g > 100 && g > r * 1.4 && g > b * 1.4) {
-              data[i + 3] = 0; // Make transparent
-            }
-          }
-          ctx.putImageData(imageData, 0, 0);
         };
         img.src = `data:image/jpeg;base64,${frameData}`;
 
@@ -178,7 +164,6 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
         setIsPlaying(true);
       } else {
         setIsPlaying(false);
-        // Idle frames are handled by the idle WebSocket directly
       }
 
       // Calculate FPS
