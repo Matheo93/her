@@ -37,12 +37,8 @@ def init_fast_tts():
         _tts_tokenizer = AutoTokenizer.from_pretrained("facebook/mms-tts-fra")
         _tts_model.eval()
 
-        # Try to compile model for faster inference (PyTorch 2.0+)
-        try:
-            _tts_model = torch.compile(_tts_model, mode="reduce-overhead")
-            print("   torch.compile enabled")
-        except Exception:
-            pass  # torch.compile not available
+        # Note: torch.compile with reduce-overhead can cause CUDA graph issues
+        # Use regular inference which is still fast on GPU (~100-200ms)
 
         _sample_rate = _tts_model.config.sampling_rate
 
