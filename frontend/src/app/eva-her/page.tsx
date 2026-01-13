@@ -162,45 +162,9 @@ export default function EvaHerPage() {
     return () => wsRef.current?.close();
   }, []);
 
-  // Connect to Avatar WebSocket for lip-sync
-  useEffect(() => {
-    const connectAvatar = () => {
-      const ws = new WebSocket(`${AVATAR_URL.replace("http", "ws")}/ws/avatar`);
-
-      ws.onopen = () => {
-        console.log("Avatar lip-sync connected");
-        ws.send(JSON.stringify({ type: "config", avatar_id: "eva" }));
-      };
-
-      ws.onclose = () => {
-        console.log("Avatar disconnected, reconnecting...");
-        setTimeout(connectAvatar, 3000);
-      };
-
-      ws.onmessage = (event) => {
-        if (event.data instanceof Blob) {
-          // Received lip-synced frame
-          const url = URL.createObjectURL(event.data);
-          setAvatarFrame(prev => {
-            if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
-            return url;
-          });
-          setShowIdle(false);
-        } else {
-          const data = JSON.parse(event.data);
-          if (data.type === "done") {
-            // Lip-sync done, return to idle
-            setTimeout(() => setShowIdle(true), 300);
-          }
-        }
-      };
-
-      avatarWsRef.current = ws;
-    };
-
-    connectAvatar();
-    return () => avatarWsRef.current?.close();
-  }, []);
+  // Note: Avatar lip-sync via REST API (not WebSocket)
+  // The idle video provides subtle movements
+  // For full lip-sync, we'd need to call /lipsync endpoint per audio chunk
 
   // Play audio and send to lip-sync
   const playNextAudio = useCallback(async () => {
