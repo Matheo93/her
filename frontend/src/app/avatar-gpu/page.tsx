@@ -293,7 +293,7 @@ export default function AvatarGPUPage() {
 
       // Play lip-sync video if available
       if (data.video_base64 && speakingVideoRef.current) {
-        const videoSrc = `data:video/webm;base64,${data.video_base64}`;
+        const videoSrc = `data:video/mp4;base64,${data.video_base64}`;
         setSpeakingVideoSrc(videoSrc);
         setIsSpeaking(true);
 
@@ -368,7 +368,7 @@ export default function AvatarGPUPage() {
 
         // Play lip-sync video
         if (llmLipsyncData.video_base64 && speakingVideoRef.current) {
-          const videoSrc = `data:video/webm;base64,${llmLipsyncData.video_base64}`;
+          const videoSrc = `data:video/mp4;base64,${llmLipsyncData.video_base64}`;
           setSpeakingVideoSrc(videoSrc);
           setIsSpeaking(true);
 
