@@ -42,62 +42,74 @@ function useChromaKey2D(
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
-    // BALANCED CHROMA KEY - smooth 60fps + preserve fine hair
-    // Pure green #00FF00 has H≈120, S=100%
-    const keyH = 120;
-    const tolerance = 25;      // Tight hue tolerance to preserve hair
-    const spillStrength = 0.7; // Gentler spill removal
+    // SMOOTH CHROMA KEY with soft hair edges
+    // Green screen: H≈120°, high saturation, bright green channel
 
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i], g = data[i + 1], b = data[i + 2];
 
-      // Fast RGB to HSL
+      // Quick greenness check: green must dominate
+      const greenExcess = g - Math.max(r, b);
+
+      // Not green-ish at all = keep fully opaque
+      if (greenExcess < 20) continue;
+
+      // Calculate how "green screen" this pixel is (0-1)
+      // Based on: green dominance + brightness + saturation
+
       const max = Math.max(r, g, b);
       const min = Math.min(r, g, b);
       const delta = max - min;
 
-      // Skip grayscale pixels (hair, skin, etc.)
-      if (delta < 15) continue;
-
-      // Calculate Hue
-      let h = 0;
-      if (max === r) {
-        h = 60 * (((g - b) / delta) % 6);
-      } else if (max === g) {
-        h = 60 * (((b - r) / delta) + 2);
-      } else {
-        h = 60 * (((r - g) / delta) + 4);
-      }
-      if (h < 0) h += 360;
-
       // Saturation (0-1)
       const l = (max + min) / 2;
-      const s = l === 0 || l === 255 ? 0 : delta / (255 - Math.abs(2 * l - 255));
+      const s = delta === 0 ? 0 : delta / (255 - Math.abs(2 * l - 255));
 
-      // Green detection: strict criteria
-      const hueDiff = Math.abs(h - keyH);
-      const hueDistance = Math.min(hueDiff, 360 - hueDiff);
-
-      // Only key PURE green screen (high saturation + correct hue)
-      let alpha = 1;
-
-      // Pure green screen: hue 90-150°, saturation > 50%
-      if (hueDistance < tolerance && s > 0.5 && g > 100) {
-        // Strong green = fully transparent
-        alpha = 0;
-      } else if (hueDistance < tolerance + 15 && s > 0.4 && g > 80) {
-        // Edge of green screen - soft transition
-        const t = (hueDistance - tolerance) / 15;
-        const satBlend = Math.max(0, (0.5 - s) / 0.1); // Less green = more visible
-        alpha = Math.min(1, t + satBlend * 0.5);
+      // Calculate hue only if saturated
+      let isGreenHue = false;
+      if (s > 0.25) {
+        let h = 0;
+        if (max === g) {
+          h = 60 * (((b - r) / delta) + 2);
+        } else if (max === r) {
+          h = 60 * (((g - b) / delta) % 6);
+        } else {
+          h = 60 * (((r - g) / delta) + 4);
+        }
+        if (h < 0) h += 360;
+        // Green hue range: 80-160°
+        isGreenHue = h >= 80 && h <= 160;
       }
 
-      // Gentle spill suppression only on semi-transparent edges
-      if (alpha > 0.05 && alpha < 0.95 && g > Math.max(r, b) + 10) {
-        const maxRB = Math.max(r, b);
-        const excess = g - maxRB;
-        const suppress = excess * spillStrength * (1 - alpha);
-        data[i + 1] = Math.round(g - suppress);
+      // Calculate "greenness" score (0 = pure green screen, 1 = not green)
+      let greenness = 0;
+
+      if (isGreenHue) {
+        // How pure is the green? (high saturation + green dominance)
+        const satScore = Math.min(1, s / 0.6);      // Saturation contribution
+        const domScore = Math.min(1, greenExcess / 100); // Green dominance
+        const brightScore = Math.min(1, g / 180);   // Brightness contribution
+
+        greenness = satScore * domScore * brightScore;
+      }
+
+      // Convert greenness to alpha with SMOOTH transition
+      // greenness 0.7+ = fully transparent
+      // greenness 0.3-0.7 = soft gradient
+      // greenness <0.3 = fully visible
+      let alpha = 1;
+      if (greenness > 0.7) {
+        alpha = 0;
+      } else if (greenness > 0.2) {
+        // Smooth cubic transition for soft edges on hair
+        const t = 1 - (greenness - 0.2) / 0.5;
+        alpha = t * t * (3 - 2 * t); // Smooth step
+      }
+
+      // Subtle spill removal on visible pixels
+      if (alpha > 0.3 && greenExcess > 15) {
+        const spillRemove = greenExcess * 0.5 * (1 - alpha * 0.8);
+        data[i + 1] = Math.round(g - spillRemove);
       }
 
       data[i + 3] = Math.round(alpha * 255);
