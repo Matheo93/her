@@ -39,47 +39,67 @@ function useChromaKey2D(
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
-    // BALANCED chroma key - clean background + preserve hair
+    // PRO BROADCAST METHOD: HSL-based chroma key with edge-aware matting
+    const width = canvas.width;
+
     for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
+      const r = data[i] / 255;
+      const g = data[i + 1] / 255;
+      const b = data[i + 2] / 255;
 
-      const maxRB = Math.max(r, b);
-      const greenExcess = g - maxRB;
+      // Convert RGB to HSL
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const l = (max + min) / 2;
+      let h = 0, s = 0;
 
-      // Calculate saturation of green (how "pure" green it is)
-      const greenPurity = (g - maxRB) / (g + 1) * 255;
-
-      // 1. Pure green background = fully transparent
-      if (g > 180 && r < 100 && b < 100) {
-        data[i + 3] = 0;
-      }
-      // 2. High green excess = mostly transparent + despill
-      else if (greenExcess > 50) {
-        data[i + 3] = Math.round(Math.max(0, 60 - greenPurity * 0.5));
-        data[i + 1] = maxRB;
-      }
-      // 3. Medium green = partial transparency based on purity
-      else if (greenExcess > 25) {
-        const t = (greenExcess - 25) / 25; // 0 to 1
-        data[i + 3] = Math.round(255 * (1 - t * 0.85));
-        data[i + 1] = Math.round(g - (g - maxRB) * t * 0.9);
-      }
-      // 4. Light green spill = despill only, keep opaque
-      else if (greenExcess > 8) {
-        const t = (greenExcess - 8) / 17;
-        data[i + 1] = Math.round(g - (g - maxRB) * t * 0.7);
-      }
-
-      // Final cleanup: suppress any remaining green tint
-      if (data[i + 3] > 50) {
-        const finalG = data[i + 1];
-        const target = maxRB + 3;
-        if (finalG > target) {
-          data[i + 1] = Math.round(target + (finalG - target) * 0.2);
+      if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        if (max === g) {
+          h = ((b - r) / d + 2) / 6;
+        } else if (max === r) {
+          h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        } else {
+          h = ((r - g) / d + 4) / 6;
         }
       }
+
+      // Green hue range: ~0.25 to ~0.42 (90° to 150°)
+      const hDeg = h * 360;
+      const isGreenHue = hDeg > 80 && hDeg < 160;
+
+      // Calculate alpha mask based on HSL
+      let alpha = 1;
+
+      if (isGreenHue && s > 0.3) {
+        // Distance from pure green (120°)
+        const hueDist = Math.abs(hDeg - 120) / 40; // 0 at green, 1 at edges
+        const satFactor = Math.min(1, (s - 0.3) / 0.5); // Higher sat = more transparent
+
+        // Core green = transparent, edges = blend
+        if (hueDist < 0.5 && satFactor > 0.5) {
+          alpha = hueDist * 0.4; // Very transparent for pure green
+        } else if (hueDist < 1) {
+          alpha = 0.2 + hueDist * 0.6; // Gradual blend at edges
+        }
+
+        // Bright greens are definitely background
+        if (l > 0.4 && s > 0.6 && hueDist < 0.6) {
+          alpha = 0;
+        }
+      }
+
+      // Despill: shift green toward neutral
+      let finalG = data[i + 1];
+      if (isGreenHue && s > 0.2) {
+        const maxRB = Math.max(data[i], data[i + 2]);
+        const spillAmount = Math.min(1, s * (1 - Math.abs(hDeg - 120) / 60));
+        finalG = Math.round(data[i + 1] - (data[i + 1] - maxRB) * spillAmount * 0.8);
+      }
+
+      data[i + 1] = finalG;
+      data[i + 3] = Math.round(alpha * 255);
     }
 
     ctx.putImageData(imageData, 0, 0);
