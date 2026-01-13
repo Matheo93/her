@@ -66,33 +66,24 @@ function useChromaKey2D(
       return;
     }
 
-    // AGGRESSIVE CHROMA KEY - remove all green, keep subject
-    // Simple rule: if green dominates by a lot, it's background
+    // ULTRA AGGRESSIVE CHROMA KEY
+    // If green is significantly higher than red and blue → REMOVE IT
 
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i], g = data[i + 1], b = data[i + 2];
-
-      // Green screen detection: green must be dominant
-      // Pure green screen: G=255, R≈0, B≈0
-      // We remove if: green is high AND much higher than red and blue
-
       const maxRB = Math.max(r, b);
       const greenDominance = g - maxRB;
 
-      // REMOVE: green > 150 AND dominance > 80
-      // This catches all green screen including slightly darker variants
-      if (g > 150 && greenDominance > 80) {
-        data[i + 3] = 0; // Fully transparent
+      // TRANSPARENT: green dominates by >50 AND green is bright (>100)
+      if (greenDominance > 50 && g > 100) {
+        data[i + 3] = 0;
       }
-      // EDGE: green is somewhat dominant but not pure background
-      // Keep visible but despill
-      else if (greenDominance > 20) {
-        data[i + 3] = 255; // Keep visible
-        // Remove 90% of green excess
-        const newG = maxRB + greenDominance * 0.1;
+      // DESPILL: any green excess gets reduced
+      else if (greenDominance > 10) {
+        // Keep visible but kill the green
+        const newG = maxRB + greenDominance * 0.15;
         data[i + 1] = Math.round(newG);
       }
-      // Otherwise: keep as-is
     }
 
     ctx.putImageData(imageData, 0, 0);
