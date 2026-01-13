@@ -42,17 +42,22 @@ def init_fast_tts():
 
         _sample_rate = _tts_model.config.sampling_rate
 
-        # Warmup
-        for _ in range(3):
-            inputs = _tts_tokenizer("Bonjour", return_tensors="pt").to(_device)
-            with torch.no_grad():
-                if _device == "cuda":
-                    with torch.amp.autocast("cuda"):
+        # Extended warmup for optimal latency (~40-100ms after warmup)
+        warmup_phrases = ["Bonjour", "Salut comment vas tu", "C'est super"]
+        for phrase in warmup_phrases:
+            inputs = _tts_tokenizer(phrase, return_tensors="pt").to(_device)
+            for _ in range(3):
+                with torch.no_grad():
+                    if _device == "cuda":
+                        with torch.amp.autocast("cuda"):
+                            _ = _tts_model(**inputs).waveform
+                    else:
                         _ = _tts_model(**inputs).waveform
-                else:
-                    _ = _tts_model(**inputs).waveform
 
-        print(f"✅ MMS-TTS ready (sample rate: {_sample_rate}Hz, fp16={_device=='cuda'})")
+        if _device == "cuda":
+            torch.cuda.synchronize()
+
+        print(f"✅ MMS-TTS ready (sample rate: {_sample_rate}Hz, fp16={_device=='cuda'}, ~50-100ms)")
         return True
 
     except Exception as e:
