@@ -60,7 +60,7 @@ except ImportError:
 from breathing_system import breathing_system, make_natural
 
 # Fast TTS (MMS-TTS on GPU - ~100ms latency)
-from fast_tts import init_fast_tts, async_fast_tts_mp3, fast_tts_mp3
+from fast_tts import init_fast_tts, async_fast_tts, fast_tts, async_fast_tts_mp3, fast_tts_mp3
 
 from groq import AsyncGroq
 import httpx
