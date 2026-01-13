@@ -59,6 +59,9 @@ except ImportError:
 # Natural breathing and hesitation system (100% LOCAL)
 from breathing_system import breathing_system, make_natural
 
+# Fast TTS (MMS-TTS on GPU - ~100ms latency)
+from fast_tts import init_fast_tts, async_fast_tts, fast_tts
+
 from groq import AsyncGroq
 import httpx
 
