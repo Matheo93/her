@@ -298,16 +298,14 @@ export default function AvatarGPUPage() {
             {/* Background glow effect */}
             <div className="absolute inset-0 bg-gradient-to-t from-purple-600/20 to-transparent" />
 
-            {/* Idle video (hidden when speaking) */}
+            {/* Idle video with transparency (hidden when speaking) */}
             <video
               ref={idleVideoRef}
               autoPlay
               muted
               playsInline
-              loop={false}
-              onEnded={handleIdleVideoEnd}
-              className={`absolute inset-0 w-full h-full object-cover object-top scale-125 transition-opacity duration-300 ${isSpeaking ? 'opacity-0' : 'opacity-100'}`}
-              style={{ marginTop: '-10%' }}
+              loop={true}
+              className={`absolute inset-0 w-full h-full object-cover object-top scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-0' : 'opacity-100'}`}
               src={idleVideos[currentIdleIndex]}
             />
 
