@@ -467,23 +467,35 @@ export default function AvatarGPUPage() {
             {/* Background glow effect */}
             <div className="absolute inset-0 bg-gradient-to-t from-purple-600/20 to-transparent" />
 
-            {/* Idle video with transparency (hidden when speaking) */}
+            {/* Hidden video sources for chroma key processing */}
             <video
               ref={idleVideoRef}
               autoPlay
               muted
               playsInline
               loop={true}
-              className={`absolute inset-0 w-full h-full object-cover object-top scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-0' : 'opacity-100'}`}
+              crossOrigin="anonymous"
+              className="hidden"
               src={idleVideos[currentIdleIndex]}
             />
-
-            {/* Speaking video (shown when speaking) */}
             <video
               ref={speakingVideoRef}
               muted={false}
               playsInline
+              crossOrigin="anonymous"
               onEnded={handleSpeakingVideoEnd}
+              className="hidden"
+            />
+
+            {/* Chroma-keyed canvas for idle (transparent background) */}
+            <canvas
+              ref={idleCanvasRef}
+              className={`absolute inset-0 w-full h-full object-cover object-top scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-0' : 'opacity-100'}`}
+            />
+
+            {/* Chroma-keyed canvas for speaking (transparent background) */}
+            <canvas
+              ref={speakingCanvasRef}
               className={`absolute inset-0 w-full h-full object-cover object-top scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-100' : 'opacity-0'}`}
             />
           </div>
