@@ -189,8 +189,14 @@ export default function AvatarGPUPage() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const idleVideoRef = useRef<HTMLVideoElement>(null);
   const speakingVideoRef = useRef<HTMLVideoElement>(null);
+  const idleCanvasRef = useRef<HTMLCanvasElement>(null);
+  const speakingCanvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+
+  // Chroma key processing for both videos
+  useChromaKey(idleVideoRef, idleCanvasRef, !isSpeaking);
+  useChromaKey(speakingVideoRef, speakingCanvasRef, isSpeaking);
 
   // Transparent idle video (WebM with alpha channel)
   const idleVideos = [
