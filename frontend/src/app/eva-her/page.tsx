@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-const AVATAR_URL = process.env.NEXT_PUBLIC_AVATAR_URL || "http://localhost:8001";
 
 // Emotion to visual style mapping
 const EMOTION_STYLES: Record<string, { color: string; glow: string; expression: string }> = {
