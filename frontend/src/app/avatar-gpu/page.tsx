@@ -504,14 +504,24 @@ export default function AvatarGPUPage() {
             <canvas
               ref={idleCanvasRef}
               className={`absolute inset-0 w-full h-full object-cover scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-0' : 'opacity-100'}`}
-              style={{ objectFit: 'cover', objectPosition: 'top' }}
+              style={{
+                objectFit: 'cover',
+                objectPosition: 'top',
+                background: 'transparent',
+                imageRendering: 'auto'
+              }}
             />
 
             {/* Chroma-keyed canvas - speaking */}
             <canvas
               ref={speakingCanvasRef}
               className={`absolute inset-0 w-full h-full object-cover scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-100' : 'opacity-0'}`}
-              style={{ objectFit: 'cover', objectPosition: 'top' }}
+              style={{
+                objectFit: 'cover',
+                objectPosition: 'top',
+                background: 'transparent',
+                imageRendering: 'auto'
+              }}
             />
           </div>
 
