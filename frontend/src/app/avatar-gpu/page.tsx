@@ -85,14 +85,20 @@ function useChromaKey2D(
         alpha = alpha * alpha; // Ease-in curve for smoother edges
       }
 
-      // Spill suppression: reduce green where it exceeds other channels
+      // Aggressive spill suppression on ALL pixels (not just visible ones)
       const maxRB = Math.max(r, b);
-      if (g > maxRB && alpha > 0) {
-        const spillAmount = (g - maxRB) / 255;
-        const suppress = spillAmount * spillSuppress * (1 - alpha * 0.5);
-        data[i + 1] = Math.round(g - (g - maxRB) * suppress);
+      let finalG = g;
+
+      // Always suppress green that exceeds other channels
+      if (g > maxRB + 5) {
+        const excess = g - maxRB;
+        // Near the key = more suppression, far from key = less
+        const proximityFactor = Math.max(0, 1 - dE / 100);
+        const suppress = Math.min(1, (excess / 80) + proximityFactor * 0.5);
+        finalG = Math.round(maxRB + excess * (1 - suppress * spillSuppress));
       }
 
+      data[i + 1] = finalG;
       data[i + 3] = Math.round(alpha * 255);
     }
 
