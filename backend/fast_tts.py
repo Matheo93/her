@@ -136,8 +136,12 @@ def fast_tts_mp3(text: str, speed: float = 1.0) -> Optional[bytes]:
         inputs = _tts_tokenizer(text, return_tensors="pt").to(_device)
 
         # Generate with fp16 autocast for speed
-        with torch.no_grad(), torch.cuda.amp.autocast(enabled=(_device == "cuda")):
-            output = _tts_model(**inputs).waveform
+        with torch.no_grad():
+            if _device == "cuda":
+                with torch.amp.autocast("cuda"):
+                    output = _tts_model(**inputs).waveform
+            else:
+                output = _tts_model(**inputs).waveform
 
         # Convert to numpy
         audio = output.squeeze().cpu().float().numpy()
