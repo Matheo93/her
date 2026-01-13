@@ -825,12 +825,21 @@ async def lifespan(app: FastAPI):
     except ImportError:
         print("⚠️  Whisper not installed - STT via browser only")
 
-    # TTS
+    # TTS - Fast mode (MMS-TTS GPU) or Edge-TTS
+    if USE_FAST_TTS:
+        if init_fast_tts():
+            print("✅ MMS-TTS ready (GPU - ~100ms latency)")
+        else:
+            print("⚠️  MMS-TTS failed, will use Edge-TTS")
+
     try:
         import edge_tts
         tts_available = True
-        print("✅ Edge-TTS ready (Microsoft Neural Voices)")
-        print(f"   Voices: {', '.join(VOICES.keys())}")
+        if not USE_FAST_TTS:
+            print("✅ Edge-TTS ready (Microsoft Neural Voices)")
+            print(f"   Voices: {', '.join(VOICES.keys())}")
+        else:
+            print("   Edge-TTS available as fallback")
     except ImportError:
         print("⚠️  Edge-TTS not installed")
 
