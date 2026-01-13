@@ -43,14 +43,12 @@ interface StreamingAvatarProps {
 function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatarProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lipsyncWsRef = useRef<WebSocket | null>(null);
-  const idleWsRef = useRef<WebSocket | null>(null);
   const frameQueueRef = useRef<string[]>([]);
   const animationRef = useRef<number>(0);
   const lastFrameTimeRef = useRef(0);
   const [isConnected, setIsConnected] = useState(false);
-  const [isIdleConnected, setIsIdleConnected] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [stats, setStats] = useState({ fps: 0, latency: 0, queueSize: 0, mode: "idle" });
+  const [stats, setStats] = useState({ fps: 0, latency: 0, queueSize: 0 });
 
   // Connect to lip-sync streaming service
   useEffect(() => {
