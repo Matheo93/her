@@ -4060,42 +4060,17 @@ async def ws_her(ws: WebSocket):
                 break
 
             msg_type = data.get("type", "message")
-                except Exception:
+
+            # MESSAGE - Main chat flow
+            if msg_type == "message":
+                content = data.get("content", "").strip()
+                if not content:
                     continue
 
-                msg_type = data.get("type", "message")
-
-                # PING
-                if msg_type == "ping":
-                    await safe_ws_send(ws, {"type": "pong"})
-                    continue
-
-                # CONFIG
-                if msg_type == "config":
-                    user_id = data.get("user_id", user_id)
-                    voice = data.get("voice", voice)
-                    # Update connection registry
-                    _her_connections[user_id] = ws
-                    await safe_ws_send(ws, {"type": "config_ok", "user_id": user_id})
-                    continue
-
-                # INTERRUPT
-                if msg_type == "interrupt":
-                    if is_speaking:
-                        is_interrupted = True
-                        is_speaking = False
-                        await safe_ws_send(ws, {"type": "speaking_end", "reason": "interrupted"})
-                    continue
-
-                # MESSAGE - Main chat flow
-                if msg_type == "message":
-                    content = data.get("content", "").strip()
-                    if not content:
-                        continue
-
-                    total_start = time.time()
-                    is_speaking = True
-                    is_interrupted = False
+                total_start = time.time()
+                is_speaking = True
+                is_interrupted = False
+                interrupt_event.clear()  # Reset interrupt event for new message
 
                     # 1. Process through HER pipeline
                     if HER_AVAILABLE:
