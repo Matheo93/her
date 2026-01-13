@@ -166,7 +166,7 @@ export default function EvaHerPage() {
   // The idle video provides subtle movements
   // For full lip-sync, we'd need to call /lipsync endpoint per audio chunk
 
-  // Play audio and send to lip-sync
+  // Play audio
   const playNextAudio = useCallback(async () => {
     if (isPlayingRef.current || audioQueueRef.current.length === 0) return;
 
@@ -183,16 +183,6 @@ export default function EvaHerPage() {
       }
       const audioContext = audioContextRef.current;
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
-
-      // Send to lip-sync engine
-      if (avatarWsRef.current?.readyState === WebSocket.OPEN) {
-        const pcmData = audioBuffer.getChannelData(0);
-        const int16Array = new Int16Array(pcmData.length);
-        for (let i = 0; i < pcmData.length; i++) {
-          int16Array[i] = Math.max(-32768, Math.min(32767, pcmData[i] * 32768));
-        }
-        avatarWsRef.current.send(int16Array.buffer);
-      }
 
       // Play audio
       const source = audioContext.createBufferSource();
