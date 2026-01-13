@@ -66,44 +66,45 @@ function useChromaKey2D(
       return;
     }
 
-    // CHROMA KEY for green screen videos
+    // PRECISE CHROMA KEY - strict green screen only, preserve all hair
+    // Two-step: 1) Remove ONLY pure green screen, 2) Despill everything else
+
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i], g = data[i + 1], b = data[i + 2];
 
-      // Skip non-green pixels
-      if (g <= r || g <= b) continue;
+      // Skip if green is not dominant
+      if (g <= r && g <= b) continue;
 
       const greenExcess = g - Math.max(r, b);
-      const max = Math.max(r, g, b);
-      const min = Math.min(r, g, b);
-      const delta = max - min;
 
-      // Saturation
-      const l = (max + min) / 2;
-      const s = delta === 0 ? 0 : delta / (255 - Math.abs(2 * l - 255));
+      // VERY STRICT pure green screen detection
+      // Only remove pixels that are CLEARLY background green screen
+      // Criteria: high green (>180), low R and B (<80), huge green excess (>100)
+      const isPureGreenScreen =
+        g > 180 &&           // Very bright green
+        r < 80 &&            // Low red
+        b < 80 &&            // Low blue
+        greenExcess > 100;   // Massive green dominance
 
-      // Hue
-      let h = 0;
-      if (delta > 0 && max === g) {
-        h = 60 * (((b - r) / delta) + 2);
-        if (h < 0) h += 360;
-      }
-
-      // Green hue range (90-150°)
-      const isGreenHue = h >= 90 && h <= 150;
-
-      // Pure green screen detection
-      const isPureGreen = isGreenHue && s > 0.5 && g > 100 && greenExcess > 40;
-
-      if (isPureGreen) {
+      if (isPureGreenScreen) {
+        // Pure green screen = transparent
         data[i + 3] = 0;
       } else {
+        // Everything else stays FULLY VISIBLE
         data[i + 3] = 255;
-        // Despill
-        if (greenExcess > 10 && isGreenHue) {
-          const target = Math.max(r, b);
-          const despill = (g - target) * 0.7;
-          data[i + 1] = Math.round(g - despill);
+
+        // But we DESPILL aggressively to remove green tint
+        // This removes green reflection from hair/skin without making it transparent
+        if (greenExcess > 5) {
+          const avgRB = (r + b) / 2;
+          // The more green exceeds avg of R+B, the more we reduce it
+          // But we never go below the max of R,B
+          const maxRB = Math.max(r, b);
+          const excess = g - maxRB;
+
+          // Strong despill: remove 80% of green excess
+          const newG = maxRB + excess * 0.2;
+          data[i + 1] = Math.round(Math.max(maxRB, newG));
         }
       }
     }
