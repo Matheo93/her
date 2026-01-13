@@ -42,23 +42,22 @@ function useChromaKey2D(
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
-    // FAST HSL-BASED CHROMA KEY - optimized for 60fps
-    // Pure green #00FF00 has H≈120, S=100%, L=50%
+    // BALANCED CHROMA KEY - smooth 60fps + preserve fine hair
+    // Pure green #00FF00 has H≈120, S=100%
     const keyH = 120;
-    const tolerance = 35;      // Hue tolerance
-    const softness = 25;       // Smooth edges
-    const spillStrength = 0.85;
+    const tolerance = 25;      // Tight hue tolerance to preserve hair
+    const spillStrength = 0.7; // Gentler spill removal
 
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i], g = data[i + 1], b = data[i + 2];
 
-      // Fast RGB to HSL (only need Hue and Saturation for green detection)
+      // Fast RGB to HSL
       const max = Math.max(r, g, b);
       const min = Math.min(r, g, b);
       const delta = max - min;
 
-      // Skip if grayscale (no chroma)
-      if (delta < 10) continue;
+      // Skip grayscale pixels (hair, skin, etc.)
+      if (delta < 15) continue;
 
       // Calculate Hue
       let h = 0;
@@ -71,35 +70,33 @@ function useChromaKey2D(
       }
       if (h < 0) h += 360;
 
-      // Calculate Saturation
+      // Saturation (0-1)
       const l = (max + min) / 2;
-      const s = delta / (255 - Math.abs(2 * l - 255));
+      const s = l === 0 || l === 255 ? 0 : delta / (255 - Math.abs(2 * l - 255));
 
-      // Green detection: Hue near 120°, high saturation
+      // Green detection: strict criteria
       const hueDiff = Math.abs(h - keyH);
       const hueDistance = Math.min(hueDiff, 360 - hueDiff);
 
-      // Calculate alpha based on hue distance and saturation
+      // Only key PURE green screen (high saturation + correct hue)
       let alpha = 1;
-      if (hueDistance < tolerance && s > 0.3) {
-        // Core green = transparent
-        const satFactor = Math.min(1, s / 0.5); // More saturated = more transparent
+
+      // Pure green screen: hue 90-150°, saturation > 50%
+      if (hueDistance < tolerance && s > 0.5 && g > 100) {
+        // Strong green = fully transparent
         alpha = 0;
-        if (hueDistance > tolerance - softness) {
-          alpha = (hueDistance - (tolerance - softness)) / softness;
-        }
-        alpha = alpha * (1 - satFactor * 0.7);
-      } else if (hueDistance < tolerance + softness && s > 0.2) {
-        // Soft edge
-        const t = (hueDistance - tolerance) / softness;
-        alpha = Math.min(1, t * t); // Quadratic ease
+      } else if (hueDistance < tolerance + 15 && s > 0.4 && g > 80) {
+        // Edge of green screen - soft transition
+        const t = (hueDistance - tolerance) / 15;
+        const satBlend = Math.max(0, (0.5 - s) / 0.1); // Less green = more visible
+        alpha = Math.min(1, t + satBlend * 0.5);
       }
 
-      // Spill suppression on visible pixels
-      if (alpha > 0.1 && g > Math.max(r, b) + 5) {
+      // Gentle spill suppression only on semi-transparent edges
+      if (alpha > 0.05 && alpha < 0.95 && g > Math.max(r, b) + 10) {
         const maxRB = Math.max(r, b);
         const excess = g - maxRB;
-        const suppress = excess * spillStrength * (1 - alpha * 0.5);
+        const suppress = excess * spillStrength * (1 - alpha);
         data[i + 1] = Math.round(g - suppress);
       }
 
