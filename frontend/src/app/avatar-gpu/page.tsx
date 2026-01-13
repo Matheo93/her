@@ -42,111 +42,68 @@ function useChromaKey2D(
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
-    // ADVANCED CHROMA KEY with edge refinement for natural hair preservation
-    // Reference green in Lab: pure #00FF00 ≈ L:87.7, a:-86.2, b:83.2
-    const keyL = 87.7, keyA = -86.2, keyB = 83.2;
-    const tolerance = 35;      // Tight core for precise keying
-    const softness = 50;       // Wide soft edge for smooth natural blending
-    const spillSuppress = 0.9; // Strong spill removal
-
-    const w = canvas.width;
-    const h = canvas.height;
-
-    // First pass: calculate alpha and spill-corrected colors
-    const alphaMap = new Float32Array(w * h);
+    // FAST HSL-BASED CHROMA KEY - optimized for 60fps
+    // Pure green #00FF00 has H≈120, S=100%, L=50%
+    const keyH = 120;
+    const tolerance = 35;      // Hue tolerance
+    const softness = 25;       // Smooth edges
+    const spillStrength = 0.85;
 
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i], g = data[i + 1], b = data[i + 2];
-      const pixelIdx = i / 4;
 
-      // RGB to XYZ (sRGB with gamma correction)
-      let rr = r / 255, gg = g / 255, bb = b / 255;
-      rr = rr > 0.04045 ? Math.pow((rr + 0.055) / 1.055, 2.4) : rr / 12.92;
-      gg = gg > 0.04045 ? Math.pow((gg + 0.055) / 1.055, 2.4) : gg / 12.92;
-      bb = bb > 0.04045 ? Math.pow((bb + 0.055) / 1.055, 2.4) : bb / 12.92;
+      // Fast RGB to HSL (only need Hue and Saturation for green detection)
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const delta = max - min;
 
-      const x = (rr * 0.4124 + gg * 0.3576 + bb * 0.1805) / 0.95047;
-      const y = (rr * 0.2126 + gg * 0.7152 + bb * 0.0722) / 1.0;
-      const z = (rr * 0.0193 + gg * 0.1192 + bb * 0.9505) / 1.08883;
+      // Skip if grayscale (no chroma)
+      if (delta < 10) continue;
 
-      // XYZ to Lab
-      const fx = x > 0.008856 ? Math.pow(x, 1/3) : (7.787 * x) + 16/116;
-      const fy = y > 0.008856 ? Math.pow(y, 1/3) : (7.787 * y) + 16/116;
-      const fz = z > 0.008856 ? Math.pow(z, 1/3) : (7.787 * z) + 16/116;
+      // Calculate Hue
+      let h = 0;
+      if (max === r) {
+        h = 60 * (((g - b) / delta) % 6);
+      } else if (max === g) {
+        h = 60 * (((b - r) / delta) + 2);
+      } else {
+        h = 60 * (((r - g) / delta) + 4);
+      }
+      if (h < 0) h += 360;
 
-      const L = (116 * fy) - 16;
-      const A = 500 * (fx - fy);
-      const B = 200 * (fy - fz);
+      // Calculate Saturation
+      const l = (max + min) / 2;
+      const s = delta / (255 - Math.abs(2 * l - 255));
 
-      // Delta E (CIE76) - Euclidean distance in Lab space
-      const dE = Math.sqrt(
-        Math.pow(L - keyL, 2) +
-        Math.pow(A - keyA, 2) +
-        Math.pow(B - keyB, 2)
-      );
+      // Green detection: Hue near 120°, high saturation
+      const hueDiff = Math.abs(h - keyH);
+      const hueDistance = Math.min(hueDiff, 360 - hueDiff);
 
-      // Calculate alpha with cubic ease for smoother gradients
+      // Calculate alpha based on hue distance and saturation
       let alpha = 1;
-      if (dE < tolerance) {
+      if (hueDistance < tolerance && s > 0.3) {
+        // Core green = transparent
+        const satFactor = Math.min(1, s / 0.5); // More saturated = more transparent
         alpha = 0;
-      } else if (dE < tolerance + softness) {
-        const t = (dE - tolerance) / softness;
-        // Smooth cubic ease-in-out for natural transitions
-        alpha = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-      }
-
-      alphaMap[pixelIdx] = alpha;
-
-      // Spill suppression: reduce green cast on edges
-      const maxRB = Math.max(r, b);
-      let finalG = g;
-
-      if (g > maxRB + 3) {
-        const excess = g - maxRB;
-        const proximityFactor = Math.max(0, 1 - dE / 120);
-        const suppress = Math.min(1, (excess / 60) + proximityFactor * 0.6);
-        finalG = Math.round(maxRB + excess * (1 - suppress * spillSuppress));
-      }
-
-      data[i + 1] = finalG;
-      data[i + 3] = Math.round(alpha * 255);
-    }
-
-    // Second pass: edge refinement with 3x3 box blur on alpha for anti-aliasing
-    const refinedAlpha = new Float32Array(w * h);
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const idx = y * w + x;
-        const currentAlpha = alphaMap[idx];
-
-        // Only refine edge pixels (not fully transparent or opaque)
-        if (currentAlpha > 0.01 && currentAlpha < 0.99) {
-          let sum = 0;
-          let count = 0;
-
-          // 3x3 neighborhood average
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-              const nx = x + dx;
-              const ny = y + dy;
-              if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
-                sum += alphaMap[ny * w + nx];
-                count++;
-              }
-            }
-          }
-
-          // Blend original with smoothed (70% smooth, 30% original for sharpness)
-          refinedAlpha[idx] = sum / count * 0.7 + currentAlpha * 0.3;
-        } else {
-          refinedAlpha[idx] = currentAlpha;
+        if (hueDistance > tolerance - softness) {
+          alpha = (hueDistance - (tolerance - softness)) / softness;
         }
+        alpha = alpha * (1 - satFactor * 0.7);
+      } else if (hueDistance < tolerance + softness && s > 0.2) {
+        // Soft edge
+        const t = (hueDistance - tolerance) / softness;
+        alpha = Math.min(1, t * t); // Quadratic ease
       }
-    }
 
-    // Apply refined alpha
-    for (let i = 0; i < data.length; i += 4) {
-      data[i + 3] = Math.round(refinedAlpha[i / 4] * 255);
+      // Spill suppression on visible pixels
+      if (alpha > 0.1 && g > Math.max(r, b) + 5) {
+        const maxRB = Math.max(r, b);
+        const excess = g - maxRB;
+        const suppress = excess * spillStrength * (1 - alpha * 0.5);
+        data[i + 1] = Math.round(g - suppress);
+      }
+
+      data[i + 3] = Math.round(alpha * 255);
     }
 
     ctx.putImageData(imageData, 0, 0);
