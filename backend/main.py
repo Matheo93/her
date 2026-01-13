@@ -1707,6 +1707,9 @@ async def chat(request: Request, data: dict, _: str = Depends(verify_api_key)):
 # Pre-generated filler audio for instant TTFA
 _filler_audio_cache: dict[str, bytes] = {}
 
+# Pre-generated backchannel audio for HER-like presence
+_backchannel_audio_cache: dict[str, dict[str, bytes]] = {}
+
 def _init_filler_audio():
     """Pre-generate natural filler sounds for instant response."""
     global _filler_audio_cache
@@ -1719,6 +1722,61 @@ def _init_filler_audio():
         if audio:
             _filler_audio_cache[filler] = audio
     print(f"⚡ Filler audio ready: {list(_filler_audio_cache.keys())}")
+
+
+def _init_backchannel_audio():
+    """Pre-generate backchannel sounds for HER-like presence.
+
+    Categories:
+    - acknowledgment: "mmhmm", "ouais", "d'accord"
+    - encouragement: "raconte", "vas-y"
+    - surprise: "oh!", "ah bon?", "sérieux?"
+    - empathy: "oh non...", "je comprends..."
+    - agreement: "exactement", "c'est clair"
+    - thinking: "hmm", "intéressant..."
+    """
+    global _backchannel_audio_cache
+    if _backchannel_audio_cache:
+        return
+
+    backchannels = {
+        "acknowledgment": ["mmhmm", "ouais", "oui oui", "d'accord", "ok"],
+        "encouragement": ["raconte", "vas-y", "continue"],
+        "surprise": ["oh!", "ah bon?", "sérieux?", "vraiment?", "waouh"],
+        "empathy": ["oh non...", "mince...", "aww...", "je comprends..."],
+        "agreement": ["exactement", "c'est clair", "carrément", "grave"],
+        "thinking": ["hmm", "intéressant...", "je vois..."]
+    }
+
+    for category, sounds in backchannels.items():
+        _backchannel_audio_cache[category] = {}
+        for sound in sounds:
+            audio = ultra_fast_tts(sound)
+            if audio:
+                _backchannel_audio_cache[category][sound] = audio
+
+    total = sum(len(v) for v in _backchannel_audio_cache.values())
+    print(f"🎙️ Backchannel audio ready: {total} sounds across {len(_backchannel_audio_cache)} categories")
+
+
+def get_backchannel_audio(category: str = "acknowledgment") -> Optional[tuple[str, bytes]]:
+    """Get a random backchannel audio from a category.
+
+    Returns: (sound_text, audio_bytes) or None
+    """
+    import random
+    if not _backchannel_audio_cache:
+        _init_backchannel_audio()
+
+    sounds = _backchannel_audio_cache.get(category, {})
+    if not sounds:
+        # Fallback to acknowledgment
+        sounds = _backchannel_audio_cache.get("acknowledgment", {})
+
+    if sounds:
+        sound_text = random.choice(list(sounds.keys()))
+        return (sound_text, sounds[sound_text])
+    return None
 
 
 @app.post("/chat/stream")
