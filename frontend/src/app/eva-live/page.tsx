@@ -2,10 +2,22 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 
-// Auto-detect if accessed via tunnel and use appropriate URLs
-const isPublic = typeof window !== "undefined" && window.location.hostname.includes("trycloudflare.com");
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ||
-  (isPublic ? "https://dive-cheaper-dietary-nat.trycloudflare.com" : "http://localhost:8000");
+// Get backend URL - auto-detect public tunnel
+function getBackendUrl(): string {
+  if (typeof window !== "undefined") {
+    // Check URL params first
+    const params = new URLSearchParams(window.location.search);
+    const customBackend = params.get("backend");
+    if (customBackend) return customBackend;
+
+    // If accessed via cloudflare tunnel, use the backend tunnel
+    if (window.location.hostname.includes("trycloudflare.com")) {
+      return "https://dive-cheaper-dietary-nat.trycloudflare.com";
+    }
+  }
+  return process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+}
+
 const LIPSYNC_URL = process.env.NEXT_PUBLIC_LIPSYNC_URL || "http://localhost:8001";
 
 // Emotion styles
