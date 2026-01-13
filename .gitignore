@@ -25,3 +25,13 @@ bun.lock
 # Backups
 *.backup
 .env
+
+# Large model files
+models/
+*.onnx
+*.bin
+*.pt
+*.pth
+tts_models/
+eva_memory/
+chroma_db/

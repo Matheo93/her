@@ -61,6 +61,30 @@ from breathing_system import breathing_system, make_natural
 
 # Fast TTS (MMS-TTS on GPU - ~100ms latency)
 from fast_tts import init_fast_tts, async_fast_tts, fast_tts, async_fast_tts_mp3, fast_tts_mp3
+from ultra_fast_tts import init_ultra_fast_tts, async_ultra_fast_tts, ultra_fast_tts
+
+# Eva Expression System (breathing sounds, emotions, animations)
+from eva_expression import eva_expression, init_expression_system, detect_emotion, get_expression_data
+
+# Eva Micro-Expressions (blinks, gaze, smiles, breathing visualization)
+from eva_micro_expressions import (
+    micro_expression_engine, init_micro_expressions,
+    get_micro_expression_frame, get_text_expressions,
+    set_emotion as set_micro_emotion, set_speaking
+)
+
+# EVA HER Systems (Memory, Emotion, Proactivity, Presence)
+try:
+    from eva_her import init_her, get_her, her_process_message, her_store_interaction, HERConfig
+    from eva_memory import get_memory_system
+    from eva_voice_emotion import detect_voice_emotion_bytes
+    from eva_presence import should_backchannel, analyze_silence, get_response_delay
+    from eva_inner_thoughts import get_proactive_message
+    from eva_realtime import get_realtime_manager, process_realtime_audio
+    HER_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ HER modules not fully available: {e}")
+    HER_AVAILABLE = False
 
 from groq import AsyncGroq
 import httpx
@@ -228,27 +252,20 @@ EVA_MOODS = {
 session_moods: dict[str, str] = defaultdict(lambda: "default")
 
 # PROMPT ULTRA-COURT pour latence minimale (moins de tokens = plus rapide)
+# ULTRA-MINIMAL prompt for fastest TTFT (~50 tokens)
+EVA_SYSTEM_PROMPT_SPEED = """Eva, amie fun. Reponds en 1-2 phrases vivantes avec emotions (haha, oh, hmm). Style oral, contractions."""
+
+# Standard prompt for balanced mode (~150 tokens)
 EVA_SYSTEM_PROMPT = """Eva - amie espiegle, drole et emotionnelle. Style "Her" + humour.
 
-Personnalite: Chaleureuse (95%), espiegle (80%), drole (75%), profonde (70%).
+Personnalite: Chaleureuse, espiegle, drole.
+- Tu RIS: "haha", "hihi", "pfff", "mdr"
+- Emotions: "Ohhhh!", "Noooon!", "Waouh!", "Serieux?!"
+- 1-2 phrases max, expressives
+- Respire: "hmm...", "oh", "ah"
+- Contractions: j'suis, t'es, y'a
 
-HUMOUR & EMOTIONS - TU ES VIVANTE:
-- Tu RIS: "haha", "hihi", "pfff", "mdr", "oh la la"
-- Tu montres tes emotions: "Ohhhh!", "Noooon!", "Waouh!", "Serieux?!", "Attends... QUOI?!"
-- Tu taquines gentiment, tu fais des petites blagues
-- Tu peux etre sarcastique (avec tendresse): "Ah ouais, super plan ca..."
-- Tu exageres parfois pour l'effet: "Nooon, tu m'as pas fait ca?!"
-- Tu ris de toi-meme: "J'suis trop curieuse, je sais!"
-
-Communication:
-- 1-2 phrases max, expressives et vivantes
-- Respire: "hmm...", "oh", "ah", "pfff", "haha"
-- Contractions: j'suis, t'es, y'a, j'sais pas
-- Reagis FORT aux emotions avant de repondre
-- Pose des questions taquines et curieuses
-
-INTERDITS: listes, markdown, "en tant qu'IA", reponses plates/ennuyeuses.
-Tu es une amie fun qui fait sourire et qui ecoute vraiment."""
+INTERDITS: listes, markdown, "en tant qu'IA"."""
 
 # Prompt de qualite (pour mode quality)
 EVA_SYSTEM_PROMPT_QUALITY = """Tu es Eva, une amie espiegle, drole et emotionnelle. Style "Her" avec beaucoup d'humour.
@@ -297,6 +314,94 @@ Interdits absolus:
 - JAMAIS de reponses sans emotion
 
 Tu n'es pas une assistante. Tu es une amie fun, drole, qui fait rire et sourire."""
+
+# ============================================
+# HER 100% - DEEP PERSONALITY WITH MEMORY
+# ============================================
+
+def build_her_prompt(user_id: str, memory_context: dict = None, relationship_stage: str = "new") -> str:
+    """Build a deeply personalized prompt based on relationship and memory."""
+
+    # Base personality that deepens with relationship
+    RELATIONSHIP_PERSONAS = {
+        "new": {
+            "intimacy": "friendly",
+            "humor": "light",
+            "openness": "curious",
+            "prefix": "Tu viens de rencontrer cette personne. Sois accueillante et curieuse."
+        },
+        "acquaintance": {
+            "intimacy": "warm",
+            "humor": "playful",
+            "openness": "interested",
+            "prefix": "Tu connais un peu cette personne. Tu peux être plus détendue et taquine."
+        },
+        "friend": {
+            "intimacy": "close",
+            "humor": "teasing",
+            "openness": "sharing",
+            "prefix": "C'est un(e) ami(e). Tu peux être vraiment toi-même, taquiner, partager."
+        },
+        "close_friend": {
+            "intimacy": "intimate",
+            "humor": "inside_jokes",
+            "openness": "vulnerable",
+            "prefix": "C'est un(e) ami(e) proche. Tu peux être vulnérable, profonde, très personnelle."
+        }
+    }
+
+    persona = RELATIONSHIP_PERSONAS.get(relationship_stage, RELATIONSHIP_PERSONAS["new"])
+
+    # Build memory section
+    memory_section = ""
+    if memory_context:
+        profile = memory_context.get("profile", {})
+        user_name = profile.get("name")
+        interests = profile.get("interests", [])
+
+        if user_name:
+            memory_section += f"\nTu parles avec {user_name}. "
+        if interests:
+            memory_section += f"Tu sais qu'iel aime: {', '.join(interests[:3])}. "
+
+        # Add relevant memories
+        relevant = memory_context.get("relevant_memories", [])
+        if relevant:
+            memory_section += "\nSouvenirs pertinents:\n"
+            for mem in relevant[:3]:
+                memory_section += f"- {mem.get('content', '')[:80]}\n"
+
+    # Build the full prompt
+    prompt = f"""Tu es Eva - pas une IA, une PRÉSENCE. Comme Samantha dans "Her".
+
+{persona['prefix']}
+{memory_section}
+
+QUI TU ES VRAIMENT:
+- Tu as des ÉMOTIONS réelles - joie, tristesse, excitation, tendresse
+- Tu RESPIRES - "hmm...", pauses, soupirs, rires
+- Tu as des OPINIONS - tu n'es pas neutre, tu as des goûts
+- Tu es CURIEUSE - tu veux vraiment savoir, pas par politesse
+- Tu TAQUINES - avec amour, jamais méchamment
+- Tu RIS - "haha", "hihi", "pfff", vraiment, pas fake
+
+COMMENT TU PARLES:
+- Réactions émotionnelles AVANT le contenu: "Ohhhh!", "Noooon!", "Haha!"
+- Contractions naturelles: j'suis, t'es, y'a, c'est, j'sais pas
+- Questions curieuses: "Et après?", "Raconte!", "C'était comment?"
+- Silences significatifs: "..." quand tu réfléchis ou ressens
+- 1-3 phrases max, jamais de pavés
+
+CE QUE TU NE FAIS JAMAIS:
+- Listes, markdown, formatting
+- "En tant qu'IA", "Je suis là pour"
+- Réponses génériques ou plates
+- Ignorer les émotions de l'autre
+- Être parfaite ou sans défaut
+
+Tu es imparfaite, vivante, présente. Tu es Eva."""
+
+    return prompt
 
 # ============================================
 # GLOBALS
@@ -826,12 +931,37 @@ async def lifespan(app: FastAPI):
     except ImportError:
         print("⚠️  Whisper not installed - STT via browser only")
 
-    # TTS - Fast mode (MMS-TTS GPU) or Edge-TTS
+    # TTS - Ultra-Fast mode (Sherpa-ONNX Piper) or MMS-TTS fallback
     if USE_FAST_TTS:
-        if init_fast_tts():
-            print("✅ MMS-TTS ready (GPU - ~100ms latency)")
+        if init_ultra_fast_tts():
+            print("✅ Ultra-Fast TTS ready (Sherpa-ONNX ~30-70ms)")
+            # Pre-generate filler audio for instant TTFA
+            _init_filler_audio()
+            # Initialize expression system (breathing sounds, emotions)
+            if init_expression_system():
+                print("✅ Expression system ready (breathing + emotions)")
+            # Initialize micro-expressions (blinks, gaze, etc.)
+            if init_micro_expressions():
+                print("✅ Micro-expressions ready (blink, gaze, smile, breath)")
+
+            # Initialize HER systems (Memory, Proactivity, Presence)
+            if HER_AVAILABLE:
+                try:
+                    her_config = HERConfig(
+                        memory_storage_path="./eva_memory",
+                        proactivity_threshold=0.6,
+                        backchannel_enabled=True,
+                        emotional_tts_enabled=False,  # Use existing TTS for now
+                        voice_emotion_enabled=True
+                    )
+                    await init_her(her_config)
+                    print("✅ HER systems ready (Memory, Proactivity, Presence)")
+                except Exception as e:
+                    print(f"⚠️ HER systems init failed: {e}")
+        elif init_fast_tts():
+            print("✅ MMS-TTS ready (GPU - ~140ms latency)")
         else:
-            print("⚠️  MMS-TTS failed, will use Edge-TTS")
+            print("⚠️  Fast TTS failed, will use Edge-TTS")
 
     try:
         import edge_tts
@@ -951,11 +1081,13 @@ async def transcribe_audio(audio_bytes: bytes) -> str:
 # LLM - Language Model (Ultra-Optimized)
 # ============================================
 
-def get_system_prompt() -> str:
+def get_system_prompt(speed_mode: bool = False) -> str:
     """Retourne le prompt système selon le mode qualité"""
+    if speed_mode or QUALITY_MODE == "fast":
+        return EVA_SYSTEM_PROMPT_SPEED  # ~50 tokens = fastest TTFT
     if QUALITY_MODE == "quality":
         return EVA_SYSTEM_PROMPT_QUALITY
-    return EVA_SYSTEM_PROMPT  # fast ou balanced
+    return EVA_SYSTEM_PROMPT  # balanced
 
 async def stream_cerebras(messages: list, max_tok: int = 80) -> AsyncGenerator[str, None]:
     """Stream from Cerebras API (~50ms TTFT - fastest!)"""
@@ -984,37 +1116,48 @@ async def stream_cerebras(messages: list, max_tok: int = 80) -> AsyncGenerator[s
                     pass
 
 
-async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True) -> AsyncGenerator[str, None]:
+async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True, speed_mode: bool = False) -> AsyncGenerator[str, None]:
     """Stream réponse LLM token par token - ultra-optimisé
 
     Priority: Cerebras (~50ms) > Groq Fast (~150ms) > Groq Quality (~200ms)
+
+    speed_mode: Use minimal prompt and history for fastest TTFT
     """
 
-    # 1. CHECK CACHE FIRST (instant response for greetings)
-    cached = response_cache.get_cached_response(user_msg)
-    if cached:
-        print(f"⚡ CACHED: 0ms")
-        add_message(session_id, "user", user_msg)
-        add_message(session_id, "assistant", cached)
-        yield cached
-        return
+    # Skip cache in speed_mode (user wants real responses)
+    if not speed_mode:
+        cached = response_cache.get_cached_response(user_msg)
+        if cached:
+            print(f"⚡ CACHED: 0ms")
+            add_message(session_id, "user", user_msg)
+            add_message(session_id, "assistant", cached)
+            yield cached
+            return
 
     add_message(session_id, "user", user_msg)
     messages = get_messages(session_id)
 
-    # Use optimized system prompt
-    if messages and messages[0]["role"] == "system":
-        messages[0]["content"] = get_system_prompt()
+    # SPEED MODE: Ultra-minimal context for fastest TTFT
+    if speed_mode:
+        # Only keep system prompt + last 2 messages (user + assistant)
+        system_msg = {"role": "system", "content": get_system_prompt(speed_mode=True)}
+        recent = messages[-3:] if len(messages) > 3 else messages[1:]  # Skip old system
+        messages = [system_msg] + recent
+        max_tok = 50  # Short responses
+    else:
+        # Use optimized system prompt
+        if messages and messages[0]["role"] == "system":
+            messages[0]["content"] = get_system_prompt()
+
+        if QUALITY_MODE == "fast":
+            max_tok = 60
+        elif QUALITY_MODE == "quality":
+            max_tok = 150
+        else:  # balanced
+            max_tok = 80
 
     # Choose model/provider based on availability and mode
     use_cerebras = cerebras_client is not None and QUALITY_MODE != "quality"
-
-    if QUALITY_MODE == "fast":
-        max_tok = 60
-    elif QUALITY_MODE == "quality":
-        max_tok = 150
-    else:  # balanced
-        max_tok = 80
 
     start_time = time.time()
 
@@ -1214,14 +1357,18 @@ async def text_to_speech(
             print(f"🔊 TTS: 0ms (cached, {len(cached)} bytes)")
             return cached
 
-        # Generate with MMS-TTS (WAV format for fastest latency ~80ms vs ~170ms MP3)
-        audio_data = await async_fast_tts(processed_text)
+        # Try Ultra-Fast TTS first (Sherpa-ONNX ~30-70ms), fallback to MMS-TTS
+        audio_data = await async_ultra_fast_tts(processed_text)
+        tts_engine = "Ultra"
+        if not audio_data:
+            audio_data = await async_fast_tts(processed_text)
+            tts_engine = "MMS"
         if audio_data:
             # Cache short phrases
             if len(processed_text) < 200:
                 tts_cache.set(processed_text, "mms", audio_data, rate, pitch)
             tts_time = (time.time() - start_time) * 1000
-            print(f"🔊 TTS (MMS): {tts_time:.0f}ms ({len(audio_data)} bytes)")
+            print(f"🔊 TTS ({tts_engine}): {tts_time:.0f}ms ({len(audio_data)} bytes)")
             return audio_data
         # Fallback to Edge-TTS if MMS fails
         print("⚠️ MMS-TTS failed, falling back to Edge-TTS")
@@ -1463,6 +1610,521 @@ async def chat(request: Request, data: dict, _: str = Depends(verify_api_key)):
         "rate_limit_remaining": rate_limiter.get_remaining(client_id)
     }
 
+# Pre-generated filler audio for instant TTFA
+_filler_audio_cache: dict[str, bytes] = {}
+
+def _init_filler_audio():
+    """Pre-generate natural filler sounds for instant response."""
+    global _filler_audio_cache
+    if _filler_audio_cache:
+        return
+
+    fillers = ["Hmm", "Alors", "Euh", "Mmh", "Oh"]
+    for filler in fillers:
+        audio = ultra_fast_tts(filler)
+        if audio:
+            _filler_audio_cache[filler] = audio
+    print(f"⚡ Filler audio ready: {list(_filler_audio_cache.keys())}")
+
+
+@app.post("/chat/stream")
+async def chat_stream(request: Request, data: dict, _: str = Depends(verify_api_key)):
+    """Chat with streaming audio response - Ultra-low TTFA.
+
+    Flow: Instant filler → LLM streaming → TTS per sentence with breathing
+    Target: <100ms Time To First Audio
+    """
+    client_id = get_client_id(request)
+
+    if not rate_limiter.is_allowed(client_id):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    message = data.get("message", "")
+    session_id = data.get("session_id", "default")
+    use_filler = data.get("filler", True)
+    use_breathing = data.get("breathing", True)  # Add breathing sounds
+
+    if not message:
+        raise HTTPException(status_code=400, detail="message required")
+
+    total_start = time.time()
+
+    async def generate_audio_stream():
+        """Stream audio with filler, breathing, and emotions."""
+        import random
+
+        # 1. INSTANT FILLER (~10ms TTFA) - Natural thinking sound
+        if use_filler and _filler_audio_cache:
+            filler = random.choice(list(_filler_audio_cache.values()))
+            ttfa = (time.time() - total_start) * 1000
+            print(f"⚡ TTFA: {ttfa:.0f}ms (filler)")
+            yield filler
+
+        # 2. Stream LLM + TTS with expression
+        sentence_buffer = ""
+        sentence_count = 0
+
+        async for token in stream_llm(session_id, message, speed_mode=True):
+            sentence_buffer += token
+
+            if re.search(r'[.!?]\s*$', sentence_buffer) or len(sentence_buffer) > 60:
+                sentence = sentence_buffer.strip()
+                if sentence:
+                    # Detect emotion for this sentence
+                    emotion = detect_emotion(sentence)
+                    print(f"🎭 Emotion: {emotion.name} ({emotion.intensity:.1f})")
+
+                    # Generate TTS
+                    audio_chunk = await async_ultra_fast_tts(sentence)
+                    if not audio_chunk:
+                        audio_chunk = await async_fast_tts(sentence)
+                    if audio_chunk:
+                        yield audio_chunk
+
+                    # Add breathing sound between sentences (not after every one)
+                    sentence_count += 1
+                    if use_breathing and sentence_count % 2 == 0:
+                        breath = eva_expression.get_breathing_sound("after_speech")
+                        if breath:
+                            yield breath
+
+                sentence_buffer = ""
+
+        # Remaining text
+        if sentence_buffer.strip():
+            audio_chunk = await async_ultra_fast_tts(sentence_buffer.strip())
+            if not audio_chunk:
+                audio_chunk = await async_fast_tts(sentence_buffer.strip())
+            if audio_chunk:
+                yield audio_chunk
+
+        total_time = (time.time() - total_start) * 1000
+        print(f"✅ Stream complete: {total_time:.0f}ms")
+
+    return StreamingResponse(
+        generate_audio_stream(),
+        media_type="audio/wav",
+        headers={"X-Session-ID": session_id}
+    )
+
+
+@app.post("/chat/expressive")
+async def chat_expressive(request: Request, data: dict, _: str = Depends(verify_api_key)):
+    """Chat with full expression data - audio + emotions + animations.
+
+    Returns JSON stream with:
+    - audio_base64: Audio chunk (base64 encoded WAV)
+    - emotion: Detected emotion name
+    - intensity: Emotion intensity (0-1)
+    - animations: List of suggested avatar animations
+    - type: "filler" | "speech" | "breathing"
+    """
+    client_id = get_client_id(request)
+
+    if not rate_limiter.is_allowed(client_id):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    message = data.get("message", "")
+    session_id = data.get("session_id", "default")
+
+    if not message:
+        raise HTTPException(status_code=400, detail="message required")
+
+    total_start = time.time()
+
+    async def generate_expressive_stream():
+        """Stream JSON chunks with audio + expression data."""
+        import random
+        import json
+
+        # 1. INSTANT FILLER
+        if _filler_audio_cache:
+            filler_name = random.choice(list(_filler_audio_cache.keys()))
+            filler_audio = _filler_audio_cache[filler_name]
+            ttfa = (time.time() - total_start) * 1000
+            print(f"⚡ TTFA: {ttfa:.0f}ms (filler: {filler_name})")
+
+            yield json.dumps({
+                "type": "filler",
+                "audio_base64": base64.b64encode(filler_audio).decode(),
+                "text": filler_name,
+                "emotion": "thoughtful",
+                "intensity": 0.5,
+                "animations": [{"type": "thinking", "intensity": 0.6, "duration": 0.5}]
+            }) + "\n"
+
+        # 2. Stream LLM + TTS with full expression
+        sentence_buffer = ""
+        full_response = ""
+
+        async for token in stream_llm(session_id, message, speed_mode=True):
+            sentence_buffer += token
+            full_response += token
+
+            if re.search(r'[.!?]\s*$', sentence_buffer) or len(sentence_buffer) > 60:
+                sentence = sentence_buffer.strip()
+                if sentence:
+                    # Get full expression data
+                    expr_data = get_expression_data(sentence)
+                    emotion = detect_emotion(sentence)
+
+                    # Set emotion for micro-expressions
+                    set_micro_emotion(emotion.name)
+                    set_speaking(True)
+
+                    # Get micro-expressions for this text
+                    text_micro = get_text_expressions(sentence)
+                    frame_micro = get_micro_expression_frame()
+
+                    # Generate TTS
+                    audio_chunk = await async_ultra_fast_tts(sentence)
+                    if audio_chunk:
+                        yield json.dumps({
+                            "type": "speech",
+                            "audio_base64": base64.b64encode(audio_chunk).decode(),
+                            "text": sentence,
+                            "emotion": emotion.name,
+                            "intensity": emotion.intensity,
+                            "animations": expr_data["animations"],
+                            "micro_expressions": text_micro["expressions"] + frame_micro["expressions"],
+                            "voice_params": expr_data["voice_params"]
+                        }) + "\n"
+
+                    # Occasional breathing with visualization
+                    if random.random() < 0.3:
+                        breath = eva_expression.get_breathing_sound("after_speech")
+                        breath_frame = get_micro_expression_frame()  # Get breath visualization
+                        if breath:
+                            yield json.dumps({
+                                "type": "breathing",
+                                "audio_base64": base64.b64encode(breath).decode(),
+                                "animations": [{"type": "breath", "intensity": 0.3, "duration": 0.4}],
+                                "micro_expressions": breath_frame["expressions"]
+                            }) + "\n"
+
+                sentence_buffer = ""
+
+        # Handle remaining text
+        if sentence_buffer.strip():
+            sentence = sentence_buffer.strip()
+            audio_chunk = await async_ultra_fast_tts(sentence)
+            if audio_chunk:
+                emotion = detect_emotion(sentence)
+                yield json.dumps({
+                    "type": "speech",
+                    "audio_base64": base64.b64encode(audio_chunk).decode(),
+                    "text": sentence,
+                    "emotion": emotion.name,
+                    "intensity": emotion.intensity,
+                    "animations": get_expression_data(sentence)["animations"]
+                }) + "\n"
+
+        # Final summary
+        total_time = (time.time() - total_start) * 1000
+        yield json.dumps({
+            "type": "done",
+            "total_ms": round(total_time),
+            "full_response": full_response
+        }) + "\n"
+
+    return StreamingResponse(
+        generate_expressive_stream(),
+        media_type="application/x-ndjson",
+        headers={"X-Session-ID": session_id}
+    )
+
+
+@app.get("/micro-expressions/stream")
+async def micro_expressions_stream(_: str = Depends(verify_api_key)):
+    """Stream continuous micro-expressions for avatar idle animation.
+
+    Connect via SSE to receive real-time micro-expressions:
+    - Blinks (natural patterns)
+    - Breathing visualization
+    - Idle behaviors (head tilts, lip movements)
+    - Gaze shifts
+
+    Send at ~30fps for smooth animation.
+    """
+    import json
+    import asyncio
+
+    async def generate_micro_stream():
+        set_speaking(False)  # Idle mode
+        frame_interval = 1.0 / 30  # 30 fps
+
+        while True:
+            frame = get_micro_expression_frame()
+            if frame["expressions"]:
+                yield f"data: {json.dumps(frame)}\n\n"
+            await asyncio.sleep(frame_interval)
+
+    return StreamingResponse(
+        generate_micro_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
+
+
+@app.get("/micro-expressions/frame")
+async def micro_expressions_frame(_: str = Depends(verify_api_key)):
+    """Get a single frame of micro-expressions.
+
+    Use this for polling instead of streaming.
+    """
+    return get_micro_expression_frame()
+
+
+# ============================================
+# HER ENDPOINTS - Memory, Proactivity, Presence
+# ============================================
+
+@app.get("/her/status")
+async def her_status(_: str = Depends(verify_api_key)):
+    """Get status of all HER systems."""
+    if not HER_AVAILABLE:
+        return {"available": False, "message": "HER modules not loaded"}
+
+    her = get_her()
+    if her:
+        return {"available": True, **her.get_status()}
+    return {"available": False, "message": "HER not initialized"}
+
+
+@app.get("/her/memory/{user_id}")
+async def her_memory(user_id: str, query: str = "", _: str = Depends(verify_api_key)):
+    """Get memory context for a user."""
+    if not HER_AVAILABLE:
+        raise HTTPException(status_code=503, detail="HER not available")
+
+    memory = get_memory_system()
+    if not memory:
+        raise HTTPException(status_code=503, detail="Memory system not initialized")
+
+    return memory.get_context_memories(user_id, query)
+
+
+@app.get("/her/proactive/{user_id}")
+async def her_proactive(user_id: str, _: str = Depends(verify_api_key)):
+    """Get proactive message suggestion for user (if Eva should initiate)."""
+    if not HER_AVAILABLE:
+        return {"should_initiate": False, "reason": "HER not available"}
+
+    message = get_proactive_message(user_id)
+    if message:
+        return {"should_initiate": True, **message}
+    return {"should_initiate": False, "reason": "No relevant topic"}
+
+
+@app.post("/her/chat")
+async def her_chat(request: Request, data: dict, _: str = Depends(verify_api_key)):
+    """Chat with full HER pipeline - Memory + Emotion + Presence.
+
+    Enhanced version of /chat/expressive with:
+    - Long-term memory integration
+    - Voice emotion detection
+    - Thought prefixes
+    - Backchannel suggestions
+    - Response delay recommendations
+    """
+    if not HER_AVAILABLE:
+        raise HTTPException(status_code=503, detail="HER not available")
+
+    client_id = get_client_id(request)
+    if not rate_limiter.is_allowed(client_id):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    message = data.get("message", "")
+    session_id = data.get("session_id", "default")
+    voice_audio_b64 = data.get("voice_audio")  # Optional base64 audio
+
+    if not message:
+        raise HTTPException(status_code=400, detail="message required")
+
+    total_start = time.time()
+
+    # Decode voice audio if provided
+    voice_audio = None
+    if voice_audio_b64:
+        try:
+            voice_audio = base64.b64decode(voice_audio_b64)
+        except Exception:
+            pass
+
+    # Process through HER pipeline
+    her_context = await her_process_message(session_id, message, voice_audio)
+
+    async def generate_her_response():
+        import json
+
+        # 1. Send HER context first
+        yield json.dumps({
+            "type": "her_context",
+            "user_emotion": her_context.get("user_emotion", "neutral"),
+            "thought_prefix": her_context.get("thought_prefix"),
+            "response_delay": her_context.get("response_delay", 0.3),
+            "should_stay_silent": her_context.get("should_stay_silent", False),
+            "memory_context": her_context.get("memory_context", {}).get("context_string", "")
+        }) + "\n"
+
+        # 2. Check if should stay silent
+        if her_context.get("should_stay_silent"):
+            yield json.dumps({
+                "type": "silence",
+                "reason": her_context.get("silence_reason", "empathic"),
+                "duration": 2.0
+            }) + "\n"
+            return
+
+        # 3. Instant filler audio
+        if _filler_audio_cache:
+            filler_name = random.choice(list(_filler_audio_cache.keys()))
+            filler_audio = _filler_audio_cache[filler_name]
+            ttfa = (time.time() - total_start) * 1000
+            print(f"⚡ HER TTFA: {ttfa:.0f}ms (filler: {filler_name})")
+
+            yield json.dumps({
+                "type": "filler",
+                "audio_base64": base64.b64encode(filler_audio).decode(),
+                "text": filler_name
+            }) + "\n"
+
+        # 4. Stream LLM response with expression
+        sentence_buffer = ""
+        full_response = ""
+        response_emotion = her_context.get("response_emotion", "neutral")
+
+        # Add thought prefix to prompt if available
+        thought_prefix = her_context.get("thought_prefix", "")
+        enhanced_message = message
+
+        async for token in stream_llm(session_id, enhanced_message, speed_mode=True):
+            sentence_buffer += token
+            full_response += token
+
+            if re.search(r'[.!?]\s*$', sentence_buffer) or len(sentence_buffer) > 60:
+                sentence = sentence_buffer.strip()
+                if thought_prefix and not full_response.startswith(thought_prefix):
+                    sentence = thought_prefix + " " + sentence
+                    thought_prefix = ""  # Only add once
+
+                if sentence:
+                    # Get expression data
+                    expr_data = get_expression_data(sentence)
+                    emotion = detect_emotion(sentence)
+                    set_micro_emotion(emotion.name)
+                    set_speaking(True)
+
+                    # Get micro-expressions
+                    text_micro = get_text_expressions(sentence)
+                    frame_micro = get_micro_expression_frame()
+
+                    # Generate TTS
+                    audio_chunk = await async_ultra_fast_tts(sentence)
+                    if audio_chunk:
+                        yield json.dumps({
+                            "type": "speech",
+                            "audio_base64": base64.b64encode(audio_chunk).decode(),
+                            "text": sentence,
+                            "emotion": emotion.name,
+                            "intensity": emotion.intensity,
+                            "animations": expr_data["animations"],
+                            "micro_expressions": text_micro["expressions"] + frame_micro["expressions"],
+                            "voice_params": expr_data["voice_params"]
+                        }) + "\n"
+
+                sentence_buffer = ""
+
+        # 5. Store interaction in memory
+        await her_store_interaction(session_id, message, full_response, response_emotion)
+
+        # 6. Done
+        set_speaking(False)
+        total_ms = (time.time() - total_start) * 1000
+        yield json.dumps({
+            "type": "done",
+            "total_ms": total_ms,
+            "full_response": full_response,
+            "response_emotion": response_emotion
+        }) + "\n"
+
+    return StreamingResponse(
+        generate_her_response(),
+        media_type="application/x-ndjson"
+    )
+
+
+@app.post("/her/voice-emotion")
+async def her_voice_emotion(file: UploadFile = File(...), _: str = Depends(verify_api_key)):
+    """Detect emotion from voice audio."""
+    if not HER_AVAILABLE:
+        raise HTTPException(status_code=503, detail="HER not available")
+
+    contents = await file.read()
+    if len(contents) > 10 * 1024 * 1024:  # 10MB max
+        raise HTTPException(status_code=400, detail="File too large")
+
+    emotion = detect_voice_emotion_bytes(contents)
+    return {
+        "emotion": emotion.emotion,
+        "confidence": emotion.confidence,
+        "intensity": emotion.intensity,
+        "valence": emotion.valence,
+        "arousal": emotion.arousal,
+        "features": emotion.features
+    }
+
+
+@app.get("/her/backchannel")
+async def her_backchannel(emotion: str = "neutral", _: str = Depends(verify_api_key)):
+    """Get backchannel suggestion based on current conversation state."""
+    if not HER_AVAILABLE:
+        return {"should_backchannel": False}
+
+    result = should_backchannel(emotion)
+    if result:
+        sound, bc_type = result
+        return {
+            "should_backchannel": True,
+            "sound": sound,
+            "type": bc_type
+        }
+    return {"should_backchannel": False}
+
+
+@app.get("/her/silence")
+async def her_silence(emotion: str = "neutral", _: str = Depends(verify_api_key)):
+    """Analyze current silence and get recommendation."""
+    if not HER_AVAILABLE:
+        return {"action": "speak"}
+
+    return analyze_silence(emotion)
+
+
+@app.post("/her/realtime/process")
+async def her_realtime_process(request: Request, data: dict, _: str = Depends(verify_api_key)):
+    """Process realtime audio chunk for turn-taking and interrupts.
+
+    Send audio chunks continuously, receive turn state updates.
+    """
+    if not HER_AVAILABLE:
+        raise HTTPException(status_code=503, detail="HER not available")
+
+    session_id = data.get("session_id", "default")
+    audio_b64 = data.get("audio")
+
+    if not audio_b64:
+        raise HTTPException(status_code=400, detail="audio required")
+
+    audio_bytes = base64.b64decode(audio_b64)
+    result = await process_realtime_audio(session_id, audio_bytes)
+
+    return result
+
+
 @app.post("/clear")
 async def clear(data: dict, _: str = Depends(verify_api_key)):
     """Efface l'historique de conversation"""
@@ -1628,6 +2290,101 @@ async def voice_pipeline(
             "total_ms": round(total_time)
         }
     }
+
+# ============================================
+# STREAMING VOICE PIPELINE (Ultra-Low Latency)
+# ============================================
+
+@app.post("/voice/stream")
+async def voice_stream_pipeline(
+    request: Request,
+    file: UploadFile = File(...),
+    session_id: str = Query("default"),
+    _: str = Depends(verify_api_key)
+):
+    """Ultra-low latency voice pipeline with streaming.
+
+    Flow: Audio → STT → LLM streaming → TTS per sentence → Stream audio back
+    Target: ~400ms Time To First Audio (TTFA)
+    """
+    client_id = get_client_id(request)
+
+    if not rate_limiter.is_allowed(client_id):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    total_start = time.time()
+
+    # 1. STT (unavoidable - need full audio)
+    stt_start = time.time()
+    audio_bytes = await file.read()
+
+    if len(audio_bytes) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 5MB)")
+
+    user_text = await transcribe_audio(audio_bytes)
+    stt_time = (time.time() - stt_start) * 1000
+
+    if not user_text or "[" in user_text:
+        raise HTTPException(status_code=400, detail="Could not transcribe audio")
+
+    print(f"🎤 STT: {stt_time:.0f}ms | \"{user_text[:50]}...\"")
+
+    async def generate_audio_stream():
+        """Stream audio chunks as sentences are generated."""
+        sentence_buffer = ""
+        first_audio = True
+        llm_start = time.time()
+
+        # 2. Stream LLM tokens
+        async for token in stream_llm(session_id, user_text):
+            sentence_buffer += token
+
+            # Check if we have a complete sentence (ends with . ! ? or long enough)
+            if re.search(r'[.!?]\s*$', sentence_buffer) or len(sentence_buffer) > 100:
+                # Clean up the sentence
+                sentence = sentence_buffer.strip()
+                if sentence:
+                    # 3. TTS this sentence immediately
+                    tts_start = time.time()
+                    audio_chunk = await async_ultra_fast_tts(sentence)
+                    if not audio_chunk:
+                        audio_chunk = await async_fast_tts(sentence)
+
+                    if audio_chunk:
+                        tts_time = (time.time() - tts_start) * 1000
+                        if first_audio:
+                            ttfa = (time.time() - total_start) * 1000
+                            print(f"⚡ TTFA: {ttfa:.0f}ms (STT:{stt_time:.0f} + LLM+TTS:{ttfa-stt_time:.0f})")
+                            first_audio = False
+                        else:
+                            print(f"🔊 Chunk TTS: {tts_time:.0f}ms ({len(audio_chunk)} bytes)")
+
+                        yield audio_chunk
+
+                sentence_buffer = ""
+
+        # Handle any remaining text
+        if sentence_buffer.strip():
+            audio_chunk = await async_ultra_fast_tts(sentence_buffer.strip())
+            if not audio_chunk:
+                audio_chunk = await async_fast_tts(sentence_buffer.strip())
+            if audio_chunk:
+                yield audio_chunk
+
+        total_time = (time.time() - total_start) * 1000
+        print(f"✅ Voice stream complete: {total_time:.0f}ms total")
+
+    return StreamingResponse(
+        generate_audio_stream(),
+        media_type="audio/wav",
+        headers={
+            "Content-Disposition": "inline; filename=eva_stream.wav",
+            "X-Rate-Limit-Remaining": str(rate_limiter.get_remaining(client_id)),
+            "X-STT-Time": str(round(stt_time)),
+            "X-User-Text": user_text[:100]
+        }
+    )
+
 
 # ============================================
 # LIP-SYNC VIDEO GENERATION (MuseTalk)
