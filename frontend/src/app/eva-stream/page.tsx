@@ -412,8 +412,8 @@ export default function EvaStreamPage() {
     if (!inputText.trim()) return;
 
     wsRef.current?.send(JSON.stringify({
-      type: "text",
-      text: inputText.trim()
+      type: "message",
+      content: inputText.trim()
     }));
 
     setInputText("");
