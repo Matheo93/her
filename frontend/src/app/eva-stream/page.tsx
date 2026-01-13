@@ -88,7 +88,7 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
           fps: data.stats?.effective_fps || 0,
           latency: data.stats?.avg_per_frame_ms || 0
         }));
-        setIsPlaying(false);
+        // Don't set isPlaying=false here - let render loop handle it when queue is empty
       } else if (data.type === "config_ok") {
         console.log("Lipsync configured:", data.avatar);
       }
