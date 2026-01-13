@@ -101,7 +101,7 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
 
   // Send audio when received
   useEffect(() => {
-    if (audioData && wsRef.current?.readyState === WebSocket.OPEN) {
+    if (audioData && lipsyncWsRef.current?.readyState === WebSocket.OPEN) {
       console.log("Sending audio:", audioData.byteLength, "bytes");
 
       // Convert ArrayBuffer to base64
@@ -109,14 +109,14 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
       const binary = String.fromCharCode(...bytes);
       const base64 = btoa(binary);
 
-      wsRef.current.send(JSON.stringify({
+      lipsyncWsRef.current.send(JSON.stringify({
         type: "audio_wav",
         data: base64
       }));
 
       // Signal end after a small delay
       setTimeout(() => {
-        wsRef.current?.send(JSON.stringify({ type: "end" }));
+        lipsyncWsRef.current?.send(JSON.stringify({ type: "end" }));
       }, 100);
 
       setIsPlaying(true);
