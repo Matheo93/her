@@ -957,8 +957,38 @@ def get_system_prompt() -> str:
         return EVA_SYSTEM_PROMPT_QUALITY
     return EVA_SYSTEM_PROMPT  # fast ou balanced
 
+async def stream_cerebras(messages: list, max_tok: int = 80) -> AsyncGenerator[str, None]:
+    """Stream from Cerebras API (~50ms TTFT - fastest!)"""
+    async with cerebras_client.stream(
+        "POST",
+        "/chat/completions",
+        json={
+            "model": CEREBRAS_MODEL,
+            "messages": messages,
+            "stream": True,
+            "temperature": 0.7,
+            "max_tokens": max_tok,
+            "top_p": 0.85,
+        },
+    ) as response:
+        async for line in response.aiter_lines():
+            if line.startswith("data: "):
+                data = line[6:]
+                if data == "[DONE]":
+                    break
+                try:
+                    chunk = json_loads(data)
+                    if chunk.get("choices") and chunk["choices"][0].get("delta", {}).get("content"):
+                        yield chunk["choices"][0]["delta"]["content"]
+                except:
+                    pass
+
+
 async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True) -> AsyncGenerator[str, None]:
-    """Stream réponse LLM token par token - ultra-optimisé"""
+    """Stream réponse LLM token par token - ultra-optimisé
+
+    Priority: Cerebras (~50ms) > Groq Fast (~150ms) > Groq Quality (~200ms)
+    """
 
     # 1. CHECK CACHE FIRST (instant response for greetings)
     cached = response_cache.get_cached_response(user_msg)
@@ -976,58 +1006,108 @@ async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True) -> A
     if messages and messages[0]["role"] == "system":
         messages[0]["content"] = get_system_prompt()
 
-    # Choose model based on mode
+    # Choose model/provider based on availability and mode
+    use_cerebras = cerebras_client is not None and QUALITY_MODE != "quality"
+
     if QUALITY_MODE == "fast":
-        model = GROQ_MODEL_FAST
         max_tok = 60
     elif QUALITY_MODE == "quality":
-        model = GROQ_MODEL_QUALITY
         max_tok = 150
     else:  # balanced
-        model = GROQ_MODEL_FAST if use_fast else GROQ_MODEL_QUALITY
         max_tok = 80
 
     start_time = time.time()
 
     try:
-        stream = await groq_client.chat.completions.create(
-            model=model,
-            messages=messages,
-            stream=True,
-            temperature=0.7,
-            max_tokens=max_tok,
-            top_p=0.85,
-            # Removed "..." from stop to allow natural pauses in responses
-        )
+        # Try Cerebras first (50ms TTFT) if available
+        if use_cerebras:
+            provider = "cerebras"
+            full = ""
+            first_token = True
 
-        full = ""
-        first_token = True
-
-        async for chunk in stream:
-            if chunk.choices[0].delta.content:
-                token = chunk.choices[0].delta.content
-
+            async for token in stream_cerebras(messages, max_tok):
                 if first_token:
                     ttft = (time.time() - start_time) * 1000
-                    print(f"⚡ TTFT: {ttft:.0f}ms ({model.split('-')[1]})")
+                    print(f"⚡ TTFT: {ttft:.0f}ms (cerebras)")
                     first_token = False
-
                 full += token
                 yield token
+        else:
+            # Fallback to Groq
+            provider = "groq"
+            if QUALITY_MODE == "quality":
+                model = GROQ_MODEL_QUALITY
+            else:
+                model = GROQ_MODEL_FAST if use_fast else GROQ_MODEL_QUALITY
+
+            stream = await groq_client.chat.completions.create(
+                model=model,
+                messages=messages,
+                stream=True,
+                temperature=0.7,
+                max_tokens=max_tok,
+                top_p=0.85,
+            )
+
+            full = ""
+            first_token = True
+
+            async for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    token = chunk.choices[0].delta.content
+
+                    if first_token:
+                        ttft = (time.time() - start_time) * 1000
+                        print(f"⚡ TTFT: {ttft:.0f}ms ({model.split('-')[1]})")
+                        first_token = False
+
+                    full += token
+                    yield token
 
         # Humaniser la réponse complète (pour le stockage et la cohérence)
         humanized = humanize_response(full)
         add_message(session_id, "assistant", humanized)
 
         total_time = (time.time() - start_time) * 1000
-        print(f"⚡ LLM Total: {total_time:.0f}ms ({len(humanized)} chars)")
+        print(f"⚡ LLM Total: {total_time:.0f}ms ({len(humanized)} chars, {provider})")
 
         # Async log (non-blocking)
         asyncio.create_task(async_log_usage(session_id, "llm", int(total_time)))
 
     except Exception as e:
         print(f"LLM Error: {e}")
-        yield f"Désolée, j'ai eu un petit souci. Tu peux répéter ?"
+        # Fallback to Groq if Cerebras fails
+        if use_cerebras and groq_client:
+            print("⚠️ Cerebras failed, falling back to Groq...")
+            async for token in stream_llm_groq_fallback(messages, max_tok, start_time):
+                yield token
+        else:
+            yield f"Désolée, j'ai eu un petit souci. Tu peux répéter ?"
+
+
+async def stream_llm_groq_fallback(messages: list, max_tok: int, start_time: float) -> AsyncGenerator[str, None]:
+    """Groq fallback when Cerebras fails"""
+    try:
+        stream = await groq_client.chat.completions.create(
+            model=GROQ_MODEL_FAST,
+            messages=messages,
+            stream=True,
+            temperature=0.7,
+            max_tokens=max_tok,
+            top_p=0.85,
+        )
+        first_token = True
+        async for chunk in stream:
+            if chunk.choices[0].delta.content:
+                token = chunk.choices[0].delta.content
+                if first_token:
+                    ttft = (time.time() - start_time) * 1000
+                    print(f"⚡ TTFT (fallback): {ttft:.0f}ms")
+                    first_token = False
+                yield token
+    except Exception as e:
+        print(f"Groq fallback error: {e}")
+        yield "Désolée, j'ai eu un souci technique."
 
 async def async_log_usage(session_id: str, endpoint: str, latency_ms: int):
     """Non-blocking usage logging"""
