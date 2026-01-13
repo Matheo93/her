@@ -39,33 +39,31 @@ function useChromaKey2D(
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
-    // Chroma key parameters
-    const keyR = 0, keyG = 255, keyB = 0; // Pure green
-    const tolerance = 100; // Color distance tolerance
-    const edgeBlend = 30; // Soft edge blending
-
+    // Chroma key parameters - tuned for pure green (#00FF00)
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
 
-      // Calculate distance from key color
-      const dist = Math.sqrt(
-        Math.pow(r - keyR, 2) +
-        Math.pow(g - keyG, 2) +
-        Math.pow(b - keyB, 2)
-      );
+      // Calculate "greenness" - how much green dominates
+      const greenDominance = g - Math.max(r, b);
 
-      // Check if pixel is green-ish (high green, low red and blue)
-      const isGreen = g > 150 && g > r * 1.2 && g > b * 1.2;
+      // Pure green detection (very aggressive)
+      const isPureGreen = g > 200 && r < 100 && b < 100;
 
-      if (isGreen && dist < tolerance) {
-        // Fully transparent
+      // Green-ish detection (for edges/spill)
+      const isGreenish = greenDominance > 50 && g > 120;
+
+      if (isPureGreen) {
+        // Fully transparent for pure green
         data[i + 3] = 0;
-      } else if (isGreen && dist < tolerance + edgeBlend) {
-        // Soft edge - partial transparency
-        const alpha = ((dist - tolerance) / edgeBlend) * 255;
-        data[i + 3] = Math.min(255, Math.max(0, alpha));
+      } else if (isGreenish) {
+        // Remove green spill from edges - reduce green channel and add transparency
+        const spillAmount = Math.min(1, greenDominance / 150);
+        data[i + 3] = Math.round(255 * (1 - spillAmount * 0.8));
+        // Also desaturate the green spill
+        const avgRB = (r + b) / 2;
+        data[i + 1] = Math.round(g - (g - avgRB) * spillAmount * 0.7);
       }
     }
 
