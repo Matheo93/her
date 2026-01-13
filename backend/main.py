@@ -4217,6 +4217,7 @@ async def ws_her(ws: WebSocket):
     finally:
         connected = False
         proactive_task.cancel()
+        receiver_task.cancel()
         if user_id in _her_connections:
             del _her_connections[user_id]
 
