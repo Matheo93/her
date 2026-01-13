@@ -2332,6 +2332,16 @@ async def her_chat(request: Request, data: dict, _: str = Depends(verify_api_key
                             "voice_params": expr_data["voice_params"]
                         }) + "\n"
 
+                        # Add natural breathing between sentences (30% chance)
+                        if random.random() < 0.3:
+                            breath = eva_expression.get_breathing_sound("after_speech")
+                            if breath:
+                                yield json.dumps({
+                                    "type": "breathing",
+                                    "audio_base64": base64.b64encode(breath).decode(),
+                                    "duration": 0.3
+                                }) + "\n"
+
                 sentence_buffer = ""
 
         # 5. Store interaction in memory
