@@ -151,12 +151,27 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
         const frameData = frameQueueRef.current.shift()!;
         setStats(s => ({ ...s, queueSize: frameQueueRef.current.length }));
 
-        // Decode and draw
+        // Decode and draw with chroma key
         const img = new Image();
         img.onload = () => {
           canvas.width = img.width;
           canvas.height = img.height;
           ctx.drawImage(img, 0, 0);
+
+          // Chroma key - remove green background
+          try {
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const d = imageData.data;
+            for (let i = 0; i < d.length; i += 4) {
+              // Green screen detection
+              if (d[i+1] > 100 && d[i+1] > d[i] * 1.3 && d[i+1] > d[i+2] * 1.3) {
+                d[i+3] = 0;
+              }
+            }
+            ctx.putImageData(imageData, 0, 0);
+          } catch (e) {
+            // Ignore chroma key errors
+          }
         };
         img.src = `data:image/jpeg;base64,${frameData}`;
 
