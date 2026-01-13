@@ -280,10 +280,11 @@ export default function EvaStreamPage() {
             setIsProcessing(false);
             break;
 
-          case "audio_chunk":
-            // Queue audio chunk
-            if (data.audio) {
-              const audioBytes = Uint8Array.from(atob(data.audio), c => c.charCodeAt(0));
+          case "speech":
+          case "filler":
+            // Queue audio chunk from HER
+            if (data.audio_base64) {
+              const audioBytes = Uint8Array.from(atob(data.audio_base64), c => c.charCodeAt(0));
               audioQueueRef.current.push({
                 audio: audioBytes.buffer,
                 text: data.text || ""
