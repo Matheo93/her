@@ -165,7 +165,7 @@ export default function EvaHerPage() {
   // Connect to Avatar WebSocket for lip-sync
   useEffect(() => {
     const connectAvatar = () => {
-      const ws = new WebSocket(`${AVATAR_URL.replace("http", "ws")}/ws/lipsync`);
+      const ws = new WebSocket(`${AVATAR_URL.replace("http", "ws")}/ws/avatar`);
 
       ws.onopen = () => {
         console.log("Avatar lip-sync connected");
