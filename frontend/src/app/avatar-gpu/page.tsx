@@ -315,8 +315,7 @@ export default function AvatarGPUPage() {
               muted={false}
               playsInline
               onEnded={handleSpeakingVideoEnd}
-              className={`absolute inset-0 w-full h-full object-cover object-top scale-125 transition-opacity duration-300 ${isSpeaking ? 'opacity-100' : 'opacity-0'}`}
-              style={{ marginTop: '-10%' }}
+              className={`absolute inset-0 w-full h-full object-cover object-top scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-100' : 'opacity-0'}`}
             />
           </div>
 
