@@ -916,11 +916,14 @@ async def transcribe_audio(audio_bytes: bytes) -> str:
         temp_path = f.name
 
     try:
+        # ULTRA-FAST settings: beam_size=1, no VAD for speed
         segments, info = whisper_model.transcribe(
             temp_path,
             language="fr",
-            beam_size=5,
-            vad_filter=True,
+            beam_size=1,           # Fastest (was 5)
+            vad_filter=False,      # Skip VAD for speed
+            word_timestamps=False, # Don't need word-level
+            condition_on_previous_text=False,  # Faster
         )
         text = " ".join([s.text for s in segments])
         return text.strip()
