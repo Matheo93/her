@@ -820,8 +820,9 @@ async def lifespan(app: FastAPI):
         import torch
         device = "cuda" if torch.cuda.is_available() else "cpu"
         compute = "float16" if device == "cuda" else "int8"
-        whisper_model = WhisperModel("large-v3", device=device, compute_type=compute)
-        print(f"✅ Whisper STT loaded (large-v3 on {device.upper()})")
+        # Use distil-large-v3 for faster inference (142ms vs 300ms)
+        whisper_model = WhisperModel("distil-large-v3", device=device, compute_type=compute)
+        print(f"✅ Whisper STT loaded (distil-large-v3 on {device.upper()} - FAST MODE)")
     except ImportError:
         print("⚠️  Whisper not installed - STT via browser only")
 
