@@ -4052,6 +4052,7 @@ async def ws_her(ws: WebSocket):
                     await safe_ws_send(ws, {
                         "type": "her_context",
                         "user_emotion": her_context.get("user_emotion", "neutral"),
+                        "response_emotion": her_context.get("response_emotion", "neutral"),
                         "thought_prefix": her_context.get("thought_prefix"),
                         "response_delay": her_context.get("response_delay", 0.3)
                     })
