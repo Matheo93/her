@@ -35,118 +35,38 @@ export default function EvaPage() {
   const [inputText, setInputText] = useState("");
   const [mouthOpen, setMouthOpen] = useState(0);
 
-  // Animation states - more visible
-  const [headTilt, setHeadTilt] = useState({ x: 0, y: 0, rotate: 0 });
-  const [eyePosition, setEyePosition] = useState({ x: 0, y: 0 });
-  const [isBlinking, setIsBlinking] = useState(false);
-  const [breathPhase, setBreathPhase] = useState(0);
-  const [smileAmount, setSmileAmount] = useState(0);
-  const [browPosition, setBrowPosition] = useState(0);
+  // Simple animation states
+  const [headX, setHeadX] = useState(0);
+  const [headY, setHeadY] = useState(0);
+  const [headRotate, setHeadRotate] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
+
+  // Audio queue for sequential playback
   const audioQueueRef = useRef<ArrayBuffer[]>([]);
-  const isPlayingRef = useRef(false);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const animationFrameRef = useRef<number>(0);
+  const isPlayingAudioRef = useRef(false);
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const emotion = EMOTIONS[evaEmotion] || EMOTIONS.neutral;
 
-  // Natural blinking - every 2-5 seconds with double blinks
-  useEffect(() => {
-    const scheduleBlink = () => {
-      const delay = 2000 + Math.random() * 3000;
-      return setTimeout(() => {
-        setIsBlinking(true);
-        setTimeout(() => {
-          setIsBlinking(false);
-          // 30% chance of double blink
-          if (Math.random() < 0.3) {
-            setTimeout(() => {
-              setIsBlinking(true);
-              setTimeout(() => setIsBlinking(false), 100);
-            }, 150);
-          }
-        }, 120);
-        blinkTimeout = scheduleBlink();
-      }, delay);
-    };
-    let blinkTimeout = scheduleBlink();
-    return () => clearTimeout(blinkTimeout);
-  }, []);
-
-  // Head micro-movements - more visible
+  // Head movement animation - runs continuously
   useEffect(() => {
     const moveHead = () => {
-      if (!isSpeaking) {
-        // Subtle idle head movement
-        setHeadTilt({
-          x: (Math.random() - 0.5) * 8,
-          y: (Math.random() - 0.5) * 6,
-          rotate: (Math.random() - 0.5) * 3
-        });
-      }
+      // Random subtle movement
+      setHeadX((Math.random() - 0.5) * 10);
+      setHeadY((Math.random() - 0.5) * 8);
+      setHeadRotate((Math.random() - 0.5) * 4);
     };
-    const interval = setInterval(moveHead, 2500 + Math.random() * 2000);
-    return () => clearInterval(interval);
-  }, [isSpeaking]);
 
-  // Eye movement - looking around naturally
-  useEffect(() => {
-    const moveEyes = () => {
-      if (Math.random() < 0.6) {
-        setEyePosition({
-          x: (Math.random() - 0.5) * 12,
-          y: (Math.random() - 0.5) * 8
-        });
-        // Return to center
-        setTimeout(() => {
-          setEyePosition({ x: 0, y: 0 });
-        }, 600 + Math.random() * 800);
-      }
-    };
-    const interval = setInterval(moveEyes, 2000 + Math.random() * 1500);
+    // Initial movement
+    moveHead();
+
+    // Move every 2-4 seconds
+    const interval = setInterval(moveHead, 2000 + Math.random() * 2000);
     return () => clearInterval(interval);
   }, []);
-
-  // Breathing animation - more visible
-  useEffect(() => {
-    let frame = 0;
-    const animate = () => {
-      frame++;
-      setBreathPhase(frame);
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-    animationFrameRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrameRef.current);
-  }, []);
-
-  // Smile based on emotion
-  useEffect(() => {
-    const smiles: Record<string, number> = {
-      joy: 0.8,
-      tenderness: 0.5,
-      excitement: 0.6,
-      surprise: 0.3,
-      neutral: 0.15,
-      sadness: -0.2,
-      anger: -0.3,
-      fear: -0.1
-    };
-    setSmileAmount(smiles[evaEmotion] || 0.1);
-
-    // Eyebrow position
-    const brows: Record<string, number> = {
-      surprise: 0.4,
-      fear: 0.3,
-      sadness: -0.2,
-      anger: -0.4,
-      joy: 0.1,
-      neutral: 0
-    };
-    setBrowPosition(brows[evaEmotion] || 0);
-  }, [evaEmotion]);
 
   // Connect WebSocket
   useEffect(() => {
@@ -157,7 +77,7 @@ export default function EvaPage() {
 
       ws.onopen = () => {
         setIsConnected(true);
-        setStatus("Connectée");
+        setStatus("Connectee");
         ws.send(JSON.stringify({
           type: "config",
           user_id: "eva_user",
@@ -176,7 +96,7 @@ export default function EvaPage() {
 
         switch (data.type) {
           case "config_ok":
-            setStatus("Prête");
+            setStatus("Prete");
             break;
 
           case "her_context":
@@ -198,13 +118,14 @@ export default function EvaPage() {
           case "speech":
             if (data.audio_base64) {
               const audio = base64ToArrayBuffer(data.audio_base64);
-              // Play immediately - no waiting!
-              playAudioImmediate(audio);
+              // Add to queue and process
+              audioQueueRef.current.push(audio);
+              processAudioQueue();
             }
             break;
 
           case "speaking_end":
-            // Don't immediately stop - wait for audio to finish
+            // Will be handled when audio queue is empty
             break;
         }
       };
@@ -216,56 +137,63 @@ export default function EvaPage() {
     return () => wsRef.current?.close();
   }, []);
 
-  // INSTANT audio playback with mouth animation
-  const playAudioImmediate = useCallback(async (audioData: ArrayBuffer) => {
+  // Process audio queue SEQUENTIALLY - one at a time
+  const processAudioQueue = useCallback(async () => {
+    // If already playing, don't start another
+    if (isPlayingAudioRef.current) return;
+
+    // If queue is empty, we're done
+    if (audioQueueRef.current.length === 0) {
+      setIsSpeaking(false);
+      setMouthOpen(0);
+      setCurrentText("");
+      setStatus("Prete");
+      return;
+    }
+
+    isPlayingAudioRef.current = true;
+    setIsSpeaking(true);
+
+    // Get next audio from queue
+    const audioData = audioQueueRef.current.shift()!;
+
     try {
-      if (!audioContextRef.current) {
+      if (!audioContextRef.current || audioContextRef.current.state === "closed") {
         audioContextRef.current = new AudioContext();
       }
       const ctx = audioContextRef.current;
 
-      // Decode and play immediately
       const buffer = await ctx.decodeAudioData(audioData.slice(0));
       const source = ctx.createBufferSource();
       source.buffer = buffer;
+      currentSourceRef.current = source;
 
-      // Create analyser for mouth sync
+      // Analyser for mouth animation
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
-      analyserRef.current = analyser;
-
       source.connect(analyser);
       analyser.connect(ctx.destination);
 
-      setIsSpeaking(true);
-
-      // Animate mouth based on audio amplitude
+      // Mouth animation loop
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      const animateMouth = () => {
-        if (!analyserRef.current) return;
-        analyserRef.current.getByteFrequencyData(dataArray);
+      let animationId: number;
 
-        // Get average amplitude
+      const animateMouth = () => {
+        analyser.getByteFrequencyData(dataArray);
         let sum = 0;
         for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
         const avg = sum / dataArray.length;
-
-        // Map to mouth opening (0-1)
-        setMouthOpen(Math.min(1, avg / 128));
-
-        if (isSpeaking) {
-          requestAnimationFrame(animateMouth);
-        }
+        setMouthOpen(Math.min(1, avg / 100));
+        animationId = requestAnimationFrame(animateMouth);
       };
 
       source.onended = () => {
+        cancelAnimationFrame(animationId);
         setMouthOpen(0);
-        // Check if more audio in queue
-        if (audioQueueRef.current.length === 0) {
-          setIsSpeaking(false);
-          setCurrentText("");
-          setStatus("Prête");
-        }
+        isPlayingAudioRef.current = false;
+        currentSourceRef.current = null;
+        // Process next in queue
+        processAudioQueue();
       };
 
       source.start(0);
@@ -273,8 +201,11 @@ export default function EvaPage() {
 
     } catch (e) {
       console.error("Audio error:", e);
+      isPlayingAudioRef.current = false;
+      // Try next audio
+      processAudioQueue();
     }
-  }, [isSpeaking]);
+  }, []);
 
   // Voice recording
   const startListening = useCallback(async () => {
@@ -321,6 +252,14 @@ export default function EvaPage() {
 
   const sendMessage = () => {
     if (!inputText.trim() || !wsRef.current) return;
+
+    // Stop any current audio
+    if (currentSourceRef.current) {
+      currentSourceRef.current.stop();
+    }
+    audioQueueRef.current = [];
+    isPlayingAudioRef.current = false;
+
     setIsProcessing(true);
     setCurrentText("");
     wsRef.current.send(JSON.stringify({
@@ -329,213 +268,209 @@ export default function EvaPage() {
       user_id: "eva_user"
     }));
     setInputText("");
-    setStatus("Eva réfléchit...");
+    setStatus("Eva reflechit...");
   };
 
   const interrupt = () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "interrupt" }));
-      audioQueueRef.current = [];
-      audioContextRef.current?.close();
-      audioContextRef.current = null;
-      setIsSpeaking(false);
-      setMouthOpen(0);
     }
+    // Stop current audio
+    if (currentSourceRef.current) {
+      try { currentSourceRef.current.stop(); } catch(e) {}
+    }
+    audioQueueRef.current = [];
+    isPlayingAudioRef.current = false;
+    setIsSpeaking(false);
+    setMouthOpen(0);
   };
 
-  // Calculate animations
-  const breathScale = 1 + Math.sin(breathPhase * 0.03) * 0.015;
-  const breathY = Math.sin(breathPhase * 0.03) * 2;
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-black to-zinc-950 flex flex-col items-center justify-center p-4 overflow-hidden">
+    <div style={{
+      minHeight: "100vh",
+      background: "linear-gradient(to bottom, #0a0a0a, #000, #0a0a0a)",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "20px",
+      fontFamily: "system-ui, sans-serif"
+    }}>
 
-      {/* Ambient glow based on emotion */}
-      <div
-        className="fixed inset-0 pointer-events-none transition-all duration-700"
-        style={{
-          background: `radial-gradient(ellipse at 50% 30%, ${emotion.glow} 0%, transparent 60%)`
-        }}
-      />
-
-      {/* Status bar */}
-      <div className="fixed top-4 z-50">
-        <div className="flex items-center gap-3 px-5 py-2 rounded-full bg-black/60 backdrop-blur-lg border border-white/10">
-          <div className={`w-2.5 h-2.5 rounded-full transition-colors ${
-            isConnected
-              ? (isSpeaking ? "bg-rose-400 animate-pulse" : "bg-emerald-400")
-              : "bg-red-400"
-          }`} />
-          <span className="text-white/80 text-sm font-medium">{status}</span>
-          {isProcessing && (
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white/80 rounded-full animate-spin" />
-          )}
-        </div>
+      {/* Status */}
+      <div style={{
+        position: "fixed",
+        top: "20px",
+        padding: "8px 20px",
+        borderRadius: "20px",
+        background: "rgba(0,0,0,0.7)",
+        border: "1px solid rgba(255,255,255,0.1)",
+        display: "flex",
+        alignItems: "center",
+        gap: "10px"
+      }}>
+        <div style={{
+          width: "10px",
+          height: "10px",
+          borderRadius: "50%",
+          background: isConnected ? (isSpeaking ? "#f43f5e" : "#22c55e") : "#ef4444",
+          animation: isSpeaking ? "pulse 1s infinite" : "none"
+        }} />
+        <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "14px" }}>{status}</span>
       </div>
 
-      {/* Avatar Container */}
-      <div className="relative mb-24">
+      {/* Avatar */}
+      <div style={{ position: "relative", marginBottom: "100px" }}>
 
-        {/* Outer glow ring */}
-        <div
-          className="absolute -inset-8 rounded-full transition-all duration-500"
-          style={{
-            boxShadow: isSpeaking
-              ? `0 0 80px 30px ${emotion.glow}, 0 0 120px 60px ${emotion.glow}`
-              : `0 0 30px 10px rgba(255,255,255,0.03)`
-          }}
-        />
+        {/* Glow effect */}
+        <div style={{
+          position: "absolute",
+          inset: "-30px",
+          borderRadius: "50%",
+          background: `radial-gradient(circle, ${emotion.glow} 0%, transparent 70%)`,
+          opacity: isSpeaking ? 1 : 0.3,
+          transition: "opacity 0.5s"
+        }} />
 
-        {/* Main face container */}
-        <div
-          className="relative w-80 h-80 md:w-96 md:h-96 rounded-full overflow-hidden"
-          style={{
-            transform: `
-              scale(${breathScale})
-              translateY(${breathY + headTilt.y}px)
-              translateX(${headTilt.x}px)
-              rotate(${headTilt.rotate}deg)
-            `,
-            transition: "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-            boxShadow: `
-              inset 0 0 60px rgba(0,0,0,0.5),
-              0 0 0 1px rgba(255,255,255,0.1)
-            `
-          }}
-        >
-          {/* Base face image */}
+        {/* Face container with head movements */}
+        <div style={{
+          position: "relative",
+          width: "320px",
+          height: "320px",
+          borderRadius: "50%",
+          overflow: "hidden",
+          border: "2px solid rgba(255,255,255,0.1)",
+          transform: `translateX(${headX}px) translateY(${headY}px) rotate(${headRotate}deg)`,
+          transition: "transform 1s ease-in-out"
+        }}>
+          {/* Eva image */}
           <img
             src="/avatars/eva.jpg"
             alt="Eva"
-            className="absolute inset-0 w-full h-full object-cover"
             style={{
-              transform: `translate(${eyePosition.x * 0.3}px, ${eyePosition.y * 0.3}px)`,
-              transition: "transform 0.3s ease-out"
+              width: "100%",
+              height: "100%",
+              objectFit: "cover"
             }}
           />
 
-          {/* Eye area - for blink effect */}
-          <div
-            className="absolute top-[28%] left-[15%] right-[15%] h-[15%] pointer-events-none"
-            style={{
-              background: isBlinking
-                ? "linear-gradient(to bottom, transparent 0%, rgba(200,180,170,0.95) 30%, rgba(200,180,170,0.95) 70%, transparent 100%)"
-                : "transparent",
-              transition: isBlinking ? "background 0.05s" : "background 0.08s",
-              transform: `translateY(${browPosition * -8}px)`
-            }}
-          />
-
-          {/* Mouth animation overlay */}
-          <div
-            className="absolute bottom-[28%] left-1/2 -translate-x-1/2 pointer-events-none"
-            style={{ opacity: isSpeaking ? 1 : 0, transition: "opacity 0.1s" }}
-          >
-            {/* Animated mouth shape */}
-            <div
-              className="relative"
-              style={{
-                width: `${28 + mouthOpen * 12}px`,
-                height: `${4 + mouthOpen * 16}px`,
-                background: `linear-gradient(to bottom,
-                  rgba(180,100,100,${0.6 + mouthOpen * 0.3}) 0%,
-                  rgba(120,60,60,${0.8 + mouthOpen * 0.2}) 50%,
-                  rgba(80,40,40,0.9) 100%
-                )`,
-                borderRadius: `${40 + mouthOpen * 10}% / ${50 + mouthOpen * 30}%`,
-                boxShadow: `
-                  inset 0 ${2 + mouthOpen * 3}px ${4 + mouthOpen * 4}px rgba(0,0,0,0.5),
-                  0 1px 2px rgba(0,0,0,0.3)
-                `,
-                transition: "all 0.05s ease-out"
-              }}
-            />
-          </div>
-
-          {/* Smile curve overlay - for idle expressions */}
-          {!isSpeaking && smileAmount !== 0 && (
-            <div
-              className="absolute bottom-[30%] left-1/2 -translate-x-1/2 pointer-events-none"
-              style={{
-                width: "36px",
-                height: smileAmount > 0 ? "8px" : "6px",
-                borderRadius: smileAmount > 0 ? "0 0 50% 50%" : "50% 50% 0 0",
-                border: `2px solid rgba(180,120,120,${Math.abs(smileAmount) * 0.4})`,
-                borderTop: smileAmount > 0 ? "none" : undefined,
-                borderBottom: smileAmount < 0 ? "none" : undefined,
-                transform: `scaleX(${0.8 + Math.abs(smileAmount) * 0.4})`,
-                opacity: 0.6
-              }}
-            />
+          {/* Mouth overlay when speaking */}
+          {isSpeaking && (
+            <div style={{
+              position: "absolute",
+              bottom: "28%",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: `${25 + mouthOpen * 15}px`,
+              height: `${5 + mouthOpen * 18}px`,
+              background: "linear-gradient(to bottom, #8b4513 0%, #5c2a0a 50%, #3d1a06 100%)",
+              borderRadius: "50%",
+              boxShadow: "inset 0 3px 8px rgba(0,0,0,0.7)",
+              transition: "all 0.05s"
+            }} />
           )}
-
-          {/* Subtle vignette for depth */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background: "radial-gradient(circle at 50% 40%, transparent 50%, rgba(0,0,0,0.3) 100%)"
-            }}
-          />
         </div>
 
-        {/* Speaking indicator rings */}
+        {/* Speaking rings */}
         {isSpeaking && (
           <>
-            <div
-              className="absolute -inset-4 rounded-full border-2 animate-ping"
-              style={{ borderColor: emotion.color, opacity: 0.4 }}
-            />
-            <div
-              className="absolute -inset-8 rounded-full border animate-ping"
-              style={{ borderColor: emotion.color, opacity: 0.2, animationDelay: "0.15s" }}
-            />
+            <div style={{
+              position: "absolute",
+              inset: "-15px",
+              borderRadius: "50%",
+              border: `2px solid ${emotion.color}`,
+              opacity: 0.5,
+              animation: "ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite"
+            }} />
           </>
         )}
 
-        {/* Name and emotion */}
-        <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 text-center whitespace-nowrap">
-          <h2 className="text-white text-2xl font-light tracking-wide">Eva</h2>
-          <p
-            className="text-sm mt-1 transition-colors duration-300"
-            style={{ color: isSpeaking ? emotion.color : "rgba(255,255,255,0.5)" }}
-          >
-            {isSpeaking ? emotion.label : isListening ? "T'écoute..." : isProcessing ? "Réfléchit..." : "En ligne"}
+        {/* Name */}
+        <div style={{
+          position: "absolute",
+          bottom: "-70px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          textAlign: "center"
+        }}>
+          <h2 style={{ color: "white", fontSize: "24px", margin: 0, fontWeight: 300 }}>Eva</h2>
+          <p style={{
+            color: isSpeaking ? emotion.color : "rgba(255,255,255,0.5)",
+            fontSize: "14px",
+            margin: "5px 0 0 0",
+            transition: "color 0.3s"
+          }}>
+            {isSpeaking ? emotion.label : isListening ? "T'ecoute..." : "En ligne"}
           </p>
         </div>
       </div>
 
-      {/* Response text bubble */}
+      {/* Text bubble */}
       {currentText && (
-        <div className="max-w-lg mx-auto mb-8 px-6 py-4 rounded-2xl bg-white/5 backdrop-blur border border-white/10">
-          <p className="text-white/90 text-center leading-relaxed">{currentText}</p>
+        <div style={{
+          maxWidth: "500px",
+          margin: "0 auto 30px",
+          padding: "15px 25px",
+          borderRadius: "20px",
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.1)"
+        }}>
+          <p style={{ color: "rgba(255,255,255,0.9)", textAlign: "center", margin: 0, lineHeight: 1.5 }}>
+            {currentText}
+          </p>
         </div>
       )}
 
       {/* Controls */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/95 to-transparent">
-        <div className="max-w-lg mx-auto space-y-4">
+      <div style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: "30px",
+        background: "linear-gradient(to top, black, transparent)"
+      }}>
+        <div style={{ maxWidth: "500px", margin: "0 auto" }}>
 
-          {/* Text input */}
-          <div className="flex gap-3">
+          {/* Input */}
+          <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
             <input
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              placeholder="Écris à Eva..."
-              className="flex-1 px-5 py-3 rounded-full bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-rose-400/50 focus:bg-white/15 transition-all"
+              placeholder="Ecris a Eva..."
+              style={{
+                flex: 1,
+                padding: "15px 20px",
+                borderRadius: "25px",
+                background: "rgba(255,255,255,0.1)",
+                border: "1px solid rgba(255,255,255,0.2)",
+                color: "white",
+                fontSize: "16px",
+                outline: "none"
+              }}
             />
             <button
               onClick={sendMessage}
               disabled={!inputText.trim() || !isConnected}
-              className="px-6 py-3 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-400 hover:to-pink-400 disabled:from-white/10 disabled:to-white/10 text-white font-medium transition-all disabled:opacity-50"
+              style={{
+                padding: "15px 25px",
+                borderRadius: "25px",
+                background: inputText.trim() && isConnected ? "#f43f5e" : "rgba(255,255,255,0.1)",
+                border: "none",
+                color: "white",
+                fontSize: "16px",
+                cursor: inputText.trim() && isConnected ? "pointer" : "default",
+                opacity: inputText.trim() && isConnected ? 1 : 0.5
+              }}
             >
               Envoyer
             </button>
           </div>
 
-          {/* Voice controls */}
-          <div className="flex justify-center items-center gap-4">
+          {/* Voice button */}
+          <div style={{ display: "flex", justifyContent: "center", gap: "15px" }}>
             <button
               onMouseDown={startListening}
               onMouseUp={stopListening}
@@ -543,13 +478,22 @@ export default function EvaPage() {
               onTouchStart={startListening}
               onTouchEnd={stopListening}
               disabled={!isConnected || isSpeaking}
-              className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 ${
-                isListening
-                  ? "bg-emerald-500 scale-110 shadow-lg shadow-emerald-500/50"
-                  : "bg-white/10 hover:bg-white/20 hover:scale-105"
-              } text-white disabled:opacity-40 disabled:hover:scale-100`}
+              style={{
+                width: "60px",
+                height: "60px",
+                borderRadius: "50%",
+                background: isListening ? "#22c55e" : "rgba(255,255,255,0.1)",
+                border: "none",
+                color: "white",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transform: isListening ? "scale(1.1)" : "scale(1)",
+                transition: "all 0.2s"
+              }}
             >
-              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
             </button>
@@ -557,20 +501,41 @@ export default function EvaPage() {
             {isSpeaking && (
               <button
                 onClick={interrupt}
-                className="px-5 py-2.5 rounded-full bg-red-500/80 hover:bg-red-500 text-white text-sm font-medium transition-colors"
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: "20px",
+                  background: "#ef4444",
+                  border: "none",
+                  color: "white",
+                  cursor: "pointer"
+                }}
               >
-                Interrompre
+                Stop
               </button>
             )}
           </div>
 
           {isListening && (
-            <p className="text-center text-emerald-400 text-sm animate-pulse font-medium">
-              🎤 Je t'écoute...
+            <p style={{ textAlign: "center", color: "#22c55e", marginTop: "10px" }}>
+              Je t'ecoute...
             </p>
           )}
         </div>
       </div>
+
+      {/* CSS Animations */}
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        @keyframes ping {
+          75%, 100% {
+            transform: scale(1.5);
+            opacity: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 }
