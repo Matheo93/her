@@ -335,35 +335,34 @@ export default function EvaHerPage() {
 
           {/* Avatar display */}
           <div className="relative w-80 h-80 md:w-[420px] md:h-[420px] rounded-full overflow-hidden bg-zinc-900">
-            {/* Idle video (subtle movements) */}
-            {showIdle && (
-              <video
-                ref={idleVideoRef}
-                src="/avatars/eva_idle_transparent.webm"
-                className="absolute inset-0 w-full h-full object-cover"
-                autoPlay
-                loop
-                muted
-                playsInline
-              />
-            )}
+            {/* Idle video with subtle movements (always playing, acts as base) */}
+            <video
+              ref={idleVideoRef}
+              src="/avatars/eva_idle_transparent.webm"
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                showIdle ? "opacity-100" : "opacity-0"
+              }`}
+              autoPlay
+              loop
+              muted
+              playsInline
+            />
 
-            {/* Lip-synced frame (when speaking) */}
-            {!showIdle && avatarFrame && (
-              <img
-                src={avatarFrame}
-                alt="Eva"
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            )}
+            {/* Static image when speaking (with animation overlay) */}
+            <img
+              src="/avatars/eva.jpg"
+              alt="Eva"
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                !showIdle ? "opacity-100" : "opacity-0"
+              }`}
+            />
 
-            {/* Fallback static image */}
-            {!showIdle && !avatarFrame && (
-              <img
-                src="/avatars/eva.jpg"
-                alt="Eva"
-                className="absolute inset-0 w-full h-full object-cover"
-              />
+            {/* Speaking mouth animation overlay */}
+            {isSpeaking && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="absolute bottom-[38%] w-12 h-3 bg-gradient-to-b from-rose-900/30 to-transparent rounded-full animate-pulse"
+                     style={{ animationDuration: "150ms" }} />
+              </div>
             )}
 
             {/* Emotion overlay effect */}
