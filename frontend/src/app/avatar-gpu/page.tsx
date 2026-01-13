@@ -225,32 +225,65 @@ export default function AvatarGPUPage() {
         stt: data.latency?.stt_ms,
         llm: data.latency?.llm_ms,
         tts: data.latency?.tts_ms,
-        lipsync: data.latency?.lipsync_ms,
         total: data.latency?.total_ms,
       });
 
-      // Play lip-sync video if available (now WebM with alpha)
-      if (data.video_base64 && speakingVideoRef.current) {
-        const videoSrc = `data:video/mp4;base64,${data.video_base64}`;
-        setSpeakingVideoSrc(videoSrc);
-        setIsSpeaking(true);
-
-        // Pause idle video
-        if (idleVideoRef.current) {
-          idleVideoRef.current.pause();
-        }
-
-        // Play speaking video
-        speakingVideoRef.current.src = videoSrc;
-        speakingVideoRef.current.play();
-      }
-      // Fallback: play audio only (no lip-sync video)
-      else if (data.audio_base64 && audioRef.current) {
+      // PLAY AUDIO IMMEDIATELY (no waiting for video!)
+      if (data.audio_base64 && audioRef.current) {
         const audioSrc = `data:audio/mp3;base64,${data.audio_base64}`;
         audioRef.current.src = audioSrc;
         setIsSpeaking(true);
         audioRef.current.play();
-        audioRef.current.onended = () => setIsSpeaking(false);
+        audioRef.current.onended = () => {
+          // Only stop speaking if no video is playing
+          if (!speakingVideoRef.current || speakingVideoRef.current.paused) {
+            setIsSpeaking(false);
+          }
+        };
+      }
+
+      // Poll for lip-sync video in background
+      if (data.lipsync_task_id && useLipsync) {
+        const pollForVideo = async () => {
+          const maxAttempts = 30; // Max 30 seconds
+          for (let i = 0; i < maxAttempts; i++) {
+            await new Promise(r => setTimeout(r, 1000)); // Wait 1s between polls
+            try {
+              const statusRes = await fetch(`${BACKEND_URL}/lipsync/status/${data.lipsync_task_id}`);
+              const status = await statusRes.json();
+
+              if (status.status === "ready" && status.video_base64 && speakingVideoRef.current) {
+                // Video is ready! Switch from audio to video
+                const videoSrc = `data:video/mp4;base64,${status.video_base64}`;
+                setSpeakingVideoSrc(videoSrc);
+
+                // Update timing
+                setTimings(prev => ({ ...prev, lipsync: status.generation_time_ms }));
+
+                // Pause audio, play video (video has its own audio)
+                if (audioRef.current) {
+                  audioRef.current.pause();
+                }
+                if (idleVideoRef.current) {
+                  idleVideoRef.current.pause();
+                }
+
+                speakingVideoRef.current.src = videoSrc;
+                speakingVideoRef.current.play();
+                break;
+              } else if (status.status === "error") {
+                console.log("Lip-sync generation failed, continuing with audio only");
+                break;
+              }
+              // Still processing, continue polling
+            } catch (e) {
+              console.error("Error polling lip-sync status:", e);
+            }
+          }
+        };
+
+        // Start polling (don't await - let audio play)
+        pollForVideo();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Processing failed");
