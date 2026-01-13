@@ -54,15 +54,22 @@ function useChromaKey2D(
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
-    // DELTA E (CIE76) - Professional broadcast chroma key in Lab color space
+    // ADVANCED CHROMA KEY with edge refinement for natural hair preservation
     // Reference green in Lab: pure #00FF00 ≈ L:87.7, a:-86.2, b:83.2
     const keyL = 87.7, keyA = -86.2, keyB = 83.2;
-    const tolerance = 40;      // Tighter core = preserve more hair
-    const softness = 35;       // Wider soft edge = smoother blend
-    const spillSuppress = 0.85; // Stronger spill removal
+    const tolerance = 35;      // Tight core for precise keying
+    const softness = 50;       // Wide soft edge for smooth natural blending
+    const spillSuppress = 0.9; // Strong spill removal
+
+    const w = canvas.width;
+    const h = canvas.height;
+
+    // First pass: calculate alpha and spill-corrected colors
+    const alphaMap = new Float32Array(w * h);
 
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i], g = data[i + 1], b = data[i + 2];
+      const pixelIdx = i / 4;
 
       // RGB to XYZ (sRGB with gamma correction)
       let rr = r / 255, gg = g / 255, bb = b / 255;
@@ -90,31 +97,68 @@ function useChromaKey2D(
         Math.pow(B - keyB, 2)
       );
 
-      // Calculate alpha based on Delta E distance
+      // Calculate alpha with cubic ease for smoother gradients
       let alpha = 1;
       if (dE < tolerance) {
-        alpha = 0; // Core key color = fully transparent
+        alpha = 0;
       } else if (dE < tolerance + softness) {
-        // Soft edge transition
-        alpha = (dE - tolerance) / softness;
-        alpha = alpha * alpha; // Ease-in curve for smoother edges
+        const t = (dE - tolerance) / softness;
+        // Smooth cubic ease-in-out for natural transitions
+        alpha = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
       }
 
-      // Aggressive spill suppression on ALL pixels (not just visible ones)
+      alphaMap[pixelIdx] = alpha;
+
+      // Spill suppression: reduce green cast on edges
       const maxRB = Math.max(r, b);
       let finalG = g;
 
-      // Always suppress green that exceeds other channels
-      if (g > maxRB + 5) {
+      if (g > maxRB + 3) {
         const excess = g - maxRB;
-        // Near the key = more suppression, far from key = less
-        const proximityFactor = Math.max(0, 1 - dE / 100);
-        const suppress = Math.min(1, (excess / 80) + proximityFactor * 0.5);
+        const proximityFactor = Math.max(0, 1 - dE / 120);
+        const suppress = Math.min(1, (excess / 60) + proximityFactor * 0.6);
         finalG = Math.round(maxRB + excess * (1 - suppress * spillSuppress));
       }
 
       data[i + 1] = finalG;
       data[i + 3] = Math.round(alpha * 255);
+    }
+
+    // Second pass: edge refinement with 3x3 box blur on alpha for anti-aliasing
+    const refinedAlpha = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = y * w + x;
+        const currentAlpha = alphaMap[idx];
+
+        // Only refine edge pixels (not fully transparent or opaque)
+        if (currentAlpha > 0.01 && currentAlpha < 0.99) {
+          let sum = 0;
+          let count = 0;
+
+          // 3x3 neighborhood average
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx;
+              const ny = y + dy;
+              if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                sum += alphaMap[ny * w + nx];
+                count++;
+              }
+            }
+          }
+
+          // Blend original with smoothed (70% smooth, 30% original for sharpness)
+          refinedAlpha[idx] = sum / count * 0.7 + currentAlpha * 0.3;
+        } else {
+          refinedAlpha[idx] = currentAlpha;
+        }
+      }
+    }
+
+    // Apply refined alpha
+    for (let i = 0; i < data.length; i += 4) {
+      data[i + 3] = Math.round(refinedAlpha[i / 4] * 255);
     }
 
     ctx.putImageData(imageData, 0, 0);
