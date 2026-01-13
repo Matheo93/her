@@ -448,8 +448,8 @@ export default function AvatarGPUPage() {
               className={`absolute inset-0 w-full h-full scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-0' : 'opacity-100'}`}
               style={{
                 zIndex: 2,
-                objectFit: 'cover',
-                objectPosition: 'top'
+                backgroundColor: 'transparent',
+                background: 'none'
               }}
             />
 
@@ -459,8 +459,8 @@ export default function AvatarGPUPage() {
               className={`absolute inset-0 w-full h-full scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-100' : 'opacity-0'}`}
               style={{
                 zIndex: 2,
-                objectFit: 'cover',
-                objectPosition: 'top'
+                backgroundColor: 'transparent',
+                background: 'none'
               }}
             />
           </div>
