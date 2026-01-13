@@ -39,51 +39,46 @@ function useChromaKey2D(
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
-    // PRECISION chroma key - preserve fine hair details
+    // BALANCED chroma key - clean background + preserve hair
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
 
       const maxRB = Math.max(r, b);
-      const avgRB = (r + b) / 2;
       const greenExcess = g - maxRB;
 
-      // Luminance helps detect hair vs pure green
-      const luma = r * 0.299 + g * 0.587 + b * 0.114;
+      // Calculate saturation of green (how "pure" green it is)
+      const greenPurity = (g - maxRB) / (g + 1) * 255;
 
-      // Pure green background: high green, low R and B, low luminance variation
-      const isPureGreen = g > 200 && r < 80 && b < 80 && greenExcess > 120;
-
-      // Strong green but could be edge/hair with green spill
-      const isStrongGreen = greenExcess > 80 && g > 150 && luma < 180;
-
-      // Medium green - likely edge pixels with spill
-      const isMediumGreen = greenExcess > 40 && g > 120;
-
-      // Light green tint - hair or skin with slight spill
-      const isLightGreen = greenExcess > 15 && g > 80;
-
-      if (isPureGreen) {
-        // 100% transparent - definitely background
+      // 1. Pure green background = fully transparent
+      if (g > 180 && r < 100 && b < 100) {
         data[i + 3] = 0;
       }
-      else if (isStrongGreen) {
-        // High transparency but preserve some for blending
-        data[i + 3] = Math.round(255 * 0.15);
-        data[i + 1] = maxRB + 10; // Soft despill
+      // 2. High green excess = mostly transparent + despill
+      else if (greenExcess > 50) {
+        data[i + 3] = Math.round(Math.max(0, 60 - greenPurity * 0.5));
+        data[i + 1] = maxRB;
       }
-      else if (isMediumGreen) {
-        // Partial transparency - could be fine hair
-        const alpha = 255 - Math.min(200, (greenExcess - 40) * 3);
-        data[i + 3] = Math.round(alpha);
-        // Gentle despill to preserve natural color
-        data[i + 1] = Math.round(g - (g - maxRB) * 0.6);
+      // 3. Medium green = partial transparency based on purity
+      else if (greenExcess > 25) {
+        const t = (greenExcess - 25) / 25; // 0 to 1
+        data[i + 3] = Math.round(255 * (1 - t * 0.85));
+        data[i + 1] = Math.round(g - (g - maxRB) * t * 0.9);
       }
-      else if (isLightGreen) {
-        // Keep opaque, just despill
-        const spillRatio = (greenExcess - 15) / 50;
-        data[i + 1] = Math.round(g - (g - avgRB) * spillRatio * 0.5);
+      // 4. Light green spill = despill only, keep opaque
+      else if (greenExcess > 8) {
+        const t = (greenExcess - 8) / 17;
+        data[i + 1] = Math.round(g - (g - maxRB) * t * 0.7);
+      }
+
+      // Final cleanup: suppress any remaining green tint
+      if (data[i + 3] > 50) {
+        const finalG = data[i + 1];
+        const target = maxRB + 3;
+        if (finalG > target) {
+          data[i + 1] = Math.round(target + (finalG - target) * 0.2);
+        }
       }
     }
 
