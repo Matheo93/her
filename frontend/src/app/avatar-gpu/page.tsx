@@ -39,66 +39,60 @@ function useChromaKey2D(
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
-    // PRO BROADCAST METHOD: HSL-based chroma key with edge-aware matting
-    const width = canvas.width;
+    // DELTA E (CIE76) - Professional broadcast chroma key in Lab color space
+    // Reference green in Lab: pure #00FF00 ≈ L:87.7, a:-86.2, b:83.2
+    const keyL = 87.7, keyA = -86.2, keyB = 83.2;
+    const tolerance = 50;      // Main key threshold
+    const softness = 25;       // Edge softness range
+    const spillSuppress = 0.7; // Spill suppression strength
 
     for (let i = 0; i < data.length; i += 4) {
-      const r = data[i] / 255;
-      const g = data[i + 1] / 255;
-      const b = data[i + 2] / 255;
+      const r = data[i], g = data[i + 1], b = data[i + 2];
 
-      // Convert RGB to HSL
-      const max = Math.max(r, g, b);
-      const min = Math.min(r, g, b);
-      const l = (max + min) / 2;
-      let h = 0, s = 0;
+      // RGB to XYZ (sRGB with gamma correction)
+      let rr = r / 255, gg = g / 255, bb = b / 255;
+      rr = rr > 0.04045 ? Math.pow((rr + 0.055) / 1.055, 2.4) : rr / 12.92;
+      gg = gg > 0.04045 ? Math.pow((gg + 0.055) / 1.055, 2.4) : gg / 12.92;
+      bb = bb > 0.04045 ? Math.pow((bb + 0.055) / 1.055, 2.4) : bb / 12.92;
 
-      if (max !== min) {
-        const d = max - min;
-        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-        if (max === g) {
-          h = ((b - r) / d + 2) / 6;
-        } else if (max === r) {
-          h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-        } else {
-          h = ((r - g) / d + 4) / 6;
-        }
-      }
+      const x = (rr * 0.4124 + gg * 0.3576 + bb * 0.1805) / 0.95047;
+      const y = (rr * 0.2126 + gg * 0.7152 + bb * 0.0722) / 1.0;
+      const z = (rr * 0.0193 + gg * 0.1192 + bb * 0.9505) / 1.08883;
 
-      // Green hue range: ~0.25 to ~0.42 (90° to 150°)
-      const hDeg = h * 360;
-      const isGreenHue = hDeg > 80 && hDeg < 160;
+      // XYZ to Lab
+      const fx = x > 0.008856 ? Math.pow(x, 1/3) : (7.787 * x) + 16/116;
+      const fy = y > 0.008856 ? Math.pow(y, 1/3) : (7.787 * y) + 16/116;
+      const fz = z > 0.008856 ? Math.pow(z, 1/3) : (7.787 * z) + 16/116;
 
-      // Calculate alpha mask based on HSL
+      const L = (116 * fy) - 16;
+      const A = 500 * (fx - fy);
+      const B = 200 * (fy - fz);
+
+      // Delta E (CIE76) - Euclidean distance in Lab space
+      const dE = Math.sqrt(
+        Math.pow(L - keyL, 2) +
+        Math.pow(A - keyA, 2) +
+        Math.pow(B - keyB, 2)
+      );
+
+      // Calculate alpha based on Delta E distance
       let alpha = 1;
-
-      if (isGreenHue && s > 0.3) {
-        // Distance from pure green (120°)
-        const hueDist = Math.abs(hDeg - 120) / 40; // 0 at green, 1 at edges
-        const satFactor = Math.min(1, (s - 0.3) / 0.5); // Higher sat = more transparent
-
-        // Core green = transparent, edges = blend
-        if (hueDist < 0.5 && satFactor > 0.5) {
-          alpha = hueDist * 0.4; // Very transparent for pure green
-        } else if (hueDist < 1) {
-          alpha = 0.2 + hueDist * 0.6; // Gradual blend at edges
-        }
-
-        // Bright greens are definitely background
-        if (l > 0.4 && s > 0.6 && hueDist < 0.6) {
-          alpha = 0;
-        }
+      if (dE < tolerance) {
+        alpha = 0; // Core key color = fully transparent
+      } else if (dE < tolerance + softness) {
+        // Soft edge transition
+        alpha = (dE - tolerance) / softness;
+        alpha = alpha * alpha; // Ease-in curve for smoother edges
       }
 
-      // Despill: shift green toward neutral
-      let finalG = data[i + 1];
-      if (isGreenHue && s > 0.2) {
-        const maxRB = Math.max(data[i], data[i + 2]);
-        const spillAmount = Math.min(1, s * (1 - Math.abs(hDeg - 120) / 60));
-        finalG = Math.round(data[i + 1] - (data[i + 1] - maxRB) * spillAmount * 0.8);
+      // Spill suppression: reduce green where it exceeds other channels
+      const maxRB = Math.max(r, b);
+      if (g > maxRB && alpha > 0) {
+        const spillAmount = (g - maxRB) / 255;
+        const suppress = spillAmount * spillSuppress * (1 - alpha * 0.5);
+        data[i + 1] = Math.round(g - (g - maxRB) * suppress);
       }
 
-      data[i + 1] = finalG;
       data[i + 3] = Math.round(alpha * 255);
     }
 
