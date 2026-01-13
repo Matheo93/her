@@ -39,37 +39,46 @@ function useChromaKey2D(
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
-    // Aggressive chroma key for pure green (#00FF00)
+    // SURGICAL chroma key - maximum precision
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
 
-      // How much green dominates over red and blue
+      // Green dominance metrics
       const greenOverRed = g - r;
       const greenOverBlue = g - b;
-      const greenDominance = Math.min(greenOverRed, greenOverBlue);
+      const minDominance = Math.min(greenOverRed, greenOverBlue);
+      const maxRB = Math.max(r, b);
 
-      // Pure green background - make fully transparent
-      if (g > 180 && r < 120 && b < 120 && greenDominance > 80) {
+      // 1. Pure green background - FULLY transparent
+      if (g > 150 && r < 150 && b < 150 && minDominance > 60) {
         data[i + 3] = 0;
       }
-      // Green-ish pixels (edges, spill) - partial transparency + despill
-      else if (greenDominance > 30 && g > 100) {
-        const spillStrength = Math.min(1, greenDominance / 100);
+      // 2. Strong green tint - high transparency + strong despill
+      else if (minDominance > 20 && g > 80) {
+        const spillStrength = Math.min(1, minDominance / 80);
 
-        // Make partially transparent
-        data[i + 3] = Math.round(255 * (1 - spillStrength * 0.9));
+        // Transparency based on how green it is
+        data[i + 3] = Math.round(255 * (1 - spillStrength * 0.95));
 
-        // Despill: reduce green to match the average of R and B
-        const targetGreen = Math.max(r, b);
-        data[i + 1] = Math.round(g - (g - targetGreen) * spillStrength);
+        // Aggressive despill - match green to max of R/B
+        data[i + 1] = Math.round(g - (g - maxRB) * spillStrength);
       }
-      // Light green tint on skin/edges - just despill, no transparency
-      else if (greenDominance > 15 && g > 80) {
-        const spillStrength = Math.min(1, greenDominance / 60);
-        const targetGreen = (r + b) / 2 + 10;
-        data[i + 1] = Math.round(g - (g - targetGreen) * spillStrength * 0.5);
+      // 3. Subtle green tint - just despill, keep opaque
+      else if (minDominance > 8 && g > 60) {
+        const spillStrength = Math.min(1, minDominance / 40);
+        // Subtle despill
+        data[i + 1] = Math.round(g - (g - maxRB) * spillStrength * 0.6);
+      }
+
+      // 4. Final pass: any remaining greenish pixel gets despilled
+      if (data[i + 3] > 0) {
+        const finalG = data[i + 1];
+        const avgRB = (r + b) / 2;
+        if (finalG > avgRB + 10) {
+          data[i + 1] = Math.round(avgRB + (finalG - avgRB) * 0.3);
+        }
       }
     }
 
