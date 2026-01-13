@@ -42,9 +42,9 @@ function useChromaKey2D(
     // DELTA E (CIE76) - Professional broadcast chroma key in Lab color space
     // Reference green in Lab: pure #00FF00 ≈ L:87.7, a:-86.2, b:83.2
     const keyL = 87.7, keyA = -86.2, keyB = 83.2;
-    const tolerance = 50;      // Main key threshold
-    const softness = 25;       // Edge softness range
-    const spillSuppress = 0.7; // Spill suppression strength
+    const tolerance = 40;      // Tighter core = preserve more hair
+    const softness = 35;       // Wider soft edge = smoother blend
+    const spillSuppress = 0.85; // Stronger spill removal
 
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i], g = data[i + 1], b = data[i + 2];
