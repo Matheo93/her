@@ -166,9 +166,9 @@ export default function AvatarGPUPage() {
   useChromaKey2D(idleVideoRef, idleCanvasRef, !isSpeaking);
   useChromaKey2D(speakingVideoRef, speakingCanvasRef, isSpeaking);
 
-  // Green screen idle video for chroma key
+  // Idle video with alpha channel (no chroma key needed)
   const idleVideos = [
-    "/avatars/eva_idle_transparent.webm",
+    "/avatars/eva_idle_alpha2.webm",
   ];
   const [currentIdleIndex, setCurrentIdleIndex] = useState(0);
   const [speakingVideoSrc, setSpeakingVideoSrc] = useState<string | null>(null);
