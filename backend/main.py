@@ -4072,104 +4072,106 @@ async def ws_her(ws: WebSocket):
                 is_interrupted = False
                 interrupt_event.clear()  # Reset interrupt event for new message
 
-                    # 1. Process through HER pipeline
-                    if HER_AVAILABLE:
-                        her_context = await her_process_message(user_id, content)
-                    else:
-                        her_context = {"user_emotion": "neutral", "response_emotion": "neutral"}
+                # 1. Process through HER pipeline
+                if HER_AVAILABLE:
+                    her_context = await her_process_message(user_id, content)
+                else:
+                    her_context = {"user_emotion": "neutral", "response_emotion": "neutral"}
 
-                    # Send HER context
+                # Send HER context
+                await safe_ws_send(ws, {
+                    "type": "her_context",
+                    "user_emotion": her_context.get("user_emotion", "neutral"),
+                    "response_emotion": her_context.get("response_emotion", "neutral"),
+                    "thought_prefix": her_context.get("thought_prefix"),
+                    "response_delay": her_context.get("response_delay", 0.3)
+                })
+
+                # 2. Check empathic silence
+                if her_context.get("should_stay_silent"):
                     await safe_ws_send(ws, {
-                        "type": "her_context",
-                        "user_emotion": her_context.get("user_emotion", "neutral"),
-                        "response_emotion": her_context.get("response_emotion", "neutral"),
-                        "thought_prefix": her_context.get("thought_prefix"),
-                        "response_delay": her_context.get("response_delay", 0.3)
+                        "type": "silence",
+                        "reason": her_context.get("silence_reason", "empathic"),
+                        "duration": 2.0
+                    })
+                    is_speaking = False
+                    continue
+
+                # 3. Send filler (instant ~10ms TTFA)
+                if _filler_audio_cache:
+                    filler_name = random.choice(list(_filler_audio_cache.keys()))
+                    filler_audio = _filler_audio_cache[filler_name]
+                    ttfa = (time.time() - total_start) * 1000
+                    print(f"⚡ HER WS TTFA: {ttfa:.0f}ms")
+
+                    await safe_ws_send(ws, {"type": "speaking_start"})
+                    await safe_ws_send(ws, {
+                        "type": "filler",
+                        "audio_base64": base64.b64encode(filler_audio).decode(),
+                        "text": filler_name
                     })
 
-                    # 2. Check empathic silence
-                    if her_context.get("should_stay_silent"):
-                        await safe_ws_send(ws, {
-                            "type": "silence",
-                            "reason": her_context.get("silence_reason", "empathic"),
-                            "duration": 2.0
-                        })
-                        is_speaking = False
-                        continue
+                # 4. Stream LLM + TTS
+                memory_context = her_context.get("memory_context", {})
+                profile = memory_context.get("profile", {}) if memory_context else {}
+                relationship_stage = profile.get("relationship_stage", "new")
+                user_emotion = her_context.get("user_emotion", "neutral")
 
-                    # 3. Send filler (instant ~10ms TTFA)
-                    if _filler_audio_cache:
-                        filler_name = random.choice(list(_filler_audio_cache.keys()))
-                        filler_audio = _filler_audio_cache[filler_name]
-                        ttfa = (time.time() - total_start) * 1000
-                        print(f"⚡ HER WS TTFA: {ttfa:.0f}ms")
+                sentence_buffer = ""
+                full_response = ""
+                sentence_count = 0
 
-                        await safe_ws_send(ws, {"type": "speaking_start"})
-                        await safe_ws_send(ws, {
-                            "type": "filler",
-                            "audio_base64": base64.b64encode(filler_audio).decode(),
-                            "text": filler_name
-                        })
+                async for token in stream_llm_her(
+                    session_id,
+                    content,
+                    memory_context=memory_context,
+                    relationship_stage=relationship_stage,
+                    user_emotion=user_emotion
+                ):
+                    # Check interrupt event
+                    if is_interrupted or interrupt_event.is_set():
+                        is_interrupted = True
+                        break
 
-                    # 4. Stream LLM + TTS
-                    memory_context = her_context.get("memory_context", {})
-                    profile = memory_context.get("profile", {}) if memory_context else {}
-                    relationship_stage = profile.get("relationship_stage", "new")
-                    user_emotion = her_context.get("user_emotion", "neutral")
+                    # Send token for real-time text display
+                    await safe_ws_send(ws, {"type": "token", "content": token})
 
-                    sentence_buffer = ""
-                    full_response = ""
-                    sentence_count = 0
+                    sentence_buffer += token
+                    full_response += token
 
-                    async for token in stream_llm_her(
-                        session_id,
-                        content,
-                        memory_context=memory_context,
-                        relationship_stage=relationship_stage,
-                        user_emotion=user_emotion
-                    ):
-                        if is_interrupted:
-                            break
+                    # Generate TTS per sentence
+                    if re.search(r'[.!?]\s*$', sentence_buffer) or len(sentence_buffer) > 60:
+                        sentence = sentence_buffer.strip()
+                        if sentence and not is_interrupted:
+                            emotion = detect_emotion(sentence)
 
-                        # Send token for real-time text display
-                        await safe_ws_send(ws, {"type": "token", "content": token})
+                            # Generate emotional TTS
+                            audio_chunk = await async_emotional_tts(sentence, emotion.name)
+                            if not audio_chunk:
+                                audio_chunk = await async_ultra_fast_tts(sentence)
 
-                        sentence_buffer += token
-                        full_response += token
+                            if audio_chunk and not is_interrupted:
+                                await safe_ws_send(ws, {
+                                    "type": "speech",
+                                    "audio_base64": base64.b64encode(audio_chunk).decode(),
+                                    "text": sentence,
+                                    "emotion": emotion.name
+                                })
 
-                        # Generate TTS per sentence
-                        if re.search(r'[.!?]\s*$', sentence_buffer) or len(sentence_buffer) > 60:
-                            sentence = sentence_buffer.strip()
-                            if sentence and not is_interrupted:
-                                emotion = detect_emotion(sentence)
+                                # Add breathing (30% chance)
+                                sentence_count += 1
+                                if sentence_count % 3 == 0 and random.random() < 0.3:
+                                    breath = eva_expression.get_breathing_sound("after_speech")
+                                    if breath:
+                                        await safe_ws_send(ws, {
+                                            "type": "breathing",
+                                            "audio_base64": base64.b64encode(breath).decode()
+                                        })
 
-                                # Generate emotional TTS
-                                audio_chunk = await async_emotional_tts(sentence, emotion.name)
-                                if not audio_chunk:
-                                    audio_chunk = await async_ultra_fast_tts(sentence)
+                        sentence_buffer = ""
 
-                                if audio_chunk and not is_interrupted:
-                                    await safe_ws_send(ws, {
-                                        "type": "speech",
-                                        "audio_base64": base64.b64encode(audio_chunk).decode(),
-                                        "text": sentence,
-                                        "emotion": emotion.name
-                                    })
-
-                                    # Add breathing (30% chance)
-                                    sentence_count += 1
-                                    if sentence_count % 3 == 0 and random.random() < 0.3:
-                                        breath = eva_expression.get_breathing_sound("after_speech")
-                                        if breath:
-                                            await safe_ws_send(ws, {
-                                                "type": "breathing",
-                                                "audio_base64": base64.b64encode(breath).decode()
-                                            })
-
-                            sentence_buffer = ""
-
-                    # Handle remaining text
-                    if sentence_buffer.strip() and not is_interrupted:
+                # Handle remaining text
+                if sentence_buffer.strip() and not is_interrupted:
                         sentence = sentence_buffer.strip()
                         audio_chunk = await async_emotional_tts(sentence, "neutral")
                         if audio_chunk:
