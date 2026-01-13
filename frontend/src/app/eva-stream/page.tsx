@@ -98,58 +98,8 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
     return () => ws.close();
   }, [onFrameReceived]);
 
-  // Connect to idle animation service
-  useEffect(() => {
-    const streamingUrl = getStreamingUrl();
-    const wsUrl = streamingUrl.replace("https://", "wss://").replace("http://", "ws://");
-
-    console.log("Connecting to idle:", wsUrl);
-    const ws = new WebSocket(`${wsUrl}/ws/idle`);
-
-    ws.binaryType = "arraybuffer";
-
-    ws.onopen = () => {
-      console.log("Idle connected!");
-      setIsIdleConnected(true);
-    };
-
-    ws.onclose = () => {
-      console.log("Idle disconnected");
-      setIsIdleConnected(false);
-    };
-
-    ws.onmessage = (event) => {
-      // Only use idle frames when not speaking
-      if (!isPlaying && frameQueueRef.current.length === 0) {
-        // Convert arraybuffer to base64
-        const bytes = new Uint8Array(event.data as ArrayBuffer);
-        let binary = "";
-        bytes.forEach(b => binary += String.fromCharCode(b));
-        const base64 = btoa(binary);
-
-        // Direct display (don't queue, just show)
-        const canvas = canvasRef.current;
-        if (canvas) {
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            const img = new Image();
-            img.onload = () => {
-              canvas.width = img.width;
-              canvas.height = img.height;
-              ctx.drawImage(img, 0, 0);
-            };
-            img.src = `data:image/jpeg;base64,${base64}`;
-          }
-        }
-        setStats(s => ({ ...s, mode: "idle" }));
-      }
-    };
-
-    ws.onerror = (e) => console.error("Idle error:", e);
-
-    idleWsRef.current = ws;
-    return () => ws.close();
-  }, [isPlaying]);
+  // No WebSocket for idle - use pre-rendered video instead
+  // The idle video provides smooth animations at minimal cost
 
   // Send audio when received
   useEffect(() => {
