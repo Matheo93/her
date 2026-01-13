@@ -903,6 +903,9 @@ async def proactive_scheduler():
     """
     print("🎯 Proactive scheduler started")
 
+    # Track known users (populated from memory system)
+    known_users: set[str] = set()
+
     while True:
         try:
             # Check every 60 seconds
@@ -911,15 +914,16 @@ async def proactive_scheduler():
             if not HER_AVAILABLE:
                 continue
 
-            # Get all active users from memory system
-            from eva_inner_thoughts import get_inner_thoughts
+            # Get users from memory system
+            from eva_memory import get_memory_system
 
-            inner_thoughts = get_inner_thoughts()
-            if not inner_thoughts:
-                continue
+            memory = get_memory_system()
+            if memory:
+                # Get all users with profiles
+                known_users.update(memory.user_profiles.keys())
 
-            # Check each tracked user
-            for user_id in inner_thoughts.get_tracked_users():
+            # Check each known user
+            for user_id in list(known_users):
                 # Get proactive message if Eva should initiate
                 proactive = get_proactive_message(user_id)
 
