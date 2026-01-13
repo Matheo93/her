@@ -225,7 +225,7 @@ export default function EvaPage() {
           margin-bottom: 120px;
         }
 
-        /* CSS ANIMATION FOR HEAD - This actually works */
+        /* HEAD MOVEMENT - on outer wrapper */
         @keyframes headMove {
           0% { transform: translate(0, 0) rotate(0deg); }
           20% { transform: translate(8px, -5px) rotate(2deg); }
@@ -235,6 +235,7 @@ export default function EvaPage() {
           100% { transform: translate(0, 0) rotate(0deg); }
         }
 
+        /* BREATHING - on inner wrapper */
         @keyframes breathe {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.02); }
@@ -244,7 +245,13 @@ export default function EvaPage() {
           position: relative;
           width: 300px;
           height: 300px;
-          animation: headMove 8s ease-in-out infinite, breathe 4s ease-in-out infinite;
+          animation: headMove 8s ease-in-out infinite;
+        }
+
+        .avatar-inner {
+          width: 100%;
+          height: 100%;
+          animation: breathe 4s ease-in-out infinite;
         }
 
         .avatar-circle {
