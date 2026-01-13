@@ -91,6 +91,7 @@ RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "60"))
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
 USE_FAST_MODEL = os.getenv("USE_FAST_MODEL", "true").lower() == "true"
 QUALITY_MODE = os.getenv("QUALITY_MODE", "balanced")  # fast, balanced, quality
+USE_FAST_TTS = os.getenv("USE_FAST_TTS", "true").lower() == "true"  # MMS-TTS (100ms) vs Edge-TTS (1500ms)
 
 # Voix disponibles (Edge-TTS Microsoft Neural Voices - meilleures voix FR)
 # Optimisées pour le style "Her" - voix douces, naturelles, expressives
