@@ -42,69 +42,114 @@ interface StreamingAvatarProps {
 
 function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatarProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const wsRef = useRef<WebSocket | null>(null);
+  const lipsyncWsRef = useRef<WebSocket | null>(null);
+  const idleWsRef = useRef<WebSocket | null>(null);
   const frameQueueRef = useRef<string[]>([]);
-  const frameIndexRef = useRef(0);
   const animationRef = useRef<number>(0);
   const lastFrameTimeRef = useRef(0);
-  const idleVideoRef = useRef<HTMLVideoElement>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isIdleConnected, setIsIdleConnected] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [stats, setStats] = useState({ fps: 0, latency: 0, queueSize: 0 });
+  const [stats, setStats] = useState({ fps: 0, latency: 0, queueSize: 0, mode: "idle" });
 
-  // Connect to streaming service
+  // Connect to lip-sync streaming service
   useEffect(() => {
     const streamingUrl = getStreamingUrl();
     const wsUrl = streamingUrl.replace("https://", "wss://").replace("http://", "ws://");
 
-    console.log("Connecting to streaming:", wsUrl);
+    console.log("Connecting to lipsync:", wsUrl);
     const ws = new WebSocket(`${wsUrl}/ws/lipsync`);
 
     ws.onopen = () => {
-      console.log("Streaming connected!");
+      console.log("Lipsync connected!");
       setIsConnected(true);
       ws.send(JSON.stringify({ type: "config", avatar: "eva" }));
     };
 
     ws.onclose = () => {
-      console.log("Streaming disconnected");
+      console.log("Lipsync disconnected");
       setIsConnected(false);
-      // Reconnect after 2s
-      setTimeout(() => {
-        // Trigger reconnect by re-running effect
-      }, 2000);
+      setTimeout(() => {}, 2000);
     };
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
 
       if (data.type === "frame") {
-        // Add frame to queue
         frameQueueRef.current.push(data.data);
-        setStats(s => ({ ...s, queueSize: frameQueueRef.current.length }));
+        setStats(s => ({ ...s, queueSize: frameQueueRef.current.length, mode: "speaking" }));
         onFrameReceived?.(data.index);
       } else if (data.type === "done") {
-        console.log("Streaming done:", data.stats);
+        console.log("Lipsync done:", data.stats);
         setStats(s => ({
           ...s,
           fps: data.stats?.effective_fps || 0,
           latency: data.stats?.avg_per_frame_ms || 0
         }));
+        setIsPlaying(false);
       } else if (data.type === "config_ok") {
-        console.log("Streaming configured for avatar:", data.avatar);
+        console.log("Lipsync configured:", data.avatar);
       }
     };
 
-    ws.onerror = (e) => {
-      console.error("Streaming error:", e);
-    };
+    ws.onerror = (e) => console.error("Lipsync error:", e);
 
-    wsRef.current = ws;
-
-    return () => {
-      ws.close();
-    };
+    lipsyncWsRef.current = ws;
+    return () => ws.close();
   }, [onFrameReceived]);
+
+  // Connect to idle animation service
+  useEffect(() => {
+    const streamingUrl = getStreamingUrl();
+    const wsUrl = streamingUrl.replace("https://", "wss://").replace("http://", "ws://");
+
+    console.log("Connecting to idle:", wsUrl);
+    const ws = new WebSocket(`${wsUrl}/ws/idle`);
+
+    ws.binaryType = "arraybuffer";
+
+    ws.onopen = () => {
+      console.log("Idle connected!");
+      setIsIdleConnected(true);
+    };
+
+    ws.onclose = () => {
+      console.log("Idle disconnected");
+      setIsIdleConnected(false);
+    };
+
+    ws.onmessage = (event) => {
+      // Only use idle frames when not speaking
+      if (!isPlaying && frameQueueRef.current.length === 0) {
+        // Convert arraybuffer to base64
+        const bytes = new Uint8Array(event.data as ArrayBuffer);
+        let binary = "";
+        bytes.forEach(b => binary += String.fromCharCode(b));
+        const base64 = btoa(binary);
+
+        // Direct display (don't queue, just show)
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            const img = new Image();
+            img.onload = () => {
+              canvas.width = img.width;
+              canvas.height = img.height;
+              ctx.drawImage(img, 0, 0);
+            };
+            img.src = `data:image/jpeg;base64,${base64}`;
+          }
+        }
+        setStats(s => ({ ...s, mode: "idle" }));
+      }
+    };
+
+    ws.onerror = (e) => console.error("Idle error:", e);
+
+    idleWsRef.current = ws;
+    return () => ws.close();
+  }, [isPlaying]);
 
   // Send audio when received
   useEffect(() => {
