@@ -4,13 +4,15 @@ import { useState, useRef, useEffect, useCallback } from "react";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
-// Canvas-based chroma key hook (2D context, simpler than WebGL)
+// Canvas-based video renderer with optional chroma key
+// Supports videos with alpha channel (no processing needed) and green screen videos
 function useChromaKey2D(
   videoRef: React.RefObject<HTMLVideoElement | null>,
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   isActive: boolean
 ) {
   const animationRef = useRef<number>(0);
+  const hasAlphaRef = useRef<boolean | null>(null);
 
   const render = useCallback(() => {
     const video = videoRef.current;
@@ -26,30 +28,49 @@ function useChromaKey2D(
     const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
     if (!ctx) return;
 
-    // Match canvas to video native resolution for speed
+    // Match canvas to video native resolution
     if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
       canvas.width = video.videoWidth || 512;
       canvas.height = video.videoHeight || 512;
+      hasAlphaRef.current = null; // Reset alpha detection on size change
     }
 
-    // Clear canvas for transparency
+    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw video frame
     ctx.drawImage(video, 0, 0);
 
-    // Get image data and apply chroma key
+    // Get image data
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
-    // PROFESSIONAL CHROMA KEY - preserve hair, eliminate green
-    // Strategy: Only make PURE green screen transparent
-    // For edges/hair: keep OPAQUE but REMOVE green tint
+    // Detect if video has alpha channel (check first frame only)
+    if (hasAlphaRef.current === null) {
+      let hasTransparent = false;
+      for (let i = 3; i < Math.min(data.length, 4000); i += 4) {
+        if (data[i] < 250) {
+          hasTransparent = true;
+          break;
+        }
+      }
+      hasAlphaRef.current = hasTransparent;
+    }
 
+    // If video has alpha, just draw it (no chroma key needed)
+    if (hasAlphaRef.current) {
+      ctx.putImageData(imageData, 0, 0);
+      if (isActive) {
+        animationRef.current = requestAnimationFrame(render);
+      }
+      return;
+    }
+
+    // CHROMA KEY for green screen videos
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i], g = data[i + 1], b = data[i + 2];
 
-      // Skip obviously non-green pixels
+      // Skip non-green pixels
       if (g <= r || g <= b) continue;
 
       const greenExcess = g - Math.max(r, b);
@@ -57,61 +78,32 @@ function useChromaKey2D(
       const min = Math.min(r, g, b);
       const delta = max - min;
 
-      // Saturation check
+      // Saturation
       const l = (max + min) / 2;
       const s = delta === 0 ? 0 : delta / (255 - Math.abs(2 * l - 255));
 
-      // Calculate hue
+      // Hue
       let h = 0;
-      if (delta > 0) {
-        if (max === g) {
-          h = 60 * (((b - r) / delta) + 2);
-        } else if (max === r) {
-          h = 60 * (((g - b) / delta) % 6);
-        } else {
-          h = 60 * (((r - g) / delta) + 4);
-        }
+      if (delta > 0 && max === g) {
+        h = 60 * (((b - r) / delta) + 2);
         if (h < 0) h += 360;
       }
 
-      // Is this in the green hue range? (90-150°)
+      // Green hue range (90-150°)
       const isGreenHue = h >= 90 && h <= 150;
 
-      // PURE GREEN SCREEN detection (very strict)
-      // Must be: bright green, high saturation, correct hue, green dominates heavily
-      const isPureGreen = isGreenHue &&
-                          s > 0.55 &&
-                          g > 120 &&
-                          greenExcess > 50;
+      // Pure green screen detection
+      const isPureGreen = isGreenHue && s > 0.5 && g > 100 && greenExcess > 40;
 
       if (isPureGreen) {
-        // Pure green screen = fully transparent
         data[i + 3] = 0;
       } else {
-        // NOT pure green = keep FULLY VISIBLE
-        // But REMOVE any green tint (despill)
         data[i + 3] = 255;
-
-        // Aggressive despill: neutralize green cast
-        if (greenExcess > 5) {
-          // Calculate how much green to remove
-          // More green excess + closer to green hue = more removal
-          let despillStrength = 0;
-
-          if (isGreenHue && s > 0.2) {
-            // Green-ish pixel: strong despill
-            despillStrength = Math.min(1, greenExcess / 60) * Math.min(1, s / 0.4);
-          } else if (greenExcess > 15) {
-            // Not green hue but green excess: moderate despill
-            despillStrength = Math.min(0.7, greenExcess / 100);
-          }
-
-          if (despillStrength > 0) {
-            // Remove green by bringing it down toward max(r,b)
-            const target = Math.max(r, b);
-            const newG = Math.round(g - (g - target) * despillStrength * 0.9);
-            data[i + 1] = Math.max(target, newG);
-          }
+        // Despill
+        if (greenExcess > 10 && isGreenHue) {
+          const target = Math.max(r, b);
+          const despill = (g - target) * 0.7;
+          data[i + 1] = Math.round(g - despill);
         }
       }
     }
