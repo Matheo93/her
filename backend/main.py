@@ -3988,25 +3988,78 @@ async def ws_her(ws: WebSocket):
     # Start proactive pusher
     proactive_task = asyncio.create_task(proactive_pusher())
 
-    try:
+    # Message receiver task - runs in parallel to handle interrupts immediately
+    async def message_receiver():
+        """Background task to receive WebSocket messages and handle interrupts."""
+        nonlocal connected, is_interrupted, user_id, voice
         while connected:
             try:
                 msg = await asyncio.wait_for(ws.receive(), timeout=30.0)
             except asyncio.TimeoutError:
-                # Send ping
                 if not await safe_ws_send(ws, {"type": "pong"}):
+                    connected = False
                     break
                 continue
             except Exception:
+                connected = False
                 break
 
             if msg.get("type") == "websocket.disconnect":
+                connected = False
                 break
 
             # Handle text messages
             if "text" in msg:
                 try:
                     data = json_loads(msg["text"])
+                except Exception:
+                    continue
+
+                msg_type = data.get("type", "message")
+
+                # INTERRUPT - Handle immediately!
+                if msg_type == "interrupt":
+                    if is_speaking:
+                        is_interrupted = True
+                        interrupt_event.set()
+                        await safe_ws_send(ws, {"type": "speaking_end", "reason": "interrupted"})
+                        print("⛔ Interrupt received!")
+                    continue
+
+                # PING
+                if msg_type == "ping":
+                    await safe_ws_send(ws, {"type": "pong"})
+                    continue
+
+                # CONFIG
+                if msg_type == "config":
+                    user_id = data.get("user_id", user_id)
+                    voice = data.get("voice", voice)
+                    _her_connections[user_id] = ws
+                    await safe_ws_send(ws, {"type": "config_ok", "user_id": user_id})
+                    continue
+
+                # Queue other messages for processing
+                await message_queue.put(data)
+
+            # Handle binary audio
+            elif "bytes" in msg:
+                await message_queue.put({"type": "audio_binary", "data": msg["bytes"]})
+
+    # Start message receiver
+    receiver_task = asyncio.create_task(message_receiver())
+
+    try:
+        while connected:
+            try:
+                # Wait for messages from the queue
+                data = await asyncio.wait_for(message_queue.get(), timeout=5.0)
+            except asyncio.TimeoutError:
+                continue
+            except Exception:
+                break
+
+            msg_type = data.get("type", "message")
                 except Exception:
                     continue
 
