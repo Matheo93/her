@@ -152,17 +152,21 @@ def fast_tts_mp3(text: str, speed: float = 1.0) -> Optional[bytes]:
 
 
 async def async_fast_tts(text: str, speed: float = 1.0) -> Optional[bytes]:
-    """Async wrapper for fast_tts"""
+    """Async wrapper for fast_tts (WAV format)"""
     import asyncio
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, fast_tts, text, speed)
 
 
 async def async_fast_tts_mp3(text: str, speed: float = 1.0) -> Optional[bytes]:
-    """Async wrapper for fast_tts_mp3"""
+    """Async wrapper for fast_tts_mp3 (MP3 format - smaller, faster transfer)"""
     import asyncio
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, fast_tts_mp3, text, speed)
+
+
+# Default async function uses MP3 for web compatibility
+async_tts = async_fast_tts_mp3
 
 
 # Benchmark function
