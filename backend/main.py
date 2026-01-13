@@ -2086,16 +2086,28 @@ async def her_chat(request: Request, data: dict, _: str = Depends(verify_api_key
                 "text": filler_name
             }) + "\n"
 
-        # 4. Stream LLM response with expression
+        # 4. Stream LLM response with HER context injection
         sentence_buffer = ""
         full_response = ""
         response_emotion = her_context.get("response_emotion", "neutral")
+        user_emotion = her_context.get("user_emotion", "neutral")
+
+        # Get memory context and relationship stage
+        memory_context = her_context.get("memory_context", {})
+        profile = memory_context.get("profile", {}) if memory_context else {}
+        relationship_stage = profile.get("relationship_stage", "new")
 
         # Add thought prefix to prompt if available
         thought_prefix = her_context.get("thought_prefix", "")
-        enhanced_message = message
 
-        async for token in stream_llm(session_id, enhanced_message, speed_mode=True):
+        # Use HER-enhanced LLM with full context injection
+        async for token in stream_llm_her(
+            session_id,
+            message,
+            memory_context=memory_context,
+            relationship_stage=relationship_stage,
+            user_emotion=user_emotion
+        ):
             sentence_buffer += token
             full_response += token
 
