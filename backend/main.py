@@ -1099,26 +1099,48 @@ async def text_to_speech(
     use_ssml: bool = False,  # SSML adds latency, use for quality mode
     add_breathing: bool = True  # Add natural breathing and hesitations
 ) -> bytes:
-    """Convertit texte en audio avec Edge-TTS (cached + SSML enhanced)
+    """Convertit texte en audio - MMS-TTS (fast) ou Edge-TTS (quality)
 
     OPTIMIZATIONS:
+    - MMS-TTS on GPU: ~100ms latency (USE_FAST_TTS=true)
+    - Edge-TTS: ~1500ms but higher quality voices (USE_FAST_TTS=false)
     - LRU cache for repeated phrases
-    - Pre-allocated byte array
-    - Lazy edge_tts import
     - Natural breathing and hesitations (100% LOCAL)
     """
-    if not tts_available:
-        return b""
-
-    # Apply natural breathing and hesitations BEFORE caching check
-    # This ensures cached responses also have natural variations
+    # Apply natural breathing and hesitations BEFORE synthesis
     processed_text = text
     if add_breathing:
         processed_text = make_natural(text)
         if processed_text != text:
             print(f"🌬️ Breathing: '{text[:30]}...' -> '{processed_text[:40]}...'")
 
-    # Check cache first (fastest path) - use processed text for cache key
+    start_time = time.time()
+
+    # ========== FAST TTS MODE (MMS-TTS on GPU - ~100ms) ==========
+    if USE_FAST_TTS:
+        # Check cache first
+        cached = tts_cache.get(processed_text, "mms", rate, pitch)
+        if cached:
+            print(f"🔊 TTS: 0ms (cached, {len(cached)} bytes)")
+            return cached
+
+        # Generate with MMS-TTS
+        audio_data = await async_fast_tts(processed_text)
+        if audio_data:
+            # Cache short phrases
+            if len(processed_text) < 200:
+                tts_cache.set(processed_text, "mms", audio_data, rate, pitch)
+            tts_time = (time.time() - start_time) * 1000
+            print(f"🔊 TTS (MMS): {tts_time:.0f}ms ({len(audio_data)} bytes)")
+            return audio_data
+        # Fallback to Edge-TTS if MMS fails
+        print("⚠️ MMS-TTS failed, falling back to Edge-TTS")
+
+    # ========== EDGE-TTS MODE (slower but more voices) ==========
+    if not tts_available:
+        return b""
+
+    # Check cache first (fastest path)
     cached = tts_cache.get(processed_text, voice, rate, pitch)
     if cached:
         print(f"🔊 TTS: 0ms (cached, {len(cached)} bytes)")
@@ -1126,7 +1148,6 @@ async def text_to_speech(
 
     edge_tts = _get_edge_tts()
     voice_name = VOICES.get(voice, VOICES[DEFAULT_VOICE])
-    start_time = time.time()
 
     # Use SSML for better prosody in quality mode
     if use_ssml and QUALITY_MODE == "quality":
@@ -1135,7 +1156,7 @@ async def text_to_speech(
     else:
         communicate = edge_tts.Communicate(processed_text, voice_name, rate=rate, pitch=pitch)
 
-    # Collect audio chunks (pre-allocate list for efficiency)
+    # Collect audio chunks
     chunks: list[bytes] = []
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":
@@ -1143,12 +1164,12 @@ async def text_to_speech(
 
     audio_data = b"".join(chunks)
 
-    # Cache short phrases - use processed_text for consistency
+    # Cache short phrases
     if len(processed_text) < 200:
         tts_cache.set(processed_text, voice, audio_data, rate, pitch)
 
     tts_time = (time.time() - start_time) * 1000
-    print(f"🔊 TTS: {tts_time:.0f}ms ({len(audio_data)} bytes)")
+    print(f"🔊 TTS (Edge): {tts_time:.0f}ms ({len(audio_data)} bytes)")
 
     return audio_data
 
