@@ -1228,6 +1228,100 @@ async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True, spee
             yield f"Désolée, j'ai eu un petit souci. Tu peux répéter ?"
 
 
+async def stream_llm_her(
+    session_id: str,
+    user_msg: str,
+    memory_context: dict = None,
+    relationship_stage: str = "new",
+    user_emotion: str = "neutral"
+) -> AsyncGenerator[str, None]:
+    """Stream LLM response with full HER context injection.
+
+    Injects:
+    - Personalized system prompt based on relationship
+    - Memory context (user name, interests, relevant memories)
+    - Emotional awareness
+    """
+    # Build the HER-aware system prompt
+    her_prompt = build_her_prompt(session_id, memory_context, relationship_stage)
+
+    # Add emotional context to prompt
+    if user_emotion != "neutral":
+        emotion_context = {
+            "joy": "L'utilisateur semble joyeux - partage sa joie!",
+            "sadness": "L'utilisateur semble triste - sois douce et présente.",
+            "anger": "L'utilisateur semble frustré - écoute avec calme.",
+            "fear": "L'utilisateur semble inquiet - rassure avec douceur.",
+            "surprise": "L'utilisateur est surpris - explore avec curiosité!",
+            "excitement": "L'utilisateur est excité - matche son énergie!"
+        }
+        her_prompt += f"\n\n🎭 Contexte émotionnel: {emotion_context.get(user_emotion, '')}"
+
+    add_message(session_id, "user", user_msg)
+    messages = get_messages(session_id)
+
+    # Replace system prompt with HER prompt
+    messages = [{"role": "system", "content": her_prompt}] + messages[1:]
+
+    # Keep only recent messages for speed (HER prioritizes responsiveness)
+    if len(messages) > 6:
+        messages = [messages[0]] + messages[-5:]
+
+    max_tok = 80  # Natural, concise responses
+
+    start_time = time.time()
+
+    try:
+        # Try Cerebras first for ultra-fast TTFT
+        if cerebras_client is not None:
+            full = ""
+            first_token = True
+
+            async for token in stream_cerebras(messages, max_tok):
+                if first_token:
+                    ttft = (time.time() - start_time) * 1000
+                    print(f"⚡ HER TTFT: {ttft:.0f}ms (cerebras)")
+                    first_token = False
+                full += token
+                yield token
+        else:
+            # Fallback to Groq
+            stream = await groq_client.chat.completions.create(
+                model=GROQ_MODEL_FAST,
+                messages=messages,
+                stream=True,
+                temperature=0.8,  # Slightly more creative for HER
+                max_tokens=max_tok,
+                top_p=0.9,
+            )
+
+            full = ""
+            first_token = True
+
+            async for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    token = chunk.choices[0].delta.content
+
+                    if first_token:
+                        ttft = (time.time() - start_time) * 1000
+                        print(f"⚡ HER TTFT: {ttft:.0f}ms (groq)")
+                        first_token = False
+
+                    full += token
+                    yield token
+
+        # Store and humanize
+        humanized = humanize_response(full)
+        add_message(session_id, "assistant", humanized)
+
+        total_time = (time.time() - start_time) * 1000
+        print(f"✅ HER LLM: {total_time:.0f}ms total")
+
+    except Exception as e:
+        print(f"❌ HER LLM error: {e}")
+        yield "Hmm... j'ai perdu le fil. Tu disais?"
+
+
 async def stream_llm_groq_fallback(messages: list, max_tok: int, start_time: float) -> AsyncGenerator[str, None]:
     """Groq fallback when Cerebras fails"""
     try:
