@@ -372,12 +372,12 @@ export default function AvatarGPUPage() {
       {/* Styles for animations */}
       <style jsx>{`
         @keyframes glow {
-          0%, 100% { box-shadow: 0 0 30px rgba(147, 51, 234, 0.3); }
-          50% { box-shadow: 0 0 50px rgba(147, 51, 234, 0.5); }
+          0%, 100% { box-shadow: 0 0 20px rgba(100, 116, 139, 0.2); }
+          50% { box-shadow: 0 0 35px rgba(100, 116, 139, 0.3); }
         }
         @keyframes speaking-glow {
-          0%, 100% { box-shadow: 0 0 30px rgba(236, 72, 153, 0.4); }
-          50% { box-shadow: 0 0 60px rgba(236, 72, 153, 0.7); }
+          0%, 100% { box-shadow: 0 0 25px rgba(236, 72, 153, 0.3); }
+          50% { box-shadow: 0 0 45px rgba(236, 72, 153, 0.5); }
         }
         .avatar-container {
           animation: glow 3s ease-in-out infinite;
