@@ -42,13 +42,15 @@ def init_fast_tts():
 
         _sample_rate = _tts_model.config.sampling_rate
 
-        # Warmup (multiple times for torch.compile)
+        # Warmup
         for _ in range(3):
             inputs = _tts_tokenizer("Bonjour", return_tensors="pt").to(_device)
-            if _device == "cuda":
-                inputs = {k: v.to(_device) for k, v in inputs.items()}
-            with torch.no_grad(), torch.cuda.amp.autocast(enabled=(_device == "cuda")):
-                _ = _tts_model(**inputs).waveform
+            with torch.no_grad():
+                if _device == "cuda":
+                    with torch.amp.autocast("cuda"):
+                        _ = _tts_model(**inputs).waveform
+                else:
+                    _ = _tts_model(**inputs).waveform
 
         print(f"✅ MMS-TTS ready (sample rate: {_sample_rate}Hz, fp16={_device=='cuda'})")
         return True
