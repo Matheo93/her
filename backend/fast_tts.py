@@ -190,8 +190,9 @@ async def async_fast_tts_mp3(text: str, speed: float = 1.0) -> Optional[bytes]:
     return await loop.run_in_executor(None, fast_tts_mp3, text, speed)
 
 
-# Default async function uses MP3 for web compatibility
-async_tts = async_fast_tts_mp3
+# Default async function uses WAV for fastest latency (~80ms vs ~170ms for MP3)
+# WAV is larger but the latency gain is worth it
+async_tts = async_fast_tts
 
 
 # Benchmark function
