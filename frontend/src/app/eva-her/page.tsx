@@ -28,11 +28,9 @@ export default function EvaHerPage() {
   const [currentText, setCurrentText] = useState("");
   const [thoughtPrefix, setThoughtPrefix] = useState<string | null>(null);
   const [showIdle, setShowIdle] = useState(true);
-  const [avatarFrame, setAvatarFrame] = useState<string | null>(null);
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
-  const avatarWsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioQueueRef = useRef<{ audio: ArrayBuffer; emotion: string }[]>([]);
