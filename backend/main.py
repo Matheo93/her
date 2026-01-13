@@ -937,6 +937,8 @@ async def lifespan(app: FastAPI):
             print("✅ Ultra-Fast TTS ready (Sherpa-ONNX ~30-70ms)")
             # Pre-generate filler audio for instant TTFA
             _init_filler_audio()
+            # Pre-generate backchannel audio for HER presence
+            _init_backchannel_audio()
             # Initialize expression system (breathing sounds, emotions)
             if init_expression_system():
                 print("✅ Expression system ready (breathing + emotions)")
