@@ -2222,8 +2222,11 @@ async def her_chat(request: Request, data: dict, _: str = Depends(verify_api_key
                     text_micro = get_text_expressions(sentence)
                     frame_micro = get_micro_expression_frame()
 
-                    # Generate TTS
-                    audio_chunk = await async_ultra_fast_tts(sentence)
+                    # Generate emotional TTS (adapts voice to detected emotion)
+                    audio_chunk = await async_emotional_tts(sentence, emotion.name)
+                    if not audio_chunk:
+                        audio_chunk = await async_ultra_fast_tts(sentence)  # Fallback
+
                     if audio_chunk:
                         yield json.dumps({
                             "type": "speech",
