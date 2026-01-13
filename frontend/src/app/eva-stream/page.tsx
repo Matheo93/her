@@ -175,7 +175,7 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
     }
   }, [audioData]);
 
-  // Frame rendering loop
+  // Frame rendering loop for lip-sync queue
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -194,10 +194,10 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
       }
       lastFrameTimeRef.current = timestamp;
 
-      // Get next frame from queue
+      // Get next frame from lip-sync queue (priority over idle)
       if (frameQueueRef.current.length > 0) {
         const frameData = frameQueueRef.current.shift()!;
-        setStats(s => ({ ...s, queueSize: frameQueueRef.current.length }));
+        setStats(s => ({ ...s, queueSize: frameQueueRef.current.length, mode: "speaking" }));
 
         // Decode and draw
         const img = new Image();
@@ -209,9 +209,10 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
         img.src = `data:image/jpeg;base64,${frameData}`;
 
         frameCount++;
-      } else if (!isIdle) {
-        // Queue empty and not idle - we're done
+        setIsPlaying(true);
+      } else {
         setIsPlaying(false);
+        // Idle frames are handled by the idle WebSocket directly
       }
 
       // Calculate FPS
@@ -229,36 +230,24 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
     return () => {
       cancelAnimationFrame(animationRef.current);
     };
-  }, [isIdle]);
+  }, []);
 
   return (
     <div className="relative w-full h-full">
-      {/* Idle video (shown when not playing frames) */}
-      <video
-        ref={idleVideoRef}
-        src="/avatars/eva_idle_transparent.webm"
-        autoPlay
-        loop
-        muted
-        playsInline
-        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-300 ${
-          isPlaying || frameQueueRef.current.length > 0 ? "opacity-0" : "opacity-100"
-        }`}
-      />
-
-      {/* Streaming canvas */}
+      {/* Streaming canvas (shows both idle and lip-sync frames) */}
       <canvas
         ref={canvasRef}
-        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-300 ${
-          isPlaying || frameQueueRef.current.length > 0 ? "opacity-100" : "opacity-0"
-        }`}
+        className="w-full h-full object-contain"
+        style={{ background: "transparent" }}
       />
 
       {/* Stats overlay */}
       <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded font-mono">
-        <div>{isConnected ? "STREAM: CONNECTED" : "STREAM: DISCONNECTED"}</div>
-        <div>FPS: {stats.fps} | Queue: {stats.queueSize}</div>
-        <div>Latency: {stats.latency.toFixed(0)}ms/frame</div>
+        <div>
+          LipSync: {isConnected ? "✓" : "✗"} | Idle: {isIdleConnected ? "✓" : "✗"}
+        </div>
+        <div>Mode: {stats.mode} | Queue: {stats.queueSize}</div>
+        <div>FPS: {stats.fps} | {stats.latency > 0 ? `${stats.latency.toFixed(0)}ms/frame` : ""}</div>
       </div>
     </div>
   );
