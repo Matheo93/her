@@ -87,8 +87,8 @@ def fast_tts(text: str, speed: float = 1.0) -> Optional[bytes]:
         with torch.no_grad(), torch.cuda.amp.autocast(enabled=(_device == "cuda")):
             output = _tts_model(**inputs).waveform
 
-        # Convert to numpy
-        audio = output.squeeze().cpu().numpy()
+        # Convert to numpy (ensure float32 for numpy)
+        audio = output.squeeze().cpu().float().numpy()
 
         # Apply speed adjustment if needed
         if speed != 1.0:
