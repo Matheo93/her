@@ -184,20 +184,31 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
 
   return (
     <div className="relative w-full h-full">
-      {/* Streaming canvas (shows both idle and lip-sync frames) */}
+      {/* Idle video - shown when not speaking */}
+      <video
+        src="/avatars/eva_idle_transparent.webm"
+        autoPlay
+        loop
+        muted
+        playsInline
+        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-200 ${
+          isPlaying ? "opacity-0" : "opacity-100"
+        }`}
+      />
+
+      {/* Streaming canvas - shown when speaking */}
       <canvas
         ref={canvasRef}
-        className="w-full h-full object-contain"
-        style={{ background: "transparent" }}
+        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-200 ${
+          isPlaying ? "opacity-100" : "opacity-0"
+        }`}
       />
 
       {/* Stats overlay */}
       <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded font-mono">
-        <div>
-          LipSync: {isConnected ? "✓" : "✗"} | Idle: {isIdleConnected ? "✓" : "✗"}
-        </div>
-        <div>Mode: {stats.mode} | Queue: {stats.queueSize}</div>
-        <div>FPS: {stats.fps} | {stats.latency > 0 ? `${stats.latency.toFixed(0)}ms/frame` : ""}</div>
+        <div>LipSync: {isConnected ? "✓" : "✗"}</div>
+        <div>Mode: {isPlaying ? "speaking" : "idle"} | Queue: {stats.queueSize}</div>
+        {stats.latency > 0 && <div>{stats.latency.toFixed(0)}ms/frame</div>}
       </div>
     </div>
   );
