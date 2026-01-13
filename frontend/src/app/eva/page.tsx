@@ -414,19 +414,21 @@ export default function EvaPage() {
 
         <div className="avatar-container">
           <div className="avatar-wrapper">
-            <div className={`avatar-circle ${isSpeaking ? "speaking" : ""}`}>
-              <img src="/avatars/eva.jpg" alt="Eva" className="avatar-img" />
+            <div className="avatar-inner">
+              <div className={`avatar-circle ${isSpeaking ? "speaking" : ""}`}>
+                <img src="/avatars/eva.jpg" alt="Eva" className="avatar-img" />
 
-              {/* Mouth - visible when speaking */}
-              {isSpeaking && (
-                <div
-                  className="mouth"
-                  style={{
-                    width: `${20 + mouthSize * 15}px`,
-                    height: `${6 + mouthSize * 20}px`
-                  }}
-                />
-              )}
+                {/* Mouth - visible when speaking */}
+                {isSpeaking && (
+                  <div
+                    className="mouth"
+                    style={{
+                      width: `${20 + mouthSize * 15}px`,
+                      height: `${6 + mouthSize * 20}px`
+                    }}
+                  />
+                )}
+              </div>
             </div>
           </div>
 
