@@ -23,6 +23,7 @@ function getStreamingUrl(): string {
     const params = new URLSearchParams(window.location.search);
     const custom = params.get("streaming");
     if (custom) return custom;
+    // Streaming service tunnel - update this when tunnel restarts
     if (window.location.hostname.includes("trycloudflare.com")) {
       return "https://expanded-conferences-partially-punk.trycloudflare.com";
     }
