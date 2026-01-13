@@ -26,29 +26,17 @@ function useChromaKey2D(
     const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
     if (!ctx) return;
 
-    // Match canvas size to video (use higher resolution for better quality)
-    const targetWidth = video.videoWidth || 512;
-    const targetHeight = video.videoHeight || 512;
-
-    // Use higher resolution canvas for less pixelation (2x for retina)
-    const scale = 2;
-    const scaledWidth = targetWidth * scale;
-    const scaledHeight = targetHeight * scale;
-
-    if (canvas.width !== scaledWidth || canvas.height !== scaledHeight) {
-      canvas.width = scaledWidth;
-      canvas.height = scaledHeight;
+    // Match canvas to video native resolution for speed
+    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+      canvas.width = video.videoWidth || 512;
+      canvas.height = video.videoHeight || 512;
     }
 
-    // CRITICAL: Clear canvas first to ensure transparent pixels show through
+    // Clear canvas for transparency
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Enable image smoothing for better quality
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-
-    // Draw video frame at higher resolution
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Draw video frame
+    ctx.drawImage(video, 0, 0);
 
     // Get image data and apply chroma key
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
