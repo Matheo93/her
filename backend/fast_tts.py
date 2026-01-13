@@ -101,7 +101,7 @@ def fast_tts(text: str, speed: float = 1.0) -> Optional[bytes]:
 
 def fast_tts_mp3(text: str, speed: float = 1.0) -> Optional[bytes]:
     """
-    Generate speech and convert to MP3 for web compatibility
+    Generate speech and convert to MP3 for web compatibility (optimized)
 
     Args:
         text: Text to synthesize (French)
@@ -110,41 +110,45 @@ def fast_tts_mp3(text: str, speed: float = 1.0) -> Optional[bytes]:
     Returns:
         MP3 audio bytes or None on error
     """
+    global _tts_model, _tts_tokenizer, _device, _sample_rate
     import subprocess
-    import tempfile
-    import os
 
-    wav_data = fast_tts(text, speed)
-    if wav_data is None:
-        return None
+    if _tts_model is None:
+        if not init_fast_tts():
+            return None
 
     try:
-        # Write WAV to temp file
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as wav_file:
-            wav_file.write(wav_data)
-            wav_path = wav_file.name
+        # Generate audio directly (skip WAV intermediate)
+        inputs = _tts_tokenizer(text, return_tensors="pt").to(_device)
 
-        # Convert to MP3 using ffmpeg
-        mp3_path = wav_path.replace(".wav", ".mp3")
-        subprocess.run([
-            "ffmpeg", "-i", wav_path,
-            "-codec:a", "libmp3lame", "-b:a", "128k",
-            "-y", mp3_path
-        ], capture_output=True, check=True)
+        with torch.no_grad():
+            output = _tts_model(**inputs).waveform
 
-        # Read MP3
-        with open(mp3_path, "rb") as f:
-            mp3_data = f.read()
+        # Convert to numpy
+        audio = output.squeeze().cpu().numpy()
 
-        # Cleanup
-        os.unlink(wav_path)
-        os.unlink(mp3_path)
+        # Normalize
+        audio = audio / np.max(np.abs(audio)) * 0.95
+        audio_int16 = (audio * 32767).astype(np.int16)
+
+        # Pipe directly to ffmpeg for MP3 encoding (no temp files!)
+        process = subprocess.Popen(
+            [
+                "ffmpeg", "-f", "s16le", "-ar", str(_sample_rate), "-ac", "1",
+                "-i", "pipe:0", "-codec:a", "libmp3lame", "-b:a", "64k",
+                "-f", "mp3", "pipe:1"
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL
+        )
+        mp3_data, _ = process.communicate(input=audio_int16.tobytes())
 
         return mp3_data
 
     except Exception as e:
-        print(f"MP3 conversion error: {e}")
-        return wav_data  # Return WAV as fallback
+        print(f"MP3 TTS error: {e}")
+        return None
 
 
 async def async_fast_tts(text: str, speed: float = 1.0) -> Optional[bytes]:
