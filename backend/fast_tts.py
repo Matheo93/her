@@ -86,8 +86,8 @@ def fast_tts(text: str, speed: float = 1.0) -> Optional[bytes]:
         # Tokenize
         inputs = _tts_tokenizer(text, return_tensors="pt").to(_device)
 
-        # Generate with fp16 autocast for speed
-        with torch.no_grad():
+        # Generate with inference_mode + autocast for maximum speed
+        with torch.inference_mode():
             if _device == "cuda":
                 with torch.amp.autocast("cuda"):
                     output = _tts_model(**inputs).waveform
@@ -99,16 +99,17 @@ def fast_tts(text: str, speed: float = 1.0) -> Optional[bytes]:
 
         # Apply speed adjustment if needed
         if speed != 1.0:
-            # Resample for speed change
             from scipy.signal import resample
             new_length = int(len(audio) / speed)
             audio = resample(audio, new_length)
 
         # Normalize audio
-        audio = audio / np.max(np.abs(audio)) * 0.95
+        max_val = np.max(np.abs(audio))
+        if max_val > 0:
+            audio = audio / max_val * 0.95
         audio = (audio * 32767).astype(np.int16)
 
-        # Convert to WAV bytes
+        # Convert to WAV bytes (fastest encoding)
         buffer = io.BytesIO()
         wav.write(buffer, _sample_rate, audio)
         return buffer.getvalue()
