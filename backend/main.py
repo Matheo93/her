@@ -981,6 +981,10 @@ async def lifespan(app: FastAPI):
     # Warm-up connections (background task)
     asyncio.create_task(warmup_connections())
 
+    # Start proactive message scheduler (HER feature)
+    if HER_AVAILABLE:
+        asyncio.create_task(proactive_scheduler())
+
     print(f"🎙️  EVA-VOICE ready at http://localhost:8000")
     print(f"⚡ Mode: {QUALITY_MODE} | Rate limit: {RATE_LIMIT_REQUESTS}/min")
     print(f"🔐 Auth: {'DEV MODE' if os.getenv('EVA_DEV_MODE', 'true').lower() == 'true' else 'ENABLED'}")
