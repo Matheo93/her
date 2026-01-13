@@ -75,7 +75,7 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
 
       if (data.type === "frame") {
         frameQueueRef.current.push(data.data);
-        setStats(s => ({ ...s, queueSize: frameQueueRef.current.length, mode: "speaking" }));
+        setStats(s => ({ ...s, queueSize: frameQueueRef.current.length }));
         onFrameReceived?.(data.index);
       } else if (data.type === "done") {
         console.log("Lipsync done:", data.stats);
