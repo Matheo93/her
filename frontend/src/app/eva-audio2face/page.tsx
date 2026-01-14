@@ -23,6 +23,9 @@ function getAudio2FaceUrl(): string {
     const params = new URLSearchParams(window.location.search);
     const custom = params.get("audio2face");
     if (custom) return custom;
+    if (window.location.hostname.includes("trycloudflare.com")) {
+      return "https://williams-volunteer-procedures-delhi.trycloudflare.com";
+    }
   }
   return process.env.NEXT_PUBLIC_AUDIO2FACE_URL || "http://localhost:8004";
 }
