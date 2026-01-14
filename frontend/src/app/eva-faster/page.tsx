@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 
-const FLP_API = "http://localhost:8006";
+const FLP_API = "/api/faster";
 const EVA_IMAGE = "/avatars/eva.png";
 
 export default function EvaFasterPage() {
