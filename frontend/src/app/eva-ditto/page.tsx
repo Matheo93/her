@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 
 const DITTO_API = "/api/ditto";
-const EVA_IMAGE = "/avatars/eva.png";
+const EVA_IMAGE = "/avatars/eva_clean.png";
 const TTS_API = "/api/tts";
 
 export default function EvaDittoPage() {
