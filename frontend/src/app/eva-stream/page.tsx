@@ -179,8 +179,12 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
 
         frameCount++;
         setIsPlaying(true);
+        lastFrameTimeRef.current = timestamp; // Track when we last had frames
       } else {
-        setIsPlaying(false);
+        // Only switch to idle after 500ms of no frames (prevents flickering)
+        if (timestamp - lastFrameTimeRef.current > 500) {
+          setIsPlaying(false);
+        }
       }
 
       // Calculate FPS
