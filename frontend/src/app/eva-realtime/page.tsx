@@ -263,7 +263,7 @@ function RealtimeAvatar({ audioElement, isPlaying }: RealtimeAvatarProps) {
             resolve();
           };
           img.onerror = () => resolve();
-          img.src = `/avatars/visemes/${name}.png`;
+          img.src = `/avatars/visemes/${name}.jpg`;
         });
       });
 
