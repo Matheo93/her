@@ -95,7 +95,7 @@ export default function EvaStreamPage() {
           img.onload = () => {
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           };
-          img.src = \`data:image/jpeg;base64,\${frameData}\`;
+          img.src = `data:image/jpeg;base64,${frameData}`;
         }
         animationRef.current = requestAnimationFrame(renderLoop);
       } else {
@@ -184,7 +184,7 @@ export default function EvaStreamPage() {
         </h1>
         <p className="text-center text-sm text-gray-400">{status}</p>
         <div className="text-center mt-1">
-          <span className={\`inline-block w-2 h-2 rounded-full mr-2 \${isConnected ? 'bg-green-500' : 'bg-red-500'}\`}></span>
+          <span className={`inline-block w-2 h-2 rounded-full mr-2 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
           <span className="text-xs text-gray-500">{isConnected ? 'WebSocket Connected' : 'Disconnected'}</span>
         </div>
       </div>
@@ -195,7 +195,7 @@ export default function EvaStreamPage() {
             <img
               src={EVA_IMAGE}
               alt="Eva"
-              className={\`w-full h-full object-cover absolute inset-0 \${isSpeaking ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200\`}
+              className={`w-full h-full object-cover absolute inset-0 ${isSpeaking ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}
             />
             <canvas
               ref={canvasRef}
