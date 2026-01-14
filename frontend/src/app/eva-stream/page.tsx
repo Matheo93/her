@@ -80,7 +80,8 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
       if (data.type === "frame") {
         frameQueueRef.current.push(data.data);
         setStats(s => ({ ...s, queueSize: frameQueueRef.current.length }));
-        setIsPlaying(true); // Show canvas when frames arrive
+        // Don't set isPlaying here - wait until render loop actually draws the frame
+        // This prevents the canvas from showing before any content is visible
         onFrameReceived?.(data.index);
         console.log("Frame received, queue:", frameQueueRef.current.length);
       } else if (data.type === "done") {
