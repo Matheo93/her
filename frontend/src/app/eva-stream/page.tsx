@@ -2,540 +2,258 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 
-// ============================================================================
-// CONFIG
-// ============================================================================
+const STREAM_WS_URL = "wss://became-trigger-pipe-bestsellers.trycloudflare.com/ws/lipsync";
+const EVA_IMAGE = "/avatars/eva_clean.png";
 
-function getBackendUrl(): string {
-  if (typeof window !== "undefined") {
-    const params = new URLSearchParams(window.location.search);
-    const customBackend = params.get("backend");
-    if (customBackend) return customBackend;
-    if (window.location.hostname.includes("trycloudflare.com")) {
-      return "https://safari-launches-decor-reader.trycloudflare.com";
-    }
-  }
-  return process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-}
-
-function getStreamingUrl(): string {
-  if (typeof window !== "undefined") {
-    const params = new URLSearchParams(window.location.search);
-    const custom = params.get("streaming");
-    if (custom) return custom;
-    // Streaming service tunnel - update this when tunnel restarts
-    if (window.location.hostname.includes("trycloudflare.com")) {
-      return "https://soldiers-sales-stood-wish.trycloudflare.com";
-    }
-  }
-  return process.env.NEXT_PUBLIC_STREAMING_URL || "http://localhost:8002";
-}
-
-const FPS = 25;
-const FRAME_INTERVAL = 1000 / FPS;
-
-// ============================================================================
-// STREAMING AVATAR COMPONENT
-// ============================================================================
-
-interface StreamingAvatarProps {
-  audioData?: ArrayBuffer;
-  isIdle: boolean;
-  onFrameReceived?: (index: number) => void;
-}
-
-function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatarProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const lipsyncWsRef = useRef<WebSocket | null>(null);
-  const frameQueueRef = useRef<string[]>([]);
-  const animationRef = useRef<number>(0);
-  const lastFrameTimeRef = useRef(0);
+export default function EvaStreamPage() {
+  const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [status, setStatus] = useState("Connecting...");
   const [isConnected, setIsConnected] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [stats, setStats] = useState({ fps: 0, latency: 0, queueSize: 0 });
 
-  // Connect to lip-sync streaming service
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const frameQueueRef = useRef<string[]>([]);
+  const animationRef = useRef<number | null>(null);
+
   useEffect(() => {
-    const streamingUrl = getStreamingUrl();
-    const wsUrl = streamingUrl.replace("https://", "wss://").replace("http://", "ws://");
-
-    console.log("Connecting to lipsync:", wsUrl);
-    const ws = new WebSocket(`${wsUrl}/ws/lipsync`);
-
-    ws.onopen = () => {
-      console.log("Lipsync connected!");
-      setIsConnected(true);
-      ws.send(JSON.stringify({ type: "config", avatar: "eva" }));
-    };
-
-    ws.onclose = () => {
-      console.log("Lipsync disconnected");
-      setIsConnected(false);
-      setTimeout(() => {}, 2000);
-    };
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-
-      if (data.type === "frame") {
-        frameQueueRef.current.push(data.data);
-        setStats(s => ({ ...s, queueSize: frameQueueRef.current.length }));
-        // Don't set isPlaying here - wait until render loop actually draws the frame
-        // This prevents the canvas from showing before any content is visible
-        onFrameReceived?.(data.index);
-        console.log("Frame received, queue:", frameQueueRef.current.length);
-      } else if (data.type === "done") {
-        console.log("Lipsync done:", data.stats);
-        setStats(s => ({
-          ...s,
-          fps: data.stats?.effective_fps || 0,
-          latency: data.stats?.avg_per_frame_ms || 0
-        }));
-        // Don't set isPlaying=false here - let render loop handle it when queue is empty
-      } else if (data.type === "config_ok") {
-        console.log("Lipsync configured:", data.avatar);
-      }
-    };
-
-    ws.onerror = (e) => console.error("Lipsync error:", e);
-
-    lipsyncWsRef.current = ws;
-    return () => ws.close();
-  }, [onFrameReceived]);
-
-  // No WebSocket for idle - use pre-rendered video instead
-  // The idle video provides smooth animations at minimal cost
-
-  // Send audio when received
-  useEffect(() => {
-    if (audioData && lipsyncWsRef.current?.readyState === WebSocket.OPEN) {
-      console.log("Sending audio:", audioData.byteLength, "bytes");
-
-      // Convert ArrayBuffer to base64
-      const bytes = new Uint8Array(audioData);
-      const binary = String.fromCharCode(...bytes);
-      const base64 = btoa(binary);
-
-      lipsyncWsRef.current.send(JSON.stringify({
-        type: "audio_wav",
-        data: base64
-      }));
-
-      // Signal end after a small delay
-      setTimeout(() => {
-        lipsyncWsRef.current?.send(JSON.stringify({ type: "end" }));
-      }, 100);
-
-      // DON'T set isPlaying here - wait until first frame is actually rendered
-      // This prevents the avatar from disappearing at the start
-    }
-  }, [audioData]);
-
-  // Frame rendering loop for lip-sync queue
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return;
-
-    let frameCount = 0;
-    let lastFpsTime = performance.now();
-
-    const renderFrame = (timestamp: number) => {
-      // Respect frame rate
-      if (timestamp - lastFrameTimeRef.current < FRAME_INTERVAL * 0.8) {
-        animationRef.current = requestAnimationFrame(renderFrame);
-        return;
-      }
-      lastFrameTimeRef.current = timestamp;
-
-      // Get next frame from lip-sync queue
-      if (frameQueueRef.current.length > 0) {
-        const frameData = frameQueueRef.current.shift()!;
-        setStats(s => ({ ...s, queueSize: frameQueueRef.current.length }));
-
-        // Decode and draw with chroma key
-        const img = new Image();
-        img.onload = () => {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-
-          // Chroma key - remove green background
-          try {
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const d = imageData.data;
-            for (let i = 0; i < d.length; i += 4) {
-              // Green screen detection
-              if (d[i+1] > 100 && d[i+1] > d[i] * 1.3 && d[i+1] > d[i+2] * 1.3) {
-                d[i+3] = 0;
-              }
-            }
-            ctx.putImageData(imageData, 0, 0);
-          } catch (e) {
-            // Ignore chroma key errors
-          }
-        };
-        img.src = `data:image/jpeg;base64,${frameData}`;
-
-        frameCount++;
-        setIsPlaying(true);
-        lastFrameTimeRef.current = timestamp; // Track when we last had frames
-      } else {
-        // Only switch to idle after 500ms of no frames (prevents flickering)
-        if (timestamp - lastFrameTimeRef.current > 500) {
-          setIsPlaying(false);
-        }
-      }
-
-      // Calculate FPS
-      if (timestamp - lastFpsTime > 1000) {
-        setStats(s => ({ ...s, fps: frameCount }));
-        frameCount = 0;
-        lastFpsTime = timestamp;
-      }
-
-      animationRef.current = requestAnimationFrame(renderFrame);
-    };
-
-    animationRef.current = requestAnimationFrame(renderFrame);
-
+    setMessages([{
+      role: "assistant",
+      content: "Salut ! Je suis Eva en streaming temps réel. Parle-moi !"
+    }]);
+    connectWebSocket();
     return () => {
-      cancelAnimationFrame(animationRef.current);
+      wsRef.current?.close();
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
   }, []);
 
-  return (
-    <div className="relative w-full h-full">
-      {/* Idle video - subtle movements */}
-      <video
-        src="/avatars/eva_idle_alpha.webm"
-        autoPlay
-        loop
-        muted
-        playsInline
-        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-200 ${
-          isPlaying ? "opacity-0" : "opacity-100"
-        }`}
-      />
-
-      {/* Streaming canvas - shown when speaking */}
-      <canvas
-        ref={canvasRef}
-        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-200 ${
-          isPlaying ? "opacity-100" : "opacity-0"
-        }`}
-      />
-
-      {/* Stats overlay */}
-      <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded font-mono">
-        <div>LipSync: {isConnected ? "✓" : "✗"}</div>
-        <div>Mode: {isPlaying ? "speaking" : "idle"} | Queue: {stats.queueSize}</div>
-        {stats.latency > 0 && <div>{stats.latency.toFixed(0)}ms/frame</div>}
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// MAIN PAGE
-// ============================================================================
-
-export default function EvaStreamPage() {
-  const [isConnected, setIsConnected] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [status, setStatus] = useState("Connexion...");
-  const [currentText, setCurrentText] = useState("");
-  const [inputText, setInputText] = useState("");
-  const [audioToPlay, setAudioToPlay] = useState<ArrayBuffer | undefined>();
-
-  const wsRef = useRef<WebSocket | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const audioQueueRef = useRef<{ audio: ArrayBuffer; text: string }[]>([]);
-  const isPlayingRef = useRef(false);
-
-  // Connect to HER WebSocket
   useEffect(() => {
-    const connect = () => {
-      const backendUrl = getBackendUrl();
-      const wsUrl = backendUrl.replace("https://", "wss://").replace("http://", "ws://");
-      console.log("Connecting to HER:", wsUrl);
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-      const ws = new WebSocket(`${wsUrl}/ws/her`);
+  const connectWebSocket = () => {
+    try {
+      const ws = new WebSocket(STREAM_WS_URL);
 
       ws.onopen = () => {
         setIsConnected(true);
-        setStatus("Connectee");
-        ws.send(JSON.stringify({
-          type: "config",
-          user_id: "eva_stream_user",
-          voice: "french"
-        }));
+        setStatus("Connected - Ready");
+        ws.send(JSON.stringify({ type: "select_avatar", avatar: "eva" }));
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "frame") {
+          frameQueueRef.current.push(data.frame);
+          if (!animationRef.current) {
+            renderFrames();
+          }
+        } else if (data.type === "stream_start") {
+          setIsSpeaking(true);
+          setStatus("Eva parle...");
+        } else if (data.type === "stream_end") {
+          setIsSpeaking(false);
+          setStatus("Ready");
+        }
       };
 
       ws.onclose = () => {
         setIsConnected(false);
-        setStatus("Reconnexion...");
-        setTimeout(connect, 3000);
+        setStatus("Disconnected - Reconnecting...");
+        setTimeout(connectWebSocket, 2000);
       };
 
-      ws.onmessage = async (event) => {
-        const data = JSON.parse(event.data);
-        console.log("HER message:", data.type, data.text ? `"${data.text}"` : "", data.audio_base64 ? "(has audio)" : "");
-
-        switch (data.type) {
-          case "config_ok":
-            setStatus("Prete");
-            break;
-
-          case "her_context":
-            if (data.thought_prefix) {
-              setCurrentText(data.thought_prefix + " ");
-            }
-            break;
-
-          case "speaking_start":
-            setIsSpeaking(true);
-            setIsProcessing(false);
-            break;
-
-          case "speech":
-          case "filler":
-            // Queue audio chunk from HER
-            if (data.audio_base64) {
-              const audioBytes = Uint8Array.from(atob(data.audio_base64), c => c.charCodeAt(0));
-              audioQueueRef.current.push({
-                audio: audioBytes.buffer,
-                text: data.text || ""
-              });
-
-              if (!isPlayingRef.current) {
-                playNextChunk();
-              }
-            }
-            break;
-
-          case "speaking_end":
-            setIsSpeaking(false);
-            setCurrentText("");
-            break;
-
-          case "listening":
-            setIsListening(data.active);
-            if (data.active) {
-              setStatus("Ecoute...");
-            }
-            break;
-
-          case "processing":
-            setIsProcessing(true);
-            setStatus("Reflexion...");
-            break;
-
-          case "error":
-            console.error("HER error:", data.message);
-            setStatus("Erreur");
-            break;
-        }
+      ws.onerror = () => {
+        setStatus("Connection error");
       };
 
       wsRef.current = ws;
+    } catch (error) {
+      console.error("WebSocket error:", error);
+      setStatus("Connection failed");
+    }
+  };
+
+  const renderFrames = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const renderLoop = () => {
+      if (frameQueueRef.current.length > 0) {
+        const frameData = frameQueueRef.current.shift();
+        if (frameData) {
+          const img = new Image();
+          img.onload = () => {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          };
+          img.src = \`data:image/jpeg;base64,\${frameData}\`;
+        }
+        animationRef.current = requestAnimationFrame(renderLoop);
+      } else {
+        animationRef.current = null;
+      }
     };
 
-    connect();
-
-    return () => {
-      wsRef.current?.close();
-    };
+    renderLoop();
   }, []);
 
-  // Play audio queue
-  const playNextChunk = useCallback(() => {
-    if (audioQueueRef.current.length === 0) {
-      isPlayingRef.current = false;
-      setAudioToPlay(undefined);
-      return;
-    }
+  const sendMessage = async () => {
+    if (!input.trim() || isLoading || !isConnected) return;
 
-    isPlayingRef.current = true;
-    const chunk = audioQueueRef.current.shift()!;
+    const userMessage = input.trim();
+    setInput("");
+    setMessages(prev => [...prev, { role: "user", content: userMessage }]);
+    setIsLoading(true);
+    setStatus("Eva réfléchit...");
 
-    // Set audio for streaming avatar
-    console.log("Playing chunk, sending to lipsync:", chunk.audio.byteLength, "bytes");
-    setAudioToPlay(chunk.audio);
-    setCurrentText(prev => prev + chunk.text);
-
-    // Play audio
-    if (audioRef.current) {
-      const blob = new Blob([chunk.audio], { type: "audio/wav" });
-      audioRef.current.src = URL.createObjectURL(blob);
-      audioRef.current.play().catch(console.error);
-    }
-  }, []);
-
-  // Audio ended handler
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const handleEnded = () => {
-      playNextChunk();
-    };
-
-    audio.addEventListener("ended", handleEnded);
-    return () => audio.removeEventListener("ended", handleEnded);
-  }, [playNextChunk]);
-
-  // Voice recording
-  const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      const chunks: BlobPart[] = [];
+      const aiResponse = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage }),
+      });
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
+      let responseText = "Je suis désolée, je n'ai pas pu répondre.";
+      if (aiResponse.ok) {
+        const data = await aiResponse.json();
+        responseText = data.response || responseText;
+      }
 
-      recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: "audio/webm" });
-        const reader = new FileReader();
-        reader.onload = () => {
-          const base64 = (reader.result as string).split(",")[1];
-          wsRef.current?.send(JSON.stringify({
-            type: "audio",
-            audio: base64,
-            format: "webm"
-          }));
-        };
-        reader.readAsDataURL(blob);
-        stream.getTracks().forEach(t => t.stop());
-      };
+      setMessages(prev => [...prev, { role: "assistant", content: responseText }]);
+      setStatus("Generating voice...");
 
-      mediaRecorderRef.current = recorder;
-      recorder.start();
-      setIsListening(true);
-      setStatus("Parle...");
-    } catch (err) {
-      console.error("Mic error:", err);
+      const ttsResponse = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: responseText }),
+      });
+
+      if (ttsResponse.ok && wsRef.current?.readyState === WebSocket.OPEN) {
+        const audioBlob = await ttsResponse.blob();
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const base64Audio = btoa(
+          new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+        );
+
+        wsRef.current.send(JSON.stringify({
+          type: "audio",
+          audio: base64Audio,
+          format: "wav"
+        }));
+
+        if (!audioContextRef.current) {
+          audioContextRef.current = new AudioContext();
+        }
+        const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer.slice(0));
+        const source = audioContextRef.current.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContextRef.current.destination);
+        source.start();
+      }
+
+      setStatus("Ready");
+    } catch (error) {
+      console.error(error);
+      setStatus("Error");
+    } finally {
+      setIsLoading(false);
     }
-  }, []);
+  };
 
-  const stopRecording = useCallback(() => {
-    mediaRecorderRef.current?.stop();
-    setIsListening(false);
-    setIsProcessing(true);
-    setStatus("Traitement...");
-  }, []);
-
-  // Text input
-  const sendText = useCallback(() => {
-    if (!inputText.trim()) return;
-
-    console.log("sendText called, wsRef.current:", wsRef.current?.readyState === WebSocket.OPEN ? "OPEN" : "NOT OPEN");
-    console.log("Sending to HER:", { type: "message", content: inputText.trim() });
-
-    wsRef.current?.send(JSON.stringify({
-      type: "message",
-      content: inputText.trim()
-    }));
-
-    setInputText("");
-    setIsProcessing(true);
-    setStatus("Reflexion...");
-  }, [inputText]);
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 flex flex-col">
-      {/* Header */}
-      <div className="p-4 flex justify-between items-center">
-        <h1 className="text-white text-xl font-light">Eva Stream</h1>
-        <div className={`px-3 py-1 rounded-full text-sm ${
-          isConnected ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-        }`}>
-          {status}
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-rose-900 to-gray-900 text-white flex flex-col">
+      <div className="p-4 border-b border-gray-700">
+        <h1 className="text-2xl font-bold text-center bg-gradient-to-r from-rose-400 to-orange-400 bg-clip-text text-transparent">
+          Eva - Real-Time Stream
+        </h1>
+        <p className="text-center text-sm text-gray-400">{status}</p>
+        <div className="text-center mt-1">
+          <span className={\`inline-block w-2 h-2 rounded-full mr-2 \${isConnected ? 'bg-green-500' : 'bg-red-500'}\`}></span>
+          <span className="text-xs text-gray-500">{isConnected ? 'WebSocket Connected' : 'Disconnected'}</span>
         </div>
       </div>
 
-      {/* Avatar */}
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="relative w-full max-w-2xl aspect-square">
-          <StreamingAvatar
-            audioData={audioToPlay}
-            isIdle={!isSpeaking}
-          />
-
-          {/* Speaking indicator */}
-          {isSpeaking && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur px-4 py-2 rounded-full">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                <span className="text-white/80 text-sm">Eva parle...</span>
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <div className="md:w-1/3 p-4 flex items-center justify-center bg-gray-900/50">
+          <div className="w-full max-w-sm aspect-square rounded-xl overflow-hidden bg-gray-800 relative">
+            <img
+              src={EVA_IMAGE}
+              alt="Eva"
+              className={\`w-full h-full object-cover absolute inset-0 \${isSpeaking ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200\`}
+            />
+            <canvas
+              ref={canvasRef}
+              width={512}
+              height={512}
+              className={\`w-full h-full object-cover absolute inset-0 \${isSpeaking ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200\`}
+            />
+            {isLoading && (
+              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-500"></div>
               </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Text display */}
-      {currentText && (
-        <div className="px-4 pb-4">
-          <div className="max-w-2xl mx-auto bg-white/5 backdrop-blur rounded-lg p-4">
-            <p className="text-white/90 text-lg">{currentText}</p>
+            )}
           </div>
         </div>
-      )}
 
-      {/* Controls */}
-      <div className="p-4 flex flex-col items-center gap-4">
-        {/* Voice button */}
-        <button
-          onMouseDown={startRecording}
-          onMouseUp={stopRecording}
-          onTouchStart={startRecording}
-          onTouchEnd={stopRecording}
-          disabled={isSpeaking || isProcessing}
-          className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${
-            isListening
-              ? "bg-red-500 scale-110 shadow-lg shadow-red-500/50"
-              : isSpeaking || isProcessing
-              ? "bg-zinc-600 cursor-not-allowed"
-              : "bg-zinc-700 hover:bg-zinc-600 active:scale-95"
-          }`}
-        >
-          <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-          </svg>
-        </button>
-        <span className="text-white/50 text-sm">Maintenir pour parler</span>
+        <div className="md:w-2/3 flex flex-col border-l border-gray-700">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.map((msg, i) => (
+              <div
+                key={i}
+                className={\`flex \${msg.role === "user" ? "justify-end" : "justify-start"}\`}
+              >
+                <div
+                  className={\`max-w-[80%] p-3 rounded-2xl \${
+                    msg.role === "user"
+                      ? "bg-rose-600 text-white rounded-br-sm"
+                      : "bg-gray-700 text-white rounded-bl-sm"
+                  }\`}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
 
-        {/* Text input */}
-        <div className="flex gap-2 w-full max-w-md">
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendText()}
-            placeholder="Ou ecris ici..."
-            className="flex-1 bg-white/10 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/30"
-          />
-          <button
-            onClick={sendText}
-            disabled={!inputText.trim() || isSpeaking || isProcessing}
-            className="bg-white/10 text-white px-4 py-2 rounded-lg hover:bg-white/20 disabled:opacity-50"
-          >
-            Envoyer
-          </button>
+          <div className="p-4 border-t border-gray-700">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Écris ton message..."
+                disabled={isLoading || !isConnected}
+                className="flex-1 bg-gray-800 text-white rounded-full px-4 py-3 outline-none focus:ring-2 focus:ring-rose-500 disabled:opacity-50"
+              />
+              <button
+                onClick={sendMessage}
+                disabled={isLoading || !isConnected || !input.trim()}
+                className="bg-rose-600 hover:bg-rose-700 disabled:bg-gray-600 disabled:cursor-not-allowed px-6 py-3 rounded-full font-medium transition-all"
+              >
+                {isLoading ? "..." : "Envoyer"}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* Hidden audio element */}
-      <audio ref={audioRef} className="hidden" />
     </div>
   );
 }
