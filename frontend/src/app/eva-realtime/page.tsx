@@ -385,9 +385,13 @@ export default function EvaRealtimePage() {
           case "speech":
           case "filler":
             if (data.audio_base64) {
-              const audioBytes = Uint8Array.from(atob(data.audio_base64), c => c.charCodeAt(0));
+              const binaryStr = atob(data.audio_base64);
+              const audioBytes = new Uint8Array(binaryStr.length);
+              for (let i = 0; i < binaryStr.length; i++) {
+                audioBytes[i] = binaryStr.charCodeAt(i);
+              }
               audioQueueRef.current.push({
-                audio: audioBytes.buffer,
+                audio: audioBytes.buffer as ArrayBuffer,
                 text: data.text || ""
               });
 
