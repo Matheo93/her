@@ -160,40 +160,77 @@ interface VisemeRendererProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
 }
 
+// Offscreen canvas for double buffering (no flicker)
+let offscreenCanvas: OffscreenCanvas | null = null;
+let offscreenCtx: OffscreenCanvasRenderingContext2D | null = null;
+
 function renderVisemes({ weights, images, canvasRef }: VisemeRendererProps) {
   const canvas = canvasRef.current;
   if (!canvas) return;
 
-  const ctx = canvas.getContext("2d", { alpha: true, desynchronized: true });
+  const ctx = canvas.getContext("2d", { alpha: false }); // No alpha = no flicker
   if (!ctx) return;
 
   // Get dimensions from first image
   const firstImg = images.values().next().value;
   if (!firstImg) return;
 
-  if (canvas.width !== firstImg.width || canvas.height !== firstImg.height) {
-    canvas.width = firstImg.width;
-    canvas.height = firstImg.height;
+  const w = firstImg.width;
+  const h = firstImg.height;
+
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
   }
 
-  // Clear
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Create offscreen canvas for double buffering
+  if (!offscreenCanvas || offscreenCanvas.width !== w) {
+    offscreenCanvas = new OffscreenCanvas(w, h);
+    offscreenCtx = offscreenCanvas.getContext("2d");
+  }
 
-  // Sort weights by value (draw lowest first)
+  if (!offscreenCtx) return;
+
+  // Draw to offscreen first (prevents flicker)
+  offscreenCtx.fillStyle = "#0d4a4a"; // Match background color
+  offscreenCtx.fillRect(0, 0, w, h);
+
+  // Find the dominant viseme (highest weight)
   const sorted = Object.entries(weights)
-    .filter(([_, w]) => w > 0.01)
-    .sort((a, b) => a[1] - b[1]);
+    .filter(([_, weight]) => weight > 0.05)
+    .sort((a, b) => b[1] - a[1]);
 
-  // Blend images
-  for (const [name, weight] of sorted) {
-    const img = images.get(name);
-    if (img) {
-      ctx.globalAlpha = Math.min(1, weight * 1.5); // Boost visibility
-      ctx.drawImage(img, 0, 0);
+  if (sorted.length === 0) {
+    // No speech - just draw sil
+    const silImg = images.get("sil");
+    if (silImg) {
+      offscreenCtx.drawImage(silImg, 0, 0);
+    }
+  } else {
+    // Draw base (sil) first
+    const silImg = images.get("sil");
+    if (silImg) {
+      offscreenCtx.globalAlpha = 1;
+      offscreenCtx.drawImage(silImg, 0, 0);
+    }
+
+    // Then blend the top 2 visemes for smooth transition
+    for (let i = 0; i < Math.min(2, sorted.length); i++) {
+      const [name, weight] = sorted[i];
+      if (name === "sil") continue;
+
+      const img = images.get(name);
+      if (img) {
+        offscreenCtx.globalAlpha = Math.min(1, weight * 1.2);
+        offscreenCtx.drawImage(img, 0, 0);
+      }
     }
   }
 
-  ctx.globalAlpha = 1;
+  offscreenCtx.globalAlpha = 1;
+
+  // Copy to visible canvas in one operation (no flicker)
+  ctx.drawImage(offscreenCanvas, 0, 0);
 }
 
 // ============================================================================
