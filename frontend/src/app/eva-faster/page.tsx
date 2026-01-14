@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 
 const FLP_API = "http://localhost:8006";
-const EVA_IMAGE = "/images/eva.png";
+const EVA_IMAGE = "/avatars/eva.png";
 
 export default function EvaFasterPage() {
   const [isLoading, setIsLoading] = useState(false);

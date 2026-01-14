@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 
 const DITTO_API = "http://localhost:8005";
-const EVA_IMAGE = "/images/eva.png";
+const EVA_IMAGE = "/avatars/eva.png";
 
 export default function EvaDittoPage() {
   const [isLoading, setIsLoading] = useState(false);
