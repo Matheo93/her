@@ -4,28 +4,30 @@ import { useState, useRef, useEffect } from "react";
 
 const DITTO_API = "/api/ditto";
 const EVA_IMAGE = "/avatars/eva.png";
+const TTS_API = "/api/tts";
 
 export default function EvaDittoPage() {
+  const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
+  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState("Ready");
+  const [status, setStatus] = useState("Initializing...");
   const [isPrepared, setIsPrepared] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     prepareSource();
   }, []);
 
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   const prepareSource = async () => {
     try {
-      setStatus("Preparing Eva source image...");
-
-      // Fetch Eva image
+      setStatus("Preparing Eva...");
       const response = await fetch(EVA_IMAGE);
       const blob = await response.blob();
 
@@ -39,228 +41,171 @@ export default function EvaDittoPage() {
 
       if (result.ok) {
         setIsPrepared(true);
-        setStatus("Ready - Eva source prepared");
+        setStatus("Ready");
+        setMessages([{
+          role: "assistant",
+          content: "Salut ! Je suis Eva. Comment puis-je t'aider aujourd'hui ?"
+        }]);
       } else {
-        const data = await result.json();
-        setError(data.error || "Failed to prepare source");
-        setStatus("Error preparing source");
+        setStatus("Error preparing Eva");
       }
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(`Connection error: ${errorMessage}`);
+    } catch {
       setStatus("Service not available");
     }
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
+  const sendMessage = async () => {
+    if (!input.trim() || isLoading) return;
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
-        await generateVideo(audioBlob);
-        stream.getTracks().forEach((track) => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      setStatus("Recording...");
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(`Microphone error: ${errorMessage}`);
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      setStatus("Processing audio...");
-    }
-  };
-
-  const generateVideo = async (audioBlob: Blob) => {
+    const userMessage = input.trim();
+    setInput("");
+    setMessages(prev => [...prev, { role: "user", content: userMessage }]);
     setIsLoading(true);
-    setError(null);
-    setVideoUrl(null);
+    setStatus("Eva is thinking...");
 
     try {
-      setStatus("Generating lip-synced video with Ditto...");
-
-      const formData = new FormData();
-      formData.append("audio", audioBlob, "audio.wav");
-
-      const response = await fetch(`${DITTO_API}/generate`, {
+      // Get AI response
+      const aiResponse = await fetch("/api/chat", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage }),
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Generation failed");
+      let responseText = "Je suis désolée, je n'ai pas pu répondre.";
+      if (aiResponse.ok) {
+        const data = await aiResponse.json();
+        responseText = data.response || responseText;
       }
 
-      const videoBlob = await response.blob();
-      const url = URL.createObjectURL(videoBlob);
-      setVideoUrl(url);
-      setStatus("Video generated!");
+      setMessages(prev => [...prev, { role: "assistant", content: responseText }]);
+      setStatus("Generating voice...");
 
-      // Auto-play
-      if (videoRef.current) {
-        videoRef.current.src = url;
-        videoRef.current.play();
+      // Generate TTS audio
+      const ttsResponse = await fetch(TTS_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: responseText }),
+      });
+
+      if (ttsResponse.ok) {
+        const audioBlob = await ttsResponse.blob();
+        setStatus("Generating lip-sync video...");
+
+        // Generate lip-sync video
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "speech.wav");
+
+        const videoResponse = await fetch(`${DITTO_API}/generate`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (videoResponse.ok) {
+          const videoBlob = await videoResponse.blob();
+          const url = URL.createObjectURL(videoBlob);
+          setVideoUrl(url);
+          if (videoRef.current) {
+            videoRef.current.src = url;
+            videoRef.current.play();
+          }
+        }
       }
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(`Generation error: ${errorMessage}`);
-      setStatus("Generation failed");
+      setStatus("Ready");
+    } catch (error) {
+      console.error(error);
+      setStatus("Error");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      await generateVideo(file);
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-2 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-          Eva - Ditto Talking Head
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white flex flex-col">
+      {/* Header */}
+      <div className="p-4 border-b border-gray-700">
+        <h1 className="text-2xl font-bold text-center bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+          Eva - Ditto Chat
         </h1>
-        <p className="text-center text-gray-400 mb-8">
-          Real-time audio-driven lip-sync using Ditto by Ant Group
-        </p>
+        <p className="text-center text-sm text-gray-400">{status}</p>
+      </div>
 
-        {/* Status */}
-        <div className="text-center mb-6">
-          <span className={`px-4 py-2 rounded-full text-sm ${
-            isPrepared ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"
-          }`}>
-            {status}
-          </span>
-        </div>
-
-        {/* Error display */}
-        {error && (
-          <div className="bg-red-500/20 border border-red-500 text-red-400 p-4 rounded-lg mb-6">
-            {error}
-          </div>
-        )}
-
-        {/* Main content */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Source image */}
-          <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
-            <h2 className="text-xl font-semibold mb-4">Source Image</h2>
-            <div className="aspect-square bg-gray-900 rounded-lg overflow-hidden">
+      {/* Main content */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        {/* Video panel */}
+        <div className="md:w-1/3 p-4 flex items-center justify-center bg-gray-900/50">
+          <div className="w-full max-w-sm aspect-square rounded-xl overflow-hidden bg-gray-800 relative">
+            {videoUrl ? (
+              <video
+                ref={videoRef}
+                className="w-full h-full object-cover"
+                loop
+                playsInline
+              />
+            ) : (
               <img
                 src={EVA_IMAGE}
                 alt="Eva"
                 className="w-full h-full object-cover"
               />
-            </div>
+            )}
+            {isLoading && (
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+              </div>
+            )}
           </div>
+        </div>
 
-          {/* Output video */}
-          <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
-            <h2 className="text-xl font-semibold mb-4">Generated Video</h2>
-            <div className="aspect-square bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center">
-              {isLoading ? (
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
-                  <p className="text-gray-400">Generating video...</p>
+        {/* Chat panel */}
+        <div className="md:w-2/3 flex flex-col border-l border-gray-700">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.map((msg, i) => (
+              <div
+                key={i}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[80%] p-3 rounded-2xl ${
+                    msg.role === "user"
+                      ? "bg-purple-600 text-white rounded-br-sm"
+                      : "bg-gray-700 text-white rounded-bl-sm"
+                  }`}
+                >
+                  {msg.content}
                 </div>
-              ) : videoUrl ? (
-                <video
-                  ref={videoRef}
-                  className="w-full h-full object-cover"
-                  controls
-                  loop
-                />
-              ) : (
-                <p className="text-gray-500">Record or upload audio to generate</p>
-              )}
-            </div>
+              </div>
+            ))}
+            <div ref={chatEndRef} />
           </div>
-        </div>
 
-        {/* Controls */}
-        <div className="mt-8 flex flex-wrap justify-center gap-4">
-          {/* Record button */}
-          <button
-            onClick={isRecording ? stopRecording : startRecording}
-            disabled={!isPrepared || isLoading}
-            className={`px-6 py-3 rounded-lg font-medium transition-all ${
-              isRecording
-                ? "bg-red-500 hover:bg-red-600 animate-pulse"
-                : isPrepared && !isLoading
-                ? "bg-purple-500 hover:bg-purple-600"
-                : "bg-gray-600 cursor-not-allowed"
-            }`}
-          >
-            {isRecording ? "Stop Recording" : "Record Audio"}
-          </button>
-
-          {/* Upload audio */}
-          <label className={`px-6 py-3 rounded-lg font-medium cursor-pointer transition-all ${
-            isPrepared && !isLoading
-              ? "bg-blue-500 hover:bg-blue-600"
-              : "bg-gray-600 cursor-not-allowed"
-          }`}>
-            Upload Audio
-            <input
-              type="file"
-              accept="audio/*"
-              onChange={handleAudioUpload}
-              disabled={!isPrepared || isLoading}
-              className="hidden"
-            />
-          </label>
-
-          {/* Download button */}
-          {videoUrl && (
-            <a
-              href={videoUrl}
-              download="eva-ditto.mp4"
-              className="px-6 py-3 bg-green-500 hover:bg-green-600 rounded-lg font-medium transition-all"
-            >
-              Download Video
-            </a>
-          )}
-        </div>
-
-        {/* Info */}
-        <div className="mt-12 bg-gray-800/30 rounded-xl p-6 border border-gray-700">
-          <h3 className="text-lg font-semibold mb-3">About Ditto</h3>
-          <p className="text-gray-400 text-sm">
-            Ditto is a motion-space diffusion model for controllable realtime talking head synthesis
-            developed by Ant Group. It generates natural lip movements and facial expressions
-            synchronized with audio input.
-          </p>
-          <div className="mt-4 flex gap-4 text-sm">
-            <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full">
-              PyTorch
-            </span>
-            <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full">
-              Diffusion Model
-            </span>
-            <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full">
-              25 FPS
-            </span>
+          {/* Input */}
+          <div className="p-4 border-t border-gray-700">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Écris ton message..."
+                disabled={!isPrepared || isLoading}
+                className="flex-1 bg-gray-800 text-white rounded-full px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+              />
+              <button
+                onClick={sendMessage}
+                disabled={!isPrepared || isLoading || !input.trim()}
+                className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed px-6 py-3 rounded-full font-medium transition-all"
+              >
+                {isLoading ? "..." : "Envoyer"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
