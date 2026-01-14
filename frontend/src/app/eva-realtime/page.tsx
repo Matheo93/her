@@ -191,9 +191,7 @@ function renderVisemes({ weights, images, canvasRef }: VisemeRendererProps) {
 
   if (!offscreenCtx) return;
 
-  // Draw to offscreen first (prevents flicker)
-  offscreenCtx.fillStyle = "#0d4a4a"; // Match background color
-  offscreenCtx.fillRect(0, 0, w, h);
+  // Images now have solid background, no need to clear
 
   // Find the dominant viseme (highest weight)
   const sorted = Object.entries(weights)
