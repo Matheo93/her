@@ -436,6 +436,9 @@ export default function EvaStreamPage() {
   const sendText = useCallback(() => {
     if (!inputText.trim()) return;
 
+    console.log("sendText called, wsRef.current:", wsRef.current?.readyState === WebSocket.OPEN ? "OPEN" : "NOT OPEN");
+    console.log("Sending to HER:", { type: "message", content: inputText.trim() });
+
     wsRef.current?.send(JSON.stringify({
       type: "message",
       content: inputText.trim()
