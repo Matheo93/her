@@ -285,6 +285,7 @@ export default function EvaStreamPage() {
 
       ws.onmessage = async (event) => {
         const data = JSON.parse(event.data);
+        console.log("HER message:", data.type, data.text ? `"${data.text}"` : "", data.audio_base64 ? "(has audio)" : "");
 
         switch (data.type) {
           case "config_ok":
