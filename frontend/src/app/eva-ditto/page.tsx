@@ -141,22 +141,24 @@ export default function EvaDittoPage() {
         {/* Video panel */}
         <div className="md:w-1/3 p-4 flex items-center justify-center bg-gray-900/50">
           <div className="w-full max-w-sm aspect-square rounded-xl overflow-hidden bg-gray-800 relative">
-            {videoUrl ? (
+            {/* Always show Eva image as base */}
+            <img
+              src={EVA_IMAGE}
+              alt="Eva"
+              className="w-full h-full object-cover absolute inset-0"
+            />
+            {/* Video overlay when available */}
+            {videoUrl && (
               <video
                 ref={videoRef}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover absolute inset-0"
                 loop
                 playsInline
-              />
-            ) : (
-              <img
-                src={EVA_IMAGE}
-                alt="Eva"
-                className="w-full h-full object-cover"
+                autoPlay
               />
             )}
             {isLoading && (
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
               </div>
             )}
