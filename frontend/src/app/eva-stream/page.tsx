@@ -365,6 +365,7 @@ export default function EvaStreamPage() {
     const chunk = audioQueueRef.current.shift()!;
 
     // Set audio for streaming avatar
+    console.log("Playing chunk, sending to lipsync:", chunk.audio.byteLength, "bytes");
     setAudioToPlay(chunk.audio);
     setCurrentText(prev => prev + chunk.text);
 
