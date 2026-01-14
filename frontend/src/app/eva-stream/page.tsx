@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 
-const STREAM_WS_URL = "wss://became-trigger-pipe-bestsellers.trycloudflare.com/ws/lipsync";
+const STREAM_WS_URL = "wss://soldiers-sales-stood-wish.trycloudflare.com/ws/lipsync";
 const EVA_IMAGE = "/avatars/eva_clean.png";
 
 export default function EvaStreamPage() {
