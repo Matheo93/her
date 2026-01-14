@@ -125,7 +125,8 @@ function StreamingAvatar({ audioData, isIdle, onFrameReceived }: StreamingAvatar
         lipsyncWsRef.current?.send(JSON.stringify({ type: "end" }));
       }, 100);
 
-      setIsPlaying(true);
+      // DON'T set isPlaying here - wait until first frame is actually rendered
+      // This prevents the avatar from disappearing at the start
     }
   }, [audioData]);
 
