@@ -36,8 +36,8 @@ const VISEMES = ["sil", "AA", "EE", "OO", "PP", "FF", "TH", "DD", "kk", "CH", "S
 class GPUAudioAnalyzer {
   private audioContext: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
-  private dataArray: Uint8Array<ArrayBuffer> | null = null;
-  private floatArray: Float32Array<ArrayBuffer> | null = null;
+  private dataArray: Uint8Array | null = null;
+  private floatArray: Float32Array | null = null;
   private source: AudioBufferSourceNode | MediaElementAudioSourceNode | null = null;
   private isPlaying = false;
   private smoothedEnergy = 0;
