@@ -71,7 +71,7 @@ class GPUAudioAnalyzer {
     }
 
     // Get frequency data
-    this.analyser.getByteFrequencyData(this.dataArray);
+    this.analyser.getByteFrequencyData(this.dataArray as Uint8Array<ArrayBuffer>);
 
     // Calculate energy (volume)
     let sum = 0;
