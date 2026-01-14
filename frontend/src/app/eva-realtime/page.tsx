@@ -157,7 +157,7 @@ class GPUAudioAnalyzer {
 interface VisemeRendererProps {
   weights: Record<string, number>;
   images: Map<string, HTMLImageElement>;
-  canvasRef: React.RefObject<HTMLCanvasElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
 }
 
 function renderVisemes({ weights, images, canvasRef }: VisemeRendererProps) {
