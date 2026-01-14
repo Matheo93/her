@@ -54,7 +54,7 @@ class GPUAudioAnalyzer {
     }
 
     // Connect audio element to analyser
-    if (!this.source) {
+    if (!this.source && this.analyser) {
       this.source = this.audioContext.createMediaElementSource(audioElement);
       this.source.connect(this.analyser);
       this.analyser.connect(this.audioContext.destination);
