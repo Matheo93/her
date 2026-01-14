@@ -25,6 +25,9 @@ function getVisemeUrl(): string {
     const params = new URLSearchParams(window.location.search);
     const custom = params.get("viseme");
     if (custom) return custom;
+    if (window.location.hostname.includes("trycloudflare.com")) {
+      return "https://distinguished-pink-cycles-which.trycloudflare.com";
+    }
   }
   return process.env.NEXT_PUBLIC_VISEME_URL || "http://localhost:8003";
 }
