@@ -201,7 +201,7 @@ export default function EvaStreamPage() {
               ref={canvasRef}
               width={512}
               height={512}
-              className={\`w-full h-full object-cover absolute inset-0 \${isSpeaking ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200\`}
+              className={`w-full h-full object-cover absolute inset-0 ${isSpeaking ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200`}
             />
             {isLoading && (
               <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
@@ -216,14 +216,14 @@ export default function EvaStreamPage() {
             {messages.map((msg, i) => (
               <div
                 key={i}
-                className={\`flex \${msg.role === "user" ? "justify-end" : "justify-start"}\`}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={\`max-w-[80%] p-3 rounded-2xl \${
+                  className={`max-w-[80%] p-3 rounded-2xl ${
                     msg.role === "user"
                       ? "bg-rose-600 text-white rounded-br-sm"
                       : "bg-gray-700 text-white rounded-bl-sm"
-                  }\`}
+                  }`}
                 >
                   {msg.content}
                 </div>
