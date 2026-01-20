@@ -29,6 +29,7 @@ interface AvatarProps {
   audioLevel: number;
   gazeTarget?: { x: number; y: number }; // Normalized -1 to 1
   conversationDuration?: number; // Seconds, for fatigue
+  inputAudioLevel?: number; // User's microphone level for surprise reaction
 }
 
 // Map visemes to mouth shape parameters
@@ -132,6 +133,7 @@ function RealisticHead({
   audioLevel,
   gazeTarget = { x: 0, y: 0 },
   conversationDuration = 0,
+  inputAudioLevel = 0,
 }: AvatarProps) {
   const headRef = useRef<THREE.Group>(null);
   const leftEyeRef = useRef<THREE.Group>(null);
@@ -161,6 +163,8 @@ function RealisticHead({
   const doubleBlinkChance = useRef(false);
   const smoothedGaze = useRef({ x: 0, y: 0 });
   const attentionLevel = useRef(1); // Decreases with fatigue
+  const lastInputLevel = useRef(0);
+  const surpriseReaction = useRef(0); // 0-1, decays over time
 
   // Smoothed values for natural transitions
   const smoothedMouth = useRef({ jawOpen: 0, mouthWide: 0, lipRound: 0 });
@@ -250,11 +254,24 @@ function RealisticHead({
     headRef.current.position.y = breathAmount;
     headRef.current.scale.setScalar(1 + breathAmount * 0.5);
 
+    // === SURPRISE REACTION TO SUDDEN AUDIO ===
+    // Detect sudden increase in input audio level
+    const audioJump = inputAudioLevel - lastInputLevel.current;
+    if (audioJump > 0.3 && isListening) {
+      // Sudden loud sound - trigger surprise!
+      surpriseReaction.current = Math.min(1, surpriseReaction.current + audioJump * 2);
+    }
+    // Decay surprise over time
+    surpriseReaction.current = Math.max(0, surpriseReaction.current - delta * 2);
+    lastInputLevel.current = inputAudioLevel;
+
     // === MICRO MOVEMENTS ===
     microMovementPhase.current += delta;
 
     // Subtle head sway (very gentle, like a real person)
-    const headSwayX = Math.sin(microMovementPhase.current * 0.3) * 0.01;
+    // Surprise adds a quick backward jolt
+    const surpriseJolt = surpriseReaction.current * 0.03;
+    const headSwayX = Math.sin(microMovementPhase.current * 0.3) * 0.01 - surpriseJolt;
     const headSwayY = Math.sin(microMovementPhase.current * 0.5) * 0.008;
     const headSwayZ = Math.sin(microMovementPhase.current * 0.4) * 0.005;
 

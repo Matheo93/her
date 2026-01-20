@@ -67,6 +67,7 @@ Pour la curiosité:
 ## Commits
 
 - `8eb4ccf`: feat(avatar): add human micro-expressions and emotional responsiveness
+- `3be62b9`: feat(avatar): add gaze tracking and conversation fatigue
 
 ## Vérifications
 
@@ -87,11 +88,25 @@ OUI:
 
 EVA n'a plus l'air d'un robot. Elle a l'air de quelqu'un qui vous VOIT.
 
+## Ajouts Récents (Sprint 10 Suite)
+
+### 7. Gaze Tracking (Eye Contact)
+- Les yeux suivent la souris quand EVA est idle
+- Focus direct vers l'utilisateur quand elle écoute
+- Convergence des yeux quand concentrée (profondeur réaliste)
+- Saccades plus petites quand attentive
+
+### 8. Conversation Fatigue
+- Suivi de la durée de conversation
+- Après 5 minutes: signes subtils de fatigue
+- Clignements plus fréquents
+- Niveau d'attention qui diminue doucement (max -30%)
+
 ## Prochaines Étapes
 
-1. Ajouter regard qui suit (eye tracking vers utilisateur)
+1. ~~Ajouter regard qui suit~~ ✅ DONE
 2. Réaction micro-expression à l'audio (surprise si son fort)
-3. Fatigue naturelle (clignements plus fréquents après longue conversation)
+3. ~~Fatigue naturelle~~ ✅ DONE
 4. Emotional memory (se souvient du contexte émotionnel)
 
 ---

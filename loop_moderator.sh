@@ -3,6 +3,9 @@ cd /home/dev/her
 export PATH="$HOME/.local/bin:$PATH"
 export PYTHONPATH=/home/dev/her/backend
 
+# Load optimizations
+source /home/dev/her/optimize_env.sh 2>/dev/null || true
+
 auto_push() {
     echo "=== Auto-push check @ $(date) ==="
     if [ -n "$(git status --porcelain)" ]; then
