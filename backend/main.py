@@ -62,6 +62,8 @@ from breathing_system import breathing_system, make_natural
 # Fast TTS (MMS-TTS on GPU - ~100ms latency)
 from fast_tts import init_fast_tts, async_fast_tts, fast_tts, async_fast_tts_mp3, fast_tts_mp3
 from ultra_fast_tts import init_ultra_fast_tts, async_ultra_fast_tts, ultra_fast_tts
+# GPU TTS (Piper VITS - ~30-100ms, local)
+from gpu_tts import init_gpu_tts, async_gpu_tts, gpu_tts, async_gpu_tts_mp3, gpu_tts_mp3
 
 # Eva Expression System (breathing sounds, emotions, animations)
 from eva_expression import eva_expression, init_expression_system, detect_emotion, get_expression_data
@@ -1059,10 +1061,10 @@ async def lifespan(app: FastAPI):
     except ImportError:
         print("⚠️  Whisper not installed - STT via browser only")
 
-    # TTS - Ultra-Fast mode (Sherpa-ONNX Piper) or MMS-TTS fallback
+    # TTS - GPU Piper (fastest, ~30-100ms) or fallback options
     if USE_FAST_TTS:
-        if init_ultra_fast_tts():
-            print("✅ Ultra-Fast TTS ready (Sherpa-ONNX ~30-70ms)")
+        if init_gpu_tts():
+            print("✅ GPU TTS ready (Piper VITS ~30-100ms)")
             # Pre-generate filler audio for instant TTFA
             _init_filler_audio()
             # Pre-generate backchannel audio for HER presence
@@ -1577,29 +1579,32 @@ async def text_to_speech(
 
     start_time = time.time()
 
-    # ========== FAST TTS MODE (MMS-TTS on GPU - ~100ms) ==========
+    # ========== FAST TTS MODE (GPU Piper ~30-100ms) ==========
     if USE_FAST_TTS:
         # Check cache first
-        cached = tts_cache.get(processed_text, "mms", rate, pitch)
+        cached = tts_cache.get(processed_text, "gpu", rate, pitch)
         if cached:
             print(f"🔊 TTS: 0ms (cached, {len(cached)} bytes)")
             return cached
 
-        # Try Ultra-Fast TTS first (Sherpa-ONNX ~30-70ms), fallback to MMS-TTS
-        audio_data = await async_ultra_fast_tts(processed_text)
-        tts_engine = "Ultra"
+        # Try GPU TTS first (Piper ~30-100ms), then Ultra-Fast, then MMS
+        audio_data = await async_gpu_tts_mp3(processed_text)
+        tts_engine = "GPU"
+        if not audio_data:
+            audio_data = await async_ultra_fast_tts(processed_text)
+            tts_engine = "Ultra"
         if not audio_data:
             audio_data = await async_fast_tts(processed_text)
             tts_engine = "MMS"
         if audio_data:
             # Cache short phrases
             if len(processed_text) < 200:
-                tts_cache.set(processed_text, "mms", audio_data, rate, pitch)
+                tts_cache.set(processed_text, "gpu", audio_data, rate, pitch)
             tts_time = (time.time() - start_time) * 1000
             print(f"🔊 TTS ({tts_engine}): {tts_time:.0f}ms ({len(audio_data)} bytes)")
             return audio_data
-        # Fallback to Edge-TTS if MMS fails
-        print("⚠️ MMS-TTS failed, falling back to Edge-TTS")
+        # Fallback to Edge-TTS if all fast TTS fails
+        print("⚠️ Fast TTS failed, falling back to Edge-TTS")
 
     # ========== EDGE-TTS MODE (slower but more voices) ==========
     if not tts_available:
@@ -1695,6 +1700,9 @@ async def text_to_speech_sentence_stream(
 
 @app.get("/")
 async def root():
+    # Determine TTS engine
+    from gpu_tts import _initialized as gpu_tts_ready
+    tts_engine = "gpu-piper" if gpu_tts_ready else ("edge-tts" if tts_available else "disabled")
     return {
         "service": "EVA-VOICE",
         "status": "online",
@@ -1702,7 +1710,7 @@ async def root():
         "features": {
             "llm": "groq-llama-3.3-70b",
             "stt": "whisper" if whisper_model else "browser-only",
-            "tts": "edge-tts" if tts_available else "disabled"
+            "tts": tts_engine
         },
         "voices": list(VOICES.keys()) if tts_available else []
     }
