@@ -1079,20 +1079,6 @@ async def lifespan(app: FastAPI):
             if init_micro_expressions():
                 print("✅ Micro-expressions ready (blink, gaze, smile, breath)")
 
-            # Initialize HER systems (Memory, Proactivity, Presence)
-            if HER_AVAILABLE:
-                try:
-                    her_config = HERConfig(
-                        memory_storage_path="./eva_memory",
-                        proactivity_threshold=0.6,
-                        backchannel_enabled=True,
-                        emotional_tts_enabled=False,  # Use existing TTS for now
-                        voice_emotion_enabled=True
-                    )
-                    await init_her(her_config)
-                    print("✅ HER systems ready (Memory, Proactivity, Presence)")
-                except Exception as e:
-                    print(f"⚠️ HER systems init failed: {e}")
         elif init_fast_tts():
             print("✅ MMS-TTS ready (GPU - ~140ms latency)")
         else:
@@ -1108,6 +1094,21 @@ async def lifespan(app: FastAPI):
             print("   Edge-TTS available as fallback")
     except ImportError:
         print("⚠️  Edge-TTS not installed")
+
+    # Initialize HER systems (Memory, Proactivity, Presence) - independent of TTS
+    if HER_AVAILABLE:
+        try:
+            her_config = HERConfig(
+                memory_storage_path="./eva_memory",
+                proactivity_threshold=0.6,
+                backchannel_enabled=True,
+                emotional_tts_enabled=False,  # Use existing TTS for now
+                voice_emotion_enabled=True
+            )
+            await init_her(her_config)
+            print("✅ HER systems ready (Memory, Proactivity, Presence)")
+        except Exception as e:
+            print(f"⚠️ HER systems init failed: {e}")
 
     print("=" * 50)
 
