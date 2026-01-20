@@ -2,34 +2,20 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { HER_COLORS, HER_SPRINGS, EMOTION_PRESENCE } from "@/styles/her-theme";
 
-type Emotion = "happy" | "sad" | "angry" | "fearful" | "calm" | "neutral";
+type Emotion = "joy" | "sadness" | "tenderness" | "excitement" | "anger" | "fear" | "neutral";
 
-const EMOTION_EMOJIS: Record<Emotion, string> = {
-  happy: "😊",
-  sad: "😢",
-  angry: "😠",
-  fearful: "😰",
-  calm: "😌",
-  neutral: "😐",
-};
-
+// HER-style emotion display - subtle, warm, no emojis
 const EMOTION_LABELS: Record<Emotion, string> = {
-  happy: "Joyeux",
-  sad: "Triste",
-  angry: "En colère",
-  fearful: "Anxieux",
-  calm: "Calme",
-  neutral: "Neutre",
-};
-
-const EMOTION_COLORS: Record<Emotion, string> = {
-  happy: "from-yellow-400 to-orange-500",
-  sad: "from-blue-400 to-indigo-500",
-  angry: "from-red-500 to-rose-600",
-  fearful: "from-purple-400 to-violet-500",
-  calm: "from-emerald-400 to-teal-500",
-  neutral: "from-zinc-400 to-slate-500",
+  joy: "Joyeuse",
+  sadness: "Mélancolique",
+  tenderness: "Tendre",
+  excitement: "Enthousiaste",
+  anger: "Intense",
+  fear: "Inquiète",
+  neutral: "Sereine",
 };
 
 interface AudioFeatures {
@@ -65,35 +51,36 @@ export default function VoiceEmotionPage() {
   const pitchHistoryRef = useRef<number[]>([]);
   const energyHistoryRef = useRef<number[]>([]);
 
+  // Get current emotion presence (glow, warmth)
+  const currentPresence = EMOTION_PRESENCE[currentEmotion] || EMOTION_PRESENCE.neutral;
+
   // Analyze voice emotion based on audio features
   const analyzeEmotion = useCallback((features: AudioFeatures): { emotion: Emotion; confidence: number } => {
     const { energy, pitch, variance } = features;
-
-    // High energy + high pitch + high variance = angry or happy
-    // Low energy + low pitch = sad or calm
-    // High variance = emotional (angry/fearful)
-    // Low variance = calm/neutral
 
     let emotion: Emotion = "neutral";
     let conf = 0.5;
 
     if (energy > 0.6 && variance > 0.5) {
       if (pitch > 0.6) {
-        emotion = "angry";
+        emotion = "anger";
         conf = Math.min(0.95, 0.5 + energy * 0.3 + variance * 0.2);
       } else {
-        emotion = "fearful";
+        emotion = "fear";
         conf = Math.min(0.9, 0.4 + variance * 0.3 + energy * 0.2);
       }
     } else if (energy > 0.5 && pitch > 0.5 && variance < 0.4) {
-      emotion = "happy";
+      emotion = "joy";
       conf = Math.min(0.9, 0.5 + energy * 0.2 + pitch * 0.2);
+    } else if (energy > 0.4 && pitch > 0.4 && variance > 0.3) {
+      emotion = "excitement";
+      conf = Math.min(0.85, 0.5 + energy * 0.2 + variance * 0.15);
     } else if (energy < 0.3 && pitch < 0.4) {
       if (variance < 0.2) {
-        emotion = "calm";
+        emotion = "tenderness";
         conf = Math.min(0.85, 0.5 + (1 - energy) * 0.2 + (1 - variance) * 0.2);
       } else {
-        emotion = "sad";
+        emotion = "sadness";
         conf = Math.min(0.85, 0.4 + (1 - energy) * 0.25 + (1 - pitch) * 0.2);
       }
     } else if (energy < 0.4 && variance < 0.3) {
@@ -144,7 +131,6 @@ export default function VoiceEmotionPage() {
       }
 
       const spectralCentroid = totalEnergy > 0 ? weightedSum / totalEnergy : 0;
-      // Normalize pitch (voice typically 85-400Hz fundamental, harmonics higher)
       const normalizedPitch = Math.min(1, Math.max(0, (spectralCentroid - 100) / 3000));
 
       // Track history for variance calculation
@@ -255,78 +241,197 @@ export default function VoiceEmotionPage() {
   }, [stopListening]);
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-b from-zinc-900 to-black flex flex-col">
+    <div
+      className="fixed inset-0 flex flex-col"
+      style={{
+        background: `radial-gradient(ellipse at 50% 30%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+      }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between p-4">
-        <button
+        <motion.button
           onClick={() => router.push("/")}
-          className="p-2 bg-white/10 rounded-full text-white"
+          className="p-2 rounded-full transition-all"
+          style={{
+            backgroundColor: HER_COLORS.cream,
+            color: HER_COLORS.earth,
+          }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-        </button>
-        <h1 className="text-white font-medium">Analyse Vocale</h1>
+        </motion.button>
+        <h1 className="font-light" style={{ color: HER_COLORS.earth }}>Ressenti Vocal</h1>
         <div className="w-10" />
       </div>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col items-center justify-center gap-8 p-6">
-        {/* Emotion display */}
-        <div className={`w-48 h-48 rounded-full bg-gradient-to-br ${EMOTION_COLORS[currentEmotion]} flex items-center justify-center shadow-2xl transition-all duration-500 ${isSpeaking ? "scale-110" : "scale-100"}`}>
-          <span className="text-8xl">{EMOTION_EMOJIS[currentEmotion]}</span>
-        </div>
+        {/* Emotion orb - HER style breathing presence */}
+        <motion.div
+          className="relative"
+          animate={{
+            scale: isSpeaking ? [1, 1.1, 1] : 1,
+          }}
+          transition={{
+            duration: 1.5,
+            repeat: isSpeaking ? Infinity : 0,
+            ease: "easeInOut",
+          }}
+        >
+          {/* Glow background */}
+          <motion.div
+            className="absolute -inset-8 rounded-full"
+            style={{
+              background: currentPresence.glow,
+              filter: "blur(40px)",
+            }}
+            animate={{
+              opacity: [0.5, 0.8, 0.5],
+              scale: [1, 1.05, 1],
+            }}
+            transition={{
+              duration: 4,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          />
 
-        {/* Emotion label */}
+          {/* Main orb */}
+          <motion.div
+            className="w-48 h-48 rounded-full flex items-center justify-center"
+            style={{
+              background: `radial-gradient(circle, ${HER_COLORS.coral} 0%, ${HER_COLORS.blush} 50%, ${HER_COLORS.cream} 100%)`,
+              boxShadow: `0 0 60px ${currentPresence.glow}`,
+            }}
+            animate={{
+              scale: [1, 1.03, 1],
+            }}
+            transition={{
+              duration: 4,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          >
+            {/* Inner presence indicator */}
+            <motion.div
+              className="w-16 h-16 rounded-full"
+              style={{
+                backgroundColor: HER_COLORS.warmWhite,
+                opacity: 0.6,
+              }}
+              animate={{
+                scale: volume > 0.1 ? [1, 1 + volume * 0.5, 1] : 1,
+              }}
+              transition={{
+                duration: 0.2,
+              }}
+            />
+          </motion.div>
+        </motion.div>
+
+        {/* Emotion label - subtle, warm */}
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-white">{EMOTION_LABELS[currentEmotion]}</h2>
-          <p className="text-zinc-400 mt-1">Confiance: {Math.round(confidence * 100)}%</p>
+          <motion.h2
+            className="text-2xl font-light"
+            style={{ color: HER_COLORS.earth }}
+            key={currentEmotion}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={HER_SPRINGS.gentle}
+          >
+            {EMOTION_LABELS[currentEmotion]}
+          </motion.h2>
+          <p className="mt-2 text-sm" style={{ color: HER_COLORS.textSecondary }}>
+            {Math.round(confidence * 100)}% de certitude
+          </p>
         </div>
 
-        {/* Volume indicator */}
-        <div className="w-64 h-2 bg-zinc-800 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-emerald-500 transition-all duration-75"
-            style={{ width: `${volume * 100}%` }}
+        {/* Volume indicator - warm bar */}
+        <div
+          className="w-64 h-1 rounded-full overflow-hidden"
+          style={{ backgroundColor: HER_COLORS.cream }}
+        >
+          <motion.div
+            className="h-full rounded-full"
+            style={{
+              backgroundColor: HER_COLORS.coral,
+              width: `${volume * 100}%`,
+            }}
+            transition={{ duration: 0.05 }}
           />
         </div>
-        <p className="text-zinc-500 text-sm">
-          {isSpeaking ? "🎤 Parle..." : "En attente de ta voix..."}
+        <p className="text-sm" style={{ color: HER_COLORS.textMuted }}>
+          {isSpeaking ? "Je t'écoute..." : "En attente de ta voix..."}
         </p>
 
-        {/* Start/Stop button */}
+        {/* Start/Stop button - HER coral style */}
         {!isListening ? (
-          <button
+          <motion.button
             onClick={startListening}
-            className="px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-medium text-lg transition-all"
+            className="px-8 py-4 rounded-2xl font-medium transition-all"
+            style={{
+              backgroundColor: HER_COLORS.coral,
+              color: HER_COLORS.warmWhite,
+              boxShadow: `0 4px 20px ${HER_COLORS.glowCoral}`,
+            }}
+            whileHover={{ scale: 1.02, boxShadow: `0 6px 30px ${HER_COLORS.glowCoral}` }}
+            whileTap={{ scale: 0.98 }}
           >
             Commencer l&apos;analyse
-          </button>
+          </motion.button>
         ) : (
-          <button
+          <motion.button
             onClick={stopListening}
-            className="px-8 py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-medium text-lg transition-all"
+            className="px-8 py-4 rounded-2xl font-medium transition-all"
+            style={{
+              backgroundColor: HER_COLORS.earth,
+              color: HER_COLORS.warmWhite,
+            }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
             Arrêter
-          </button>
+          </motion.button>
         )}
 
-        {error && <p className="text-red-400">{error}</p>}
+        {error && (
+          <p style={{ color: HER_COLORS.error }}>{error}</p>
+        )}
       </div>
 
-      {/* History */}
+      {/* History - warm, minimal */}
       {history.length > 0 && (
-        <div className="h-20 bg-zinc-900/80 backdrop-blur flex items-center justify-center gap-2 px-4">
+        <motion.div
+          className="h-20 flex items-center justify-center gap-3 px-4"
+          style={{
+            backgroundColor: `${HER_COLORS.warmWhite}E6`,
+            borderTop: `1px solid ${HER_COLORS.cream}`,
+          }}
+          initial={{ y: 80 }}
+          animate={{ y: 0 }}
+          transition={HER_SPRINGS.gentle}
+        >
           {history.map((item, i) => (
-            <div
+            <motion.div
               key={i}
-              className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-light"
+              style={{
+                backgroundColor: HER_COLORS.cream,
+                color: HER_COLORS.earth,
+                boxShadow: `0 2px 8px ${HER_COLORS.softShadow}40`,
+              }}
               title={`${EMOTION_LABELS[item.emotion]} - ${item.time.toLocaleTimeString()}`}
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={HER_SPRINGS.gentle}
             >
-              <span className="text-xl">{EMOTION_EMOJIS[item.emotion]}</span>
-            </div>
+              {EMOTION_LABELS[item.emotion].charAt(0)}
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
     </div>
   );
