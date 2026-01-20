@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { HER_COLORS, HER_SPRINGS } from "@/styles/her-theme";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const AVATAR_URL = process.env.NEXT_PUBLIC_AVATAR_URL || "http://localhost:8001";
 
 export default function AvatarLive() {
+  const router = useRouter();
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -27,11 +30,11 @@ export default function AvatarLive() {
       .then(res => res.json())
       .then(data => {
         if (data.status === "healthy") {
-          setStatus("Avatar Engine prêt (" + data.device + ")");
+          setStatus("Avatar prêt");
         }
       })
       .catch(() => {
-        setError("Avatar Engine non disponible");
+        setError("Avatar non disponible");
       });
   }, []);
 
@@ -42,7 +45,7 @@ export default function AvatarLive() {
 
       ws.onopen = () => {
         setIsConnected(true);
-        setStatus("Connecté au backend");
+        setStatus("Connectée");
         ws.send(JSON.stringify({
           type: "config",
           voice: "eva",
@@ -52,13 +55,12 @@ export default function AvatarLive() {
 
       ws.onclose = () => {
         setIsConnected(false);
-        setStatus("Déconnecté, reconnexion...");
+        setStatus("Reconnexion...");
         setTimeout(connect, 3000);
       };
 
       ws.onmessage = async (event) => {
         if (event.data instanceof Blob) {
-          // Audio data from TTS - queue it
           const arrayBuffer = await event.data.arrayBuffer();
           audioQueueRef.current.push(arrayBuffer);
           playNextAudioRef.current();
@@ -69,19 +71,13 @@ export default function AvatarLive() {
 
         switch (data.type) {
           case "transcript":
-            setStatus(`Tu as dit: "${data.text}"`);
-            break;
-          case "token":
-            // Eva is responding
+            setStatus(`"${data.text}"`);
             break;
           case "response_end":
-            setStatus("Eva a fini de répondre");
+            setStatus("Eva a répondu");
             break;
           case "audio_start":
             setIsSpeaking(true);
-            break;
-          case "audio_end":
-            // Audio streaming done, but might still be playing
             break;
           case "error":
             setError(data.message);
@@ -102,18 +98,15 @@ export default function AvatarLive() {
       const ws = new WebSocket(`${AVATAR_URL.replace("http", "ws")}/ws/avatar`);
 
       ws.onopen = () => {
-        console.log("Avatar WS connected");
         ws.send(JSON.stringify({ type: "config", avatar_id: "eva" }));
       };
 
       ws.onclose = () => {
-        console.log("Avatar WS disconnected, reconnecting...");
         setTimeout(connectAvatar, 3000);
       };
 
       ws.onmessage = (event) => {
         if (event.data instanceof Blob) {
-          // Received lip-synced frame
           const url = URL.createObjectURL(event.data);
           setAvatarFrame(prev => {
             if (prev && prev.startsWith("blob:")) {
@@ -122,10 +115,6 @@ export default function AvatarLive() {
             return url;
           });
         }
-      };
-
-      ws.onerror = (e) => {
-        console.error("Avatar WS error:", e);
       };
 
       avatarWsRef.current = ws;
@@ -150,7 +139,6 @@ export default function AvatarLive() {
 
       // Send audio to avatar engine for lip-sync
       if (avatarWsRef.current?.readyState === WebSocket.OPEN) {
-        // Convert AudioBuffer to raw PCM for lip-sync
         const pcmData = audioBuffer.getChannelData(0);
         const int16Array = new Int16Array(pcmData.length);
         for (let i = 0; i < pcmData.length; i++) {
@@ -170,7 +158,6 @@ export default function AvatarLive() {
           playNextAudioRef.current();
         } else {
           setIsSpeaking(false);
-          // Reset to static frame
           setAvatarFrame("/avatars/eva.jpg");
         }
       };
@@ -208,7 +195,7 @@ export default function AvatarLive() {
         const blob = new Blob(chunks, { type: "audio/webm" });
         stream.getTracks().forEach((t) => t.stop());
         setIsListening(false);
-        setStatus("Traitement de ta voix...");
+        setStatus("Traitement...");
 
         if (wsRef.current?.readyState === WebSocket.OPEN) {
           audioQueueRef.current = [];
@@ -218,10 +205,10 @@ export default function AvatarLive() {
 
       mediaRecorder.start();
       setIsListening(true);
-      setStatus("Écoute en cours... Relâche pour envoyer");
+      setStatus("Je t'écoute...");
     } catch (err) {
       console.error("Mic error:", err);
-      setError("Erreur d'accès au micro");
+      setError("Erreur micro");
     }
   }, [isListening]);
 
@@ -233,14 +220,14 @@ export default function AvatarLive() {
 
   // Test TTS with avatar
   const testSpeak = async () => {
-    setStatus("Test de parole...");
+    setStatus("Test...");
 
     try {
       const response = await fetch(`${BACKEND_URL}/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: "Salut ! Je suis Eva, ton assistante vocale. Comment vas-tu aujourd'hui ?",
+          text: "Salut ! Je suis Eva. Comment vas-tu aujourd'hui ?",
           voice: "eva"
         })
       });
@@ -252,55 +239,138 @@ export default function AvatarLive() {
         playNextAudio();
       }
     } catch (e) {
-      setError("Erreur TTS: " + (e as Error).message);
+      setError("Erreur: " + (e as Error).message);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-gradient-to-b from-zinc-900 via-black to-zinc-900">
-      {/* Ambient background */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div
-          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full blur-3xl transition-all duration-1000 ${
-            isSpeaking
-              ? "bg-rose-500/20 scale-110"
+    <div
+      className="fixed inset-0 z-50"
+      style={{
+        background: `radial-gradient(ellipse at 50% 30%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+      }}
+    >
+      {/* Ambient glow */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full"
+          style={{
+            background: isSpeaking
+              ? HER_COLORS.glowCoral
               : isListening
-                ? "bg-emerald-500/20 animate-pulse"
-                : "bg-zinc-500/10"
-          }`}
+                ? HER_COLORS.glowWarm
+                : `${HER_COLORS.softShadow}20`,
+            filter: "blur(80px)",
+          }}
+          animate={{
+            scale: isSpeaking ? [1, 1.1, 1] : isListening ? [1, 1.05, 1] : 1,
+            opacity: isSpeaking ? 0.6 : isListening ? 0.4 : 0.2,
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
         />
       </div>
 
       {/* Main content */}
       <div className="relative w-full h-full flex flex-col items-center justify-center">
         {/* Status */}
-        <div className="absolute top-6 left-0 right-0 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-emerald-400" : "bg-red-400"}`} />
-            <span className="text-white/80 text-sm">{status}</span>
-          </div>
+        <div className="absolute top-6 left-0 right-0 flex flex-col items-center gap-2">
+          <motion.div
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full"
+            style={{
+              backgroundColor: `${HER_COLORS.cream}E6`,
+              border: `1px solid ${HER_COLORS.softShadow}40`,
+            }}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={HER_SPRINGS.gentle}
+          >
+            <motion.div
+              className="w-2 h-2 rounded-full"
+              style={{
+                backgroundColor: isConnected ? HER_COLORS.success : HER_COLORS.error,
+              }}
+              animate={{
+                scale: [1, 1.2, 1],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+              }}
+            />
+            <span className="text-sm" style={{ color: HER_COLORS.textSecondary }}>
+              {status}
+            </span>
+          </motion.div>
           {error && (
-            <div className="mt-2 px-4 py-2 rounded-full bg-red-500/20 text-red-400 text-sm">
+            <motion.div
+              className="px-4 py-2 rounded-full text-sm"
+              style={{
+                backgroundColor: `${HER_COLORS.error}20`,
+                color: HER_COLORS.error,
+              }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
               {error}
-            </div>
+            </motion.div>
           )}
         </div>
 
+        {/* Back button */}
+        <motion.button
+          onClick={() => router.push("/")}
+          className="absolute top-6 left-6 p-2 rounded-full transition-all"
+          style={{
+            backgroundColor: HER_COLORS.cream,
+            color: HER_COLORS.earth,
+          }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+        </motion.button>
+
         {/* Avatar Display */}
         <div className="relative">
-          {/* Glow rings */}
-          <div
-            className={`absolute -inset-4 rounded-full transition-all duration-300 ${
-              isSpeaking
-                ? "ring-4 ring-rose-400/50 shadow-[0_0_80px_rgba(244,63,94,0.5)]"
+          {/* Glow ring */}
+          <motion.div
+            className="absolute -inset-4 rounded-full"
+            style={{
+              border: isSpeaking
+                ? `3px solid ${HER_COLORS.coral}`
                 : isListening
-                  ? "ring-4 ring-emerald-400/50 shadow-[0_0_60px_rgba(52,211,153,0.4)]"
-                  : "ring-2 ring-white/20"
-            }`}
+                  ? `3px solid ${HER_COLORS.blush}`
+                  : `2px solid ${HER_COLORS.softShadow}40`,
+              boxShadow: isSpeaking
+                ? `0 0 60px ${HER_COLORS.glowCoral}`
+                : isListening
+                  ? `0 0 40px ${HER_COLORS.glowWarm}`
+                  : "none",
+            }}
+            animate={{
+              scale: isSpeaking ? [1, 1.02, 1] : 1,
+            }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
           />
 
-          {/* Avatar Image - Real Wav2Lip frames */}
-          <div className="relative w-80 h-80 md:w-[400px] md:h-[400px] rounded-full overflow-hidden bg-zinc-800">
+          {/* Avatar Image */}
+          <motion.div
+            className="relative w-72 h-72 md:w-96 md:h-96 rounded-full overflow-hidden"
+            style={{
+              backgroundColor: HER_COLORS.cream,
+              boxShadow: `0 8px 40px ${HER_COLORS.softShadow}60`,
+            }}
+          >
             {avatarFrame ? (
               <img
                 src={avatarFrame}
@@ -308,80 +378,136 @@ export default function AvatarLive() {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-white/40">
+              <div
+                className="w-full h-full flex items-center justify-center"
+                style={{ color: HER_COLORS.textMuted }}
+              >
                 Chargement...
               </div>
             )}
-          </div>
+          </motion.div>
 
-          {/* Speaking pulse rings */}
+          {/* Speaking animation rings */}
           {isSpeaking && (
             <>
-              <div className="absolute -inset-6 rounded-full border-2 border-rose-400/40 animate-ping" />
-              <div className="absolute -inset-8 rounded-full border border-rose-400/20 animate-ping" style={{ animationDelay: "0.2s" }} />
+              <motion.div
+                className="absolute -inset-6 rounded-full"
+                style={{
+                  border: `2px solid ${HER_COLORS.coral}40`,
+                }}
+                animate={{
+                  scale: [1, 1.3],
+                  opacity: [0.6, 0],
+                }}
+                transition={{
+                  duration: 1.5,
+                  repeat: Infinity,
+                  ease: "easeOut",
+                }}
+              />
+              <motion.div
+                className="absolute -inset-8 rounded-full"
+                style={{
+                  border: `1px solid ${HER_COLORS.coral}20`,
+                }}
+                animate={{
+                  scale: [1, 1.4],
+                  opacity: [0.4, 0],
+                }}
+                transition={{
+                  duration: 1.5,
+                  repeat: Infinity,
+                  ease: "easeOut",
+                  delay: 0.3,
+                }}
+              />
             </>
           )}
 
-          {/* Status text */}
+          {/* Name and status */}
           <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 text-center">
-            <p className="text-white font-semibold text-2xl">Eva</p>
-            <p className="text-white/60 text-sm mt-1">
+            <p className="font-light text-2xl" style={{ color: HER_COLORS.earth }}>
+              Eva
+            </p>
+            <p className="text-sm mt-1" style={{ color: HER_COLORS.textSecondary }}>
               {isSpeaking ? "Parle..." : isListening ? "T'écoute..." : "En attente"}
             </p>
           </div>
         </div>
 
         {/* Controls */}
-        <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/80 to-transparent">
+        <div
+          className="absolute bottom-0 left-0 right-0 p-8"
+          style={{
+            background: `linear-gradient(to top, ${HER_COLORS.warmWhite} 0%, transparent 100%)`,
+          }}
+        >
           <div className="flex flex-col items-center gap-4 max-w-md mx-auto">
-            <p className="text-white/60 text-sm">Avatar Wav2Lip - Lip-sync réel</p>
-
             <div className="flex items-center gap-4">
               {/* Push to talk button */}
-              <button
+              <motion.button
                 onMouseDown={startListening}
                 onMouseUp={stopListening}
                 onMouseLeave={stopListening}
                 onTouchStart={startListening}
                 onTouchEnd={stopListening}
                 disabled={!isConnected}
-                className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${
-                  isListening
-                    ? "bg-gradient-to-br from-emerald-500 to-teal-500 text-white scale-110 shadow-lg shadow-emerald-500/50"
+                className="w-16 h-16 rounded-full flex items-center justify-center transition-all"
+                style={{
+                  backgroundColor: isListening
+                    ? HER_COLORS.coral
                     : isConnected
-                      ? "bg-white/10 hover:bg-white/20 text-white hover:scale-105"
-                      : "bg-white/5 text-white/30 cursor-not-allowed"
-                }`}
+                      ? HER_COLORS.cream
+                      : `${HER_COLORS.cream}60`,
+                  color: isListening ? HER_COLORS.warmWhite : HER_COLORS.earth,
+                  boxShadow: isListening
+                    ? `0 0 30px ${HER_COLORS.glowCoral}`
+                    : `0 4px 16px ${HER_COLORS.softShadow}40`,
+                  cursor: isConnected ? "pointer" : "not-allowed",
+                }}
+                whileHover={isConnected ? { scale: 1.05 } : {}}
+                whileTap={isConnected ? { scale: 0.95 } : {}}
+                animate={{
+                  scale: isListening ? [1, 1.05, 1] : 1,
+                }}
+                transition={{
+                  duration: 1,
+                  repeat: isListening ? Infinity : 0,
+                }}
               >
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
-              </button>
+              </motion.button>
 
               {/* Test TTS button */}
-              <button
+              <motion.button
                 onClick={testSpeak}
                 disabled={!isConnected || isSpeaking}
-                className={`px-6 py-3 rounded-full transition-all ${
-                  isConnected && !isSpeaking
-                    ? "bg-rose-500 hover:bg-rose-600 text-white"
-                    : "bg-white/5 text-white/30 cursor-not-allowed"
-                }`}
+                className="px-5 py-3 rounded-2xl transition-all"
+                style={{
+                  backgroundColor: isConnected && !isSpeaking ? HER_COLORS.coral : `${HER_COLORS.cream}60`,
+                  color: isConnected && !isSpeaking ? HER_COLORS.warmWhite : HER_COLORS.textMuted,
+                  boxShadow: isConnected && !isSpeaking ? `0 4px 16px ${HER_COLORS.glowCoral}` : "none",
+                  cursor: isConnected && !isSpeaking ? "pointer" : "not-allowed",
+                }}
+                whileHover={isConnected && !isSpeaking ? { scale: 1.02 } : {}}
+                whileTap={isConnected && !isSpeaking ? { scale: 0.98 } : {}}
               >
-                Test Parole
-              </button>
+                Test
+              </motion.button>
             </div>
 
             {isListening && (
-              <p className="text-emerald-400 text-sm animate-pulse">
-                🎤 Parle maintenant... Relâche pour envoyer
-              </p>
+              <motion.p
+                className="text-sm"
+                style={{ color: HER_COLORS.coral }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                Parle maintenant...
+              </motion.p>
             )}
-
-            {/* Back to chat */}
-            <Link href="/" className="text-white/40 hover:text-white/60 text-sm mt-4 transition-colors">
-              ← Retour au chat
-            </Link>
           </div>
         </div>
       </div>

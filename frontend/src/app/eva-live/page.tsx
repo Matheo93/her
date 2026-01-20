@@ -1,16 +1,17 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { HER_COLORS, HER_SPRINGS, EMOTION_PRESENCE } from "@/styles/her-theme";
 
 // Get backend URL - auto-detect public tunnel
 function getBackendUrl(): string {
   if (typeof window !== "undefined") {
-    // Check URL params first
     const params = new URLSearchParams(window.location.search);
     const customBackend = params.get("backend");
     if (customBackend) return customBackend;
 
-    // If accessed via cloudflare tunnel, use the backend tunnel
     if (window.location.hostname.includes("trycloudflare.com")) {
       return "https://safari-launches-decor-reader.trycloudflare.com";
     }
@@ -20,20 +21,21 @@ function getBackendUrl(): string {
 
 const LIPSYNC_URL = process.env.NEXT_PUBLIC_LIPSYNC_URL || "http://localhost:8001";
 
-// Emotion styles
-const EMOTION_STYLES: Record<string, { color: string; glow: string; label: string }> = {
-  joy: { color: "from-amber-400 to-yellow-500", glow: "rgba(251,191,36,0.4)", label: "Heureuse" },
-  sadness: { color: "from-blue-400 to-indigo-500", glow: "rgba(96,165,250,0.4)", label: "Triste" },
-  anger: { color: "from-red-500 to-orange-500", glow: "rgba(239,68,68,0.4)", label: "En colère" },
-  fear: { color: "from-purple-400 to-violet-500", glow: "rgba(167,139,250,0.4)", label: "Inquiète" },
-  surprise: { color: "from-pink-400 to-rose-500", glow: "rgba(244,114,182,0.4)", label: "Surprise" },
-  tenderness: { color: "from-rose-300 to-pink-400", glow: "rgba(253,164,175,0.4)", label: "Tendre" },
-  excitement: { color: "from-orange-400 to-amber-500", glow: "rgba(251,146,60,0.4)", label: "Excitée" },
-  neutral: { color: "from-zinc-400 to-slate-500", glow: "rgba(161,161,170,0.2)", label: "Sereine" },
+// HER-style warm emotion labels
+const EMOTION_LABELS: Record<string, string> = {
+  joy: "Joyeuse",
+  sadness: "Mélancolique",
+  anger: "Intense",
+  fear: "Inquiète",
+  surprise: "Surprise",
+  tenderness: "Tendre",
+  excitement: "Enthousiaste",
+  neutral: "Sereine",
 };
 
 export default function EvaLivePage() {
-  // State
+  const router = useRouter();
+
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -44,7 +46,6 @@ export default function EvaLivePage() {
   const [currentText, setCurrentText] = useState("");
   const [inputText, setInputText] = useState("");
 
-  // Refs
   const wsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -53,14 +54,13 @@ export default function EvaLivePage() {
   const isPlayingRef = useRef(false);
   const processAudioQueueRef = useRef<() => void>(() => {});
 
-  const emotionStyle = EMOTION_STYLES[evaEmotion] || EMOTION_STYLES.neutral;
+  const currentPresence = EMOTION_PRESENCE[evaEmotion] || EMOTION_PRESENCE.neutral;
 
   // Connect to HER WebSocket
   useEffect(() => {
     const connect = () => {
       const backendUrl = getBackendUrl();
       const wsUrl = backendUrl.replace("https://", "wss://").replace("http://", "ws://");
-      console.log("Connecting to:", wsUrl);
 
       const ws = new WebSocket(`${wsUrl}/ws/her`);
 
@@ -85,7 +85,7 @@ export default function EvaLivePage() {
 
         switch (data.type) {
           case "config_ok":
-            setStatus("Prête à parler");
+            setStatus("Prête");
             break;
 
           case "her_context":
@@ -110,7 +110,6 @@ export default function EvaLivePage() {
             break;
 
           case "speech":
-            // Queue audio + text for lip-sync
             if (data.audio_base64) {
               const audio = base64ToArrayBuffer(data.audio_base64);
               audioQueueRef.current.push({
@@ -149,7 +148,7 @@ export default function EvaLivePage() {
     return () => wsRef.current?.close();
   }, []);
 
-  // Fallback audio playback (defined before processAudioQueue)
+  // Fallback audio playback
   const playAudioOnly = useCallback(async (audioData: ArrayBuffer): Promise<void> => {
     return new Promise((resolve) => {
       const audioContext = new AudioContext();
@@ -172,17 +171,13 @@ export default function EvaLivePage() {
 
     const { audio, emotion } = audioQueueRef.current.shift()!;
     setEvaEmotion(emotion);
-    setStatus(EMOTION_STYLES[emotion]?.label || "Parle...");
+    setStatus(EMOTION_LABELS[emotion] || "Parle...");
 
     try {
-      // Create audio blob for lip-sync API
       const audioBlob = new Blob([audio], { type: "audio/wav" });
-
-      // Generate lip-synced video
       const formData = new FormData();
       formData.append("audio", audioBlob, "speech.wav");
 
-      // Call MuseTalk API
       const lipsyncResponse = await fetch(`${LIPSYNC_URL}/lipsync`, {
         method: "POST",
         body: formData,
@@ -192,18 +187,15 @@ export default function EvaLivePage() {
         const result = await lipsyncResponse.json();
 
         if (result.video_base64 && videoRef.current) {
-          // Create video URL from base64
           const videoBlob = base64ToBlob(result.video_base64, "video/mp4");
           const videoUrl = URL.createObjectURL(videoBlob);
 
-          // Set video source and play
           videoRef.current.src = videoUrl;
           videoRef.current.style.display = "block";
           if (idleVideoRef.current) idleVideoRef.current.style.display = "none";
 
           await videoRef.current.play();
 
-          // Wait for video to end
           await new Promise<void>((resolve) => {
             if (videoRef.current) {
               videoRef.current.onended = () => {
@@ -214,23 +206,19 @@ export default function EvaLivePage() {
           });
         }
       } else {
-        // Fallback: just play audio without lip-sync
         await playAudioOnly(audio);
       }
 
     } catch (error) {
       console.error("Lip-sync error:", error);
-      // Fallback: play audio only
       await playAudioOnly(audio);
     }
 
-    // Show idle video again
     if (videoRef.current) videoRef.current.style.display = "none";
     if (idleVideoRef.current) idleVideoRef.current.style.display = "block";
 
     isPlayingRef.current = false;
 
-    // Process next in queue
     if (audioQueueRef.current.length > 0) {
       processAudioQueueRef.current();
     } else {
@@ -239,7 +227,6 @@ export default function EvaLivePage() {
     }
   }, [playAudioOnly]);
 
-  // Keep ref updated
   useEffect(() => {
     processAudioQueueRef.current = processAudioQueue;
   }, [processAudioQueue]);
@@ -263,7 +250,6 @@ export default function EvaLivePage() {
         setIsProcessing(true);
         setStatus("Traitement...");
 
-        // Send audio as base64
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64 = (reader.result as string).split(",")[1];
@@ -279,7 +265,7 @@ export default function EvaLivePage() {
 
       mediaRecorder.start();
       setIsListening(true);
-      setStatus("Parle...");
+      setStatus("Je t'écoute...");
     } catch (err) {
       console.error("Mic error:", err);
       setStatus("Erreur micro");
@@ -323,48 +309,122 @@ export default function EvaLivePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-900 via-black to-zinc-900 flex flex-col items-center justify-center p-4">
-
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-4"
+      style={{
+        background: `radial-gradient(ellipse at 50% 30%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+      }}
+    >
       {/* Ambient glow */}
-      <div
-        className="fixed inset-0 pointer-events-none transition-all duration-700"
+      <motion.div
+        className="fixed inset-0 pointer-events-none"
         style={{
-          background: `radial-gradient(circle at 50% 40%, ${emotionStyle.glow} 0%, transparent 50%)`
+          background: `radial-gradient(circle at 50% 40%, ${currentPresence.glow} 0%, transparent 50%)`
         }}
+        animate={{
+          opacity: isSpeaking ? 0.8 : 0.4,
+        }}
+        transition={{ duration: 0.7 }}
       />
 
+      {/* Back button */}
+      <motion.button
+        onClick={() => router.push("/")}
+        className="fixed top-6 left-6 p-2 rounded-full z-50"
+        style={{
+          backgroundColor: HER_COLORS.cream,
+          color: HER_COLORS.earth,
+        }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+      </motion.button>
+
       {/* Status bar */}
-      <div className="fixed top-4 left-0 right-0 flex justify-center z-50">
-        <div className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10">
-          <div className={`w-2.5 h-2.5 rounded-full transition-colors ${
-            isConnected ? (isSpeaking ? "bg-rose-400 animate-pulse" : "bg-emerald-400") : "bg-red-400"
-          }`} />
-          <span className="text-white/90 text-sm font-medium">{status}</span>
+      <motion.div
+        className="fixed top-6 left-0 right-0 flex justify-center z-40"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={HER_SPRINGS.gentle}
+      >
+        <div
+          className="flex items-center gap-3 px-5 py-2.5 rounded-full"
+          style={{
+            backgroundColor: `${HER_COLORS.cream}E6`,
+            border: `1px solid ${HER_COLORS.softShadow}40`,
+          }}
+        >
+          <motion.div
+            className="w-2.5 h-2.5 rounded-full"
+            style={{
+              backgroundColor: isConnected
+                ? (isSpeaking ? HER_COLORS.coral : HER_COLORS.success)
+                : HER_COLORS.error,
+            }}
+            animate={{
+              scale: isSpeaking ? [1, 1.3, 1] : [1, 1.1, 1],
+            }}
+            transition={{
+              duration: isSpeaking ? 0.8 : 2,
+              repeat: Infinity,
+            }}
+          />
+          <span className="text-sm" style={{ color: HER_COLORS.textSecondary }}>
+            {status}
+          </span>
           {userEmotion !== "neutral" && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/70">
-              Toi: {userEmotion}
+            <span
+              className="text-xs px-2 py-0.5 rounded-full"
+              style={{
+                backgroundColor: `${HER_COLORS.softShadow}40`,
+                color: HER_COLORS.textSecondary,
+              }}
+            >
+              Toi: {EMOTION_LABELS[userEmotion] || userEmotion}
             </span>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Avatar container */}
       <div className="relative mb-8">
         {/* Glow ring */}
-        <div
-          className={`absolute -inset-3 rounded-full transition-all duration-500`}
+        <motion.div
+          className="absolute -inset-4 rounded-full"
           style={{
             boxShadow: isSpeaking
-              ? `0 0 80px 30px ${emotionStyle.glow}, 0 0 120px 60px ${emotionStyle.glow}`
+              ? `0 0 60px 20px ${currentPresence.glow}, 0 0 100px 40px ${currentPresence.glow}`
               : isListening
-                ? "0 0 60px 20px rgba(52,211,153,0.3)"
-                : "0 0 30px 10px rgba(255,255,255,0.05)"
+                ? `0 0 40px 15px ${HER_COLORS.glowWarm}`
+                : `0 0 20px 8px ${HER_COLORS.softShadow}20`
+          }}
+          animate={{
+            scale: isSpeaking ? [1, 1.02, 1] : 1,
+          }}
+          transition={{
+            duration: 1.5,
+            repeat: Infinity,
+            ease: "easeInOut",
           }}
         />
 
         {/* Video container */}
-        <div className="relative w-72 h-72 md:w-96 md:h-96 rounded-full overflow-hidden bg-zinc-800 border-2 border-white/10">
-          {/* Idle video (subtle movements) */}
+        <motion.div
+          className="relative w-72 h-72 md:w-96 md:h-96 rounded-full overflow-hidden"
+          style={{
+            backgroundColor: HER_COLORS.cream,
+            border: isSpeaking
+              ? `3px solid ${HER_COLORS.coral}`
+              : isListening
+                ? `3px solid ${HER_COLORS.blush}`
+                : `2px solid ${HER_COLORS.softShadow}40`,
+            boxShadow: `0 8px 40px ${HER_COLORS.softShadow}60`,
+          }}
+        >
+          {/* Idle video */}
           <video
             ref={idleVideoRef}
             src="/avatars/eva_idle_transparent.webm"
@@ -375,45 +435,104 @@ export default function EvaLivePage() {
             playsInline
           />
 
-          {/* Lip-synced video (when speaking) */}
+          {/* Lip-synced video */}
           <video
             ref={videoRef}
             className="absolute inset-0 w-full h-full object-cover"
             style={{ display: "none" }}
             playsInline
           />
-        </div>
+        </motion.div>
 
-        {/* Speaking waves */}
+        {/* Speaking animation rings */}
         {isSpeaking && (
           <>
-            <div className="absolute -inset-6 rounded-full border-2 border-rose-400/30 animate-ping" />
-            <div className="absolute -inset-10 rounded-full border border-rose-400/20 animate-ping" style={{ animationDelay: "200ms" }} />
+            <motion.div
+              className="absolute -inset-6 rounded-full"
+              style={{
+                border: `2px solid ${HER_COLORS.coral}40`,
+              }}
+              animate={{
+                scale: [1, 1.3],
+                opacity: [0.6, 0],
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                ease: "easeOut",
+              }}
+            />
+            <motion.div
+              className="absolute -inset-10 rounded-full"
+              style={{
+                border: `1px solid ${HER_COLORS.coral}20`,
+              }}
+              animate={{
+                scale: [1, 1.4],
+                opacity: [0.4, 0],
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                ease: "easeOut",
+                delay: 0.2,
+              }}
+            />
           </>
         )}
 
         {/* Name & emotion */}
-        <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 text-center">
-          <h2 className="text-white text-2xl font-semibold">Eva</h2>
-          <p className={`text-sm mt-1 transition-colors ${
-            isSpeaking ? "text-rose-400" : isListening ? "text-emerald-400" : "text-white/50"
-          }`}>
-            {isSpeaking ? emotionStyle.label : isListening ? "T'écoute..." : isProcessing ? "Réfléchit..." : "En ligne"}
+        <div className="absolute -bottom-14 left-1/2 -translate-x-1/2 text-center">
+          <h2 className="text-2xl font-light" style={{ color: HER_COLORS.earth }}>
+            Eva
+          </h2>
+          <p
+            className="text-sm mt-1"
+            style={{
+              color: isSpeaking
+                ? HER_COLORS.coral
+                : isListening
+                  ? HER_COLORS.blush
+                  : HER_COLORS.textSecondary,
+            }}
+          >
+            {isSpeaking
+              ? EMOTION_LABELS[evaEmotion] || "Parle..."
+              : isListening
+                ? "T'écoute..."
+                : isProcessing
+                  ? "Réfléchit..."
+                  : "En ligne"}
           </p>
         </div>
       </div>
 
       {/* Current text */}
       {currentText && (
-        <div className="max-w-lg mx-auto mb-8 px-6 py-4 rounded-2xl bg-white/5 backdrop-blur border border-white/10">
-          <p className="text-white/90 text-center leading-relaxed">{currentText}</p>
-        </div>
+        <motion.div
+          className="max-w-lg mx-auto mb-8 px-6 py-4 rounded-2xl"
+          style={{
+            backgroundColor: `${HER_COLORS.cream}E6`,
+            border: `1px solid ${HER_COLORS.softShadow}40`,
+          }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={HER_SPRINGS.gentle}
+        >
+          <p className="text-center leading-relaxed" style={{ color: HER_COLORS.earth }}>
+            {currentText}
+          </p>
+        </motion.div>
       )}
 
       {/* Controls */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black to-transparent">
+      <div
+        className="fixed bottom-0 left-0 right-0 p-6"
+        style={{
+          background: `linear-gradient(to top, ${HER_COLORS.warmWhite} 0%, transparent 100%)`,
+        }}
+      >
         <div className="max-w-xl mx-auto space-y-4">
-
           {/* Text input */}
           <div className="flex gap-2">
             <input
@@ -422,53 +541,97 @@ export default function EvaLivePage() {
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
               placeholder="Écris à Eva..."
-              className="flex-1 px-5 py-3 rounded-full bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-rose-400/50 transition-colors"
+              className="flex-1 px-5 py-3 rounded-2xl focus:outline-none transition-all"
+              style={{
+                backgroundColor: HER_COLORS.cream,
+                border: `1px solid ${HER_COLORS.softShadow}`,
+                color: HER_COLORS.earth,
+              }}
             />
-            <button
+            <motion.button
               onClick={sendMessage}
               disabled={!inputText.trim() || !isConnected}
-              className="px-6 py-3 rounded-full bg-rose-500 hover:bg-rose-600 disabled:bg-white/10 disabled:text-white/30 text-white font-medium transition-all"
+              className="px-6 py-3 rounded-2xl font-medium transition-all"
+              style={{
+                backgroundColor: inputText.trim() && isConnected ? HER_COLORS.coral : `${HER_COLORS.cream}60`,
+                color: inputText.trim() && isConnected ? HER_COLORS.warmWhite : HER_COLORS.textMuted,
+                boxShadow: inputText.trim() && isConnected ? `0 4px 16px ${HER_COLORS.glowCoral}` : "none",
+                cursor: inputText.trim() && isConnected ? "pointer" : "not-allowed",
+              }}
+              whileHover={inputText.trim() && isConnected ? { scale: 1.02 } : {}}
+              whileTap={inputText.trim() && isConnected ? { scale: 0.98 } : {}}
             >
               Envoyer
-            </button>
+            </motion.button>
           </div>
 
           {/* Voice controls */}
           <div className="flex items-center justify-center gap-4">
             {/* Push to talk */}
-            <button
+            <motion.button
               onMouseDown={startListening}
               onMouseUp={stopListening}
               onMouseLeave={stopListening}
               onTouchStart={startListening}
               onTouchEnd={stopListening}
               disabled={!isConnected || isSpeaking}
-              className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
-                isListening
-                  ? "bg-emerald-500 scale-110 shadow-lg shadow-emerald-500/50"
-                  : "bg-white/10 hover:bg-white/20 hover:scale-105"
-              } text-white disabled:opacity-50 disabled:cursor-not-allowed`}
+              className="w-16 h-16 rounded-full flex items-center justify-center transition-all"
+              style={{
+                backgroundColor: isListening
+                  ? HER_COLORS.coral
+                  : isConnected && !isSpeaking
+                    ? HER_COLORS.cream
+                    : `${HER_COLORS.cream}60`,
+                color: isListening ? HER_COLORS.warmWhite : HER_COLORS.earth,
+                boxShadow: isListening
+                  ? `0 0 30px ${HER_COLORS.glowCoral}`
+                  : `0 4px 16px ${HER_COLORS.softShadow}40`,
+                cursor: isConnected && !isSpeaking ? "pointer" : "not-allowed",
+                opacity: isConnected && !isSpeaking ? 1 : 0.6,
+              }}
+              whileHover={isConnected && !isSpeaking ? { scale: 1.05 } : {}}
+              whileTap={isConnected && !isSpeaking ? { scale: 0.95 } : {}}
+              animate={{
+                scale: isListening ? [1, 1.08, 1] : 1,
+              }}
+              transition={{
+                duration: 1,
+                repeat: isListening ? Infinity : 0,
+              }}
             >
               <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
-            </button>
+            </motion.button>
 
             {/* Interrupt */}
             {isSpeaking && (
-              <button
+              <motion.button
                 onClick={interrupt}
-                className="px-5 py-2.5 rounded-full bg-red-500/80 hover:bg-red-500 text-white text-sm font-medium transition-all"
+                className="px-5 py-2.5 rounded-2xl font-medium transition-all"
+                style={{
+                  backgroundColor: HER_COLORS.earth,
+                  color: HER_COLORS.warmWhite,
+                }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
                 Stop
-              </button>
+              </motion.button>
             )}
           </div>
 
           {isListening && (
-            <p className="text-center text-emerald-400 text-sm animate-pulse">
-              🎤 Parle maintenant... Relâche pour envoyer
-            </p>
+            <motion.p
+              className="text-center text-sm"
+              style={{ color: HER_COLORS.coral }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              Parle maintenant... Relâche pour envoyer
+            </motion.p>
           )}
         </div>
       </div>

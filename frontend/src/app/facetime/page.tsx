@@ -2,24 +2,39 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { HER_COLORS, HER_SPRINGS, EMOTION_PRESENCE } from "@/styles/her-theme";
 
-type Emotion = "happy" | "sad" | "angry" | "fearful" | "disgusted" | "surprised" | "neutral";
+type Emotion = "joy" | "sadness" | "anger" | "fear" | "surprise" | "neutral";
 
 interface EmotionResult {
   emotion: Emotion;
   probability: number;
 }
 
-const EMOTION_EMOJIS: Record<Emotion, string> = {
-  happy: "😊",
-  sad: "😢",
-  angry: "😠",
-  fearful: "😰",
-  disgusted: "🤢",
-  surprised: "😮",
-  neutral: "😐",
+// HER-style warm emotion labels
+const EMOTION_LABELS: Record<Emotion, string> = {
+  joy: "Joyeux",
+  sadness: "Mélancolique",
+  anger: "Intense",
+  fear: "Inquiet",
+  surprise: "Surpris",
+  neutral: "Serein",
 };
 
+// Map face-api emotions to HER emotions
+const mapFaceApiEmotion = (emotion: string): Emotion => {
+  const mapping: Record<string, Emotion> = {
+    happy: "joy",
+    sad: "sadness",
+    angry: "anger",
+    fearful: "fear",
+    disgusted: "anger",
+    surprised: "surprise",
+    neutral: "neutral",
+  };
+  return mapping[emotion] || "neutral";
+};
 
 export default function FacetimePage() {
   const router = useRouter();
@@ -39,6 +54,8 @@ export default function FacetimePage() {
   const [faceDetected, setFaceDetected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const currentPresence = EMOTION_PRESENCE[currentEmotion] || EMOTION_PRESENCE.neutral;
+
   useEffect(() => {
     const loadModels = async () => {
       try {
@@ -53,7 +70,7 @@ export default function FacetimePage() {
         setModelsLoaded(true);
       } catch (err) {
         console.error("Error loading face-api models:", err);
-        setError("Erreur chargement modeles");
+        setError("Erreur chargement");
       } finally {
         setIsLoading(false);
       }
@@ -75,7 +92,7 @@ export default function FacetimePage() {
       }
     } catch (err) {
       console.error("Camera error:", err);
-      setError("Camera inaccessible");
+      setError("Caméra inaccessible");
     }
   }, []);
 
@@ -103,9 +120,12 @@ export default function FacetimePage() {
       if (detections) {
         setFaceDetected(true);
         const expressions = detections.expressions;
-        const emotionEntries = Object.entries(expressions) as [Emotion, number][];
+        const emotionEntries = Object.entries(expressions) as [string, number][];
         const sortedEmotions = emotionEntries
-          .map(([emotion, probability]) => ({ emotion, probability }))
+          .map(([emotion, probability]) => ({
+            emotion: mapFaceApiEmotion(emotion),
+            probability
+          }))
           .sort((a, b) => b.probability - a.probability);
         setAllEmotions(sortedEmotions);
         const dominant = sortedEmotions[0];
@@ -144,8 +164,9 @@ export default function FacetimePage() {
             const scaleY = displayHeight / video.videoHeight;
             const box = detections.detection.box;
 
-            ctx.strokeStyle = "#10b981";
-            ctx.lineWidth = 3;
+            // HER-style warm coral stroke
+            ctx.strokeStyle = HER_COLORS.coral;
+            ctx.lineWidth = 2;
             ctx.strokeRect(
               offsetX + box.x * scaleX,
               offsetY + box.y * scaleY,
@@ -181,28 +202,55 @@ export default function FacetimePage() {
   }, [stopCamera]);
 
   return (
-    <div className="fixed inset-0 bg-black flex flex-col">
+    <div
+      className="fixed inset-0 flex flex-col"
+      style={{
+        background: `radial-gradient(ellipse at 50% 30%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+      }}
+    >
       {/* Video container */}
       <div ref={containerRef} className="flex-1 relative overflow-hidden">
         {!cameraActive && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-zinc-900 z-10">
+          <motion.div
+            className="absolute inset-0 flex flex-col items-center justify-center gap-6 z-10"
+            style={{ backgroundColor: HER_COLORS.warmWhite }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
             {isLoading ? (
               <>
-                <div className="w-10 h-10 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-                <p className="text-zinc-400 text-sm">Chargement IA...</p>
+                <motion.div
+                  className="w-12 h-12 rounded-full"
+                  style={{
+                    border: `3px solid ${HER_COLORS.coral}`,
+                    borderTopColor: "transparent",
+                  }}
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                />
+                <p style={{ color: HER_COLORS.textSecondary }} className="text-sm">
+                  Préparation...
+                </p>
               </>
             ) : error ? (
-              <p className="text-red-400">{error}</p>
+              <p style={{ color: HER_COLORS.error }}>{error}</p>
             ) : (
-              <button
+              <motion.button
                 onClick={startCamera}
                 disabled={!modelsLoaded}
-                className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-medium"
+                className="px-8 py-4 rounded-2xl font-medium"
+                style={{
+                  backgroundColor: HER_COLORS.coral,
+                  color: HER_COLORS.warmWhite,
+                  boxShadow: `0 4px 20px ${HER_COLORS.glowCoral}`,
+                }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
-                Activer Camera
-              </button>
+                Activer la caméra
+              </motion.button>
             )}
-          </div>
+          </motion.div>
         )}
 
         <video
@@ -215,54 +263,134 @@ export default function FacetimePage() {
         <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" style={{ transform: "scaleX(-1)" }} />
 
         {/* Back button */}
-        <button
+        <motion.button
           onClick={() => router.push("/")}
-          className="absolute top-4 left-4 z-20 p-2 bg-black/50 rounded-full text-white"
+          className="absolute top-4 left-4 z-20 p-2 rounded-full"
+          style={{
+            backgroundColor: `${HER_COLORS.cream}E6`,
+            color: HER_COLORS.earth,
+          }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-        </button>
+        </motion.button>
 
         {/* Face status */}
         {cameraActive && (
-          <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-black/50 px-3 py-1.5 rounded-full">
-            <div className={`w-2 h-2 rounded-full ${faceDetected ? "bg-emerald-400" : "bg-red-400"}`} />
-            <span className="text-white text-xs">{faceDetected ? "Visage OK" : "Pas de visage"}</span>
-          </div>
+          <motion.div
+            className="absolute top-4 right-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full"
+            style={{
+              backgroundColor: `${HER_COLORS.cream}E6`,
+            }}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={HER_SPRINGS.gentle}
+          >
+            <motion.div
+              className="w-2 h-2 rounded-full"
+              style={{
+                backgroundColor: faceDetected ? HER_COLORS.success : HER_COLORS.error,
+              }}
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
+            <span className="text-xs" style={{ color: HER_COLORS.textSecondary }}>
+              {faceDetected ? "Visage détecté" : "Recherche..."}
+            </span>
+          </motion.div>
         )}
 
         {/* Current emotion overlay */}
         {cameraActive && faceDetected && (
-          <div className="absolute bottom-20 left-4 z-20 flex items-center gap-2 bg-black/70 px-4 py-2 rounded-xl">
-            <span className="text-4xl">{EMOTION_EMOJIS[currentEmotion]}</span>
+          <motion.div
+            className="absolute bottom-20 left-4 z-20 flex items-center gap-3 px-4 py-3 rounded-2xl"
+            style={{
+              backgroundColor: `${HER_COLORS.cream}E6`,
+              boxShadow: `0 4px 20px ${currentPresence.glow}`,
+            }}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={HER_SPRINGS.gentle}
+          >
+            {/* Emotion orb */}
+            <motion.div
+              className="w-12 h-12 rounded-full flex items-center justify-center"
+              style={{
+                background: `radial-gradient(circle, ${HER_COLORS.coral} 0%, ${HER_COLORS.blush} 100%)`,
+                boxShadow: `0 0 20px ${currentPresence.glow}`,
+              }}
+              animate={{
+                scale: [1, 1.05, 1],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            />
             <div>
-              <p className="text-white font-bold">{currentEmotion}</p>
-              <p className="text-zinc-400 text-sm">{Math.round(emotionConfidence * 100)}%</p>
+              <p className="font-medium" style={{ color: HER_COLORS.earth }}>
+                {EMOTION_LABELS[currentEmotion]}
+              </p>
+              <p className="text-sm" style={{ color: HER_COLORS.textSecondary }}>
+                {Math.round(emotionConfidence * 100)}%
+              </p>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Stop button */}
         {cameraActive && (
-          <button
+          <motion.button
             onClick={stopCamera}
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 p-4 bg-red-500 rounded-full text-white"
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 p-4 rounded-full"
+            style={{
+              backgroundColor: HER_COLORS.earth,
+              color: HER_COLORS.warmWhite,
+              boxShadow: `0 4px 16px ${HER_COLORS.softShadow}60`,
+            }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </button>
+          </motion.button>
         )}
       </div>
 
-      {/* Emotion result */}
+      {/* Emotion result bar */}
       {cameraActive && faceDetected && (
-        <div className="h-14 shrink-0 bg-zinc-900/90 backdrop-blur flex items-center justify-center gap-3">
-          <span className="text-3xl">{EMOTION_EMOJIS[currentEmotion]}</span>
-          <span className="text-white font-medium">{currentEmotion}</span>
-          <span className="text-zinc-500">{Math.round(emotionConfidence * 100)}%</span>
-        </div>
+        <motion.div
+          className="h-16 shrink-0 flex items-center justify-center gap-4"
+          style={{
+            backgroundColor: `${HER_COLORS.warmWhite}F2`,
+            borderTop: `1px solid ${HER_COLORS.cream}`,
+          }}
+          initial={{ y: 64 }}
+          animate={{ y: 0 }}
+          transition={HER_SPRINGS.gentle}
+        >
+          {/* Emotion indicator */}
+          <motion.div
+            className="w-8 h-8 rounded-full"
+            style={{
+              background: `radial-gradient(circle, ${HER_COLORS.coral} 0%, ${HER_COLORS.blush} 100%)`,
+              boxShadow: `0 0 16px ${currentPresence.glow}`,
+            }}
+            animate={{ scale: [1, 1.1, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+          <span className="font-medium" style={{ color: HER_COLORS.earth }}>
+            {EMOTION_LABELS[currentEmotion]}
+          </span>
+          <span style={{ color: HER_COLORS.textMuted }}>
+            {Math.round(emotionConfidence * 100)}%
+          </span>
+        </motion.div>
       )}
     </div>
   );
