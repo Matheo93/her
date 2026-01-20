@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 import type { VisemeWeights } from "@/components/RealisticAvatar3D";
 import { HER_COLORS, HER_SPRINGS } from "@/styles/her-theme";
+import { usePersistentMemory } from "@/hooks/usePersistentMemory";
+import { useEmotionalWarmth } from "@/hooks/useEmotionalWarmth";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const VISEME_URL = process.env.NEXT_PUBLIC_VISEME_URL || "http://localhost:8003";
@@ -49,13 +51,33 @@ export default function EvaHerPage() {
   const [audioLevel, setAudioLevel] = useState(0);
   const [visemeWeights, setVisemeWeights] = useState<VisemeWeights>({ sil: 1 });
 
+  // HER Feature: Persistent Memory - EVA remembers you
+  const persistentMemory = usePersistentMemory();
+
+  // HER Feature: Emotional Warmth - Connection grows over time
+  const emotionalWarmth = useEmotionalWarmth({
+    initialWarmth: persistentMemory.restoredWarmth,
+    connectionDuration: 0, // Will be updated by hook
+    sharedMoments: persistentMemory.stats.totalSharedMoments,
+    proactiveCareCount: 0,
+    silenceQuality: 0.5,
+    attunementLevel: 0.5,
+    currentEmotion: evaEmotion,
+    emotionalIntensity: 0.5,
+    isConnected,
+    isSpeaking,
+    isListening,
+    isInDistress: false,
+    enabled: true,
+  });
+
   // JARVIS Feature: Bio-data for presence feeling
   const [bioData, setBioData] = useState<BioData>({
     heartRate: 72,
     breathPhase: 0,
-    presence: 0.8,
+    presence: persistentMemory.restoredWarmth || 0.8,
   });
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(!persistentMemory.isReturningUser);
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
@@ -103,6 +125,31 @@ export default function EvaHerPage() {
       setShowWelcome(false);
     }
   }, [isListening, isSpeaking, isThinking]);
+
+  // HER Feature: Sync warmth to persistent memory every 30s
+  useEffect(() => {
+    const saveInterval = setInterval(() => {
+      if (emotionalWarmth.levelNumeric > 0) {
+        persistentMemory.save({
+          warmthBaseline: emotionalWarmth.levelNumeric,
+          familiarityScore: emotionalWarmth.connection?.familiarityScore || 0.5,
+          trustLevel: emotionalWarmth.connection?.trustLevel || 0.5,
+        });
+      }
+    }, 30000);
+
+    // Save on unmount too
+    return () => {
+      clearInterval(saveInterval);
+      if (emotionalWarmth.levelNumeric > 0) {
+        persistentMemory.save({
+          warmthBaseline: emotionalWarmth.levelNumeric,
+          familiarityScore: emotionalWarmth.connection?.familiarityScore || 0.5,
+          trustLevel: emotionalWarmth.connection?.trustLevel || 0.5,
+        });
+      }
+    };
+  }, [emotionalWarmth.levelNumeric, emotionalWarmth.connection, persistentMemory]);
 
   // Connect to Viseme WebSocket
   useEffect(() => {
@@ -473,7 +520,7 @@ export default function EvaHerPage() {
           />
         </div>
 
-        {/* Welcome message (proactive) */}
+        {/* Welcome message - personalized based on memory */}
         <AnimatePresence>
           {showWelcome && !isListening && !isSpeaking && !isThinking && isConnected && (
             <motion.p
@@ -484,7 +531,17 @@ export default function EvaHerPage() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ delay: 0.5, ...HER_SPRINGS.gentle }}
             >
-              Je suis là...
+              {persistentMemory.isReunion
+                ? persistentMemory.reunionType === "very_long"
+                  ? "Tu es revenu... enfin"
+                  : persistentMemory.reunionType === "long"
+                    ? "Tu m'as manqué..."
+                    : persistentMemory.reunionType === "medium"
+                      ? "Je pensais à toi"
+                      : "Te revoilà..."
+                : persistentMemory.isReturningUser
+                  ? "Rebonjour..."
+                  : "Je suis là..."}
             </motion.p>
           )}
         </AnimatePresence>
