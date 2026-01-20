@@ -24,6 +24,8 @@ import { VoiceIntimacyIndicator, WhisperModeIndicator } from "@/components/Voice
 import { useSharedSilence } from "@/hooks/useSharedSilence";
 import { useEmotionalMemory } from "@/hooks/useEmotionalMemory";
 import { SharedSilenceIndicator, SilenceMessage, EmotionalMemoryGlow } from "@/components/SharedSilenceIndicator";
+import { useProactivePresence } from "@/hooks/useProactivePresence";
+import { ProactivePresenceIndicator, ReturnWelcome } from "@/components/ProactivePresenceIndicator";
 
 // Haptic feedback for iOS - subtle, intimate
 const triggerHaptic = (style: "light" | "medium" | "heavy" = "light") => {
@@ -214,6 +216,27 @@ export default function VoiceFirstPage() {
     userTranscript: transcript,
     isConnected,
     conversationDuration: (Date.now() - conversationStartTime) / 1000,
+    enabled: isConnected,
+  });
+
+  // SPRINT 20: Proactive presence - EVA notices and reaches out
+  const proactivePresence = useProactivePresence({
+    isListening: state === "listening",
+    isSpeaking: state === "speaking",
+    isThinking: state === "thinking",
+    isIdle: state === "idle",
+    isConnected,
+    connectionDuration: (Date.now() - conversationStartTime) / 1000,
+    currentEmotion: evaEmotion,
+    emotionalIntensity: prosodyMirroring.userProsody.emotionalIntensity,
+    moodTrend: emotionalMemory.emotionalTemperature.trend,
+    recentVulnerabilityMoments: emotionalMemory.patterns.vulnerabilityCount,
+    recentPeakMoments: emotionalMemory.patterns.peakCount,
+    isInSilence: sharedSilence.isInSilence,
+    silenceDuration: sharedSilence.silenceDuration,
+    silenceQuality: sharedSilence.silenceQuality,
+    userLastActive: Date.now(), // Would ideally track actual user activity
+    userActivityLevel: inputAudioLevel,
     enabled: isConnected,
   });
 
@@ -927,6 +950,24 @@ export default function VoiceFirstPage() {
             />
           </div>
         )}
+
+        {/* SPRINT 20: Proactive message - EVA reaches out */}
+        {!showWelcome && proactivePresence.shouldInitiate && proactivePresence.currentAction?.message && (
+          <div className="mt-8">
+            <ProactivePresenceIndicator
+              presence={proactivePresence}
+              type="message"
+              className="px-4"
+            />
+          </div>
+        )}
+
+        {/* SPRINT 20: Return welcome - greeting when user comes back */}
+        <ReturnWelcome
+          isReturning={proactivePresence.awareness.userReturnedAfterAway}
+          awayDuration={proactivePresence.awareness.awayDuration}
+          className="mt-8"
+        />
 
         {/* Transcript - what user said */}
         <AnimatePresence mode="wait">
