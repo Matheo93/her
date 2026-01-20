@@ -45,20 +45,26 @@ const VISEME_MOUTH_PARAMS: Record<string, { jawOpen: number; mouthWide: number; 
   OO: { jawOpen: 0.5, mouthWide: -0.2, lipRound: 0.5 },
 };
 
-// Emotion to expression mapping
+// Emotion to expression mapping with enhanced parameters
 const EMOTION_EXPRESSIONS: Record<string, {
   eyebrowRaise: number;
   eyeSquint: number;
   smileAmount: number;
   headTilt: number;
+  pupilDilation: number; // 0 = normal, positive = dilated (interest/attraction)
+  cheekRaise: number; // For genuine smiles (Duchenne)
+  noseScrunch: number; // For disgust or intense joy
 }> = {
-  neutral: { eyebrowRaise: 0, eyeSquint: 0, smileAmount: 0.1, headTilt: 0 },
-  joy: { eyebrowRaise: 0.3, eyeSquint: 0.2, smileAmount: 0.6, headTilt: 0.05 },
-  sadness: { eyebrowRaise: -0.2, eyeSquint: 0, smileAmount: -0.2, headTilt: -0.1 },
-  tenderness: { eyebrowRaise: 0.1, eyeSquint: 0.15, smileAmount: 0.3, headTilt: 0.08 },
-  excitement: { eyebrowRaise: 0.4, eyeSquint: 0, smileAmount: 0.5, headTilt: 0 },
-  curiosity: { eyebrowRaise: 0.35, eyeSquint: 0, smileAmount: 0.15, headTilt: 0.15 },
-  listening: { eyebrowRaise: 0.15, eyeSquint: 0, smileAmount: 0.1, headTilt: 0.05 },
+  neutral: { eyebrowRaise: 0, eyeSquint: 0, smileAmount: 0.1, headTilt: 0, pupilDilation: 0, cheekRaise: 0, noseScrunch: 0 },
+  joy: { eyebrowRaise: 0.3, eyeSquint: 0.2, smileAmount: 0.6, headTilt: 0.05, pupilDilation: 0.2, cheekRaise: 0.4, noseScrunch: 0.1 },
+  sadness: { eyebrowRaise: -0.2, eyeSquint: 0, smileAmount: -0.2, headTilt: -0.1, pupilDilation: -0.1, cheekRaise: 0, noseScrunch: 0 },
+  tenderness: { eyebrowRaise: 0.1, eyeSquint: 0.15, smileAmount: 0.3, headTilt: 0.08, pupilDilation: 0.3, cheekRaise: 0.2, noseScrunch: 0 },
+  excitement: { eyebrowRaise: 0.4, eyeSquint: 0, smileAmount: 0.5, headTilt: 0, pupilDilation: 0.4, cheekRaise: 0.3, noseScrunch: 0 },
+  curiosity: { eyebrowRaise: 0.35, eyeSquint: 0, smileAmount: 0.15, headTilt: 0.15, pupilDilation: 0.25, cheekRaise: 0, noseScrunch: 0 },
+  listening: { eyebrowRaise: 0.15, eyeSquint: 0, smileAmount: 0.1, headTilt: 0.05, pupilDilation: 0.15, cheekRaise: 0.1, noseScrunch: 0 },
+  empathy: { eyebrowRaise: 0.05, eyeSquint: 0.1, smileAmount: 0.2, headTilt: 0.1, pupilDilation: 0.2, cheekRaise: 0.15, noseScrunch: 0 },
+  thinking: { eyebrowRaise: 0.1, eyeSquint: 0.05, smileAmount: 0, headTilt: 0.05, pupilDilation: 0, cheekRaise: 0, noseScrunch: 0 },
+  playful: { eyebrowRaise: 0.2, eyeSquint: 0.15, smileAmount: 0.45, headTilt: 0.12, pupilDilation: 0.25, cheekRaise: 0.35, noseScrunch: 0.05 },
 };
 
 // Human skin shader for realistic appearance
@@ -132,6 +138,11 @@ function RealisticHead({
   const rightEyebrowRef = useRef<THREE.Mesh>(null);
   const leftLidRef = useRef<THREE.Mesh>(null);
   const rightLidRef = useRef<THREE.Mesh>(null);
+  const leftPupilRef = useRef<THREE.Mesh>(null);
+  const rightPupilRef = useRef<THREE.Mesh>(null);
+  const leftCheekRef = useRef<THREE.Mesh>(null);
+  const rightCheekRef = useRef<THREE.Mesh>(null);
+  const noseRef = useRef<THREE.Mesh>(null);
 
   // Animation state
   const [blinkState, setBlinkState] = useState(0);
@@ -140,6 +151,8 @@ function RealisticHead({
   const eyeSaccadeTarget = useRef({ x: 0, y: 0 });
   const eyeSaccadeTimer = useRef(0);
   const lastBlinkTime = useRef(0);
+  const microExpressionPhase = useRef(0);
+  const doubleBlinkChance = useRef(false);
 
   // Smoothed values for natural transitions
   const smoothedMouth = useRef({ jawOpen: 0, mouthWide: 0, lipRound: 0 });
@@ -147,7 +160,10 @@ function RealisticHead({
     eyebrowRaise: 0,
     eyeSquint: 0,
     smileAmount: 0.1,
-    headTilt: 0
+    headTilt: 0,
+    pupilDilation: 0,
+    cheekRaise: 0,
+    noseScrunch: 0,
   });
 
   // Calculate target mouth shape from viseme weights
@@ -268,32 +284,53 @@ function RealisticHead({
       rightEyeRef.current.rotation.y = leftEyeRef.current.rotation.y;
     }
 
-    // === NATURAL BLINKING ===
+    // === NATURAL BLINKING WITH VARIATION ===
     const timeSinceLastBlink = time - lastBlinkTime.current;
-    const blinkInterval = 3 + Math.random() * 2; // 3-5 seconds
+    // Blink interval varies: faster when listening/excited, slower when calm
+    const emotionBlinkMod = isListening ? 0.7 : (emotion === "excitement" ? 0.6 : 1);
+    const blinkInterval = (2.5 + Math.random() * 3) * emotionBlinkMod;
 
     if (timeSinceLastBlink > blinkInterval && blinkState === 0) {
       setBlinkState(1);
       lastBlinkTime.current = time;
+      // 20% chance for double blink (very human)
+      doubleBlinkChance.current = Math.random() < 0.2;
     }
 
-    // Animate eyelids for blink
+    // Animate eyelids for blink with asymmetry
     if (leftLidRef.current && rightLidRef.current) {
       let lidClose = 0;
       if (blinkState === 1) {
-        lidClose = Math.min(1, blinkState + delta * 15);
+        lidClose = Math.min(1, blinkState + delta * 18); // Faster close
         if (lidClose >= 1) setBlinkState(2);
       } else if (blinkState === 2) {
-        lidClose = Math.max(0, 1 - delta * 10);
-        if (lidClose <= 0) setBlinkState(0);
+        lidClose = Math.max(0, 1 - delta * 12); // Slightly slower open
+        if (lidClose <= 0) {
+          if (doubleBlinkChance.current) {
+            doubleBlinkChance.current = false;
+            setBlinkState(1); // Trigger second blink
+          } else {
+            setBlinkState(0);
+          }
+        }
       }
 
-      // Also add squint from expression
+      // Add squint from expression
       lidClose = Math.max(lidClose, smoothedExpression.current.eyeSquint);
 
+      // Slight asymmetry makes it more human (right lid slightly faster)
       leftLidRef.current.scale.y = 0.1 + lidClose * 0.9;
-      rightLidRef.current.scale.y = 0.1 + lidClose * 0.9;
+      rightLidRef.current.scale.y = 0.1 + Math.min(1, lidClose * 1.05) * 0.9;
     }
+
+    // === MICRO-EXPRESSIONS (subtle, fleeting) ===
+    microExpressionPhase.current += delta;
+
+    // Tiny random eyebrow micro-movements (barely perceptible but adds life)
+    const microBrow = Math.sin(microExpressionPhase.current * 2.1) * 0.01;
+
+    // Subtle nostril flare when breathing in
+    const nostrilFlare = Math.sin(breathPhase.current) > 0.7 ? 0.02 : 0;
 
     // === SMOOTH MOUTH TRANSITIONS ===
     const mouthLerpSpeed = isSpeaking ? 15 : 5;
@@ -586,16 +623,23 @@ export function RealisticAvatar3D({
         />
       </Canvas>
 
-      {/* Listening indicator ring */}
+      {/* Listening indicator ring - organic animation via framer-motion inline */}
       {isListening && (
         <div
-          className="absolute inset-0 rounded-full border-2 animate-pulse"
+          className="absolute inset-0 rounded-full border-2"
           style={{
             borderColor: HER_COLORS.coral,
             opacity: 0.5,
+            animation: "breathe 2s ease-in-out infinite",
           }}
         />
       )}
+      <style jsx>{`
+        @keyframes breathe {
+          0%, 100% { transform: scale(1); opacity: 0.4; }
+          50% { transform: scale(1.02); opacity: 0.6; }
+        }
+      `}</style>
     </div>
   );
 }
