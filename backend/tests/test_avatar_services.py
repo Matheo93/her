@@ -662,3 +662,98 @@ class TestAudio2FaceWarpFunctions:
         from audio2face_service import FaceWarper
 
         assert FaceWarper is not None
+
+
+# =============================================================================
+# SADTALKER SERVICE TESTS
+# =============================================================================
+
+class TestSadTalkerServiceConfig:
+    """Tests for sadtalker_service.py configuration."""
+
+    def test_app_defined(self):
+        """Test FastAPI app is defined."""
+        from sadtalker_service import app
+
+        assert app is not None
+        assert app.title == "SadTalker Lip-Sync Service"
+
+    def test_global_state_initialized(self):
+        """Test global state variables exist."""
+        from sadtalker_service import sadtalker, source_path
+
+        # Should be None on import (not initialized)
+        assert sadtalker is None
+        assert source_path is None
+
+
+class TestSadTalkerInitialize:
+    """Tests for SadTalker initialization."""
+
+    def test_initialize_handles_missing_module(self):
+        """Test initialize returns False when SadTalker not available."""
+        from sadtalker_service import initialize_sadtalker
+
+        # Since SadTalker is not installed in test env, should return False
+        result = initialize_sadtalker()
+
+        # Result should be boolean
+        assert isinstance(result, bool)
+        # Should be False since we don't have the SadTalker module
+        assert result is False
+
+
+class TestSadTalkerEndpoints:
+    """Tests for sadtalker_service FastAPI endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_health_endpoint(self):
+        """Test health endpoint returns expected format."""
+        from sadtalker_service import health
+
+        result = await health()
+
+        assert "status" in result
+        assert result["status"] == "ok"
+        assert "ready" in result
+        assert "cuda" in result
+
+    @pytest.mark.asyncio
+    async def test_prepare_source_no_file(self):
+        """Test prepare_source handles no file gracefully."""
+        import io
+        from fastapi import UploadFile
+        from sadtalker_service import prepare_source
+
+        # Create a mock UploadFile
+        content = b"fake image data"
+        file = UploadFile(filename="test.png", file=io.BytesIO(content))
+
+        result = await prepare_source(file)
+
+        assert "status" in result
+        assert result["status"] == "ok"
+
+    @pytest.mark.asyncio
+    async def test_generate_no_sadtalker(self):
+        """Test generate returns error when SadTalker not initialized."""
+        import io
+        from fastapi import UploadFile
+        from sadtalker_service import generate
+        import sadtalker_service
+
+        # Ensure SadTalker is not initialized and source is set
+        sadtalker_service.sadtalker = None
+        sadtalker_service.source_path = "/tmp/test.png"
+
+        # Create a mock audio file
+        content = b"fake audio data"
+        file = UploadFile(filename="test.wav", file=io.BytesIO(content))
+
+        result = await generate(file)
+
+        # Should return JSONResponse with error 500 (SadTalker init fails)
+        assert result.status_code == 500
+
+        # Clean up
+        sadtalker_service.source_path = None

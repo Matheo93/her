@@ -268,3 +268,110 @@ class TestLLMService:
         # Clear
         clear_conversation(session)
         assert session not in conversations
+
+
+# =============================================================================
+# EVA EXPRESSION TESTS
+# =============================================================================
+
+class TestEvaExpressionDataStructures:
+    """Tests for eva_expression.py data structures."""
+
+    def test_emotion_dataclass(self):
+        """Test Emotion dataclass."""
+        from eva_expression import Emotion
+
+        emotion = Emotion(
+            name="joy",
+            intensity=0.8,
+            voice_speed=1.1,
+            voice_pitch=2,
+            animation="smile_big"
+        )
+
+        assert emotion.name == "joy"
+        assert emotion.intensity == 0.8
+        assert emotion.voice_speed == 1.1
+        assert emotion.voice_pitch == 2
+        assert emotion.animation == "smile_big"
+
+    def test_emotions_dict(self):
+        """Test EMOTIONS dictionary contains all expected emotions."""
+        from eva_expression import EMOTIONS
+
+        expected_emotions = [
+            "joy", "excitement", "tenderness", "sadness",
+            "surprise", "curiosity", "playful", "empathy",
+            "thoughtful", "neutral"
+        ]
+
+        for emotion in expected_emotions:
+            assert emotion in EMOTIONS
+            assert EMOTIONS[emotion].name == emotion
+
+    def test_emotion_patterns_dict(self):
+        """Test EMOTION_PATTERNS dictionary has patterns for emotions."""
+        from eva_expression import EMOTION_PATTERNS
+
+        assert "joy" in EMOTION_PATTERNS
+        assert "sadness" in EMOTION_PATTERNS
+
+        # Each emotion should have at least one pattern
+        for emotion, patterns in EMOTION_PATTERNS.items():
+            assert len(patterns) > 0
+
+
+class TestEvaExpressionSystem:
+    """Tests for EvaExpressionSystem class."""
+
+    def test_system_creation(self):
+        """Test system can be created."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+
+        assert system is not None
+        assert system._initialized is False
+        assert system._breathing_sounds == {}
+        assert system._emotion_sounds == {}
+
+    def test_system_init_without_tts(self):
+        """Test init returns False when TTS not available."""
+        from eva_expression import EvaExpressionSystem
+        import eva_expression
+
+        # Temporarily disable ultra_fast_tts
+        original_tts = eva_expression.ultra_fast_tts
+        eva_expression.ultra_fast_tts = None
+
+        try:
+            system = EvaExpressionSystem()
+            result = system.init()
+
+            # Should return False when TTS not available
+            assert result is False
+            assert system._initialized is False
+        finally:
+            # Restore
+            eva_expression.ultra_fast_tts = original_tts
+
+
+class TestEvaExpressionHelpers:
+    """Tests for helper functions in eva_expression.py."""
+
+    def test_emotion_valid_parameters(self):
+        """Test emotions have valid voice parameters."""
+        from eva_expression import EMOTIONS
+
+        for name, emotion in EMOTIONS.items():
+            # Intensity should be 0-1
+            assert 0.0 <= emotion.intensity <= 1.0
+
+            # Voice speed should be reasonable
+            assert 0.5 <= emotion.voice_speed <= 2.0
+
+            # Voice pitch should be reasonable
+            assert -10 <= emotion.voice_pitch <= 10
+
+            # Animation should be non-empty
+            assert len(emotion.animation) > 0
