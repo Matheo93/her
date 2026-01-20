@@ -143,6 +143,8 @@ function RealisticHead({
   const leftCheekRef = useRef<THREE.Mesh>(null);
   const rightCheekRef = useRef<THREE.Mesh>(null);
   const noseRef = useRef<THREE.Mesh>(null);
+  const leftDimpleRef = useRef<THREE.Mesh>(null);
+  const rightDimpleRef = useRef<THREE.Mesh>(null);
 
   // Animation state
   const [blinkState, setBlinkState] = useState(0);
@@ -386,17 +388,78 @@ function RealisticHead({
       targetExpression.headTilt,
       delta * exprLerpSpeed
     );
+    smoothedExpression.current.pupilDilation = THREE.MathUtils.lerp(
+      smoothedExpression.current.pupilDilation,
+      targetExpression.pupilDilation,
+      delta * exprLerpSpeed
+    );
+    smoothedExpression.current.cheekRaise = THREE.MathUtils.lerp(
+      smoothedExpression.current.cheekRaise,
+      targetExpression.cheekRaise,
+      delta * exprLerpSpeed
+    );
+    smoothedExpression.current.noseScrunch = THREE.MathUtils.lerp(
+      smoothedExpression.current.noseScrunch,
+      targetExpression.noseScrunch,
+      delta * exprLerpSpeed
+    );
 
-    // Apply eyebrow positions
+    // === PUPIL DILATION (emotional response) ===
+    if (leftPupilRef.current && rightPupilRef.current) {
+      const basePupilSize = 0.015;
+      const dilationAmount = smoothedExpression.current.pupilDilation * 0.008;
+      const pupilSize = basePupilSize + dilationAmount;
+
+      // Also add subtle pupil contraction/dilation with breathing
+      const breathPupil = Math.sin(breathPhase.current * 0.5) * 0.001;
+
+      leftPupilRef.current.scale.setScalar((pupilSize + breathPupil) / basePupilSize);
+      rightPupilRef.current.scale.setScalar((pupilSize + breathPupil) / basePupilSize);
+    }
+
+    // === CHEEK RAISE (Duchenne smile - genuine happiness) ===
+    if (leftCheekRef.current && rightCheekRef.current) {
+      const cheekLift = smoothedExpression.current.cheekRaise * 0.03;
+      leftCheekRef.current.position.y = -0.05 + cheekLift;
+      rightCheekRef.current.position.y = -0.05 + cheekLift;
+
+      // Cheeks also push out slightly when raised
+      const cheekOut = smoothedExpression.current.cheekRaise * 0.01;
+      leftCheekRef.current.scale.setScalar(1 + cheekOut);
+      rightCheekRef.current.scale.setScalar(1 + cheekOut);
+    }
+
+    // === DIMPLES (appear with smile) ===
+    if (leftDimpleRef.current && rightDimpleRef.current) {
+      const dimpleDepth = smoothedExpression.current.smileAmount * 0.6;
+      // Dimples become visible when smiling
+      leftDimpleRef.current.scale.setScalar(dimpleDepth > 0.15 ? dimpleDepth : 0);
+      rightDimpleRef.current.scale.setScalar(dimpleDepth > 0.15 ? dimpleDepth : 0);
+    }
+
+    // === NOSE ANIMATION ===
+    if (noseRef.current) {
+      // Subtle scrunch for intense emotions
+      const scrunch = smoothedExpression.current.noseScrunch * 0.02;
+      noseRef.current.position.y = -0.05 + scrunch;
+      noseRef.current.scale.x = 1 + nostrilFlare;
+    }
+
+    // Apply eyebrow positions with micro-movements
     if (leftEyebrowRef.current && rightEyebrowRef.current) {
-      const browOffset = smoothedExpression.current.eyebrowRaise * 0.05;
+      const browOffset = smoothedExpression.current.eyebrowRaise * 0.05 + microBrow;
       leftEyebrowRef.current.position.y = 0.35 + browOffset;
       rightEyebrowRef.current.position.y = 0.35 + browOffset;
 
-      // Inner brow raise for concern
-      if (emotion === "sadness") {
+      // Inner brow raise for concern/empathy
+      if (emotion === "sadness" || emotion === "empathy") {
         leftEyebrowRef.current.rotation.z = 0.1;
         rightEyebrowRef.current.rotation.z = -0.1;
+      } else if (emotion === "curiosity") {
+        // One brow slightly raised more (quizzical look)
+        leftEyebrowRef.current.position.y += 0.01;
+        leftEyebrowRef.current.rotation.z = -0.05;
+        rightEyebrowRef.current.rotation.z = 0;
       } else {
         leftEyebrowRef.current.rotation.z = 0;
         rightEyebrowRef.current.rotation.z = 0;
@@ -416,13 +479,24 @@ function RealisticHead({
         <sphereGeometry args={[0.48, 64, 64]} />
       </mesh>
 
-      {/* Nose */}
-      <mesh position={[0, -0.05, 0.45]} material={skinMaterial}>
-        <coneGeometry args={[0.06, 0.12, 16]} />
-      </mesh>
-      <mesh position={[0, -0.1, 0.48]} material={skinMaterial}>
-        <sphereGeometry args={[0.04, 16, 16]} />
-      </mesh>
+      {/* Nose - with ref for micro-animations */}
+      <group ref={noseRef}>
+        <mesh position={[0, -0.05, 0.45]} material={skinMaterial}>
+          <coneGeometry args={[0.06, 0.12, 16]} />
+        </mesh>
+        <mesh position={[0, -0.1, 0.48]} material={skinMaterial}>
+          <sphereGeometry args={[0.04, 16, 16]} />
+        </mesh>
+        {/* Nostrils - subtle definition */}
+        <mesh position={[-0.02, -0.11, 0.47]}>
+          <sphereGeometry args={[0.012, 8, 8]} />
+          <meshBasicMaterial color="#8B6B5A" />
+        </mesh>
+        <mesh position={[0.02, -0.11, 0.47]}>
+          <sphereGeometry args={[0.012, 8, 8]} />
+          <meshBasicMaterial color="#8B6B5A" />
+        </mesh>
+      </group>
 
       {/* Left eye socket */}
       <group ref={leftEyeRef} position={[-0.15, 0.1, 0.35]}>
@@ -431,20 +505,30 @@ function RealisticHead({
           <sphereGeometry args={[0.06, 32, 32]} />
           <meshStandardMaterial color="#FFFEF8" roughness={0.1} />
         </mesh>
-        {/* Iris */}
+        {/* Iris - warm amber-brown */}
         <mesh position={[0, 0, 0.045]}>
           <circleGeometry args={[0.035, 32]} />
-          <meshStandardMaterial color="#4A3728" roughness={0.3} />
+          <meshStandardMaterial color="#5C4033" roughness={0.3} />
         </mesh>
-        {/* Pupil */}
-        <mesh position={[0, 0, 0.05]}>
+        {/* Iris detail ring */}
+        <mesh position={[0, 0, 0.046]}>
+          <ringGeometry args={[0.025, 0.034, 32]} />
+          <meshStandardMaterial color="#8B6914" roughness={0.4} transparent opacity={0.5} />
+        </mesh>
+        {/* Pupil - dilates with emotion */}
+        <mesh ref={leftPupilRef} position={[0, 0, 0.05]}>
           <circleGeometry args={[0.015, 32]} />
-          <meshBasicMaterial color="#1A1A1A" />
+          <meshBasicMaterial color="#0A0A0A" />
         </mesh>
-        {/* Eye highlight */}
+        {/* Eye highlight - makes eyes look alive */}
         <mesh position={[0.015, 0.015, 0.055]}>
           <circleGeometry args={[0.008, 16]} />
           <meshBasicMaterial color="#FFFFFF" />
+        </mesh>
+        {/* Secondary smaller highlight */}
+        <mesh position={[-0.008, -0.01, 0.054]}>
+          <circleGeometry args={[0.004, 16]} />
+          <meshBasicMaterial color="#FFFFFF" transparent opacity={0.6} />
         </mesh>
       </group>
 
@@ -454,17 +538,30 @@ function RealisticHead({
           <sphereGeometry args={[0.06, 32, 32]} />
           <meshStandardMaterial color="#FFFEF8" roughness={0.1} />
         </mesh>
+        {/* Iris - warm amber-brown */}
         <mesh position={[0, 0, 0.045]}>
           <circleGeometry args={[0.035, 32]} />
-          <meshStandardMaterial color="#4A3728" roughness={0.3} />
+          <meshStandardMaterial color="#5C4033" roughness={0.3} />
         </mesh>
-        <mesh position={[0, 0, 0.05]}>
+        {/* Iris detail ring */}
+        <mesh position={[0, 0, 0.046]}>
+          <ringGeometry args={[0.025, 0.034, 32]} />
+          <meshStandardMaterial color="#8B6914" roughness={0.4} transparent opacity={0.5} />
+        </mesh>
+        {/* Pupil - dilates with emotion */}
+        <mesh ref={rightPupilRef} position={[0, 0, 0.05]}>
           <circleGeometry args={[0.015, 32]} />
-          <meshBasicMaterial color="#1A1A1A" />
+          <meshBasicMaterial color="#0A0A0A" />
         </mesh>
+        {/* Eye highlight */}
         <mesh position={[0.015, 0.015, 0.055]}>
           <circleGeometry args={[0.008, 16]} />
           <meshBasicMaterial color="#FFFFFF" />
+        </mesh>
+        {/* Secondary smaller highlight */}
+        <mesh position={[-0.008, -0.01, 0.054]}>
+          <circleGeometry args={[0.004, 16]} />
+          <meshBasicMaterial color="#FFFFFF" transparent opacity={0.6} />
         </mesh>
       </group>
 
@@ -516,8 +613,8 @@ function RealisticHead({
         </mesh>
       </group>
 
-      {/* Cheeks with subtle blush */}
-      <mesh position={[-0.25, -0.05, 0.35]}>
+      {/* Cheeks with subtle blush - refs for Duchenne smile */}
+      <mesh ref={leftCheekRef} position={[-0.25, -0.05, 0.35]}>
         <sphereGeometry args={[0.12, 16, 16]} />
         <meshStandardMaterial
           color="#F0A090"
@@ -525,13 +622,23 @@ function RealisticHead({
           opacity={0.3}
         />
       </mesh>
-      <mesh position={[0.25, -0.05, 0.35]}>
+      <mesh ref={rightCheekRef} position={[0.25, -0.05, 0.35]}>
         <sphereGeometry args={[0.12, 16, 16]} />
         <meshStandardMaterial
           color="#F0A090"
           transparent
           opacity={0.3}
         />
+      </mesh>
+
+      {/* Dimples - appear when smiling genuinely */}
+      <mesh ref={leftDimpleRef} position={[-0.22, -0.15, 0.4]} scale={0}>
+        <sphereGeometry args={[0.02, 8, 8]} />
+        <meshStandardMaterial color="#D4A090" />
+      </mesh>
+      <mesh ref={rightDimpleRef} position={[0.22, -0.15, 0.4]} scale={0}>
+        <sphereGeometry args={[0.02, 8, 8]} />
+        <meshStandardMaterial color="#D4A090" />
       </mesh>
 
       {/* Ears */}
@@ -580,13 +687,14 @@ export function RealisticAvatar3D({
 }: RealisticAvatar3DProps) {
   return (
     <div className={`relative ${className}`} style={{ width: "100%", height: "100%" }}>
-      {/* Warm ambient glow behind avatar */}
+      {/* Warm ambient glow behind avatar - organic, not generic blur */}
       <div
-        className="absolute inset-0 rounded-full blur-3xl"
+        className="absolute inset-0 rounded-full"
         style={{
-          background: `radial-gradient(circle, ${HER_COLORS.coral}40 0%, transparent 70%)`,
+          background: `radial-gradient(circle, ${HER_COLORS.coral}40 0%, ${HER_COLORS.coral}15 40%, transparent 70%)`,
           opacity: isSpeaking ? 0.8 : isListening ? 0.6 : 0.4,
-          transition: "opacity 0.3s ease-out",
+          transition: "opacity 0.5s ease-out",
+          filter: "blur(24px)", // Subtle blur, not excessive 3xl
         }}
       />
 
