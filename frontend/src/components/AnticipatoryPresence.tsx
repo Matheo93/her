@@ -266,7 +266,8 @@ function SubtleAnticipation({
   visuals: AnticipationVisuals;
   className: string;
 }) {
-  const { readinessLevel, microExpression } = visuals;
+  // visuals.readinessGlow is used for intensity calculations
+  const { readinessGlow } = visuals;
 
   return (
     <AnimatePresence>

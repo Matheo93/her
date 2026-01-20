@@ -161,6 +161,19 @@ export default function VoiceFirstPage() {
     enabled: isConnected,
   });
 
+  // SPRINT 16: Anticipation - predictive context awareness
+  const anticipation = useAnticipation({
+    userAudioLevel: inputAudioLevel,
+    isListening: state === "listening",
+    isSpeaking: state === "speaking",
+    isThinking: state === "thinking",
+    userEnergy: prosodyMirroring.userProsody.energy,
+    userTempo: prosodyMirroring.userProsody.tempo,
+    emotionalIntensity: prosodyMirroring.userProsody.emotionalIntensity,
+    currentEmotion: evaEmotion,
+    enabled: isConnected,
+  });
+
   // SPRINT 12: Presence sound hook - subtle ambient audio presence
   usePresenceSound({
     enabled: presenceSoundEnabled,
@@ -735,6 +748,17 @@ export default function VoiceFirstPage() {
             isActive={prosodyMirroring.mirroring.avatarHints.breathingSync}
             userRhythm={prosodyMirroring.userProsody.tempo === "slow" ? 5 : prosodyMirroring.userProsody.tempo === "fast" ? 2.5 : 3.5}
             attunementLevel={prosodyMirroring.attunementLevel}
+          />
+
+          {/* SPRINT 16: Anticipatory presence - EVA knows what's coming */}
+          <AnticipatoryPresence
+            anticipation={anticipation}
+            position="glow"
+          />
+
+          {/* SPRINT 16: Breath hold indicator - anticipation before response */}
+          <BreathHoldIndicator
+            isHolding={anticipation.readinessLevel === "imminent"}
           />
         </div>
 
