@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
+import { HER_COLORS, HER_SPRINGS } from "@/styles/her-theme";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
@@ -152,7 +154,7 @@ export default function AvatarGPUPage() {
   const idleVideos = [
     "/avatars/eva_idle_transparent.webm",
   ];
-  const [currentIdleIndex, setCurrentIdleIndex] = useState(0);
+  const [currentIdleIndex] = useState(0);
   const [, setSpeakingVideoSrc] = useState<string | null>(null);
 
   // When speaking video ends, return to idle
@@ -189,7 +191,7 @@ export default function AvatarGPUPage() {
       setIsRecording(true);
       setError(null);
     } catch {
-      setError("Microphone access denied");
+      setError("Acces micro refuse");
     }
   };
 
@@ -219,7 +221,7 @@ export default function AvatarGPUPage() {
         body: formData,
       });
 
-      if (!voiceResponse.ok) throw new Error("Voice processing failed");
+      if (!voiceResponse.ok) throw new Error("Erreur traitement vocal");
 
       const data = await voiceResponse.json();
 
@@ -276,7 +278,6 @@ export default function AvatarGPUPage() {
                 speakingVideoRef.current.play();
                 break;
               } else if (status.status === "error") {
-                console.log("Lip-sync generation failed, continuing with audio only");
                 break;
               }
               // Still processing, continue polling
@@ -290,7 +291,7 @@ export default function AvatarGPUPage() {
         pollForVideo();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Processing failed");
+      setError(err instanceof Error ? err.message : "Erreur de traitement");
     } finally {
       setIsProcessing(false);
     }
@@ -370,42 +371,86 @@ export default function AvatarGPUPage() {
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      setError(err instanceof Error ? err.message : "Erreur");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
-      {/* Styles for animations */}
-      <style jsx>{`
-        @keyframes glow {
-          0%, 100% { box-shadow: 0 0 15px rgba(244, 114, 182, 0.15); }
-          50% { box-shadow: 0 0 25px rgba(244, 114, 182, 0.25); }
-        }
-        @keyframes speaking-glow {
-          0%, 100% { box-shadow: 0 0 20px rgba(236, 72, 153, 0.35); }
-          50% { box-shadow: 0 0 40px rgba(236, 72, 153, 0.55); }
-        }
-        .avatar-container {
-          animation: glow 3s ease-in-out infinite;
-        }
-        .avatar-container.speaking {
-          animation: speaking-glow 1s ease-in-out infinite;
-        }
-      `}</style>
+  // Get timing color based on performance
+  const getTimingStyle = (value: number | undefined, target: number) => {
+    if (!value) {
+      return {
+        bg: `${HER_COLORS.cream}80`,
+        border: `${HER_COLORS.softShadow}40`,
+        text: HER_COLORS.textMuted,
+      };
+    }
+    if (value <= target) {
+      return {
+        bg: `${HER_COLORS.success}15`,
+        border: `${HER_COLORS.success}40`,
+        text: HER_COLORS.success,
+      };
+    }
+    if (value <= target * 1.5) {
+      return {
+        bg: `${HER_COLORS.blush}40`,
+        border: HER_COLORS.blush,
+        text: HER_COLORS.earth,
+      };
+    }
+    return {
+      bg: `${HER_COLORS.error}15`,
+      border: `${HER_COLORS.error}40`,
+      text: HER_COLORS.error,
+    };
+  };
 
+  return (
+    <div
+      className="min-h-screen"
+      style={{
+        background: `radial-gradient(ellipse at 50% 30%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+      }}
+    >
       <audio ref={audioRef} hidden />
 
       {/* Header */}
-      <header className="p-4 border-b border-purple-800/30 backdrop-blur-sm bg-slate-950/50">
+      <header
+        className="p-4 backdrop-blur-sm"
+        style={{
+          backgroundColor: `${HER_COLORS.warmWhite}E6`,
+          borderBottom: `1px solid ${HER_COLORS.softShadow}40`,
+        }}
+      >
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${isSpeaking ? 'bg-pink-500 animate-pulse' : 'bg-green-500'}`} />
-            <h1 className="text-xl font-light tracking-wide">EVA</h1>
-            <span className="text-xs bg-purple-600/80 px-2 py-1 rounded-full">RTX 4090</span>
-            {useLipsync && <span className="text-xs bg-pink-600/80 px-2 py-1 rounded-full">Lip-Sync</span>}
+            <motion.div
+              className="w-3 h-3 rounded-full"
+              style={{
+                backgroundColor: isSpeaking ? HER_COLORS.coral : HER_COLORS.success,
+              }}
+              animate={isSpeaking ? { scale: [1, 1.2, 1] } : {}}
+              transition={{ duration: 0.8, repeat: Infinity }}
+            />
+            <h1 className="text-xl font-light" style={{ color: HER_COLORS.earth }}>
+              EVA
+            </h1>
+            <span
+              className="text-xs px-2 py-1 rounded-full"
+              style={{ backgroundColor: HER_COLORS.earth, color: HER_COLORS.warmWhite }}
+            >
+              GPU
+            </span>
+            {useLipsync && (
+              <span
+                className="text-xs px-2 py-1 rounded-full"
+                style={{ backgroundColor: HER_COLORS.coral, color: HER_COLORS.warmWhite }}
+              >
+                Lip-Sync
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -413,11 +458,16 @@ export default function AvatarGPUPage() {
                 type="checkbox"
                 checked={useLipsync}
                 onChange={(e) => setUseLipsync(e.target.checked)}
-                className="w-4 h-4 accent-pink-500"
+                className="w-4 h-4 rounded"
+                style={{ accentColor: HER_COLORS.coral }}
               />
-              <span className="text-slate-400">Lip-Sync</span>
+              <span style={{ color: HER_COLORS.textSecondary }}>Lip-Sync</span>
             </label>
-            <Link href="/" className="text-purple-400 hover:text-purple-300 text-sm">
+            <Link
+              href="/"
+              className="text-sm transition-colors"
+              style={{ color: HER_COLORS.coral }}
+            >
               Retour
             </Link>
           </div>
@@ -427,16 +477,32 @@ export default function AvatarGPUPage() {
       <main className="max-w-4xl mx-auto p-6">
         {/* Avatar Display */}
         <div className="flex flex-col items-center mb-8">
-          <div className={`avatar-container ${isSpeaking ? 'speaking' : ''} relative w-72 h-72 rounded-full overflow-hidden border-2 ${isSpeaking ? 'border-pink-400/50' : 'border-pink-300/40'}`}>
-            {/* Light pink background */}
+          <motion.div
+            className="relative w-72 h-72 rounded-full overflow-hidden"
+            style={{
+              border: isSpeaking ? `3px solid ${HER_COLORS.coral}` : `2px solid ${HER_COLORS.softShadow}40`,
+              boxShadow: isSpeaking
+                ? `0 0 40px ${HER_COLORS.glowCoral}`
+                : `0 4px 20px ${HER_COLORS.softShadow}40`,
+            }}
+            animate={isSpeaking ? { scale: [1, 1.02, 1] } : {}}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+          >
+            {/* Warm background */}
             <div
-              className="absolute inset-0 bg-gradient-to-b from-pink-100 via-rose-50 to-pink-200"
-              style={{ zIndex: 0 }}
+              className="absolute inset-0"
+              style={{
+                background: `linear-gradient(to bottom, ${HER_COLORS.cream}, ${HER_COLORS.blush}40, ${HER_COLORS.cream})`,
+                zIndex: 0,
+              }}
             />
-            {/* Subtle soft glow */}
+            {/* Subtle glow */}
             <div
-              className="absolute inset-0 bg-gradient-to-t from-pink-300/15 to-transparent"
-              style={{ zIndex: 1 }}
+              className="absolute inset-0"
+              style={{
+                background: `linear-gradient(to top, ${HER_COLORS.coral}15, transparent)`,
+                zIndex: 1,
+              }}
             />
 
             {/* Hidden video sources for chroma key */}
@@ -459,7 +525,7 @@ export default function AvatarGPUPage() {
               style={{ width: 1, height: 1, zIndex: -1 }}
             />
 
-            {/* Chroma-keyed canvas - idle (z-index 2 = on top of gradient) */}
+            {/* Chroma-keyed canvas - idle */}
             <canvas
               ref={idleCanvasRef}
               className={`absolute inset-0 w-full h-full scale-110 transition-opacity duration-300 ${isSpeaking ? 'opacity-0' : 'opacity-100'}`}
@@ -480,98 +546,147 @@ export default function AvatarGPUPage() {
                 background: 'none'
               }}
             />
-          </div>
+          </motion.div>
 
           {/* Status */}
           <div className="mt-4 text-center">
             {isProcessing && (
-              <p className="text-purple-400 animate-pulse">Je reflechis...</p>
+              <motion.p
+                style={{ color: HER_COLORS.coral }}
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              >
+                Je reflechis...
+              </motion.p>
             )}
             {isSpeaking && !isProcessing && (
-              <p className="text-pink-400 animate-pulse">Je parle...</p>
+              <motion.p
+                style={{ color: HER_COLORS.coral }}
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1, repeat: Infinity }}
+              >
+                Je parle...
+              </motion.p>
             )}
-            {error && <p className="text-red-400">{error}</p>}
+            {error && <p style={{ color: HER_COLORS.error }}>{error}</p>}
             {!isProcessing && !isSpeaking && !error && (
-              <p className="text-slate-500 text-sm">En attente...</p>
+              <p className="text-sm" style={{ color: HER_COLORS.textMuted }}>
+                En attente...
+              </p>
             )}
           </div>
         </div>
 
-        {/* Timings Dashboard */}
+        {/* Timings Dashboard - HER style */}
         <div className="grid grid-cols-5 gap-3 mb-8">
           {[
-            { label: "STT", value: timings.stt, target: 100, icon: "\u{1F3A4}" },
-            { label: "LLM", value: timings.llm, target: 500, icon: "\u{1F9E0}" },
-            { label: "TTS", value: timings.tts, target: 100, icon: "\u{1F50A}" },
-            { label: "Lip", value: timings.lipsync, target: 2000, icon: "\u{1F444}" },
-            { label: "Total", value: timings.total, target: 3000, icon: "\u{26A1}" },
-          ].map((item) => (
-            <div
-              key={item.label}
-              className={`p-3 rounded-xl text-center transition-all ${
-                item.value
-                  ? item.value <= item.target
-                    ? "bg-green-900/30 border border-green-500/50"
-                    : item.value <= item.target * 1.5
-                    ? "bg-yellow-900/30 border border-yellow-500/50"
-                    : "bg-red-900/30 border border-red-500/50"
-                  : "bg-slate-800/50 border border-slate-700/50"
-              }`}
-            >
-              <div className="text-lg mb-1">{item.icon}</div>
-              <div className="text-xs text-slate-400 mb-1">{item.label}</div>
-              <div className="text-lg font-mono font-bold">
-                {item.value ? `${item.value}` : "-"}
-              </div>
-              <div className="text-xs text-slate-500">ms</div>
-            </div>
-          ))}
+            { label: "STT", value: timings.stt, target: 100 },
+            { label: "LLM", value: timings.llm, target: 500 },
+            { label: "TTS", value: timings.tts, target: 100 },
+            { label: "Lip", value: timings.lipsync, target: 2000 },
+            { label: "Total", value: timings.total, target: 3000 },
+          ].map((item) => {
+            const style = getTimingStyle(item.value, item.target);
+            return (
+              <motion.div
+                key={item.label}
+                className="p-3 rounded-xl text-center transition-all"
+                style={{
+                  backgroundColor: style.bg,
+                  border: `1px solid ${style.border}`,
+                }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={HER_SPRINGS.gentle}
+              >
+                <div className="text-xs mb-1" style={{ color: HER_COLORS.textMuted }}>
+                  {item.label}
+                </div>
+                <div className="text-lg font-mono font-medium" style={{ color: style.text }}>
+                  {item.value ? `${item.value}` : "-"}
+                </div>
+                <div className="text-xs" style={{ color: HER_COLORS.textMuted }}>
+                  ms
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
 
         {/* Conversation */}
         {(transcript || response) && (
-          <div className="space-y-4 mb-8">
+          <motion.div
+            className="space-y-4 mb-8"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={HER_SPRINGS.gentle}
+          >
             {transcript && (
-              <div className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
-                <div className="text-xs text-slate-500 mb-1">Toi:</div>
-                <p className="text-slate-200">{transcript}</p>
+              <div
+                className="p-4 rounded-xl"
+                style={{
+                  backgroundColor: `${HER_COLORS.cream}E6`,
+                  border: `1px solid ${HER_COLORS.softShadow}40`,
+                }}
+              >
+                <div className="text-xs mb-1" style={{ color: HER_COLORS.textMuted }}>
+                  Toi:
+                </div>
+                <p style={{ color: HER_COLORS.earth }}>{transcript}</p>
               </div>
             )}
             {response && (
-              <div className="p-4 rounded-xl bg-purple-900/30 border border-purple-500/30">
-                <div className="text-xs text-purple-400 mb-1">Eva:</div>
-                <p className="text-slate-200">{response}</p>
+              <div
+                className="p-4 rounded-xl"
+                style={{
+                  backgroundColor: `${HER_COLORS.coral}15`,
+                  border: `1px solid ${HER_COLORS.coral}40`,
+                }}
+              >
+                <div className="text-xs mb-1" style={{ color: HER_COLORS.coral }}>
+                  Eva:
+                </div>
+                <p style={{ color: HER_COLORS.earth }}>{response}</p>
               </div>
             )}
-          </div>
+          </motion.div>
         )}
 
         {/* Controls */}
         <div className="flex flex-col items-center gap-4">
-          <button
+          <motion.button
             onMouseDown={startRecording}
             onMouseUp={stopRecording}
             onMouseLeave={stopRecording}
             onTouchStart={startRecording}
             onTouchEnd={stopRecording}
             disabled={isProcessing || isSpeaking}
-            className={`p-6 rounded-full transition-all transform ${
-              isRecording
-                ? "bg-red-500 scale-110 shadow-lg shadow-red-500/50"
-                : "bg-purple-600 hover:bg-purple-500 hover:scale-105"
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
+            className="p-6 rounded-full transition-all"
+            style={{
+              backgroundColor: isRecording ? HER_COLORS.coral : HER_COLORS.cream,
+              color: isRecording ? HER_COLORS.warmWhite : HER_COLORS.earth,
+              boxShadow: isRecording
+                ? `0 0 30px ${HER_COLORS.glowCoral}`
+                : `0 4px 16px ${HER_COLORS.softShadow}40`,
+              opacity: isProcessing || isSpeaking ? 0.5 : 1,
+              cursor: isProcessing || isSpeaking ? "not-allowed" : "pointer",
+            }}
+            whileHover={!isProcessing && !isSpeaking ? { scale: 1.05 } : {}}
+            whileTap={!isProcessing && !isSpeaking ? { scale: 0.95 } : {}}
+            animate={isRecording ? { scale: [1, 1.1, 1] } : {}}
+            transition={{ duration: 1, repeat: isRecording ? Infinity : 0 }}
           >
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
+                strokeWidth={1.5}
                 d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
               />
             </svg>
-          </button>
-          <p className="text-slate-500 text-sm">
-            {isRecording ? "\u{1F534} Enregistrement..." : "Maintiens pour parler"}
+          </motion.button>
+          <p className="text-sm" style={{ color: HER_COLORS.textMuted }}>
+            {isRecording ? "Enregistrement..." : "Maintiens pour parler"}
           </p>
         </div>
 
@@ -580,7 +695,12 @@ export default function AvatarGPUPage() {
           <input
             type="text"
             placeholder="Ou ecris-moi..."
-            className="w-full p-4 rounded-xl bg-slate-800/50 border border-slate-700/50 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/20 text-slate-200 placeholder-slate-500"
+            className="w-full p-4 rounded-xl focus:outline-none transition-all"
+            style={{
+              backgroundColor: HER_COLORS.cream,
+              border: `1px solid ${HER_COLORS.softShadow}`,
+              color: HER_COLORS.earth,
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !isProcessing && !isSpeaking) {
                 sendText((e.target as HTMLInputElement).value);
@@ -592,17 +712,26 @@ export default function AvatarGPUPage() {
       </main>
 
       {/* Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 p-3 bg-slate-950/80 backdrop-blur-sm border-t border-slate-800/50">
-        <div className="max-w-4xl mx-auto flex justify-center gap-4 text-xs text-slate-500">
-          <span>Whisper large-v3</span>
-          <span>*</span>
+      <footer
+        className="fixed bottom-0 left-0 right-0 p-3 backdrop-blur-sm"
+        style={{
+          backgroundColor: `${HER_COLORS.warmWhite}E6`,
+          borderTop: `1px solid ${HER_COLORS.softShadow}40`,
+        }}
+      >
+        <div
+          className="max-w-4xl mx-auto flex justify-center gap-4 text-xs"
+          style={{ color: HER_COLORS.textMuted }}
+        >
+          <span>Whisper</span>
+          <span style={{ color: HER_COLORS.softShadow }}>*</span>
           <span>Groq LLM</span>
-          <span>*</span>
+          <span style={{ color: HER_COLORS.softShadow }}>*</span>
           <span>Edge-TTS</span>
-          <span>*</span>
+          <span style={{ color: HER_COLORS.softShadow }}>*</span>
           <span>MuseTalk</span>
-          <span>*</span>
-          <span>RTX 4090</span>
+          <span style={{ color: HER_COLORS.softShadow }}>*</span>
+          <span>GPU</span>
         </div>
       </footer>
     </div>
