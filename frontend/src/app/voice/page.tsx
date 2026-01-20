@@ -19,6 +19,8 @@ import { useProsodyMirroring } from "@/hooks/useProsodyMirroring";
 import { AttunementIndicator, BreathSync } from "@/components/AttunementIndicator";
 import { useAnticipation } from "@/hooks/useAnticipation";
 import { AnticipatoryPresence, BreathHoldIndicator } from "@/components/AnticipatoryPresence";
+import { useVoiceIntimacy, detectPersonalTopic } from "@/hooks/useVoiceIntimacy";
+import { VoiceIntimacyIndicator, WhisperModeIndicator } from "@/components/VoiceIntimacyIndicator";
 
 // Haptic feedback for iOS - subtle, intimate
 const triggerHaptic = (style: "light" | "medium" | "heavy" = "light") => {
@@ -171,6 +173,18 @@ export default function VoiceFirstPage() {
     userTempo: prosodyMirroring.userProsody.tempo,
     emotionalIntensity: prosodyMirroring.userProsody.emotionalIntensity,
     currentEmotion: evaEmotion,
+    enabled: isConnected,
+  });
+
+  // SPRINT 17: Voice intimacy - dynamic voice proximity modes
+  const voiceIntimacy = useVoiceIntimacy({
+    emotion: evaEmotion,
+    emotionalIntensity: prosodyMirroring.userProsody.emotionalIntensity,
+    conversationDuration: (Date.now() - conversationStartTime) / 1000,
+    userEnergy: prosodyMirroring.userProsody.energy,
+    isPersonalTopic: transcript ? detectPersonalTopic(transcript) : false,
+    isListening: state === "listening",
+    isSpeaking: state === "speaking",
     enabled: isConnected,
   });
 
@@ -571,6 +585,12 @@ export default function VoiceFirstPage() {
         isActive={state === "listening" || state === "speaking"}
       />
 
+      {/* SPRINT 17: Voice intimacy ambient - subtle warmth for intimate moments */}
+      <VoiceIntimacyIndicator
+        intimacy={voiceIntimacy}
+        type="ambient"
+      />
+
       {/* JARVIS Feature: Bio-Data - subtle presence indicator (hidden on small mobile) */}
       <div className="absolute top-4 left-4 md:top-6 md:left-6 flex flex-col gap-2">
         <AnimatePresence>
@@ -759,6 +779,17 @@ export default function VoiceFirstPage() {
           {/* SPRINT 16: Breath hold indicator - anticipation before response */}
           <BreathHoldIndicator
             isHolding={anticipation.readinessLevel === "imminent"}
+          />
+
+          {/* SPRINT 17: Voice intimacy glow - warmth based on closeness */}
+          <VoiceIntimacyIndicator
+            intimacy={voiceIntimacy}
+            type="glow"
+          />
+
+          {/* SPRINT 17: Whisper mode particles - for most intimate moments */}
+          <WhisperModeIndicator
+            isActive={voiceIntimacy.level === "whisper"}
           />
         </div>
 
