@@ -1,11 +1,15 @@
 ---
 sprint: 25
-started_at: 2026-01-20T23:10:00Z
+started_at: 2026-01-20T22:59:00Z
 status: complete
 commits:
-  - 469ed21: "refactor(frontend): remove generic pages"
-  - 1964b3a: "feat(eva): integrate memory + warmth, upgrade Whisper"
+  - 469ed21: "refactor(frontend): remove generic pages (-7730 lines)"
+  - 1964b3a: "feat(eva): integrate memory + warmth, upgrade Whisper large-v3"
   - 45c6f6d: "feat(main-page): add persistent memory"
+  - 53a0e78: "docs(sprint): complete sprint report"
+  - a77e289: "feat(eva-her): add voice warmth modulation"
+  - e5b19e4: "feat(eva-her): add shared moments tracking"
+  - 797eee6: "fix(eva-her): voiceWarmth params in WebSocket"
 ---
 
 # Sprint #25 - Feature Integration & GPU Optimization
