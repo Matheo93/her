@@ -47,6 +47,7 @@ export default function VoiceFirstPage() {
   const [response, setResponse] = useState("");
   const [visemeWeights, setVisemeWeights] = useState<VisemeWeights>({ sil: 1 });
   const [audioLevel, setAudioLevel] = useState(0);
+  const [inputAudioLevel, setInputAudioLevel] = useState(0); // User's mic level
   const [evaEmotion, setEvaEmotion] = useState("neutral");
 
   // JARVIS Feature: Bio-data for presence feeling
@@ -335,11 +336,32 @@ export default function VoiceFirstPage() {
 
       mediaRecorder.start();
 
+      // Analyze input audio level for surprise reactions
+      const inputAudioContext = new AudioContext();
+      const inputAnalyzer = inputAudioContext.createAnalyser();
+      inputAnalyzer.fftSize = 32;
+      const inputSource = inputAudioContext.createMediaStreamSource(stream);
+      inputSource.connect(inputAnalyzer);
+      const inputData = new Uint8Array(inputAnalyzer.frequencyBinCount);
+
+      let isRecording = true;
+      const updateInputLevel = () => {
+        if (!isRecording) return;
+        inputAnalyzer.getByteFrequencyData(inputData);
+        const avg = inputData.reduce((a, b) => a + b, 0) / inputData.length / 255;
+        setInputAudioLevel(avg);
+        requestAnimationFrame(updateInputLevel);
+      };
+      updateInputLevel();
+
       // Auto-stop after 5 seconds
       setTimeout(() => {
         if (mediaRecorder.state === "recording") {
+          isRecording = false;
+          setInputAudioLevel(0);
           mediaRecorder.stop();
           stream.getTracks().forEach((t) => t.stop());
+          inputAudioContext.close();
         }
       }, 5000);
     } catch (err) {
@@ -480,6 +502,7 @@ export default function VoiceFirstPage() {
             isListening={state === "listening"}
             audioLevel={audioLevel}
             conversationStartTime={conversationStartTime}
+            inputAudioLevel={inputAudioLevel}
           />
         </div>
 

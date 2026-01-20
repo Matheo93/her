@@ -381,16 +381,21 @@ function RealisticHead({
       // Add squint from expression
       lidClose = Math.max(lidClose, smoothedExpression.current.eyeSquint);
 
+      // Surprise opens eyes WIDE (negative lidClose effect)
+      const surpriseOpen = surpriseReaction.current * -0.3;
+
       // Slight asymmetry makes it more human (right lid slightly faster)
-      leftLidRef.current.scale.y = 0.1 + lidClose * 0.9;
-      rightLidRef.current.scale.y = 0.1 + Math.min(1, lidClose * 1.05) * 0.9;
+      leftLidRef.current.scale.y = Math.max(0.05, 0.1 + (lidClose + surpriseOpen) * 0.9);
+      rightLidRef.current.scale.y = Math.max(0.05, 0.1 + (Math.min(1, lidClose * 1.05) + surpriseOpen) * 0.9);
     }
 
     // === MICRO-EXPRESSIONS (subtle, fleeting) ===
     microExpressionPhase.current += delta;
 
     // Tiny random eyebrow micro-movements (barely perceptible but adds life)
-    const microBrow = Math.sin(microExpressionPhase.current * 2.1) * 0.01;
+    // Surprise also raises eyebrows
+    const surpriseBrow = surpriseReaction.current * 0.1;
+    const microBrow = Math.sin(microExpressionPhase.current * 2.1) * 0.01 + surpriseBrow;
 
     // Subtle nostril flare when breathing in
     const nostrilFlare = Math.sin(breathPhase.current) > 0.7 ? 0.02 : 0;
@@ -737,6 +742,7 @@ interface RealisticAvatar3DProps {
   audioLevel?: number;
   className?: string;
   conversationStartTime?: number; // Timestamp when conversation started
+  inputAudioLevel?: number; // User's microphone level for surprise reaction
 }
 
 export function RealisticAvatar3D({
@@ -747,6 +753,7 @@ export function RealisticAvatar3D({
   audioLevel = 0,
   className = "",
   conversationStartTime,
+  inputAudioLevel = 0,
 }: RealisticAvatar3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [gazeTarget, setGazeTarget] = useState({ x: 0, y: 0 });
@@ -838,6 +845,7 @@ export function RealisticAvatar3D({
           audioLevel={audioLevel}
           gazeTarget={gazeTarget}
           conversationDuration={conversationDuration}
+          inputAudioLevel={inputAudioLevel}
         />
       </Canvas>
 

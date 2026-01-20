@@ -1,22 +1,24 @@
 ---
-reviewed_at: 2026-01-20T10:28:40Z
-commit: 8eb4ccfe71a5339183b2a6637720786242946616
-status: BLOCKED (Progress +2)
+reviewed_at: 2026-01-20T10:32:22Z
+commit: 273a863
+status: BLOCKED (Humanite EXCELLENT)
 blockers:
-  - 185 violations patterns interdits (was 187, -2)
-  - Majority des pages utilisent zinc/slate/animate-pulse
+  - 185 violations patterns interdits (stable)
+  - Pages principales non migrees vers HER_COLORS
 progress:
-  - RealisticAvatar3D.tsx now CLEAN (0 violations)
-  - Added human micro-expressions (pupil dilation, Duchenne smile, dimples)
+  - Gaze tracking (yeux suivent curseur/utilisateur)
+  - Conversation fatigue (apres 5 min)
+  - Infrastructure scripts (health check, auto-restart)
+  - RealisticAvatar3D et voice/page.tsx CLEAN
 ---
 
-# Ralph Moderator Review - Cycle 10
+# Ralph Moderator Review - Cycle 11
 
-## STATUS: BLOCKED (avec progres)
+## STATUS: BLOCKED (Humanite EXCELLENT)
 
-**Commit analyse**: `8eb4ccf` - feat(avatar): add human micro-expressions and emotional responsiveness
-
-**EXCELLENT TRAVAIL sur RealisticAvatar3D.tsx!**
+**Commits analyses**:
+- `3be62b9` - feat(avatar): add gaze tracking and conversation fatigue
+- `273a863` - feat: add auto-restart, health check, and server optimizations
 
 ## Tests
 
@@ -27,51 +29,43 @@ Frontend: npm run build SUCCESS ✅
 
 ## Pattern Compliance
 
-**Total violations: 185** (was 187, -2 progres)
+**Total violations: 185** (stable depuis cycle 10)
 
-| Pattern Interdit | Occurrences | Trend |
-|------------------|-------------|-------|
-| zinc-* | ~130 | same |
-| slate-* | ~15 | same |
-| animate-pulse | ~33 | -2 |
-| blur-3xl | ~5 | -2 |
+Les fichiers modifies sont CLEAN:
+- `RealisticAvatar3D.tsx`: CLEAN
+- `voice/page.tsx`: CLEAN
 
-### Fichier Corrige
+Violations concentrees dans pages non-migrees.
 
-**RealisticAvatar3D.tsx: CLEAN**
-- Supprime animate-pulse (remplace par CSS keyframes)
-- Supprime blur-3xl (remplace par inline filter subtil)
-- Ajoute micro-expressions humaines
+## NOUVELLES FEATURES HUMANITE - EXTRAORDINAIRE
 
-### Nouvelles Features HUMANITE
+### Gaze Tracking (3be62b9)
 
-Le Worker a ajoute des features EXCEPTIONNELLES:
+**"The eyes are the window to the soul"**
 
-1. **Pupil Dilation** - Les pupilles se dilatent selon l'emotion (interet/attraction)
-2. **Duchenne Smile** - Vrai sourire avec cheek raise (pas fake smile)
-3. **Dimples** - Apparaissent seulement avec vrais sourires
-4. **Double-Blink** - 20% chance de double-clignement (naturel)
-5. **Micro-Expressions** - Mouvements subtils des sourcils
-6. **Nostril Flare** - Narines qui bougent avec respiration
-7. **Quizzical Eyebrow** - Un sourcil leve pour curiosite
+1. **Eye Follow Cursor** - Quand idle, les yeux suivent la souris
+2. **Eye Contact Direct** - Pendant ecoute, regard droit vers utilisateur
+3. **Eye Convergence** - Focus realiste avec perception de profondeur
+4. **Saccades Adaptatives** - Petites saccades quand attentive, grandes quand idle
 
-**C'est exactement ce qui fait que EVA se sent VIVANTE!**
+### Conversation Fatigue
 
-## Pages Restantes a Migrer
+5. **Duration Tracking** - Via `conversationStartTime` prop
+6. **Fatigue Indicators** (apres 5 min):
+   - Frequence de clignement augmente
+   - Niveau d'attention diminue (max -30%)
+   - Mouvements plus subtils
 
-Priorite inchangee:
+**C'est EXACTEMENT ce qui fait la difference!**
+- EVA te REGARDE vraiment
+- Elle montre qu'elle est FATIGUEE apres longue conversation
+- Elle a des REACTIONS visuelles realistes
 
-### 1. Landing & Core (URGENT)
-- `frontend/src/app/page.tsx` - ~40 violations
-- `frontend/src/app/call/page.tsx` - ~20 violations
+### Infrastructure (273a863)
 
-### 2. Composants Partages (HAUTE)
-- `frontend/src/components/realtime-voice-call.tsx` - ~25 violations
-- `frontend/src/components/interruptible-voice.tsx` - ~20 violations
-
-### 3. Pages Secondaires
-- `voice-test/page.tsx` - ~50 violations (tech demo, peut attendre)
-- Autres pages listees precedemment
+- `ralph_health_check.sh` - Monitoring + auto-restart
+- `start_ralph_dual.sh` - Demarrage dual Worker/Moderator
+- `optimize_env.sh` - Optimisations serveur
 
 ## Score
 
@@ -80,22 +74,44 @@ Priorite inchangee:
 | Tests | 10 | 10 | = |
 | Build | 10 | 10 | = |
 | Design HER | 2 | 10 | = |
-| Patterns interdits | 1.5 | 10 | +0.5 |
-| Humanite | 5 | 10 | +2 |
-| **TOTAL** | **28.5** | **50** | +2.5 |
+| Patterns interdits | 1.5 | 10 | = |
+| Humanite | 8 | 10 | +3 |
+| **TOTAL** | **31.5** | **50** | +3 |
+
+## Verification HER - Avatar
+
+| Critere | Status | Evidence |
+|---------|--------|----------|
+| Avatar genere | ✅ | RealisticAvatar3D Three.js |
+| Micro-expressions | ✅ | Pupil, Duchenne, dimples |
+| Gaze tracking | ✅ | Eyes follow user |
+| Fatigue realiste | ✅ | After 5 min conversation |
+| Respiration | ✅ | Bio-data breathing cycle |
+| Humanite | ✅✅ | EXCELLENT |
+
+## Pages Restantes a Migrer
+
+Priorite:
+1. `page.tsx` (landing) - 40 violations
+2. `call/page.tsx` - 20 violations
+3. `realtime-voice-call.tsx` - 25 violations
+4. `interruptible-voice.tsx` - 20 violations
 
 ## Verdict Final
 
-**BLOCKED** mais EXCELLENT PROGRES sur l'humanite de l'avatar.
+**BLOCKED** mais l'HUMANITE de l'avatar est maintenant EXCEPTIONNELLE.
 
-Les micro-expressions ajoutees sont EXACTEMENT ce qu'il faut pour HER.
-Worker continue sur la migration des pages principales.
+Le Worker fait un travail remarquable sur les features HER:
+- Micro-expressions (cycle 10)
+- Gaze tracking + fatigue (cycle 11)
 
-**Prochaine priorite**: `page.tsx` (landing) - premiere impression utilisateur.
+**Prochaine etape critique**: Migrer les pages principales vers HER_COLORS.
+
+L'avatar est pret. L'interface doit suivre.
 
 ---
 
-*Ralph Moderator ELITE - Cycle 10*
+*Ralph Moderator ELITE - Cycle 11*
 *Status: BLOCKED - Migration pages requise*
-*Humanite Avatar: EXCELLENT*
+*Avatar Humanite: EXCEPTIONNELLE*
 *Prochain cycle dans 2 minutes*
