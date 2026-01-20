@@ -27,6 +27,8 @@ interface AvatarProps {
   isSpeaking: boolean;
   isListening: boolean;
   audioLevel: number;
+  gazeTarget?: { x: number; y: number }; // Normalized -1 to 1
+  conversationDuration?: number; // Seconds, for fatigue
 }
 
 // Map visemes to mouth shape parameters
@@ -127,7 +129,9 @@ function RealisticHead({
   emotion,
   isSpeaking,
   isListening,
-  audioLevel
+  audioLevel,
+  gazeTarget = { x: 0, y: 0 },
+  conversationDuration = 0,
 }: AvatarProps) {
   const headRef = useRef<THREE.Group>(null);
   const leftEyeRef = useRef<THREE.Group>(null);
@@ -155,6 +159,8 @@ function RealisticHead({
   const lastBlinkTime = useRef(0);
   const microExpressionPhase = useRef(0);
   const doubleBlinkChance = useRef(false);
+  const smoothedGaze = useRef({ x: 0, y: 0 });
+  const attentionLevel = useRef(1); // Decreases with fatigue
 
   // Smoothed values for natural transitions
   const smoothedMouth = useRef({ jawOpen: 0, mouthWide: 0, lipRound: 0 });
@@ -256,21 +262,53 @@ function RealisticHead({
     headRef.current.rotation.y = headSwayY;
     headRef.current.rotation.z = headSwayZ;
 
-    // === EYE MICRO-SACCADES ===
+    // === GAZE TRACKING (follows user/cursor) ===
+    // Smoothly interpolate to gaze target
+    const gazeSpeed = isListening ? 6 : 4; // Faster tracking when listening (attentive)
+    smoothedGaze.current.x = THREE.MathUtils.lerp(
+      smoothedGaze.current.x,
+      gazeTarget.x * 0.15, // Limit range
+      delta * gazeSpeed
+    );
+    smoothedGaze.current.y = THREE.MathUtils.lerp(
+      smoothedGaze.current.y,
+      gazeTarget.y * 0.1,
+      delta * gazeSpeed
+    );
+
+    // === EYE MICRO-SACCADES (layered on gaze) ===
     eyeSaccadeTimer.current -= delta;
     if (eyeSaccadeTimer.current <= 0) {
-      // New saccade target
+      // Saccades are smaller when focused on user, larger when idle
+      const saccadeSize = isListening ? 0.03 : (isSpeaking ? 0.05 : 0.1);
       eyeSaccadeTarget.current = {
-        x: (Math.random() - 0.5) * 0.1,
-        y: (Math.random() - 0.5) * 0.05,
+        x: (Math.random() - 0.5) * saccadeSize,
+        y: (Math.random() - 0.5) * saccadeSize * 0.5,
       };
-      eyeSaccadeTimer.current = 0.15 + Math.random() * 0.3;
+      // More frequent saccades when listening (engaged)
+      eyeSaccadeTimer.current = isListening
+        ? 0.1 + Math.random() * 0.2
+        : 0.15 + Math.random() * 0.3;
     }
 
-    // Apply eye movement
+    // === FATIGUE (conversation duration affects attention) ===
+    // After 5 minutes, attention starts to wane subtly
+    const fatigueThreshold = 300; // 5 minutes
+    if (conversationDuration > fatigueThreshold) {
+      const fatigueFactor = Math.min(1, (conversationDuration - fatigueThreshold) / 600);
+      attentionLevel.current = 1 - fatigueFactor * 0.3; // Max 30% reduction
+    } else {
+      attentionLevel.current = 1;
+    }
+
+    // Apply eye movement: gaze + saccades
     if (leftEyeRef.current && rightEyeRef.current) {
-      const targetX = eyeSaccadeTarget.current.x;
-      const targetY = eyeSaccadeTarget.current.y;
+      // Combine gaze tracking with micro-saccades
+      const targetX = smoothedGaze.current.x + eyeSaccadeTarget.current.x;
+      const targetY = smoothedGaze.current.y + eyeSaccadeTarget.current.y;
+
+      // Eyes converge slightly when looking at user (closer = more convergence)
+      const convergence = isListening ? 0.02 : 0;
 
       leftEyeRef.current.rotation.x = THREE.MathUtils.lerp(
         leftEyeRef.current.rotation.x,
@@ -279,11 +317,15 @@ function RealisticHead({
       );
       leftEyeRef.current.rotation.y = THREE.MathUtils.lerp(
         leftEyeRef.current.rotation.y,
-        targetX,
+        targetX + convergence,
         delta * 8
       );
       rightEyeRef.current.rotation.x = leftEyeRef.current.rotation.x;
-      rightEyeRef.current.rotation.y = leftEyeRef.current.rotation.y;
+      rightEyeRef.current.rotation.y = THREE.MathUtils.lerp(
+        rightEyeRef.current.rotation.y,
+        targetX - convergence, // Opposite convergence for right eye
+        delta * 8
+      );
     }
 
     // === NATURAL BLINKING WITH VARIATION ===

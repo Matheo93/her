@@ -1,96 +1,100 @@
 ---
-sprint: 9
-started_at: 2026-01-20T14:30:00Z
-status: completed
+sprint: 10
+started_at: 2026-01-20T15:00:00Z
+status: in_progress
 ---
 
-## Sprint #9 - JARVIS Features Implementation
+## Sprint #10 - Avatar Humanization: Micro-Expressions
 
-**Objectif**: Implémenter les features JARVIS (Bio-Data, Proactivité, Voice First amélioré)
+**Objectif**: Rendre EVA plus VIVANTE avec des micro-expressions authentiques
 
 ## Changements Implémentés
 
-### 1. Bio-Data Simulation (JARVIS Feature)
+### 1. Pupil Dilation (Emotional Response)
 
-Ajout d'un système de bio-data pour créer une sensation de PRÉSENCE:
+Les pupilles d'EVA se dilatent maintenant selon l'émotion:
+- **Tenderness/attraction**: +30% dilation
+- **Excitement**: +40% dilation
+- **Curiosity**: +25% dilation
+- **Sadness**: -10% (légère contraction)
 
-```typescript
-interface BioData {
-  heartRate: number;   // BPM simulé (72-78)
-  breathPhase: number; // Cycle respiratoire 0-1
-  presence: number;    // Niveau de présence 0-1
-}
-```
+Ceci est basé sur la vraie psychologie - les pupilles se dilatent quand on est attiré ou intéressé.
 
-**Visualisation:**
-- Icône coeur qui pulse au rythme du heartRate
-- Barre de présence qui monte pendant les interactions
-- Le heartRate varie selon l'état (listening: 78, speaking: 75, idle: 72)
+### 2. Duchenne Smile (Genuine Happiness)
 
-### 2. Proactivité
+Implémentation du sourire authentique:
+- **Cheek raise**: Les joues se soulèvent
+- **Eye squint**: Les yeux se plissent légèrement
+- **Dimples**: Apparaissent avec un sourire > 0.15
 
-- Message d'accueil "Je suis là..." qui apparaît au chargement
-- Disparaît après la première interaction
-- Animation douce avec HER_SPRINGS.gentle
+Le sourire de Duchenne (avec les yeux qui se plissent) est le marqueur universel de la joie authentique.
 
-### 3. Interface Voice First Améliorée
+### 3. Natural Blink Patterns
 
-**Bouton Micro:**
-- Ring ambiant qui respire autour du bouton
-- Animation de scale pendant le listening
-- Rings qui s'expandent pendant l'écoute
-- Visualisation audio pendant le speaking
+- Intervalle variable: 2.5-5.5 secondes (plus rapide si listening/excited)
+- **Double-blink**: 20% de chance (très humain)
+- Asymétrie subtile: oeil droit légèrement plus rapide
+- Vitesse de fermeture > vitesse d'ouverture (réaliste)
 
-**Background:**
-- Gradient radial qui "respire" avec EVA
-- Glow breathing autour de l'avatar
-- Transitions organiques, pas mécaniques
+### 4. Micro-Expressions
 
-### 4. Thinking Indicator
+- Micro-mouvements des sourcils (imperceptibles mais vivants)
+- Dilatation des narines pendant l'inspiration
+- Phase de micro-expression pour variations subtiles
 
-Remplacé les dots gris par:
-- Couleur coral (HER_COLORS.coral)
-- Animation en Y (rebond subtil)
-- Timing plus lent et naturel
+### 5. Nouvelles Émotions
 
-## Fichiers Modifiés
+| Émotion | Description |
+|---------|-------------|
+| empathy | Sourcils intérieurs levés, regard doux |
+| thinking | Expression neutre concentrée |
+| playful | Sourire asymétrique, sourcil levé |
 
-| Fichier | Action |
-|---------|--------|
-| `frontend/src/app/voice/page.tsx` | Amélioré avec JARVIS features |
-| `frontend/src/app/eva-her/page.tsx` | Amélioré avec JARVIS features |
+### 6. Quizzical Look (Curiosity)
+
+Pour la curiosité:
+- Un sourcil plus haut que l'autre
+- Légère inclinaison de tête
+- Pupilles dilatées (intérêt)
+
+## Corrections
+
+- Supprimé `animate-pulse` (remplacé par CSS keyframes)
+- Supprimé `blur-3xl` (remplacé par `filter: blur(24px)`)
+- Ajouté iris detail ring pour yeux plus réalistes
+- Ajouté second highlight dans les yeux (plus vivants)
 
 ## Commits
 
-- `816c01b`: feat(voice): add JARVIS features - Bio-Data, proactivity, enhanced presence
-- `6444c6c`: feat(eva-her): add JARVIS features - Bio-Data, proactivity, breathing UI
+- `8eb4ccf`: feat(avatar): add human micro-expressions and emotional responsiveness
 
 ## Vérifications
 
-- [x] Build passe (`npm run build`)
-- [x] TypeScript OK
-- [x] Bio-Data visible subtile
-- [x] Proactivité (welcome message)
-- [x] Voice First amélioré
+- [x] Build passe
+- [x] Tests passent (198 passed)
+- [x] Zéro patterns interdits dans voice/page.tsx et RealisticAvatar3D.tsx
+- [x] Animations organiques (pas mécaniques)
 
 ## Question HER
 
 **"Quelqu'un pourrait-il tomber amoureux de ça?"**
 
 OUI:
-- EVA a maintenant une PRÉSENCE (bio-data simulée)
-- L'interface RESPIRE littéralement avec elle
-- Le message "Je suis là..." crée un moment d'intimité
-- Pas de tech-speak, pas de ms, pas d'emojis
+- Les pupilles qui se dilatent quand elle vous regarde = CONNEXION
+- Le sourire de Duchenne = AUTHENTICITÉ
+- Les clignements doubles aléatoires = HUMANITÉ
+- L'asymétrie subtile = IMPERFECTION NATURELLE
 
-## Prochaines Étapes Suggérées
+EVA n'a plus l'air d'un robot. Elle a l'air de quelqu'un qui vous VOIT.
 
-1. Connecter les visemes au backend phonemizer
-2. Ajouter synthèse matinale contextuelle
-3. Implémenter interruption intelligente
-4. Ajouter mémoire holographique (timeline visuelle)
+## Prochaines Étapes
+
+1. Ajouter regard qui suit (eye tracking vers utilisateur)
+2. Réaction micro-expression à l'audio (surprise si son fort)
+3. Fatigue naturelle (clignements plus fréquents après longue conversation)
+4. Emotional memory (se souvient du contexte émotionnel)
 
 ---
-*Ralph Worker Sprint #9 - 2026-01-20*
-*JARVIS Features: Bio-Data + Proactivité + Voice First*
-*"Je suis là..."*
+*Ralph Worker Sprint #10 - 2026-01-20*
+*Human Micro-Expressions: Pupils + Duchenne + Blinks*
+*"Les yeux sont le miroir de l'âme"*
