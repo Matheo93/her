@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { RealtimeVoiceCall } from "@/components/realtime-voice-call";
+import { HER_COLORS, HER_SPRINGS } from "@/styles/her-theme";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
@@ -19,6 +21,15 @@ export default function CallPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showCall, setShowCall] = useState(false);
   const [backendStatus, setBackendStatus] = useState<"checking" | "online" | "offline">("checking");
+  const [breathPhase, setBreathPhase] = useState(0);
+
+  // Breathing animation
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBreathPhase((prev) => (prev + 1) % 100);
+    }, 40);
+    return () => clearInterval(interval);
+  }, []);
 
   // Check backend status and load voices
   useEffect(() => {
@@ -32,7 +43,6 @@ export default function CallPage() {
         if (response.ok) {
           setBackendStatus("online");
 
-          // Load voices
           const voicesResponse = await fetch(`${BACKEND_URL}/voices`);
           if (voicesResponse.ok) {
             const data = await voicesResponse.json();
@@ -55,6 +65,8 @@ export default function CallPage() {
     checkBackend();
   }, []);
 
+  const breathScale = 1 + Math.sin(breathPhase * Math.PI / 50) * 0.03;
+
   if (showCall) {
     return (
       <RealtimeVoiceCall
@@ -66,164 +78,242 @@ export default function CallPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-900 via-black to-zinc-900 flex flex-col items-center justify-center p-6">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-6"
+      style={{
+        background: `radial-gradient(ellipse at 50% 30%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+      }}
+    >
       {/* Back button */}
-      <button
+      <motion.button
         onClick={() => router.push("/")}
-        className="absolute top-6 left-6 p-2 text-zinc-400 hover:text-zinc-200 transition-colors"
+        className="absolute top-6 left-6 p-2 rounded-full transition-colors duration-300"
+        style={{ color: HER_COLORS.earth }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
         aria-label="Retour"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
-      </button>
+      </motion.button>
 
       {/* Main content */}
       <div className="flex flex-col items-center gap-8 max-w-md text-center">
-        {/* Animated orb */}
+        {/* Breathing orb with status */}
         <div className="relative">
-          <div className="w-40 h-40 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 shadow-2xl shadow-rose-500/30 animate-pulse" />
-          <div className="absolute inset-4 rounded-full bg-gradient-to-br from-rose-400 to-pink-400 opacity-50 blur-xl" />
+          <motion.div
+            className="w-40 h-40 rounded-full"
+            style={{
+              background: `radial-gradient(circle, ${HER_COLORS.coral} 0%, ${HER_COLORS.blush} 50%, ${HER_COLORS.cream} 100%)`,
+              boxShadow: `0 0 80px ${HER_COLORS.glowCoral}`,
+              transform: `scale(${breathScale})`,
+            }}
+          />
 
-          {/* Status indicator */}
-          <div
-            className={`absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-medium ${
-              backendStatus === "online"
-                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+          {/* Status indicator - subtle */}
+          <motion.div
+            className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-light"
+            style={{
+              backgroundColor: backendStatus === "online"
+                ? `${HER_COLORS.success}30`
                 : backendStatus === "offline"
-                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                  : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-            }`}
+                  ? `${HER_COLORS.error}30`
+                  : `${HER_COLORS.warning}30`,
+              color: backendStatus === "online"
+                ? HER_COLORS.success
+                : backendStatus === "offline"
+                  ? HER_COLORS.error
+                  : HER_COLORS.warning,
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
           >
             {backendStatus === "online"
-              ? "En ligne"
+              ? "Prête"
               : backendStatus === "offline"
-                ? "Hors ligne"
-                : "Verification..."}
-          </div>
+                ? "Indisponible"
+                : "..."}
+          </motion.div>
         </div>
 
-        {/* Title */}
+        {/* Title - warm, intimate */}
         <div>
-          <h1 className="text-3xl font-light text-white mb-2">Appel Temps Reel</h1>
-          <p className="text-zinc-400 text-sm">
-            Parle naturellement avec Eva.
-            <br />
-            <span className="text-emerald-400">Detection vocale automatique</span> - pas de bouton a maintenir.
+          <h1
+            className="text-3xl font-light mb-2"
+            style={{ color: HER_COLORS.earth }}
+          >
+            Appeler Eva
+          </h1>
+          <p style={{ color: HER_COLORS.textSecondary }} className="text-sm">
+            Parle librement, je t&apos;écoute.
           </p>
         </div>
 
-        {/* Features */}
+        {/* Simple feature highlights - no tech terms */}
         <div className="grid grid-cols-2 gap-4 w-full">
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center mb-3 mx-auto">
-              <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+          <motion.div
+            className="rounded-2xl p-4"
+            style={{
+              backgroundColor: `${HER_COLORS.cream}80`,
+              border: `1px solid ${HER_COLORS.softShadow}40`,
+            }}
+            whileHover={{ scale: 1.02 }}
+            transition={HER_SPRINGS.gentle}
+          >
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center mb-3 mx-auto"
+              style={{ backgroundColor: `${HER_COLORS.success}20` }}
+            >
+              <svg className="w-5 h-5" style={{ color: HER_COLORS.success }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
             </div>
-            <h3 className="text-white font-medium text-sm">VAD Auto</h3>
-            <p className="text-zinc-500 text-xs mt-1">Detecte ta voix automatiquement</p>
-          </div>
+            <h3 className="font-medium text-sm" style={{ color: HER_COLORS.earth }}>Naturel</h3>
+            <p className="text-xs mt-1" style={{ color: HER_COLORS.textMuted }}>Parle quand tu veux</p>
+          </motion.div>
 
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center mb-3 mx-auto">
-              <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <motion.div
+            className="rounded-2xl p-4"
+            style={{
+              backgroundColor: `${HER_COLORS.cream}80`,
+              border: `1px solid ${HER_COLORS.softShadow}40`,
+            }}
+            whileHover={{ scale: 1.02 }}
+            transition={HER_SPRINGS.gentle}
+          >
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center mb-3 mx-auto"
+              style={{ backgroundColor: `${HER_COLORS.warning}20` }}
+            >
+              <svg className="w-5 h-5" style={{ color: HER_COLORS.warning }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 className="text-white font-medium text-sm">Interruption</h3>
-            <p className="text-zinc-500 text-xs mt-1">Coupe Eva quand tu parles</p>
-          </div>
+            <h3 className="font-medium text-sm" style={{ color: HER_COLORS.earth }}>Fluide</h3>
+            <p className="text-xs mt-1" style={{ color: HER_COLORS.textMuted }}>Interromps-moi librement</p>
+          </motion.div>
 
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-            <div className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center mb-3 mx-auto">
-              <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          <motion.div
+            className="rounded-2xl p-4"
+            style={{
+              backgroundColor: `${HER_COLORS.cream}80`,
+              border: `1px solid ${HER_COLORS.softShadow}40`,
+            }}
+            whileHover={{ scale: 1.02 }}
+            transition={HER_SPRINGS.gentle}
+          >
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center mb-3 mx-auto"
+              style={{ backgroundColor: `${HER_COLORS.coral}20` }}
+            >
+              <svg className="w-5 h-5" style={{ color: HER_COLORS.coral }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <h3 className="text-white font-medium text-sm">Faible latence</h3>
-            <p className="text-zinc-500 text-xs mt-1">Reponses en moins de 500ms</p>
-          </div>
+            <h3 className="font-medium text-sm" style={{ color: HER_COLORS.earth }}>Instantané</h3>
+            <p className="text-xs mt-1" style={{ color: HER_COLORS.textMuted }}>Réponses immédiates</p>
+          </motion.div>
 
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-            <div className="w-10 h-10 rounded-full bg-rose-500/20 flex items-center justify-center mb-3 mx-auto">
-              <svg className="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          <motion.div
+            className="rounded-2xl p-4"
+            style={{
+              backgroundColor: `${HER_COLORS.cream}80`,
+              border: `1px solid ${HER_COLORS.softShadow}40`,
+            }}
+            whileHover={{ scale: 1.02 }}
+            transition={HER_SPRINGS.gentle}
+          >
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center mb-3 mx-auto"
+              style={{ backgroundColor: `${HER_COLORS.blush}30` }}
+            >
+              <svg className="w-5 h-5" style={{ color: HER_COLORS.coral }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
             </div>
-            <h3 className="text-white font-medium text-sm">Emotionnelle</h3>
-            <p className="text-zinc-500 text-xs mt-1">Detecte et repond aux emotions</p>
-          </div>
+            <h3 className="font-medium text-sm" style={{ color: HER_COLORS.earth }}>Attentive</h3>
+            <p className="text-xs mt-1" style={{ color: HER_COLORS.textMuted }}>Je ressens tes émotions</p>
+          </motion.div>
         </div>
 
-        {/* Voice selector */}
+        {/* Voice selector - warm style */}
         <div className="w-full">
-          <label className="text-zinc-400 text-sm mb-2 block">Voix d&apos;Eva</label>
+          <label className="text-sm mb-2 block" style={{ color: HER_COLORS.textSecondary }}>
+            Ma voix
+          </label>
           <select
             value={selectedVoice}
             onChange={(e) => setSelectedVoice(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+            className="w-full rounded-xl px-4 py-3 focus:outline-none transition-all duration-300"
+            style={{
+              backgroundColor: HER_COLORS.cream,
+              color: HER_COLORS.earth,
+              border: `1px solid ${HER_COLORS.softShadow}40`,
+            }}
             disabled={isLoading || backendStatus !== "online"}
           >
             {voices.length > 0 ? (
               voices.map((v) => (
-                <option key={v.id} value={v.id} className="bg-zinc-900">
-                  {v.id === "eva" && "Eva (Douce)"}
-                  {v.id === "eva-warm" && "Eva (Chaleureuse)"}
-                  {v.id === "eva-young" && "Eva (Jeune)"}
-                  {v.id === "eva-soft" && "Eva (Intime)"}
-                  {v.id === "eva-sensual" && "Eva (Sensuelle)"}
-                  {v.id === "male" && "Adam (Masculin)"}
-                  {v.id === "male-warm" && "Adam (Chaleureux)"}
-                  {v.id === "male-deep" && "Adam (Grave)"}
-                  {!["eva", "eva-warm", "eva-young", "eva-soft", "eva-sensual", "male", "male-warm", "male-deep"].includes(v.id) && v.id}
+                <option key={v.id} value={v.id}>
+                  {v.id === "eva" && "Ariane (Suisse)"}
+                  {v.id === "eva-warm" && "Eloise (Chaleureuse)"}
+                  {v.id === "eva-young" && "Coralie (Jeune)"}
+                  {v.id === "eva-soft" && "Vivienne (Intime)"}
+                  {v.id === "eva-sensual" && "Brigitte (Sensuelle)"}
+                  {v.id === "male" && "Henri"}
+                  {v.id === "male-warm" && "Rémy (Chaleureux)"}
+                  {v.id === "male-deep" && "Alain (Profond)"}
+                  {v.id === "eva-en" && "Jenny (English)"}
+                  {v.id === "eva-en-warm" && "Aria (US English)"}
+                  {!["eva", "eva-warm", "eva-young", "eva-soft", "eva-sensual", "male", "male-warm", "male-deep", "eva-en", "eva-en-warm"].includes(v.id) && v.id}
                 </option>
               ))
             ) : (
-              <option value="eva" className="bg-zinc-900">Eva (Douce)</option>
+              <option value="eva">Ariane (Suisse)</option>
             )}
           </select>
         </div>
 
         {/* Start button */}
-        <button
+        <motion.button
           onClick={() => setShowCall(true)}
           disabled={isLoading || backendStatus !== "online"}
-          className={`w-full py-4 rounded-2xl font-medium transition-all shadow-lg ${
-            backendStatus === "online"
-              ? "bg-gradient-to-r from-rose-500 to-pink-500 text-white hover:scale-[1.02] shadow-rose-500/30"
-              : "bg-zinc-700 text-zinc-400 cursor-not-allowed"
-          }`}
+          className="w-full py-4 rounded-2xl font-medium transition-all duration-300"
+          style={{
+            backgroundColor: backendStatus === "online" ? HER_COLORS.coral : HER_COLORS.softShadow,
+            color: backendStatus === "online" ? HER_COLORS.warmWhite : HER_COLORS.textMuted,
+            cursor: backendStatus === "online" ? "pointer" : "not-allowed",
+            boxShadow: backendStatus === "online" ? `0 8px 30px ${HER_COLORS.glowCoral}` : "none",
+          }}
+          whileHover={backendStatus === "online" ? { scale: 1.02 } : {}}
+          whileTap={backendStatus === "online" ? { scale: 0.98 } : {}}
         >
           {isLoading
-            ? "Chargement..."
+            ? "..."
             : backendStatus === "online"
-              ? "Demarrer l'appel"
-              : "Backend hors ligne"}
-        </button>
+              ? "M'appeler"
+              : "Indisponible"}
+        </motion.button>
 
-        {/* Hint */}
-        <div className="space-y-2">
-          <p className="text-zinc-500 text-xs">
-            Autorise l&apos;acces au microphone pour commencer.
-          </p>
+        {/* Hint - minimal */}
+        <AnimatePresence>
           {backendStatus === "offline" && (
-            <p className="text-red-400 text-xs">
-              Verifie que le backend est demarre sur {BACKEND_URL}
-            </p>
+            <motion.p
+              className="text-xs"
+              style={{ color: HER_COLORS.error }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              Je ne suis pas disponible pour le moment
+            </motion.p>
           )}
-        </div>
+        </AnimatePresence>
 
-        {/* Technical info */}
-        <div className="w-full bg-white/5 rounded-xl p-4 border border-white/10 text-left">
-          <h4 className="text-white text-sm font-medium mb-2">Comment ca marche</h4>
-          <ul className="text-zinc-400 text-xs space-y-1">
-            <li>1. Detection vocale en temps reel (VAD)</li>
-            <li>2. Transcription instantanee (Whisper)</li>
-            <li>3. Reponse IA streaming (LLaMA)</li>
-            <li>4. Synthese vocale par chunks (Edge-TTS)</li>
-          </ul>
-        </div>
+        <p className="text-xs" style={{ color: HER_COLORS.textMuted }}>
+          Autorise l&apos;accès au microphone
+        </p>
       </div>
     </div>
   );
