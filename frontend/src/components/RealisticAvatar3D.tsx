@@ -328,11 +328,13 @@ function RealisticHead({
       );
     }
 
-    // === NATURAL BLINKING WITH VARIATION ===
+    // === NATURAL BLINKING WITH VARIATION AND FATIGUE ===
     const timeSinceLastBlink = time - lastBlinkTime.current;
     // Blink interval varies: faster when listening/excited, slower when calm
+    // Fatigue increases blink frequency (tired eyes blink more)
     const emotionBlinkMod = isListening ? 0.7 : (emotion === "excitement" ? 0.6 : 1);
-    const blinkInterval = (2.5 + Math.random() * 3) * emotionBlinkMod;
+    const fatigueMod = 1 - (1 - attentionLevel.current) * 0.5; // Up to 15% faster blinks when tired
+    const blinkInterval = (2.5 + Math.random() * 3) * emotionBlinkMod * fatigueMod;
 
     if (timeSinceLastBlink > blinkInterval && blinkState === 0) {
       setBlinkState(1);
@@ -717,6 +719,7 @@ interface RealisticAvatar3DProps {
   isListening?: boolean;
   audioLevel?: number;
   className?: string;
+  conversationStartTime?: number; // Timestamp when conversation started
 }
 
 export function RealisticAvatar3D({
@@ -726,9 +729,55 @@ export function RealisticAvatar3D({
   isListening = false,
   audioLevel = 0,
   className = "",
+  conversationStartTime,
 }: RealisticAvatar3DProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [gazeTarget, setGazeTarget] = useState({ x: 0, y: 0 });
+  const [conversationDuration, setConversationDuration] = useState(0);
+
+  // Track mouse position for gaze
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+
+      const rect = containerRef.current.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      // Normalize to -1 to 1, with some damping for natural feel
+      const x = Math.max(-1, Math.min(1, (e.clientX - centerX) / (window.innerWidth / 2)));
+      const y = Math.max(-1, Math.min(1, (centerY - e.clientY) / (window.innerHeight / 2)));
+
+      setGazeTarget({ x, y });
+    };
+
+    // When listening, look more directly at user (center)
+    if (isListening) {
+      setGazeTarget({ x: 0, y: 0.05 }); // Slight upward, engaging
+    } else {
+      window.addEventListener("mousemove", handleMouseMove);
+    }
+
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [isListening]);
+
+  // Track conversation duration
+  useEffect(() => {
+    if (!conversationStartTime) return;
+
+    const interval = setInterval(() => {
+      setConversationDuration((Date.now() - conversationStartTime) / 1000);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [conversationStartTime]);
+
   return (
-    <div className={`relative ${className}`} style={{ width: "100%", height: "100%" }}>
+    <div
+      ref={containerRef}
+      className={`relative ${className}`}
+      style={{ width: "100%", height: "100%" }}
+    >
       {/* Warm ambient glow behind avatar - organic, not generic blur */}
       <div
         className="absolute inset-0 rounded-full"
@@ -770,6 +819,8 @@ export function RealisticAvatar3D({
           isSpeaking={isSpeaking}
           isListening={isListening}
           audioLevel={audioLevel}
+          gazeTarget={gazeTarget}
+          conversationDuration={conversationDuration}
         />
       </Canvas>
 

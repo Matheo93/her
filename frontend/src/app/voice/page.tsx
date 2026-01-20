@@ -60,6 +60,9 @@ export default function VoiceFirstPage() {
   const [proactiveMessage, setProactiveMessage] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
 
+  // Conversation tracking for fatigue simulation
+  const [conversationStartTime] = useState<number>(() => Date.now());
+
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
   const visemeWsRef = useRef<WebSocket | null>(null);
@@ -476,6 +479,7 @@ export default function VoiceFirstPage() {
             isSpeaking={state === "speaking"}
             isListening={state === "listening"}
             audioLevel={audioLevel}
+            conversationStartTime={conversationStartTime}
           />
         </div>
 
