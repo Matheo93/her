@@ -69,6 +69,9 @@ export default function VoiceFirstPage() {
   const [proactiveMessage, setProactiveMessage] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
 
+  // Wake-up animation: EVA "awakens" when first connecting
+  const [justAwoke, setJustAwoke] = useState(false);
+
   // Conversation tracking for fatigue simulation
   const [conversationStartTime] = useState<number>(() => Date.now());
 
@@ -170,6 +173,9 @@ export default function VoiceFirstPage() {
 
       ws.onopen = () => {
         setIsConnected(true);
+        // Trigger wake-up animation
+        setJustAwoke(true);
+        setTimeout(() => setJustAwoke(false), 2000); // Fade after 2 seconds
       };
 
       ws.onclose = () => {
@@ -509,6 +515,22 @@ export default function VoiceFirstPage() {
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
 
+        {/* Wake-up glow effect - EVA awakening */}
+        <AnimatePresence>
+          {justAwoke && (
+            <motion.div
+              className="absolute w-56 h-56 md:w-72 md:h-72 rounded-full pointer-events-none"
+              style={{
+                background: `radial-gradient(circle, ${HER_COLORS.coral}50 0%, ${HER_COLORS.coral}20 30%, transparent 70%)`,
+              }}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1.2, opacity: [0, 0.8, 0] }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 2, ease: "easeOut" }}
+            />
+          )}
+        </AnimatePresence>
+
         {/* 3D Avatar */}
         <div className="w-48 h-48 md:w-64 md:h-64 relative z-10">
           <RealisticAvatar3D
@@ -522,19 +544,35 @@ export default function VoiceFirstPage() {
           />
         </div>
 
-        {/* JARVIS Feature: Welcome message (proactive) */}
+        {/* JARVIS Feature: Welcome message (proactive, delayed for natural feel) */}
         <AnimatePresence>
           {showWelcome && state === "idle" && isConnected && (
-            <motion.p
-              className="mt-8 text-base max-w-md text-center px-4"
-              style={{ color: HER_COLORS.earth }}
+            <motion.div
+              className="mt-8 text-center px-4"
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 0.8, y: 0 }}
+              animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              transition={{ delay: 0.5, ...HER_SPRINGS.gentle }}
+              transition={{ delay: 1.2, ...HER_SPRINGS.gentle }}
             >
-              Je suis là...
-            </motion.p>
+              <motion.p
+                className="text-lg font-light"
+                style={{ color: HER_COLORS.earth }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.9 }}
+                transition={{ delay: 1.5, duration: 0.8 }}
+              >
+                Je suis là...
+              </motion.p>
+              <motion.p
+                className="text-sm mt-2 max-w-xs mx-auto"
+                style={{ color: HER_COLORS.softShadow }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.6 }}
+                transition={{ delay: 2.2, duration: 0.8 }}
+              >
+                Parle-moi
+              </motion.p>
+            </motion.div>
           )}
         </AnimatePresence>
 
