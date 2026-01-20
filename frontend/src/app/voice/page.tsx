@@ -1,26 +1,99 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import dynamic from "next/dynamic";
+import type { VisemeWeights } from "@/components/RealisticAvatar3D";
+import { HER_COLORS } from "@/styles/her-theme";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const VISEME_URL = process.env.NEXT_PUBLIC_VISEME_URL || "http://localhost:8003";
+
+// Dynamic import for 3D avatar (avoid SSR issues with Three.js)
+const RealisticAvatar3D = dynamic(
+  () => import("@/components/RealisticAvatar3D").then((mod) => mod.RealisticAvatar3D),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="w-full h-full rounded-full flex items-center justify-center"
+        style={{ backgroundColor: HER_COLORS.cream }}
+      >
+        <motion.div
+          className="w-8 h-8 rounded-full"
+          style={{ backgroundColor: HER_COLORS.coral }}
+          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        />
+      </div>
+    ),
+  }
+);
 
 type ConversationState = "idle" | "listening" | "thinking" | "speaking";
 
-export default function VoiceMode() {
-  const router = useRouter();
+export default function VoiceFirstPage() {
+  // State
   const [state, setState] = useState<ConversationState>("idle");
   const [isConnected, setIsConnected] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState("");
-  const [conversationMode, setConversationMode] = useState(false);
+  const [visemeWeights, setVisemeWeights] = useState<VisemeWeights>({ sil: 1 });
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [evaEmotion, setEvaEmotion] = useState("neutral");
 
+  // Refs
   const wsRef = useRef<WebSocket | null>(null);
+  const visemeWsRef = useRef<WebSocket | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyzerRef = useRef<AnalyserNode | null>(null);
+  const playTTSRef = useRef<() => void>(() => {});
+  const startListeningRef = useRef<() => void>(() => {});
 
-  // WebSocket connection
+  // Connect to Viseme WebSocket for lip-sync
+  useEffect(() => {
+    const connectViseme = () => {
+      try {
+        const ws = new WebSocket(`${VISEME_URL.replace("http", "ws")}/ws/viseme`);
+
+        ws.onopen = () => {
+          const interval = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: "ping" }));
+            }
+          }, 10000);
+          ws.addEventListener("close", () => clearInterval(interval));
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === "viseme" && data.weights) {
+              setVisemeWeights(data.weights);
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        };
+
+        ws.onclose = () => {
+          setTimeout(connectViseme, 5000);
+        };
+
+        visemeWsRef.current = ws;
+      } catch {
+        setTimeout(connectViseme, 5000);
+      }
+    };
+
+    connectViseme();
+    return () => visemeWsRef.current?.close();
+  }, []);
+
+  // WebSocket connection to main backend
   useEffect(() => {
     const connect = () => {
       const ws = new WebSocket(`${BACKEND_URL.replace("http", "ws")}/ws/chat`);
@@ -40,8 +113,9 @@ export default function VoiceMode() {
         if (data.type === "token") {
           setResponse((prev) => prev + data.content);
         } else if (data.type === "end") {
-          // Play TTS when response is complete
-          playTTS();
+          playTTSRef.current();
+        } else if (data.type === "emotion") {
+          setEvaEmotion(data.emotion || "neutral");
         }
       };
 
@@ -52,14 +126,14 @@ export default function VoiceMode() {
     return () => wsRef.current?.close();
   }, []);
 
-  // Play TTS
+  // Play TTS with audio level detection
   const playTTS = useCallback(async () => {
     setState("speaking");
 
     try {
-      const textToSpeak = response || transcript;
+      const textToSpeak = response;
       if (!textToSpeak) {
-        setState(conversationMode ? "listening" : "idle");
+        setState("idle");
         return;
       }
 
@@ -71,37 +145,82 @@ export default function VoiceMode() {
 
       if (res.ok) {
         const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audioRef.current = audio;
+        const arrayBuffer = await blob.arrayBuffer();
 
-        audio.onended = () => {
-          URL.revokeObjectURL(url);
-          setResponse("");
+        // Send to viseme service
+        if (visemeWsRef.current?.readyState === WebSocket.OPEN) {
+          const base64 = btoa(
+            new Uint8Array(arrayBuffer).reduce(
+              (data, byte) => data + String.fromCharCode(byte),
+              ""
+            )
+          );
+          visemeWsRef.current.send(
+            JSON.stringify({
+              type: "audio_wav",
+              data: base64,
+            })
+          );
+        }
 
-          // Auto-start listening if in conversation mode
-          if (conversationMode) {
-            startListening();
-          } else {
-            setState("idle");
-          }
+        // Play audio with level analysis
+        if (!audioContextRef.current) {
+          audioContextRef.current = new AudioContext();
+        }
+        const audioContext = audioContextRef.current;
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+
+        const analyzer = audioContext.createAnalyser();
+        analyzer.fftSize = 32;
+        analyzer.smoothingTimeConstant = 0.5;
+        analyzerRef.current = analyzer;
+
+        source.connect(analyzer);
+        analyzer.connect(audioContext.destination);
+
+        const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+        let isPlaying = true;
+
+        const updateLevel = () => {
+          if (!isPlaying) return;
+          analyzer.getByteFrequencyData(dataArray);
+          const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length / 255;
+          setAudioLevel(avg);
+          requestAnimationFrame(updateLevel);
         };
 
-        await audio.play();
+        source.onended = () => {
+          isPlaying = false;
+          setAudioLevel(0);
+          setVisemeWeights({ sil: 1 });
+          setResponse("");
+          setState("idle");
+        };
+
+        source.start(0);
+        updateLevel();
       }
     } catch (err) {
       console.error("TTS error:", err);
-      setState(conversationMode ? "listening" : "idle");
+      setState("idle");
     }
-  }, [response, conversationMode, transcript]);
+  }, [response]);
 
-  // Start listening
+  useEffect(() => {
+    playTTSRef.current = playTTS;
+  }, [playTTS]);
+
+  // Start listening - Voice First approach
   const startListening = useCallback(async () => {
     if (state === "listening") return;
 
     setState("listening");
     setTranscript("");
     setResponse("");
+    setEvaEmotion("listening");
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -123,6 +242,7 @@ export default function VoiceMode() {
 
         try {
           setState("thinking");
+          setEvaEmotion("curiosity");
           const res = await fetch(`${BACKEND_URL}/stt`, {
             method: "POST",
             body: formData,
@@ -134,23 +254,27 @@ export default function VoiceMode() {
 
             // Send to LLM
             if (wsRef.current) {
-              wsRef.current.send(JSON.stringify({
-                type: "message",
-                content: data.text,
-              }));
+              wsRef.current.send(
+                JSON.stringify({
+                  type: "message",
+                  content: data.text,
+                })
+              );
             }
           } else {
-            setState(conversationMode ? "listening" : "idle");
+            setState("idle");
+            setEvaEmotion("neutral");
           }
         } catch (err) {
           console.error("STT error:", err);
-          setState(conversationMode ? "listening" : "idle");
+          setState("idle");
+          setEvaEmotion("neutral");
         }
       };
 
       mediaRecorder.start();
 
-      // Auto-stop after silence detection or max time
+      // Auto-stop after 5 seconds
       setTimeout(() => {
         if (mediaRecorder.state === "recording") {
           mediaRecorder.stop();
@@ -161,7 +285,11 @@ export default function VoiceMode() {
       console.error("Mic error:", err);
       setState("idle");
     }
-  }, [state, conversationMode]);
+  }, [state]);
+
+  useEffect(() => {
+    startListeningRef.current = startListening;
+  }, [startListening]);
 
   // Stop listening
   const stopListening = useCallback(() => {
@@ -173,130 +301,203 @@ export default function VoiceMode() {
     }
   }, []);
 
-  // Stop everything
-  const stopAll = useCallback(() => {
-    setConversationMode(false);
-    stopListening();
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-    setState("idle");
-    setTranscript("");
-    setResponse("");
-  }, [stopListening]);
-
-  // Toggle conversation mode
-  const toggleConversation = useCallback(() => {
-    if (conversationMode) {
-      stopAll();
-    } else {
-      setConversationMode(true);
-      startListening();
-    }
-  }, [conversationMode, stopAll, startListening]);
-
-  // Get visual state
-  const getStateColor = () => {
-    switch (state) {
-      case "listening":
-        return "from-rose-500 to-red-500";
-      case "thinking":
-        return "from-amber-400 to-orange-500";
-      case "speaking":
-        return "from-emerald-400 to-teal-500";
-      default:
-        return "from-rose-300 to-orange-300 dark:from-rose-500 dark:to-orange-500";
-    }
-  };
-
-  const getStateText = () => {
-    switch (state) {
-      case "listening":
-        return "Je t'écoute...";
-      case "thinking":
-        return "Je réfléchis...";
-      case "speaking":
-        return "Je parle...";
-      default:
-        return "Appuie pour parler";
-    }
+  // Map state to avatar emotion
+  const getDisplayEmotion = () => {
+    if (state === "listening") return "listening";
+    if (state === "thinking") return "curiosity";
+    if (state === "speaking") return evaEmotion;
+    return "neutral";
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 flex flex-col items-center justify-center p-6">
-      {/* Back button */}
-      <button
-        onClick={() => router.push("/")}
-        className="absolute top-6 left-6 p-2 text-zinc-400 hover:text-zinc-200 transition-colors"
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-      </button>
+    <div
+      className="fixed inset-0 overflow-hidden flex flex-col items-center justify-center"
+      style={{ backgroundColor: HER_COLORS.warmWhite }}
+    >
+      {/* Subtle warm ambient background */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `radial-gradient(ellipse at 50% 40%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+        }}
+      />
 
-      {/* Connection status */}
-      <div className="absolute top-6 right-6 flex items-center gap-2">
-        <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-emerald-400" : "bg-zinc-500"}`} />
-        <span className="text-sm text-zinc-500">{isConnected ? "Connecté" : "Déconnecté"}</span>
-      </div>
-
-      {/* Main orb */}
-      <div className="flex flex-col items-center gap-8">
-        <button
-          onClick={state === "idle" ? startListening : stopListening}
-          onMouseDown={state === "idle" && !conversationMode ? startListening : undefined}
-          onMouseUp={state === "listening" && !conversationMode ? stopListening : undefined}
-          className={`w-48 h-48 rounded-full bg-gradient-to-br ${getStateColor()} shadow-2xl transition-all duration-500 ${
-            state === "listening" ? "scale-110 animate-pulse" : ""
-          } ${state === "speaking" ? "animate-pulse" : ""}`}
-        />
-
-        {/* State text */}
-        <p className="text-xl font-light text-zinc-300">{getStateText()}</p>
-
-        {/* Transcript */}
-        {transcript && (
-          <div className="max-w-md text-center">
-            <p className="text-sm text-zinc-500 mb-2">Tu as dit :</p>
-            <p className="text-zinc-300">{transcript}</p>
-          </div>
-        )}
-
-        {/* Response */}
-        {response && (
-          <div className="max-w-md text-center">
-            <p className="text-sm text-zinc-500 mb-2">Eva :</p>
-            <p className="text-zinc-100">{response}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Controls */}
-      <div className="absolute bottom-8 flex items-center gap-4">
-        {/* Conversation mode toggle */}
-        <button
-          onClick={toggleConversation}
-          className={`px-6 py-3 rounded-full text-sm font-medium transition-all ${
-            conversationMode
-              ? "bg-rose-500 text-white"
-              : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-          }`}
-        >
-          {conversationMode ? "Arrêter la conversation" : "Mode conversation"}
-        </button>
-
-        {/* Stop button (when active) */}
-        {state !== "idle" && (
-          <button
-            onClick={stopAll}
-            className="p-3 rounded-full bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-all"
+      {/* Connection indicator - minimal, only when disconnected */}
+      <AnimatePresence>
+        {!isConnected && (
+          <motion.div
+            className="absolute top-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full"
+            style={{ backgroundColor: HER_COLORS.cream, color: HER_COLORS.earth }}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-            </svg>
-          </button>
+            <span className="text-sm">Connexion...</span>
+          </motion.div>
         )}
+      </AnimatePresence>
+
+      {/* Main content area */}
+      <div className="relative flex flex-col items-center justify-center flex-1 w-full">
+        {/* 3D Avatar */}
+        <div className="w-48 h-48 md:w-64 md:h-64">
+          <RealisticAvatar3D
+            visemeWeights={visemeWeights}
+            emotion={getDisplayEmotion()}
+            isSpeaking={state === "speaking"}
+            isListening={state === "listening"}
+            audioLevel={audioLevel}
+          />
+        </div>
+
+        {/* Transcript - what user said */}
+        <AnimatePresence mode="wait">
+          {transcript && state !== "speaking" && (
+            <motion.p
+              className="mt-6 text-sm max-w-md text-center px-4"
+              style={{ color: HER_COLORS.softShadow }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+            >
+              {transcript}
+            </motion.p>
+          )}
+        </AnimatePresence>
+
+        {/* Eva's response */}
+        <AnimatePresence mode="wait">
+          {response && (
+            <motion.div
+              className="mt-6 max-w-md text-center px-4"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <p className="text-lg leading-relaxed" style={{ color: HER_COLORS.earth }}>
+                {response}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Thinking indicator */}
+        <AnimatePresence>
+          {state === "thinking" && !response && (
+            <motion.div
+              className="mt-6 flex gap-1"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              {[0, 1, 2].map((i) => (
+                <motion.div
+                  key={i}
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: HER_COLORS.softShadow }}
+                  animate={{
+                    opacity: [0.3, 0.7, 0.3],
+                    scale: [1, 1.2, 1],
+                  }}
+                  transition={{
+                    duration: 1.2,
+                    repeat: Infinity,
+                    delay: i * 0.2,
+                    ease: "easeInOut",
+                  }}
+                />
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* VOICE FIRST: Giant microphone button - the main interface */}
+      <div className="pb-12 flex flex-col items-center">
+        <motion.button
+          onMouseDown={state === "idle" ? startListening : undefined}
+          onMouseUp={state === "listening" ? stopListening : undefined}
+          onTouchStart={state === "idle" ? startListening : undefined}
+          onTouchEnd={state === "listening" ? stopListening : undefined}
+          onClick={state === "idle" && !("ontouchstart" in window) ? startListening : undefined}
+          disabled={!isConnected || state === "thinking" || state === "speaking"}
+          className="relative w-24 h-24 md:w-28 md:h-28 rounded-full flex items-center justify-center transition-all"
+          style={{
+            backgroundColor: state === "listening" ? HER_COLORS.coral : HER_COLORS.cream,
+            boxShadow:
+              state === "listening"
+                ? `0 0 40px ${HER_COLORS.coral}60, 0 0 80px ${HER_COLORS.coral}30`
+                : `0 4px 20px ${HER_COLORS.softShadow}40`,
+          }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          animate={
+            state === "listening"
+              ? {
+                  scale: [1, 1.05, 1],
+                }
+              : {}
+          }
+          transition={
+            state === "listening"
+              ? {
+                  duration: 1.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }
+              : { duration: 0.2 }
+          }
+        >
+          {/* Mic icon */}
+          <svg
+            className="w-10 h-10 md:w-12 md:h-12"
+            fill="none"
+            stroke={state === "listening" ? HER_COLORS.warmWhite : HER_COLORS.earth}
+            viewBox="0 0 24 24"
+            strokeWidth={1.5}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"
+            />
+          </svg>
+
+          {/* Listening rings animation */}
+          <AnimatePresence>
+            {state === "listening" && (
+              <>
+                {[0, 1, 2].map((i) => (
+                  <motion.div
+                    key={i}
+                    className="absolute inset-0 rounded-full border-2"
+                    style={{ borderColor: HER_COLORS.coral }}
+                    initial={{ scale: 1, opacity: 0.6 }}
+                    animate={{ scale: 1.5 + i * 0.2, opacity: 0 }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      delay: i * 0.3,
+                      ease: "easeOut",
+                    }}
+                  />
+                ))}
+              </>
+            )}
+          </AnimatePresence>
+        </motion.button>
+
+        {/* Subtle state text */}
+        <motion.p
+          className="mt-4 text-sm"
+          style={{ color: HER_COLORS.softShadow }}
+          animate={{ opacity: state === "idle" ? 1 : 0.6 }}
+        >
+          {state === "idle" && "Appuie pour parler"}
+          {state === "listening" && "Je t\u2019\u00e9coute..."}
+          {state === "thinking" && ""}
+          {state === "speaking" && ""}
+        </motion.p>
       </div>
     </div>
   );

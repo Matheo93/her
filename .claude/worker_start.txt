@@ -1,0 +1,5 @@
+Tu es Ralph Worker pour HER. Lis /home/dev/her/.claude/WORKER_PROMPT.md pour tes instructions completes. 
+
+RESUME: Developpe EVA, un compagnon IA vocal avec avatar GENERE (pas de photo). Trinite: LOW LATENCY (<300ms) + QUALITE + HUMANITE. Zero API sauf Groq. Lis le feedback dans .claude/ralph-feedback.md a chaque fin de sprint.
+
+COMMENCE par explorer le code avec: find . -name "*.py" | head -20 et cat backend/main.py | head -100

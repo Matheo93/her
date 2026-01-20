@@ -822,3 +822,328 @@ class TestSadTalkerEndpoints:
 
         # Clean up
         sadtalker_service.source_path = None
+
+
+# =============================================================================
+# FASTERLP SERVICE TESTS
+# =============================================================================
+
+class TestFasterLPServiceConfig:
+    """Tests for fasterlp_service.py configuration."""
+
+    def test_app_defined(self):
+        """Test FastAPI app is properly defined."""
+        from fasterlp_service import app
+
+        assert app is not None
+        assert app.title == "FasterLivePortrait Service"
+
+    def test_global_state_initial(self):
+        """Test global state is initially None/False."""
+        from fasterlp_service import flp_pipeline, joyvasa_pipeline, source_prepared
+
+        assert flp_pipeline is None
+        assert joyvasa_pipeline is None
+        assert source_prepared is False
+
+    def test_cors_middleware(self):
+        """Test CORS middleware is configured."""
+        from fasterlp_service import app
+        from starlette.middleware.cors import CORSMiddleware
+
+        # Check middleware stack
+        has_cors = False
+        for middleware in app.user_middleware:
+            if middleware.cls == CORSMiddleware:
+                has_cors = True
+                # Check allow_origins
+                assert middleware.kwargs.get("allow_origins") == ["*"]
+                break
+
+        assert has_cors
+
+
+class TestFasterLPInitialize:
+    """Tests for pipeline initialization functions."""
+
+    def test_initialize_pipeline_returns_bool(self):
+        """Test initialize_pipeline returns boolean."""
+        from fasterlp_service import initialize_pipeline
+
+        # Will fail (no real FasterLivePortrait) but should return False
+        result = initialize_pipeline()
+
+        assert isinstance(result, bool)
+        assert result is False  # No real pipeline available
+
+    def test_initialize_joyvasa_returns_bool(self):
+        """Test initialize_joyvasa returns boolean."""
+        from fasterlp_service import initialize_joyvasa
+
+        # Will fail (no real JoyVASA) but should return False
+        result = initialize_joyvasa()
+
+        assert isinstance(result, bool)
+        assert result is False  # No real pipeline available
+
+
+class TestFasterLPHealthEndpoint:
+    """Tests for health endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_health_returns_status(self):
+        """Test health endpoint returns proper status."""
+        from fasterlp_service import health
+
+        result = await health()
+
+        assert "status" in result
+        assert result["status"] == "ok"
+        assert "pipeline_ready" in result
+        assert "joyvasa_ready" in result
+
+    @pytest.mark.asyncio
+    async def test_health_pipeline_not_ready(self):
+        """Test health shows pipeline not ready initially."""
+        import fasterlp_service
+        from fasterlp_service import health
+
+        # Ensure pipelines are None
+        fasterlp_service.flp_pipeline = None
+        fasterlp_service.joyvasa_pipeline = None
+
+        result = await health()
+
+        assert result["pipeline_ready"] is False
+        assert result["joyvasa_ready"] is False
+
+
+class TestFasterLPPrepareSource:
+    """Tests for prepare_source endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_prepare_source_no_pipeline(self):
+        """Test prepare_source returns error when pipeline not initialized."""
+        import io
+        from fastapi import UploadFile
+        from fasterlp_service import prepare_source
+        import fasterlp_service
+
+        # Ensure pipeline is None
+        fasterlp_service.flp_pipeline = None
+
+        # Create a mock image file
+        content = b"fake image data"
+        file = UploadFile(filename="test.png", file=io.BytesIO(content))
+
+        result = await prepare_source(file)
+
+        # Should return JSONResponse with error 500 (pipeline not initialized)
+        assert result.status_code == 500
+
+
+class TestFasterLPAnimateWithAudio:
+    """Tests for animate_with_audio endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_animate_no_pipeline(self):
+        """Test animate_with_audio returns error when pipeline not initialized."""
+        import io
+        from fastapi import UploadFile
+        from fasterlp_service import animate_with_audio
+        import fasterlp_service
+
+        # Ensure pipeline is None
+        fasterlp_service.flp_pipeline = None
+
+        # Create mock files
+        audio = UploadFile(filename="test.wav", file=io.BytesIO(b"fake audio"))
+
+        result = await animate_with_audio(audio)
+
+        # Should return JSONResponse with error 500
+        assert result.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_animate_no_joyvasa(self):
+        """Test animate_with_audio returns error when JoyVASA not initialized."""
+        import io
+        from fastapi import UploadFile
+        from fasterlp_service import animate_with_audio
+        import fasterlp_service
+
+        # Mock flp_pipeline but not joyvasa
+        fasterlp_service.flp_pipeline = MagicMock()
+        fasterlp_service.joyvasa_pipeline = None
+
+        audio = UploadFile(filename="test.wav", file=io.BytesIO(b"fake audio"))
+
+        result = await animate_with_audio(audio)
+
+        # Should return JSONResponse with error 500
+        assert result.status_code == 500
+
+        # Cleanup
+        fasterlp_service.flp_pipeline = None
+
+
+class TestFasterLPAnimateWithVideo:
+    """Tests for animate_with_video endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_animate_video_no_pipeline(self):
+        """Test animate_with_video returns error when pipeline not initialized."""
+        import io
+        from fastapi import UploadFile
+        from fasterlp_service import animate_with_video
+        import fasterlp_service
+
+        # Ensure pipeline is None
+        fasterlp_service.flp_pipeline = None
+
+        # Create mock video file
+        video = UploadFile(filename="test.mp4", file=io.BytesIO(b"fake video"))
+
+        result = await animate_with_video(video)
+
+        # Should return JSONResponse with error 500
+        assert result.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_animate_video_no_source(self):
+        """Test animate_with_video returns error when no source prepared."""
+        import io
+        from fastapi import UploadFile
+        from fasterlp_service import animate_with_video
+        import fasterlp_service
+
+        # Mock pipeline but no source
+        mock_pipeline = MagicMock()
+        mock_pipeline.prepare_source.return_value = False  # No face detected
+        fasterlp_service.flp_pipeline = mock_pipeline
+        fasterlp_service.source_prepared = False
+
+        video = UploadFile(filename="test.mp4", file=io.BytesIO(b"fake video"))
+
+        result = await animate_with_video(video, source_image=None)
+
+        # Should return JSONResponse with error 400 (no source)
+        assert result.status_code == 400
+
+        # Cleanup
+        fasterlp_service.flp_pipeline = None
+
+
+# =============================================================================
+# GENERATE VISEMES V2 TESTS
+# =============================================================================
+
+class TestGenerateVisemesV2Config:
+    """Tests for generate_visemes_v2.py configuration."""
+
+    def test_visemes_dict_defined(self):
+        """Test VISEMES dict is properly defined."""
+        from generate_visemes_v2 import VISEMES
+
+        assert len(VISEMES) > 0
+        assert "sil" in VISEMES  # Silence
+        assert "AA" in VISEMES   # Open mouth
+        assert "OO" in VISEMES   # Rounded mouth
+        assert "EE" in VISEMES   # Wide smile
+
+    def test_viseme_params_format(self):
+        """Test viseme params are (jaw_open, mouth_width, lip_pucker) tuples."""
+        from generate_visemes_v2 import VISEMES
+
+        for name, params in VISEMES.items():
+            assert len(params) == 3, f"Viseme {name} should have 3 params"
+            jaw_open, mouth_width, lip_pucker = params
+            assert 0.0 <= jaw_open <= 1.0, f"jaw_open out of range for {name}"
+            assert -0.5 <= mouth_width <= 0.5, f"mouth_width out of range for {name}"
+            assert 0.0 <= lip_pucker <= 1.0, f"lip_pucker out of range for {name}"
+
+    def test_silence_viseme_closed(self):
+        """Test silence viseme has closed mouth."""
+        from generate_visemes_v2 import VISEMES
+
+        sil = VISEMES["sil"]
+        assert sil[0] == 0.0  # jaw_open
+        assert sil[1] == 0.0  # mouth_width
+        assert sil[2] == 0.0  # lip_pucker
+
+    def test_viseme_count(self):
+        """Test expected number of visemes."""
+        from generate_visemes_v2 import VISEMES
+
+        assert len(VISEMES) == 12  # Standard viseme set
+
+
+class TestWarpTriangle:
+    """Tests for warp_triangle function."""
+
+    def test_warp_triangle_valid(self):
+        """Test warp_triangle with valid triangles."""
+        from generate_visemes_v2 import warp_triangle
+
+        src_img = np.zeros((100, 100, 3), dtype=np.uint8)
+        dst_img = np.zeros((100, 100, 3), dtype=np.uint8)
+
+        src_tri = np.array([[10, 10], [30, 10], [20, 30]], dtype=np.float32)
+        dst_tri = np.array([[15, 15], [35, 15], [25, 35]], dtype=np.float32)
+
+        # Should not raise exception
+        warp_triangle(src_img, dst_img, src_tri, dst_tri)
+
+    def test_warp_triangle_degenerate(self):
+        """Test warp_triangle handles degenerate triangles."""
+        from generate_visemes_v2 import warp_triangle
+
+        src_img = np.zeros((100, 100, 3), dtype=np.uint8)
+        dst_img = np.zeros((100, 100, 3), dtype=np.uint8)
+
+        # Degenerate triangle (all points same)
+        src_tri = np.array([[10, 10], [10, 10], [10, 10]], dtype=np.float32)
+        dst_tri = np.array([[10, 10], [10, 10], [10, 10]], dtype=np.float32)
+
+        # Should not raise, just return early
+        warp_triangle(src_img, dst_img, src_tri, dst_tri)
+
+
+class TestWarpMouthRegion:
+    """Tests for warp_mouth_region function."""
+
+    def test_warp_mouth_no_change(self):
+        """Test warp with no parameters returns similar image."""
+        from generate_visemes_v2 import warp_mouth_region
+
+        img = np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8)
+        # Create mock landmarks (68 points)
+        landmarks = np.random.randn(68, 2) * 20 + 128
+
+        result = warp_mouth_region(img, landmarks, 0.0, 0.0, 0.0)
+
+        assert result.shape == img.shape
+        assert result.dtype == img.dtype
+
+    def test_warp_mouth_jaw_open(self):
+        """Test warp with jaw_open parameter."""
+        from generate_visemes_v2 import warp_mouth_region
+
+        img = np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8)
+        landmarks = np.random.randn(68, 2) * 20 + 128
+
+        result = warp_mouth_region(img, landmarks, 0.5, 0.0, 0.0)
+
+        assert result.shape == img.shape
+
+    def test_warp_mouth_all_params(self):
+        """Test warp with all parameters."""
+        from generate_visemes_v2 import warp_mouth_region
+
+        img = np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8)
+        landmarks = np.random.randn(68, 2) * 20 + 128
+
+        result = warp_mouth_region(img, landmarks, 0.5, 0.2, 0.3)
+
+        assert result.shape == img.shape
+        assert result.dtype == img.dtype

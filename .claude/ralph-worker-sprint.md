@@ -1,91 +1,81 @@
 ---
-sprint: 7
-started_at: 2026-01-20T16:00:00Z
+sprint: 8
+started_at: 2026-01-20T16:30:00Z
 status: completed
 ---
 
-## Sprint #7 - REFONTE UI HER
+## Sprint #8 - Continuation Refonte HER
 
-**Objectif**: Répondre au feedback BLOQUANT du Moderator - Refonte totale du frontend
-
-## Feedback Adressé
-
-Le Moderator avait identifié:
-- Avatar = photos statiques (VIOLATION MAJEURE)
-- Design 100% "ChatGPT template"
-- UI "tech demo" avec latence, noms de technos
-- Absence d'identité HER
+**Objectif**: Continuer la refonte HER sur les composants restants
 
 ## Changements Implémentés
 
-### 1. Avatar SVG Procédural (PLUS DE PHOTOS)
-- Créé `EvaAvatar` composant SVG animé
-- Yeux avec courbes douces et clignement naturel (4s)
-- Bouche animée qui réagit au speaking/thinking
-- Micro-expressions sur les joues (blush)
-- Respiration visuelle (scale 1 → 1.02 → 1)
-- Mouvements idle subtils (y, x, rotate)
+### 1. Création du Thème HER Global
 
-### 2. Palette HER Exclusive
-```css
-coral: #E8846B      /* Chaleur, émotion */
-cream: #F5E6D3      /* Douceur, confort */
-warmWhite: #FAF8F5  /* Fond apaisant */
-earth: #8B7355      /* Ancrage, naturel */
-softShadow: #D4C4B5 /* Profondeur subtile */
-blush: #E8A090      /* Accent délicat */
+Créé `frontend/src/styles/her-theme.ts`:
+
+```typescript
+export const HER_COLORS = {
+  coral: "#E8846B",
+  cream: "#F5E6D3",
+  warmWhite: "#FAF8F5",
+  earth: "#8B7355",
+  softShadow: "#D4C4B5",
+  blush: "#E8A090",
+  success: "#7A9E7E",  // Soft green
+  error: "#C97B7B",    // Soft red
+  warning: "#D4A574",  // Warm amber
+};
 ```
 
-**SUPPRIMÉ**: slate, zinc, gray, purple, blue, pink, noir pur
+### 2. Refonte video-call.tsx
 
-### 3. Interface INVISIBLE
-- Plus de header avec technos
-- Plus de dashboard latence/ms
-- Plus d'emojis indicateurs
-- Plus de status "Whisper/Groq/RTX"
-- Seul indicateur: "Connexion..." si déconnecté
+**Avant**: 641 lignes avec
+- Photos d'avatars multiples
+- Sélection d'avatar avec images
+- Couleurs froides (zinc-900, rose-500, blue-400, violet-500)
+- animate-pulse, animate-bounce, animate-ping
+- blur-3xl partout
+- Dashboard de visualisation audio technique
 
-### 4. Animations Organiques (framer-motion)
-- Spring physics pour tous les mouvements
-- AnimatePresence pour transitions douces
-- Respirations naturelles (4s cycle)
-- Thinking dots subtils (pas de bounce)
-
-### 5. Input Minimal
-- Un seul champ texte rond
-- Un seul bouton micro
-- Rien d'autre
+**Après**: 632 lignes avec
+- Avatar SVG procédural unique
+- Palette HER uniquement
+- Animations framer-motion organiques
+- Interface minimale sans technique visible
+- Respiration, clignement, micro-expressions
 
 ## Fichiers Modifiés
 
 | Fichier | Action |
 |---------|--------|
-| `frontend/src/app/eva-her/page.tsx` | Réécrit complètement |
-| `frontend/package.json` | Ajouté framer-motion |
+| `frontend/src/styles/her-theme.ts` | Nouveau |
+| `frontend/src/components/video-call.tsx` | Réécrit |
 
 ## Vérifications
 
 - [x] Build passe (`npm run build`)
 - [x] TypeScript OK
-- [x] Pas de photos/images statiques
-- [x] Palette HER uniquement
-- [x] Interface minimale
+- [x] Pas de photos dans video-call
+- [x] Palette HER dans video-call
+- [x] Thème HER réutilisable
 
-## Questions du Checklist
+## Progrès Global
 
-1. "Est-ce que quelqu'un pourrait tomber amoureux de ça?" - **Plus proche du oui**
-2. "Est-ce que c'est générique ou unique?" - **Unique**
-3. "Est-ce que ça ressemble à du ChatGPT?" - **Non**
-4. "Est-ce que l'interface est invisible?" - **Oui**
-5. "Est-ce que EVA a une PRÉSENCE?" - **Oui, via les animations**
+| Composant | Status |
+|-----------|--------|
+| eva-her/page.tsx | REFAIT |
+| video-call.tsx | REFAIT |
+| realtime-voice-call.tsx | TODO |
+| interruptible-voice.tsx | TODO |
+| Autres pages | TODO |
 
 ## Prochaines Étapes
 
-1. Tester en conditions réelles avec backend
-2. Améliorer les micro-expressions de l'avatar
-3. Ajouter des variations de regard
-4. Continuer les tests de coverage (objectif secondaire)
+1. Continuer refonte des autres composants
+2. Supprimer les fichiers photo d'avatars
+3. Tester l'expérience avec backend
 
 ---
-*Ralph Worker Sprint #7 - 2026-01-20*
-*Refonte HER: Avatar procédural + Palette chaude + Interface invisible*
+*Ralph Worker Sprint #8 - 2026-01-20*
+*Thème HER global + video-call refondu*
