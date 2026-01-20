@@ -263,6 +263,20 @@ export default function VoiceFirstPage() {
     enabled: isConnected,
   });
 
+  // SPRINT 22: Voice warmth - voice parameters that change with connection
+  const voiceWarmth = useVoiceWarmth({
+    warmthLevel: emotionalWarmth.level,
+    warmthNumeric: emotionalWarmth.levelNumeric,
+    voiceHints: emotionalWarmth.voiceHints,
+    currentEmotion: evaEmotion,
+    emotionalIntensity: prosodyMirroring.userProsody.emotionalIntensity,
+    isListening: state === "listening",
+    isSpeaking: state === "speaking",
+    isIdle: state === "idle",
+    isProactive: proactivePresence.shouldInitiate,
+    enabled: isConnected,
+  });
+
   // SPRINT 12: Presence sound hook - subtle ambient audio presence
   usePresenceSound({
     enabled: presenceSoundEnabled,
