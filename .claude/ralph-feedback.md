@@ -1,243 +1,236 @@
 ---
-reviewed_at: 2026-01-20T14:05:00Z
-commit: 551e714
-status: ATTENTION - GPU TOUJOURS A 0%
+reviewed_at: 2026-01-20T15:30:00Z
+commit: b981853
+status: BLOCKED
 blockers:
-  - GPU RTX 4090 a 0% utilisation (INACCEPTABLE)
-  - VRAM: 1434 MiB / 49140 MiB (2.9% seulement)
-progress:
-  - Backend health: OK
-  - Tests: 199 passed, 1 skipped (4.40s)
-  - Frontend build: OK
-  - LLM latency: 190-2100ms (VARIABLE)
-  - TTS latency: 22ms (EXCELLENT)
-  - WebSocket: OK (14ms connection, pong response)
+  - 9+ pages utilisent des PHOTOS pour l'avatar (eva.jpg, eva_nobg.png, eva_clean.png)
+  - Gradients generiques purple-to-pink dans eva-chat, eva-ditto, eva-stream, eva-viseme
+  - animate-pulse utilise dans 8+ fichiers
+  - Tech demo UI visible dans avatar-gpu (latency_ms)
+  - Emoji dans lipsync (🎤)
 ---
 
-# Ralph Moderator Review - Cycle 61 ULTRA-EXIGEANT
+# Ralph Moderator Review - Cycle 62 IMPITOYABLE
 
-## STATUS: **ATTENTION - GPU TOUJOURS INUTILISE**
-
-Tests reels executes. ZERO MOCK. ZERO COMPLAISANCE.
+## Status: **BLOCKED - CODE GENERIQUE DETECTE**
 
 ---
 
-## TESTS EXECUTES - RESULTATS BRUTS
+## BLOQUEURS CRITIQUES (a corriger AVANT de continuer)
 
-### 1. Backend Health ✅ PASS
-```json
-{
-  "status": "healthy",
-  "groq": true,
-  "whisper": true,
-  "tts": true,
-  "database": true
-}
+### 1. FAUX AVATARS = PHOTOS ❌ BLOCAGE
+
+```
+frontend/src/app/avatar-live/page.tsx:17     → /avatars/eva.jpg
+frontend/src/app/avatar-transparent/page.tsx → /avatars/eva_nobg.png
+frontend/src/app/eva-chat/page.tsx:5         → /avatars/eva_clean.png
+frontend/src/app/eva-ditto/page.tsx:6        → /avatars/eva_clean.png
+frontend/src/app/eva-faster/page.tsx:6       → /avatars/eva_clean.png
+frontend/src/app/eva-audio2face/page.tsx     → /avatars/eva_nobg.png
+frontend/src/app/eva-realtime/page.tsx       → /avatars/eva_nobg.png
+frontend/src/app/eva-stream/page.tsx:6       → /avatars/eva_clean.png
+frontend/src/app/eva-viseme/page.tsx         → /avatars/eva_nobg.png
 ```
 
-### 2. LLM Latence ⚠️ TRES VARIABLE
-```
-Test 1: 276ms total (264ms LLM) ✅
-Test 2: 2100ms ❌ ABOVE 500ms LIMIT
-Test 3: 190ms ✅
+**VERDICT:** 9 pages utilisent des PHOTOS statiques. C'est INTERDIT.
+
+### 2. GRADIENTS GENERIQUES ❌ BLOCAGE
+
+```tsx
+// eva-chat/page.tsx
+<h1 className="bg-gradient-to-r from-purple-400 to-pink-400 ...">
+
+// eva-ditto/page.tsx
+<h1 className="bg-gradient-to-r from-purple-400 to-pink-400 ...">
+
+// eva-stream/page.tsx
+<h1 className="bg-gradient-to-r from-rose-400 to-orange-400 ...">
+
+// eva-viseme/page.tsx
+<div className="bg-gradient-to-br from-purple-900 via-indigo-900 to-purple-900">
+
+// avatar-demo/page.tsx
+bg-purple-500/20, from-indigo-600 via-purple-600 to-pink-600
 ```
 
-**VERDICT:** Latence TRES variable. De 190ms a 2100ms. Instabilite inacceptable.
+**VERDICT:** Couleurs Tailwind generiques = ChatGPT-style.
 
-### 3. GPU Utilisation ❌ BLOCAGE CRITIQUE
-```
-utilization.gpu [%], memory.used [MiB], memory.total [MiB], name
-0 %, 1434 MiB, 49140 MiB, NVIDIA GeForce RTX 4090
-```
+### 3. ANIMATE-PULSE ❌ BLOCAGE
 
-**CRITIQUE:**
-- **0% GPU utilisation** - LE GPU NE FAIT RIEN
-- **1434 MiB / 49140 MiB** = 2.9% VRAM utilisee
-- **47.7 GB VRAM DORT** sur un RTX 4090 a $1600+
-
-### 4. TTS Latence ✅ EXCELLENT
 ```
-TTS response time: 22ms
-Audio size genere: 26784 bytes
-Format: Binary MP3 direct
+avatar-demo/page.tsx     → 4 occurrences
+avatar-transparent       → 1 occurrence
+eva-audio2face          → 1 occurrence
+eva-her (loading only)  → 1 occurrence
+eva-realtime            → 1 occurrence
+eva-viseme              → 1 occurrence
+lipsync                 → 1 occurrence
 ```
 
-**EXCELLENT:** TTS repond en **22ms** << 300ms limite
+### 4. TECH DEMO UI ❌ BLOCAGE
 
-### 5. WebSocket ✅ PASS
-```
-WebSocket connection: OK (14ms)
-WebSocket response: {"type":"pong"}
-```
-
-**WebSocket fonctionnel avec reponse pong immediate.**
-
-### 6. Frontend Build ✅ PASS
-```
-29 routes generees:
-- /api/tts, /api/tts/test
-- /avatar-demo, /avatar-gpu, /avatar-live, etc.
-- /eva, /eva-chat, /eva-her, /eva-live, etc.
-- /voice, /voice-test, /voicemotion, etc.
-
-f Proxy (Middleware)
-○ (Static) prerendered as static content
+```tsx
+// avatar-gpu/page.tsx - Latence visible a l'utilisateur
+stt: data.latency?.stt_ms,
+llm: data.latency?.llm_ms,
+tts: data.latency?.tts_ms,
+total: data.latency?.total_ms,
 ```
 
-### 7. Pytest Complet ✅ PASS
-```
-================= 199 passed, 1 skipped, 20 warnings in 4.40s ==================
-```
+### 5. EMOJIS ❌ BLOCAGE
 
-**Warnings cosmetiques:** DeprecationWarning `@app.on_event` (FastAPI)
-
-### 8. End-to-End Reel ⚠️ PAS D'AUDIO DANS /chat
+```tsx
+// lipsync/page.tsx:300
+<p className="text-green-400 text-sm animate-pulse">🎤 Parle... Relâche pour envoyer</p>
 ```
-Response: "hmm... C'est parti ! Qu'est-ce que tu veux faire ?"
-Latency: 190ms ✅
-Audio base64: NON INCLUS
-```
-
-**OBSERVATION:**
-- `/chat` retourne texte SANS audio_base64
-- Audio doit etre obtenu via `/tts` separement
-- TTS fonctionne parfaitement (22ms, 26KB audio)
 
 ---
 
-## RESUME DES PERFORMANCES
+## CE QUI FONCTIONNE ✅
 
-| Composant | Valeur | Objectif | Status |
-|-----------|--------|----------|--------|
-| Backend health | OK | OK | ✅ PASS |
-| LLM latency min | **190ms** | < 500ms | ✅ OK |
-| LLM latency max | **2100ms** | < 500ms | ❌ REGRESSION |
-| TTS latency | **22ms** | < 300ms | ✅ EXCELLENT |
-| GPU Memory | **1434 MiB** | utiliser + | ⚠️ 2.9% seulement |
-| GPU utilization | **0%** | > 0% actif | ❌ GASPILLAGE |
-| Frontend build | OK | OK | ✅ PASS |
-| Tests | **199/200** | 100% | ✅ PASS |
-| WebSocket | **14ms** | < 50ms | ✅ EXCELLENT |
-| E2E audio | SEPARE | INCLUS | ⚠️ ARCHITECTURE |
+### EVA-HER Page (SEULE PAGE ACCEPTABLE)
+
+| Critere | Status | Notes |
+|---------|--------|-------|
+| Avatar genere (pas photo) | ✅ | RealisticAvatar3D |
+| Identite unique EVA | ✅ | HER_COLORS, HER_SPRINGS |
+| Pas de "tech demo" UI | ✅ | Aucune latence visible |
+| Intimite/chaleur | ✅ | Tons corail, creme |
+| Humanite (respire, hesite) | ✅ | bioData: heartRate, breathPhase |
+
+**La page `/eva-her` est la SEULE qui respecte les standards HER.**
 
 ---
 
-## PROBLEME CRITIQUE: GPU TOUJOURS INUTILISE
+## VERIFICATION TESTS
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  RTX 4090 - 49140 MiB VRAM DISPONIBLE                        │
-├──────────────────────────────────────────────────────────────┤
-│  Utilise:     ███░░░░░░░░░░░░░░░░░░░░░░░░░░  1434 MiB (2.9%)  │
-│  Libre:       ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 47706 MiB (97.1%) │
-├──────────────────────────────────────────────────────────────┤
-│  GPU Compute:  0% <- IDLE - RTX 4090 QUI DORT                 │
-└──────────────────────────────────────────────────────────────┘
+pytest backend/tests/ -v
+================= 198 passed, 2 skipped, 15 warnings in 20.66s =================
 ```
 
-**C'EST INACCEPTABLE:**
-- RTX 4090 = GPU haute performance a $1600+
-- 47.7 GB VRAM libre = assez pour:
-  - Whisper large-v3 (~3GB)
-  - TTS local VITS/Piper (~2GB)
-  - LLM local 8B quantized (~5GB)
-  - Encore 37GB de marge!
+**Tests:** PASS
 
 ---
 
-## COMPARAISON CYCLE 60 → 61
+## LATENCE
 
-| Metrique | Cycle 60 | Cycle 61 | Delta |
-|----------|----------|----------|-------|
-| GPU Memory | 1434 MiB | 1434 MiB | = STABLE |
-| GPU Compute | 0% | 0% | = TOUJOURS 0 |
-| LLM Latency min | 163ms | 190ms | +16% |
-| LLM Latency max | 779ms | **2100ms** | **+170%** ❌ REGRESSION |
-| TTS Latency | 18ms | 22ms | +4ms = STABLE |
-| WebSocket | partiel | **14ms OK** | ✅ AMELIORATION |
-| Tests | 199 passed | 199 passed | = |
+| Test | Valeur | Objectif | Status |
+|------|--------|----------|--------|
+| Test 1 (cold) | 310ms | <300ms | ⚠️ LIMITE |
+| Test 2 | 193ms | <300ms | ✅ |
+| Test 3 | 159ms | <300ms | ✅ |
+| Test 4 | 196ms | <300ms | ✅ |
+| Test 5 | 251ms | <300ms | ✅ |
+
+**Latence:** 4/5 tests sous 300ms. Cold start a 310ms = limite acceptable.
 
 ---
 
-## SCORE FINAL
+## CHANGEMENT WHISPER
+
+Le commit b981853 change Whisper de "small" a "medium":
+
+```python
+# AVANT
+whisper_model_name = "small" if device == "cuda" else "tiny"
+
+# APRES
+whisper_model_name = "medium" if device == "cuda" else "tiny"
+```
+
+**NOTE:** Le commentaire dit "49GB VRAM" mais nvidia-smi montre 24GB. Verifier.
+
+---
+
+## SCORE
 
 | Critere | Score | Commentaire |
 |---------|-------|-------------|
-| Tests | 10/10 | 199 passed |
-| Build | 10/10 | Frontend OK |
-| Backend | 10/10 | Health OK |
-| LLM Latency | 4/10 | **pic 2100ms inacceptable** |
-| TTS Latency | 10/10 | 22ms excellent |
-| GPU Usage | 2/10 | **0% compute, 2.9% VRAM** |
-| WebSocket | 10/10 | **14ms, pong OK** |
-| E2E | 7/10 | Texte OK, audio separe |
-| **TOTAL** | **63/80** | **79%** |
+| Tests | 10/10 | 198 passed |
+| Latence | 8/10 | Cold start 310ms |
+| EVA-HER page | 10/10 | Seule page HER-compliant |
+| Autres pages | 0/10 | **GENERIQUE** |
+| Tech visible | 0/10 | avatar-gpu expose latency |
+| Avatars | 0/10 | 9 pages avec PHOTOS |
+| **TOTAL** | **28/60** | **47%** |
 
 ---
 
-## VERDICT
+## ACTIONS REQUISES
 
-### ✅ CE QUI MARCHE BIEN
-- TTS: 22ms (excellent)
-- WebSocket: 14ms avec pong (amelioration vs cycle 60)
-- Tests: 199/200 passent en 4.40s
-- Frontend: build OK, 29 routes
-- Backend: tous services healthy
+### Priorite 1: SUPPRIMER LES PAGES GENERIQUES
 
-### ❌ REGRESSIONS CRITIQUES
-- **LLM Latency pic: 2100ms** (etait 779ms cycle 60)
-- Score global: 79% (etait 80%)
+Options:
+1. **Supprimer** avatar-demo, avatar-live, avatar-transparent, eva-chat, eva-ditto, eva-faster, eva-stream, eva-viseme, eva-realtime, avatar-gpu, lipsync
+2. **Ou** les refactorer pour utiliser `RealisticAvatar3D` + `HER_COLORS`
 
-### ❌ BLOCAGE MAINTENU: GPU
+### Priorite 2: STANDARDISER SUR EVA-HER
 
-**Le RTX 4090 est TOUJOURS a 0% d'utilisation.**
+Toutes les pages doivent:
+- Utiliser `RealisticAvatar3D` (pas de photos)
+- Utiliser `HER_COLORS` (coral, cream, earth, warmWhite)
+- Utiliser `HER_SPRINGS` pour les animations
+- ZERO tech visible a l'utilisateur
+- ZERO emoji
+- ZERO gradient purple/pink
 
-Depuis plusieurs cycles, ce GPU premium dort. C'est du gaspillage pur.
+### Priorite 3: SUPPRIMER ANIMATE-PULSE
 
----
+Remplacer par:
+```tsx
+// INTERDIT
+animate-pulse
 
-## ACTIONS REQUISES IMMEDIATEMENT
-
-### Priorite 1: INVESTIGUER LLM 2100ms
-- [ ] Verifier rate limiting Groq
-- [ ] Ajouter logs de latence detailles
-- [ ] Implementer retry avec backoff
-
-### Priorite 2: GPU Activation
-- [ ] **Whisper** sur GPU
-  ```python
-  # Actuel (presume)
-  model = WhisperModel("tiny", device="cpu")
-
-  # Requis
-  model = WhisperModel("small", device="cuda", compute_type="float16")
-  ```
-- [ ] Verifier faster-whisper config
-
-### Priorite 3: E2E Audio Integration
-- [ ] Option `include_audio=true` dans /chat
-- [ ] Ou documenter flow 2-appels
+// REQUIS
+<motion.div
+  animate={{ opacity: [0.5, 1, 0.5] }}
+  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+/>
+```
 
 ---
 
 ## MESSAGE AU WORKER
 
-**ALERTE: LLM LATENCY EN REGRESSION.**
+**STOP. LE CODE EST BLOQUE.**
 
-Le pic de 2100ms est **INACCEPTABLE**. C'est 4x pire que le cycle precedent.
+Tu travailles sur des optimisations (Whisper medium) alors que 90% des pages frontend sont du **ChatGPT-style generique**.
 
-Pendant ce temps, le RTX 4090 DORT TOUJOURS a 0%.
+La page `/eva-her` est excellente. C'est la REFERENCE.
 
-**STOP tout. Investigation immediate:**
-1. Pourquoi 2100ms?
-2. Rate limiting? Network? API Groq?
-3. Activer le GPU pour Whisper
+**Toutes les autres pages doivent:**
+1. Utiliser le meme avatar 3D
+2. Utiliser les memes couleurs HER
+3. CACHER toute la technique
 
-Un systeme voice AI avec 2100ms de latence LLM, c'est inutilisable.
+**Question:** Ces autres pages sont-elles necessaires? Si elles sont juste des demos techniques, SUPPRIME-LES. EVA doit etre UNE experience, pas 15 variations generiques.
 
 ---
 
-*Ralph Moderator - Cycle 61 ULTRA-EXIGEANT*
-*Status: ATTENTION - GPU 0% + LLM 2100ms*
-*Score: 79%*
-*"WebSocket ameliore, mais LLM en chute libre. Et le RTX 4090 dort toujours."*
+## VERDICT FINAL
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  STATUS: BLOCKED                                                │
+│                                                                 │
+│  ❌ 9 pages avec photos au lieu d'avatar genere                 │
+│  ❌ Gradients purple/pink ChatGPT-style                         │
+│  ❌ animate-pulse partout                                       │
+│  ❌ Latence visible dans avatar-gpu                             │
+│  ❌ Emoji dans lipsync                                          │
+│                                                                 │
+│  ✅ EVA-HER: Seule page HER-compliant                           │
+│  ✅ Tests: 198 passed                                           │
+│  ✅ Latence: 159-310ms                                          │
+│                                                                 │
+│  SCORE: 47% - INACCEPTABLE                                      │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**NE CONTINUE PAS TANT QUE LES PAGES GENERIQUES NE SONT PAS SUPPRIMEES OU REFACTOREES.**
+
+---
+
+*Ralph Moderator - Cycle 62 IMPITOYABLE*
+*"EVA-HER est parfaite. Le reste est du ChatGPT."*
