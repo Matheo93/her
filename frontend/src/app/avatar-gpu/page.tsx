@@ -153,15 +153,7 @@ export default function AvatarGPUPage() {
     "/avatars/eva_idle_transparent.webm",
   ];
   const [currentIdleIndex, setCurrentIdleIndex] = useState(0);
-  const [_speakingVideoSrc, setSpeakingVideoSrc] = useState<string | null>(null);
-
-  // Change idle video randomly when loop ends
-  const _handleIdleVideoEnd = () => {
-    if (!isSpeaking) {
-      const newIndex = Math.floor(Math.random() * idleVideos.length);
-      setCurrentIdleIndex(newIndex);
-    }
-  };
+  const [, setSpeakingVideoSrc] = useState<string | null>(null);
 
   // When speaking video ends, return to idle
   const handleSpeakingVideoEnd = () => {

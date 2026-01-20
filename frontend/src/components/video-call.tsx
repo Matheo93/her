@@ -49,7 +49,7 @@ export function VideoCall({
   onClose,
   backendUrl,
   selectedVoice,
-  messages,
+  messages: _,
   onNewMessage,
 }: VideoCallProps) {
   const [isConnected, setIsConnected] = useState(false);

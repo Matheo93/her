@@ -67,7 +67,7 @@ export default function VoiceEmotionPage() {
 
   // Analyze voice emotion based on audio features
   const analyzeEmotion = useCallback((features: AudioFeatures): { emotion: Emotion; confidence: number } => {
-    const { energy, pitch, tempo, variance } = features;
+    const { energy, pitch, variance } = features;
 
     // High energy + high pitch + high variance = angry or happy
     // Low energy + low pitch = sad or calm

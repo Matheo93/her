@@ -30,6 +30,7 @@ export default function EvaStreamPage() {
       wsRef.current?.close();
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

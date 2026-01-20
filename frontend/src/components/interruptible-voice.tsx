@@ -32,7 +32,7 @@ export function InterruptibleVoice({
   onClose,
   backendUrl,
   selectedVoice,
-  messages: _messages, // Available for future use (conversation history display)
+  messages: _, // Available for future use (conversation history display)
   onNewMessage,
 }: InterruptibleVoiceProps) {
   // Connection state
