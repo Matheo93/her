@@ -123,6 +123,8 @@ def fast_tts_mp3(text: str, speed: float = 1.0) -> Optional[bytes]:
     """
     Generate speech and convert to MP3 for web compatibility (optimized)
 
+    Uses lameenc for fast in-process MP3 encoding (~15ms vs ~55ms for ffmpeg)
+
     Args:
         text: Text to synthesize (French)
         speed: Speech speed multiplier
@@ -131,7 +133,6 @@ def fast_tts_mp3(text: str, speed: float = 1.0) -> Optional[bytes]:
         MP3 audio bytes or None on error
     """
     global _tts_model, _tts_tokenizer, _device, _sample_rate
-    import subprocess
 
     if _tts_model is None:
         if not init_fast_tts():
@@ -156,20 +157,32 @@ def fast_tts_mp3(text: str, speed: float = 1.0) -> Optional[bytes]:
         audio = audio / np.max(np.abs(audio)) * 0.95
         audio_int16 = (audio * 32767).astype(np.int16)
 
-        # Pipe directly to ffmpeg for MP3 encoding (no temp files!)
-        process = subprocess.Popen(
-            [
-                "ffmpeg", "-f", "s16le", "-ar", str(_sample_rate), "-ac", "1",
-                "-i", "pipe:0", "-codec:a", "libmp3lame", "-b:a", "64k",
-                "-f", "mp3", "pipe:1"
-            ],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL
-        )
-        mp3_data, _ = process.communicate(input=audio_int16.tobytes())
-
-        return mp3_data
+        # Use lameenc for fast in-process MP3 encoding (~15ms vs ~55ms for ffmpeg)
+        try:
+            import lameenc
+            encoder = lameenc.Encoder()
+            encoder.set_bit_rate(64)
+            encoder.set_in_sample_rate(_sample_rate)
+            encoder.set_channels(1)
+            encoder.set_quality(7)  # Lower = better quality, higher = faster (2-7)
+            mp3_data = encoder.encode(audio_int16.tobytes())
+            mp3_data += encoder.flush()
+            return bytes(mp3_data)
+        except ImportError:
+            # Fallback to ffmpeg if lameenc not available
+            import subprocess
+            process = subprocess.Popen(
+                [
+                    "ffmpeg", "-f", "s16le", "-ar", str(_sample_rate), "-ac", "1",
+                    "-i", "pipe:0", "-codec:a", "libmp3lame", "-b:a", "64k",
+                    "-f", "mp3", "pipe:1"
+                ],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL
+            )
+            mp3_data, _ = process.communicate(input=audio_int16.tobytes())
+            return mp3_data
 
     except Exception as e:
         print(f"MP3 TTS error: {e}")

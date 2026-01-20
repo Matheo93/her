@@ -1701,9 +1701,17 @@ async def text_to_speech_sentence_stream(
 
 @app.get("/")
 async def root():
-    # Determine TTS engine
+    # Determine TTS engine (priority: MMS-TTS GPU > GPU Piper > Edge-TTS)
+    from fast_tts import _tts_model as mms_tts_ready
     from gpu_tts import _initialized as gpu_tts_ready
-    tts_engine = "gpu-piper" if gpu_tts_ready else ("edge-tts" if tts_available else "disabled")
+    if mms_tts_ready is not None:
+        tts_engine = "mms-tts-gpu"  # PyTorch VITS on CUDA
+    elif gpu_tts_ready:
+        tts_engine = "gpu-piper"  # ONNX Piper (CPU fallback)
+    elif tts_available:
+        tts_engine = "edge-tts"
+    else:
+        tts_engine = "disabled"
     return {
         "service": "EVA-VOICE",
         "status": "online",
