@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { VideoCall } from "@/components/video-call";
 import { HER_COLORS, HER_SPRINGS, EMOTION_PRESENCE } from "@/styles/her-theme";
+import { usePersistentMemory } from "@/hooks/usePersistentMemory";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
@@ -27,6 +28,9 @@ export default function Home() {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [selectedVoice, setSelectedVoice] = useState("eva");
   // EVA has one voice - no selection menu needed
+
+  // HER Feature: Persistent Memory - EVA remembers you
+  const persistentMemory = usePersistentMemory();
 
   // Emotion & Mood states
   const [currentEmotion, setCurrentEmotion] = useState<Emotion>("neutral");
@@ -394,13 +398,23 @@ export default function Home() {
               className="text-2xl font-light mb-2"
               style={{ color: HER_COLORS.earth }}
             >
-              Salut, je suis Eva
+              {persistentMemory.isReunion
+                ? persistentMemory.reunionType === "very_long"
+                  ? "Tu es revenu..."
+                  : persistentMemory.reunionType === "long"
+                    ? "Tu m'as manqué"
+                    : "Te revoilà"
+                : persistentMemory.isReturningUser
+                  ? "Rebonjour"
+                  : "Salut, je suis Eva"}
             </h2>
             <p
               className="max-w-sm"
               style={{ color: HER_COLORS.textSecondary }}
             >
-              Je suis là pour discuter avec toi. Parle-moi de ta journée, de tes pensées...
+              {persistentMemory.isReturningUser
+                ? "Contente de te revoir. Comment vas-tu ?"
+                : "Je suis là pour discuter avec toi. Parle-moi de ta journée, de tes pensées..."}
             </p>
             <p
               className="text-sm mt-4"
