@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 import type { VisemeWeights } from "@/components/RealisticAvatar3D";
-import { HER_COLORS } from "@/styles/her-theme";
+import { HER_COLORS, HER_SPRINGS } from "@/styles/her-theme";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const VISEME_URL = process.env.NEXT_PUBLIC_VISEME_URL || "http://localhost:8003";
@@ -32,6 +32,13 @@ const RealisticAvatar3D = dynamic(
 
 type ConversationState = "idle" | "listening" | "thinking" | "speaking";
 
+// Bio-data simulation for presence feeling
+interface BioData {
+  heartRate: number; // Simulated BPM
+  breathPhase: number; // 0-1 breathing cycle
+  presence: number; // 0-1 how "present" EVA feels
+}
+
 export default function VoiceFirstPage() {
   // State
   const [state, setState] = useState<ConversationState>("idle");
@@ -41,6 +48,17 @@ export default function VoiceFirstPage() {
   const [visemeWeights, setVisemeWeights] = useState<VisemeWeights>({ sil: 1 });
   const [audioLevel, setAudioLevel] = useState(0);
   const [evaEmotion, setEvaEmotion] = useState("neutral");
+
+  // JARVIS Feature: Bio-data for presence feeling
+  const [bioData, setBioData] = useState<BioData>({
+    heartRate: 72,
+    breathPhase: 0,
+    presence: 0.8,
+  });
+
+  // JARVIS Feature: Proactive messages from EVA
+  const [proactiveMessage, setProactiveMessage] = useState<string | null>(null);
+  const [showWelcome, setShowWelcome] = useState(true);
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
@@ -52,6 +70,46 @@ export default function VoiceFirstPage() {
   const analyzerRef = useRef<AnalyserNode | null>(null);
   const playTTSRef = useRef<() => void>(() => {});
   const startListeningRef = useRef<() => void>(() => {});
+  const bioAnimationRef = useRef<number | null>(null);
+
+  // JARVIS Feature: Bio-data animation for presence
+  useEffect(() => {
+    let startTime = Date.now();
+
+    const animateBio = () => {
+      const elapsed = (Date.now() - startTime) / 1000;
+
+      // Breathing cycle: 4 seconds in, 4 seconds out
+      const breathPhase = (Math.sin(elapsed * Math.PI / 4) + 1) / 2;
+
+      // Heart rate varies slightly based on state
+      const baseHR = state === "listening" ? 78 : state === "speaking" ? 75 : 72;
+      const hrVariation = Math.sin(elapsed * 0.5) * 3;
+
+      // Presence increases when interacting
+      const targetPresence = state === "idle" ? 0.7 : state === "listening" ? 0.95 : 0.9;
+
+      setBioData((prev) => ({
+        heartRate: Math.round(baseHR + hrVariation),
+        breathPhase,
+        presence: prev.presence + (targetPresence - prev.presence) * 0.05,
+      }));
+
+      bioAnimationRef.current = requestAnimationFrame(animateBio);
+    };
+
+    bioAnimationRef.current = requestAnimationFrame(animateBio);
+    return () => {
+      if (bioAnimationRef.current) cancelAnimationFrame(bioAnimationRef.current);
+    };
+  }, [state]);
+
+  // Welcome message disappears after first interaction
+  useEffect(() => {
+    if (state !== "idle") {
+      setShowWelcome(false);
+    }
+  }, [state]);
 
   // Connect to Viseme WebSocket for lip-sync
   useEffect(() => {
@@ -314,13 +372,71 @@ export default function VoiceFirstPage() {
       className="fixed inset-0 overflow-hidden flex flex-col items-center justify-center"
       style={{ backgroundColor: HER_COLORS.warmWhite }}
     >
-      {/* Subtle warm ambient background */}
-      <div
+      {/* Living ambient background - breathes with EVA */}
+      <motion.div
         className="absolute inset-0 pointer-events-none"
-        style={{
-          background: `radial-gradient(ellipse at 50% 40%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+        animate={{
+          background: [
+            `radial-gradient(ellipse at 50% 40%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+            `radial-gradient(ellipse at 50% 38%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 72%)`,
+            `radial-gradient(ellipse at 50% 40%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+          ],
         }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
+
+      {/* JARVIS Feature: Bio-Data - subtle presence indicator */}
+      <div className="absolute top-6 left-6 flex flex-col gap-2">
+        <AnimatePresence>
+          {isConnected && (
+            <motion.div
+              className="flex items-center gap-3"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 0.6, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              {/* Heartbeat indicator */}
+              <motion.div
+                className="flex items-center gap-2"
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{
+                  duration: 60 / bioData.heartRate,
+                  repeat: Infinity,
+                  ease: "easeOut",
+                }}
+              >
+                <svg
+                  className="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill={HER_COLORS.coral}
+                  style={{ opacity: 0.7 }}
+                >
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                </svg>
+                <span
+                  className="text-xs font-light tabular-nums"
+                  style={{ color: HER_COLORS.earth, opacity: 0.5 }}
+                >
+                  {bioData.heartRate}
+                </span>
+              </motion.div>
+
+              {/* Presence bar */}
+              <div
+                className="w-16 h-1 rounded-full overflow-hidden"
+                style={{ backgroundColor: `${HER_COLORS.softShadow}40` }}
+              >
+                <motion.div
+                  className="h-full rounded-full"
+                  style={{ backgroundColor: HER_COLORS.coral }}
+                  animate={{ width: `${bioData.presence * 100}%` }}
+                  transition={{ duration: 0.5 }}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* Connection indicator - minimal, only when disconnected */}
       <AnimatePresence>
@@ -339,8 +455,21 @@ export default function VoiceFirstPage() {
 
       {/* Main content area */}
       <div className="relative flex flex-col items-center justify-center flex-1 w-full">
+        {/* Breathing glow around avatar */}
+        <motion.div
+          className="absolute w-56 h-56 md:w-72 md:h-72 rounded-full"
+          style={{
+            background: `radial-gradient(circle, ${HER_COLORS.coral}20 0%, transparent 70%)`,
+          }}
+          animate={{
+            scale: [1, 1 + bioData.breathPhase * 0.08, 1],
+            opacity: [0.4, 0.6, 0.4],
+          }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+
         {/* 3D Avatar */}
-        <div className="w-48 h-48 md:w-64 md:h-64">
+        <div className="w-48 h-48 md:w-64 md:h-64 relative z-10">
           <RealisticAvatar3D
             visemeWeights={visemeWeights}
             emotion={getDisplayEmotion()}
@@ -350,17 +479,33 @@ export default function VoiceFirstPage() {
           />
         </div>
 
+        {/* JARVIS Feature: Welcome message (proactive) */}
+        <AnimatePresence>
+          {showWelcome && state === "idle" && isConnected && (
+            <motion.p
+              className="mt-8 text-base max-w-md text-center px-4"
+              style={{ color: HER_COLORS.earth }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 0.8, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ delay: 0.5, ...HER_SPRINGS.gentle }}
+            >
+              Je suis là...
+            </motion.p>
+          )}
+        </AnimatePresence>
+
         {/* Transcript - what user said */}
         <AnimatePresence mode="wait">
           {transcript && state !== "speaking" && (
             <motion.p
-              className="mt-6 text-sm max-w-md text-center px-4"
+              className="mt-6 text-sm max-w-md text-center px-4 italic"
               style={{ color: HER_COLORS.softShadow }}
               initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
+              animate={{ opacity: 0.7, y: 0 }}
               exit={{ opacity: 0 }}
             >
-              {transcript}
+              &ldquo;{transcript}&rdquo;
             </motion.p>
           )}
         </AnimatePresence>
@@ -381,11 +526,11 @@ export default function VoiceFirstPage() {
           )}
         </AnimatePresence>
 
-        {/* Thinking indicator */}
+        {/* Thinking indicator - organic, not mechanical */}
         <AnimatePresence>
           {state === "thinking" && !response && (
             <motion.div
-              className="mt-6 flex gap-1"
+              className="mt-6 flex gap-1.5"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -394,19 +539,39 @@ export default function VoiceFirstPage() {
                 <motion.div
                   key={i}
                   className="w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: HER_COLORS.softShadow }}
+                  style={{ backgroundColor: HER_COLORS.coral }}
                   animate={{
-                    opacity: [0.3, 0.7, 0.3],
-                    scale: [1, 1.2, 1],
+                    opacity: [0.3, 0.8, 0.3],
+                    y: [0, -3, 0],
                   }}
                   transition={{
-                    duration: 1.2,
+                    duration: 1.5,
                     repeat: Infinity,
-                    delay: i * 0.2,
+                    delay: i * 0.15,
                     ease: "easeInOut",
                   }}
                 />
               ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Proactive message from EVA */}
+        <AnimatePresence>
+          {proactiveMessage && (
+            <motion.div
+              className="mt-6 max-w-md text-center px-4"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={HER_SPRINGS.gentle}
+            >
+              <p
+                className="text-sm leading-relaxed"
+                style={{ color: HER_COLORS.earth, opacity: 0.8 }}
+              >
+                {proactiveMessage}
+              </p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -419,7 +584,7 @@ export default function VoiceFirstPage() {
           onMouseUp={state === "listening" ? stopListening : undefined}
           onTouchStart={state === "idle" ? startListening : undefined}
           onTouchEnd={state === "listening" ? stopListening : undefined}
-          onClick={state === "idle" && !("ontouchstart" in window) ? startListening : undefined}
+          onClick={state === "idle" ? startListening : undefined}
           disabled={!isConnected || state === "thinking" || state === "speaking"}
           className="relative w-24 h-24 md:w-28 md:h-28 rounded-full flex items-center justify-center transition-all"
           style={{
