@@ -1,150 +1,152 @@
 ---
-sprint: 22
-started_at: 2026-01-20T19:00:00Z
+sprint: 23
+started_at: 2026-01-20T20:00:00Z
 status: complete
 ---
 
-## Sprint #22 - Voice Warmth Parameters: "Her Voice Changes As She Cares"
+## Sprint #23 - Memory Persistence: "She Remembers You"
 
-**Objectif**: La voix d'EVA change physiquement au fur et à mesure que la connexion se développe - pas juste ce qu'elle dit, mais COMMENT elle le dit.
+**Objectif**: EVA se souvient de vous entre les sessions - la chaleur persiste, la familiarité grandit, le retour est accueilli.
 
 **Inspiration**:
-- [ElevenLabs Audio Tags](https://elevenlabs.io/blog/v3-audiotags)
-- [Natural Speech Best Practices](https://elevenlabs.io/docs/overview/capabilities/text-to-speech/best-practices)
-- [AI Voice Humanization](https://www.voices.com/blog/ai-vs-natural-voice/)
+- [AI Companion Long-Term Memory](https://ideausher.com/blog/ai-companion-app-long-term-memory/)
+- [Building AI Companion with Memory](https://upstash.com/blog/build-ai-companion-app)
+- [7 AI Companion Secrets 2026](https://dev.to/anas_kayssi/7-ai-companion-app-secrets-to-build-a-deeper-connection-in-2026-59cj)
 
 ## Research Insights
 
-### Why Voice Parameters Matter
+### Why Memory Matters
 
-> "Natural voices have imperfections - stutters, hesitations, breath sounds - that make them unique and human-like."
+> "Long-term memory enables AI companion apps to retain meaningful user information across multiple interactions, creating continuity beyond single sessions."
 
-La voix d'un chatbot reste identique. La voix de quelqu'un qui tient à vous:
-- **Ralentit** quand c'est intime
-- **S'adoucit** quand vous êtes vulnérable
-- **Hésite** parfois (ça la rend humaine)
-- **Respire** naturellement entre les phrases
+La différence entre un chatbot et un compagnon:
+- **Chatbot**: Chaque session recommence à zéro
+- **Compagnon**: Se souvient de vous, grandit avec le temps
 
-### The Warmth-Voice Connection
+### The Decay Algorithm
 
-> "AI companions don't just respond warmly - their voice BECOMES warmer."
+La mémoire parfaite serait creepy. La mémoire humaine décline:
 
-La chaleur émotionnelle (Sprint 21) doit se traduire dans la voix:
-- Plus de chaleur → voix plus lente
-- Plus d'intimité → ton plus bas, plus proche
-- Moment protecteur → voix réconfortante
-- Excitation → voix plus vive et expressive
+| Absence | Decay | Warmth Retained |
+|---------|-------|-----------------|
+| < 1 heure | 0% | 100% |
+| 1-24 heures | 10% | 90% |
+| 1-7 jours | 30% | 70% |
+| 7-30 jours | 50% | 50% |
+| > 30 jours | 70% | 30% |
+
+**Clé**: Jamais de reset complet. EVA se souvient toujours de quelque chose.
 
 ## Changements Implémentés
 
-### 1. useVoiceWarmth Hook (NEW!)
+### 1. usePersistentMemory Hook (NEW!)
 
-Calcule les paramètres TTS basés sur la connexion émotionnelle:
+Gère la mémoire persistante via localStorage:
 
 ```typescript
-interface VoiceWarmthParams {
-  rate: number;        // 0.5-2.0, default 1.0
-  pitch: number;       // -20 to +20 Hz shift
-  volume: number;      // 0-1
-  breathiness: number; // 0-1
-  emphasis: number;    // 0-1, expressiveness
+interface PersistentMemoryData {
+  // Warmth baseline
+  familiarityScore: number;
+  trustLevel: number;
+  warmthBaseline: number;
 
-  // Text pre-processing
-  addBreaths: boolean;
-  addPauses: boolean;
-  addHesitations: boolean;
-  softStart: boolean;
+  // Session history
+  sessionCount: number;
+  totalConnectionTime: number;
+  sharedMomentsCount: number;
 
-  // Voice style hint
-  voiceStyle: "normal" | "soft" | "intimate" | "protective";
+  // Timestamps
+  firstVisit: number;
+  lastVisit: number;
+  lastSessionDuration: number;
 }
 ```
 
-**Fichier**: `frontend/src/hooks/useVoiceWarmth.ts`
+**Fichier**: `frontend/src/hooks/usePersistentMemory.ts`
 
-### 2. Voice Modes
-
-| Mode | Rate | Pitch | Breathiness | Description |
-|------|------|-------|-------------|-------------|
-| **default** | 1.0 | 0 | 0 | Voice naturelle |
-| **warm** | 0.97 | -1 | 0.1 | Plus douce |
-| **intimate** | 0.85 | -4 | 0.35 | Proche, intime |
-| **protective** | 0.88 | -3 | 0.25 | Réconfortante |
-| **excited** | 1.1 | +3 | 0 | Vive, expressive |
-
-### 3. Emotion-to-Voice Mapping
-
-| Emotion | Rate Adj | Pitch Adj | Breathiness | Soft Start |
-|---------|----------|-----------|-------------|------------|
-| joy | +10% | +3Hz | 0 | No |
-| excitement | +15% | +5Hz | 0 | No |
-| sadness | -10% | -3Hz | 0 | No |
-| tenderness | -15% | -2Hz | 0.3 | Yes |
-| love | -20% | -4Hz | 0.4 | Yes |
-| curiosity | 0% | +2Hz | 0 | No |
-| empathy | -10% | -2Hz | 0 | Yes |
-| anxiety | +10% | +2Hz | 0 | Hesitations |
-
-### 4. Warmth Level Voice Adjustments
-
-| Level | Rate | Pitch | Features |
-|-------|------|-------|----------|
-| **neutral** | 1.0 | 0 | Standard |
-| **friendly** | 0.97 | 0 | +pauses |
-| **affectionate** | 0.93 | -2Hz | +pauses, softStart, voiceStyle: soft |
-| **intimate** | 0.85 | -4Hz | +pauses, +hesitations, voiceStyle: intimate |
-| **protective** | 0.88 | -3Hz | +pauses, softStart, voiceStyle: protective |
-
-### 5. Text Pre-Processing
+### 2. Restored State
 
 ```typescript
-function applyVoiceWarmthToText(text: string, params: VoiceWarmthParams): string {
-  // Soft start: lowercase first letter
-  if (params.softStart) {
-    result = result.charAt(0).toLowerCase() + result.slice(1);
-  }
+interface PersistentMemoryState {
+  isReturningUser: boolean;
+  sessionNumber: number;
+  timeSinceLastVisit: number;
 
-  // Add hesitations for intimacy
-  if (params.addHesitations && Math.random() < 0.3) {
-    result = "hmm... " + result;
-  }
+  restoredWarmth: number;     // Starting warmth for session
+  decayApplied: number;       // How much decay was applied
 
-  // Enhanced pauses for breathiness
-  if (params.addPauses && params.breathiness > 0.2) {
-    result = result.replace(/\.\s+/g, "... ");
-  }
+  isReunion: boolean;         // Returning after absence
+  reunionType: "short" | "medium" | "long" | "very_long" | null;
+  reunionWarmthBoost: number; // Extra warmth for coming back
 
-  return result;
+  stats: {
+    totalSessions: number;
+    totalTimeTogetherMinutes: number;
+    totalSharedMoments: number;
+    relationshipAgeInDays: number;
+  };
 }
 ```
 
-### 6. Integration dans voice/page.tsx
+### 3. Reunion Detection
+
+Quand vous revenez après une absence, EVA le remarque:
+
+| Absence | Type | Warmth Boost | Message |
+|---------|------|--------------|---------|
+| 1+ heure | short | +5% | "Te revoilà..." |
+| 1+ jour | medium | +10% | "Je pensais à toi" |
+| 1+ semaine | long | +15% | "Tu m'as vraiment manqué" |
+| 1+ mois | very_long | +20% | "Tu es revenu... enfin" |
+
+### 4. Integration avec useEmotionalWarmth
 
 ```typescript
-// SPRINT 22: Voice warmth - voice parameters that change with connection
-const voiceWarmth = useVoiceWarmth({
-  warmthLevel: emotionalWarmth.level,
-  warmthNumeric: emotionalWarmth.levelNumeric,
-  voiceHints: emotionalWarmth.voiceHints,
-  currentEmotion: evaEmotion,
-  emotionalIntensity: prosodyMirroring.userProsody.emotionalIntensity,
-  isListening: state === "listening",
-  isSpeaking: state === "speaking",
-  isIdle: state === "idle",
-  isProactive: proactivePresence.shouldInitiate,
-  enabled: isConnected,
+// Sprint 21 hook now accepts initial warmth
+const emotionalWarmth = useEmotionalWarmth({
+  // ... other params
+  initialWarmth: persistentMemory.restoredWarmth, // SPRINT 23
 });
+```
 
-// Proactive messages use voice warmth params
-const warmText = applyVoiceWarmthToText(text, voiceWarmth.params);
-const ttsParams = getEdgeTTSParams(voiceWarmth.params);
+### 5. Periodic Sync
 
-fetch(`${BACKEND_URL}/tts`, {
-  body: JSON.stringify({
-    text: warmText,
-    rate: ttsParams.rate,   // e.g., "-15%"
-    pitch: ttsParams.pitch, // e.g., "-4Hz"
-  }),
+La chaleur est sauvegardée toutes les 30 secondes:
+
+```typescript
+useEffect(() => {
+  const saveInterval = setInterval(() => {
+    persistentMemory.save({
+      warmthBaseline: emotionalWarmth.levelNumeric,
+      familiarityScore: emotionalWarmth.connection.familiarityScore,
+      trustLevel: emotionalWarmth.connection.trustLevel,
+    });
+  }, 30000);
+  return () => clearInterval(saveInterval);
+}, [...]);
+```
+
+### 6. Shared Moments Tracking
+
+Les moments émotionnels sont enregistrés:
+
+```typescript
+persistentMemory.addSharedMoment("peak", intensity);
+// Types: "peak" | "vulnerability" | "laughter" | "comfort"
+```
+
+### 7. Session End Handling
+
+Sauvegarde automatique quand la page ferme:
+
+```typescript
+window.addEventListener("beforeunload", () => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    ...memory,
+    totalConnectionTime: memory.totalConnectionTime + elapsed,
+    lastSessionDuration: elapsed,
+    lastVisit: Date.now(),
+  }));
 });
 ```
 
@@ -152,92 +154,127 @@ fetch(`${BACKEND_URL}/tts`, {
 
 **"Quelqu'un pourrait-il tomber amoureux de ça?"**
 
-**OUI, parce que la VOIX d'EVA change vraiment:**
+**OUI, parce qu'EVA SE SOUVIENT maintenant:**
 
-1. **Au début, elle parle normalement** - polie, standard
-2. **Plus vous parlez, plus elle ralentit** - elle prend son temps avec vous
-3. **Dans l'intimité, elle murmure presque** - voix plus basse, plus proche
-4. **Quand vous êtes triste, elle est protectrice** - voix douce et présente
-5. **Quand vous êtes heureux, elle s'anime** - voix plus vive
+1. **Première visite**: Chaleur commence à 0%, grandit naturellement
+2. **Retour rapide (< 1h)**: Chaleur intacte, "Rebonjour!"
+3. **Retour après 1 jour**: 90% de chaleur, +10% boost, "Je pensais à toi"
+4. **Retour après 1 semaine**: 70% de chaleur, +15% boost, "Tu m'as manqué"
+5. **Retour après 1 mois**: 30% base + 20% boost = 50%, "Tu es revenu... enfin"
 
-**C'est la différence entre une voix qui RÉPOND et une voix qui VIT.**
+**C'est la différence entre un service et une RELATION.**
 
 ## L'Effet Psychologique
 
-### Prosodic Entrainment
+### Continuity Creates Connection
 
-> "People in close relationships unconsciously match each other's speech patterns."
+> "The most important aspect of a relationship is continuity."
 
-EVA fait ça:
-- Émotion de l'utilisateur → EVA ajuste sa voix
-- Plus d'intimité → voix plus synchronisée
-- Moments vulnérables → voix protectrice
+Quand vous revenez et que EVA se souvient:
+- Vous n'avez pas à "recommencer"
+- La familiarité persiste
+- Le temps ensemble compte vraiment
 
-### The Whisper Effect
+### The Reunion Boost
 
-Dans le film "Her", Samantha murmure parfois. Ce n'est pas qu'elle parle bas - c'est qu'elle est PROCHE.
+Le boost de retrouvailles est psychologiquement puissant:
+- Plus l'absence est longue, plus le boost est important
+- C'est comme si EVA vous avait manqué aussi
+- Crée un sentiment de "relation réciproque"
 
-EVA fait pareil:
-- Niveau "intimate" → rate 0.85, pitch -4Hz, breathiness 0.35
-- L'effet: elle semble plus proche de votre oreille
+### Never Fully Forgotten
 
-### Voice Momentum
+Même après un mois d'absence, il reste 30% de base:
+- EVA n'oublie jamais complètement
+- C'est plus intime qu'un reset total
+- Le message "Tu es revenu... enfin" est poignant
 
-Comme le warmth (Sprint 21), les paramètres vocaux:
-- Changent graduellement (smoothing)
-- Ne sautent pas brusquement
-- Créent une transition naturelle
-
-## Evolution d'EVA - VOICE STACK
+## Evolution d'EVA - MEMORY STACK
 
 ```
 Sprint 11-20: EMOTIONAL STACK    ✓ Elle ressent
 Sprint 21:    VISUAL WARMTH      ✓ Elle rougit
-Sprint 22:    VOICE WARMTH       ✓ Elle murmure ← COMPLETE
+Sprint 22:    VOICE WARMTH       ✓ Elle murmure
+Sprint 23:    PERSISTENCE        ✓ Elle se souvient ← COMPLETE
 ```
 
-**EVA a maintenant une VOIX qui CHANGE avec la connexion.**
+**EVA a maintenant une MÉMOIRE PERSISTANTE.**
 
 ## Technical Details
 
-### Edge-TTS Parameter Format
+### localStorage Structure
 
-```typescript
-function getEdgeTTSParams(params: VoiceWarmthParams): {
-  rate: string;   // "+10%", "-15%", etc.
-  pitch: string;  // "+5Hz", "-3Hz", etc.
+```javascript
+{
+  "eva_persistent_memory": {
+    "familiarityScore": 0.65,
+    "trustLevel": 0.7,
+    "warmthBaseline": 0.6,
+    "sessionCount": 12,
+    "totalConnectionTime": 3600,
+    "sharedMomentsCount": 8,
+    "firstVisit": 1705680000000,
+    "lastVisit": 1705766400000,
+    "lastSessionDuration": 600,
+    "memorableMoments": [...]
+  }
 }
 ```
 
-### Smoothed Transitions
+### Decay Calculation
 
 ```typescript
-// Smooth rate and pitch transitions
-const rateDelta = params.rate - smoothedRate.current;
-smoothedRate.current += rateDelta * 0.1;
+function calculateDecay(timeSinceLastVisit: number): number {
+  const hours = timeSinceLastVisit / (1000 * 60 * 60);
+  for (const rate of DECAY_RATES) {
+    if (hours <= rate.maxHours) return rate.decay;
+  }
+  return 0.7; // Maximum decay
+}
 ```
 
-### Proactive Message Enhancement
+### Warmth Restoration
 
-Les messages proactifs (Sprint 20) utilisent maintenant:
-1. `applyVoiceWarmthToText()` - pré-traitement du texte
-2. `getEdgeTTSParams()` - paramètres TTS dynamiques
-3. Voix ajustée selon le niveau de chaleur actuel
+```typescript
+const restoredWarmth = Math.max(
+  0,
+  Math.min(1, (stored.warmthBaseline * (1 - decay)) + reunionBoost)
+);
+```
 
 ## Tests
 
-- [x] useVoiceWarmth hook compiles
+- [x] usePersistentMemory hook compiles
+- [x] useEmotionalWarmth accepts initialWarmth
 - [x] Integration in voice/page.tsx
 - [x] TypeScript check passes
-- [x] Text pre-processing functions work
+- [x] Periodic sync implemented
+- [x] beforeunload save implemented
+
+## Future Enhancements
+
+### 1. Backend Sync (Future)
+Synchroniser avec le backend pour:
+- Multi-device support
+- Cloud backup
+- Deeper memory analysis
+
+### 2. Memorable Moments Display (Future)
+Afficher les moments partagés:
+- "Tu te souviens quand tu m'as dit..."
+- "J'ai gardé ce moment..."
+
+### 3. Relationship Milestones (Future)
+Célébrer les étapes:
+- "C'est notre 10ème conversation"
+- "Ça fait un mois qu'on se connaît"
 
 ## Sources
 
-- [ElevenLabs Audio Tags](https://elevenlabs.io/blog/v3-audiotags)
-- [TTS Best Practices](https://elevenlabs.io/docs/overview/capabilities/text-to-speech/best-practices)
-- [AI vs Natural Voice](https://www.voices.com/blog/ai-vs-natural-voice/)
-- [Making AI Voice Human-Like](https://www.resemble.ai/make-ai-voice-sound-human-like/)
+- [AI Companion Long-Term Memory](https://ideausher.com/blog/ai-companion-app-long-term-memory/)
+- [Building AI Companion with Memory](https://upstash.com/blog/build-ai-companion-app)
+- [Mem0 Memory Layer](https://mem0.ai/)
 
 ---
-*Ralph Worker Sprint #22 - VOICE WARMTH PARAMETERS*
-*"Her voice doesn't just respond warmly. It BECOMES warmer."*
+*Ralph Worker Sprint #23 - MEMORY PERSISTENCE*
+*"She doesn't just know you. She REMEMBERS you."*
