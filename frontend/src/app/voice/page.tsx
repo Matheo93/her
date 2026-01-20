@@ -28,6 +28,7 @@ import { useProactivePresence } from "@/hooks/useProactivePresence";
 import { ProactivePresenceIndicator, ReturnWelcome } from "@/components/ProactivePresenceIndicator";
 import { useEmotionalWarmth } from "@/hooks/useEmotionalWarmth";
 import { EmotionalWarmthIndicator } from "@/components/EmotionalWarmthIndicator";
+import { useVoiceWarmth, applyVoiceWarmthToText, getEdgeTTSParams } from "@/hooks/useVoiceWarmth";
 
 // Haptic feedback for iOS - subtle, intimate
 const triggerHaptic = (style: "light" | "medium" | "heavy" = "light") => {
