@@ -191,6 +191,32 @@ export default function VoiceFirstPage() {
     enabled: isConnected,
   });
 
+  // SPRINT 18: Shared silence - comfortable pauses together
+  const sharedSilence = useSharedSilence({
+    isListening: state === "listening",
+    isSpeaking: state === "speaking",
+    isThinking: state === "thinking",
+    userAudioLevel: inputAudioLevel,
+    conversationDuration: (Date.now() - conversationStartTime) / 1000,
+    timeSinceLastInteraction: state === "idle" ? (Date.now() - conversationStartTime) / 1000 : 0,
+    intimacyLevel: voiceIntimacy.levelNumeric,
+    attunementLevel: prosodyMirroring.attunementLevel,
+    emotion: evaEmotion,
+    isConnected,
+    enabled: isConnected,
+  });
+
+  // SPRINT 18: Emotional memory - EVA remembers what matters
+  const emotionalMemory = useEmotionalMemory({
+    currentEmotion: evaEmotion,
+    emotionalIntensity: prosodyMirroring.userProsody.emotionalIntensity,
+    isUserSpeaking: state === "listening" && inputAudioLevel > 0.05,
+    userTranscript: transcript,
+    isConnected,
+    conversationDuration: (Date.now() - conversationStartTime) / 1000,
+    enabled: isConnected,
+  });
+
   // SPRINT 12: Presence sound hook - subtle ambient audio presence
   usePresenceSound({
     enabled: presenceSoundEnabled,
@@ -594,6 +620,12 @@ export default function VoiceFirstPage() {
         type="ambient"
       />
 
+      {/* SPRINT 18: Shared silence ambient - cozy atmosphere during quiet moments */}
+      <SharedSilenceIndicator
+        silence={sharedSilence}
+        type="ambient"
+      />
+
       {/* JARVIS Feature: Bio-Data - subtle presence indicator (hidden on small mobile) */}
       <div className="absolute top-4 left-4 md:top-6 md:left-6 flex flex-col gap-2">
         <AnimatePresence>
@@ -794,6 +826,25 @@ export default function VoiceFirstPage() {
           <WhisperModeIndicator
             isActive={voiceIntimacy.level === "whisper"}
           />
+
+          {/* SPRINT 18: Shared silence presence - comfort in quiet moments */}
+          <SharedSilenceIndicator
+            silence={sharedSilence}
+            type="presence"
+          />
+
+          {/* SPRINT 18: Shared silence connection glow */}
+          <SharedSilenceIndicator
+            silence={sharedSilence}
+            type="connection"
+          />
+
+          {/* SPRINT 18: Emotional memory glow - warmth from shared moments */}
+          <EmotionalMemoryGlow
+            memoryGlow={emotionalMemory.visualHints.memoryGlow}
+            connectionDepth={emotionalMemory.visualHints.connectionDepth}
+            showParticle={emotionalMemory.visualHints.showMemoryParticle}
+          />
         </div>
 
         {/* SPRINT 15: Attunement description - subtle connection text */}
@@ -866,6 +917,16 @@ export default function VoiceFirstPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* SPRINT 18: Silence message - gentle acknowledgment during long comfortable silences */}
+        {!showWelcome && state === "idle" && sharedSilence.isInSilence && (
+          <div className="mt-8">
+            <SilenceMessage
+              silence={sharedSilence}
+              className="px-4"
+            />
+          </div>
+        )}
 
         {/* Transcript - what user said */}
         <AnimatePresence mode="wait">
