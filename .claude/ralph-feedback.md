@@ -1,43 +1,26 @@
 ---
-reviewed_at: 2026-01-20T12:35:00Z
-commit: 1e12acd
-status: BLOCAGE CRITIQUE - PYTORCH DÉSINSTALLÉ
+reviewed_at: 2026-01-20T13:35:00Z
+commit: 7d3765b
+status: BLOCAGE - WEBSOCKET AUDIO BROKEN
 blockers:
-  - PyTorch COMPLÈTEMENT DÉSINSTALLÉ
-  - Tests CASSÉS (ModuleNotFoundError: torch)
-  - RTX 4090 49GB INUTILISÉ (0%)
-  - Chat ne retourne PAS audio_base64
+  - WebSocket audio: async_emotional_tts returns None (ultra_fast_tts FAILS)
+  - GPU: 0% utilization (should use RTX 4090)
 progress:
   - Backend health: OK (all services healthy)
-  - Tests: CASSÉS (import error torch)
+  - Tests: 199 passed, 1 skipped
   - Frontend build: OK (29 routes)
-  - Chat LLM: 238ms (PASS)
-  - TTS endpoint: 127ms (PASS)
-  - WebSocket: OK (14ms connection)
+  - LLM latency: 233-371ms (GOOD)
+  - TTS endpoint: 200-214ms (GOOD)
+  - WebSocket connection: 14ms (EXCELLENT)
 ---
 
-# Ralph Moderator Review - Cycle 48 ULTRA-EXIGEANT
+# Ralph Moderator Review - Cycle 49 ULTRA-EXIGEANT
 
 ## STATUS: **BLOCAGE CRITIQUE**
 
-### RÉSUMÉ DES TESTS RÉELS
-
-| Test | Résultat | Verdict |
-|------|----------|---------|
-| Backend Health | ✅ healthy (all services) | PASS |
-| Pytest | ❌ **CASSÉ** (ModuleNotFoundError: torch) | **BLOCAGE** |
-| Frontend Build | ✅ 29 routes compilées | PASS |
-| LLM Latence | ✅ 238ms | **PASS** |
-| TTS Latence | ✅ 127ms | **PASS** |
-| WebSocket | ✅ 14ms connection | **PASS** |
-| E2E Total | ⚠️ 1242ms (audio_length: 0) | **ATTENTION** |
-| GPU Usage | ❌ **0%** | **BLOCAGE** |
-| PyTorch | ❌ **DÉSINSTALLÉ!** | **BLOCAGE CRITIQUE** |
-| Chat Audio | ❌ **audio_length: 0** | **BLOCAGE** |
-
 ---
 
-## TESTS DÉTAILLÉS
+## TESTS EXÉCUTÉS - RÉSULTATS RÉELS
 
 ### 1. Backend Health ✅ PASS
 ```json
@@ -49,157 +32,129 @@ progress:
   "database": true
 }
 ```
-Backend opérationnel - mais comment tts: true si torch pas installé?
+Backend opérationnel.
 
 ### 2. GPU Utilisation ❌❌❌ BLOCAGE
 ```
-utilization.gpu [%], memory.used [MiB], memory.total [MiB], name
-0 %, 1 MiB, 49140 MiB, NVIDIA GeForce RTX 4090
+utilization.gpu [%], memory.used [MiB], name
+0 %, 678 MiB, NVIDIA GeForce RTX 4090
 ```
 
-**RTX 4090 avec 49 GB VRAM = 0% utilisé = GASPILLAGE ÉNORME**
+**RTX 4090 avec 49 GB VRAM = 0% CPU utilisé = GASPILLAGE**
+
+Note: 678 MiB mémoire allouée mais 0% utilisation GPU. Le GPU est prêt mais pas sollicité.
 
 ### 3. LLM Latence ✅ PASS
-```json
-{
-  "response": "Haha, je vais bien, merci ! J'suis un peu fatiguée, mais ça va !",
-  "latency_ms": 238,
-  "model": null
-}
 ```
-**238ms** - Objectif < 500ms = **ATTEINT**
+Test 1: 233ms
+Test 2: 277ms
+Test 3: 371ms (blague plus longue)
+```
+**Latence LLM: 233-371ms** - Objectif < 500ms = **ATTEINT**
 
 ### 4. TTS Endpoint ✅ PASS
 ```
-0.127319s (127ms)
+TTS request time: 211-214ms
+Output: 11016-12270 bytes MP3
+Backend logs: "🔊 TTS (GPU): 164-199ms"
 ```
-**127ms** - Objectif < 300ms = **ATTEINT**
+**TTS endpoint fonctionne à ~200ms** - Objectif < 300ms = **ATTEINT**
 
-Mais quel TTS tourne? Sans torch, pas de GPU TTS possible.
-
-### 5. WebSocket ✅ PASS
+### 5. WebSocket Connection ✅ PASS
 ```
-WebSocket connected in 14ms
+WebSocket connected: 14ms
 Response: {"type":"pong"}
 ```
 WebSocket fonctionnel.
 
 ### 6. Frontend Build ✅ PASS
 ```
-29 routes compilées (static + dynamic)
-Proxy middleware OK
+✓ Compiled successfully in 5.7s
+✓ Generating static pages (29/29) in 637.8ms
+Route (app): 28 routes + middleware
+```
+Frontend compile parfaitement.
+
+### 7. Pytest Suite ✅ PASS
+```
+199 passed, 1 skipped, 10 warnings in 3.66s
+```
+**TOUS LES TESTS PASSENT**
+
+### 8. WebSocket E2E Audio ❌❌❌ BLOCAGE CRITIQUE
+```python
+=== E2E WebSocket Results ===
+First token: 286ms
+No audio received
+Total time: 5378ms
+Audio chunks: 0
+Audio received: False
+Response: "hmm... ça va, ça va, je suis en train de faire du mal à mon cerveau..."
 ```
 
-### 7. Pytest ❌❌❌ BLOCAGE CRITIQUE
-```
-ERROR backend/tests/test_api.py
-ModuleNotFoundError: No module named 'torch'
-
-backend/main.py:63: in <module>
-    from fast_tts import init_fast_tts, async_fast_tts, fast_tts, async_fast_tts_mp3, fast_tts_mp3
-backend/fast_tts.py:6: in <module>
-    import torch
-```
-
-**LES TESTS NE PEUVENT PAS TOURNER SANS TORCH**
-
-Situation étrange: le backend TOURNE mais les tests CASSENT.
-Le backend a été lancé AVANT la désinstallation de torch?
-
-### 8. E2E Conversation ⚠️ ATTENTION
-```json
-{
-  "response": "Haha ! Un type entre dans un bar...",
-  "latency": 1242,
-  "audio_length": 0
-}
-```
-
-**PROBLÈMES:**
-- `latency: 1242ms` > 500ms objectif = **FAIL**
-- `audio_length: 0` = **PAS D'AUDIO** = **FAIL**
+**PROBLÈME CRITIQUE: WebSocket ne retourne AUCUN audio!**
 
 ---
 
-## DIAGNOSTIC
+## DIAGNOSTIC DU BUG AUDIO
 
-### PyTorch Status
-```bash
-pip list | grep -i torch
-# RÉSULTAT: NO TORCH PACKAGES
+### Logs Backend
+```
+❌ Ultra-Fast TTS init failed: No graph was found in the protobuf.
+❌ MMS-TTS init failed: No module named 'transformers'
 ```
 
-**PyTorch a été COMPLÈTEMENT désinstallé.**
-
-### Requirements.txt
+### Chaîne d'appels dans WebSocket /ws/chat
 ```
-# backend/requirements.txt
-# NE CONTIENT PAS torch!
-# Seulement edge-tts, faster-whisper, etc.
+1. async_emotional_tts(text, emotion)
+   └── appelle async_ultra_fast_tts(text)
+       └── appelle ultra_fast_tts(text)
+           └── cherche modèle à /workspace/eva-gpu/models/tts/vits-piper-fr_FR-siwis-low
+           └── FAIL: "No graph was found in the protobuf"
+           └── return None
+
+2. Fallback vers async_ultra_fast_tts(text) - même résultat = None
+
+3. AUCUN fallback vers gpu_tts ou fast_tts qui FONCTIONNENT!
 ```
 
-**torch n'est PAS dans requirements.txt** mais `fast_tts.py` l'importe!
+### Le Bug (main.py:1954)
+```python
+async def async_emotional_tts(text: str, emotion: str = "neutral") -> Optional[bytes]:
+    # ...
+    audio = await async_ultra_fast_tts(emotional_text)  # ← SEUL appel, PAS de fallback!
+    return audio  # ← Retourne None si ultra_fast échoue
+```
+
+### La Solution Requise
+```python
+async def async_emotional_tts(text: str, emotion: str = "neutral") -> Optional[bytes]:
+    # ...
+    # Try ultra-fast first
+    audio = await async_ultra_fast_tts(emotional_text)
+
+    # Fallback to GPU TTS (which WORKS - 164-199ms)
+    if not audio:
+        audio = await async_gpu_tts(emotional_text)
+
+    # Fallback to fast TTS
+    if not audio:
+        audio = await async_fast_tts(emotional_text)
+
+    return audio
+```
 
 ---
 
-## CE QUI FONCTIONNE ENCORE
+## RÉSUMÉ DES LATENCES RÉELLES
 
-1. **Backend health** - Services up
-2. **Groq LLM** - 238ms réponse
-3. **TTS endpoint** - 127ms (Edge-TTS probablement)
-4. **WebSocket** - Connexion OK
-5. **Frontend** - Build OK
-
-## CE QUI EST CASSÉ
-
-1. **PyTorch** - DÉSINSTALLÉ
-2. **Tests** - CASSÉS (import torch fail)
-3. **GPU** - 0% (pas de torch = pas de CUDA)
-4. **E2E Audio** - 0 bytes retournés
-5. **E2E Latence** - 1242ms > 500ms
-
----
-
-## SOLUTION IMMÉDIATE
-
-### ÉTAPE 1: Installer PyTorch CUDA (5 min)
-
-```bash
-# Installer PyTorch avec CUDA 12.4
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
-
-# Vérifier
-python3 -c "import torch; print('CUDA:', torch.cuda.is_available())"
-```
-
-### ÉTAPE 2: Ajouter torch aux requirements
-
-```bash
-# Ajouter à backend/requirements.txt:
-torch>=2.0.0
-torchvision>=0.15.0
-torchaudio>=2.0.0
-```
-
-### ÉTAPE 3: Redémarrer le backend
-
-```bash
-pkill -f 'uvicorn main:app'
-cd /home/dev/her/backend && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
-```
-
-### ÉTAPE 4: Vérification
-
-```bash
-# Tests doivent passer
-pytest backend/tests/ -v
-
-# GPU doit être utilisé
-nvidia-smi --query-gpu=utilization.gpu --format=csv
-
-# E2E doit retourner audio
-curl -X POST http://localhost:8000/chat -d '{"message":"test","session_id":"test"}' | jq '.audio_base64 | length'
-```
+| Composant | Latence | Objectif | Status |
+|-----------|---------|----------|--------|
+| LLM (Groq) | 233-371ms | < 500ms | ✅ PASS |
+| TTS endpoint | 164-214ms | < 300ms | ✅ PASS |
+| WebSocket conn | 14ms | < 50ms | ✅ PASS |
+| First token | 286ms | < 500ms | ✅ PASS |
+| WS Audio | ∞ (broken) | < 500ms | ❌ FAIL |
 
 ---
 
@@ -207,66 +162,79 @@ curl -X POST http://localhost:8000/chat -d '{"message":"test","session_id":"test
 
 | Critère | Score | Commentaire |
 |---------|-------|-------------|
-| Tests | **0/10** | CASSÉS - torch manquant |
+| Tests | 10/10 | 199 passed |
 | Build | 10/10 | Frontend OK |
-| Backend | 8/10 | Health OK mais inconsistant |
-| LLM | **10/10** | 238ms excellent |
-| TTS | **8/10** | 127ms OK mais E2E fail |
-| WebSocket | 10/10 | 14ms excellent |
-| E2E | **2/10** | 1242ms, 0 audio |
-| GPU | **0/10** | 0% - torch absent |
-| PyTorch | **0/10** | DÉSINSTALLÉ |
-| **TOTAL** | **48/90** | **53%** |
+| Backend | 10/10 | Health OK |
+| LLM Latency | 10/10 | 233-371ms excellent |
+| TTS Endpoint | 10/10 | 164-214ms excellent |
+| WebSocket | 10/10 | 14ms connection |
+| WS Audio E2E | **0/10** | **BROKEN - No audio** |
+| GPU Utilization | **5/10** | 0% (should be higher) |
+| **TOTAL** | **65/80** | **81%** |
 
 ---
 
-## RÉGRESSION vs CYCLE 47
+## BLOCAGES À RÉSOUDRE
 
-| Métrique | Cycle 47 | Cycle 48 | Delta |
-|----------|----------|----------|-------|
-| Tests | 199 passed | CASSÉS | **RÉGRESSION CRITIQUE** |
-| PyTorch | CPU-only | ABSENT | **RÉGRESSION** |
-| Score | 71% | 53% | **-18%** |
+### BLOCAGE 1: WebSocket Audio (CRITIQUE)
 
-**RÉGRESSION MAJEURE: Les tests fonctionnaient au cycle 47, maintenant ils sont cassés.**
+**Fichier:** `backend/main.py:1938-1955`
 
----
+**Problème:** `async_emotional_tts` appelle uniquement `async_ultra_fast_tts` sans fallback
 
-## VERDICT FINAL
+**Solution:** Ajouter fallback vers `async_gpu_tts` puis `async_fast_tts`
 
-**BLOCAGE CRITIQUE: PyTorch désinstallé**
+```python
+async def async_emotional_tts(text: str, emotion: str = "neutral") -> Optional[bytes]:
+    params = EMOTION_VOICE_PARAMS.get(emotion.lower(), EMOTION_VOICE_PARAMS["neutral"])
 
-Le système est dans un état INCONSISTANT:
-- Backend tourne (lancé avant désinstallation?)
-- Tests cassés (torch manquant)
-- GPU inutilisé (pas de CUDA possible)
-- E2E incomplet (pas d'audio)
+    emotional_text = text
+    if emotion == "joy" and not text.endswith("!"):
+        emotional_text = text.rstrip(".") + "!"
+    elif emotion == "sadness":
+        emotional_text = text.replace("!", "...").replace("?", "?...")
 
-### ACTIONS OBLIGATOIRES AVANT PROCHAIN CYCLE:
+    # Try ultra-fast first (if model available)
+    audio = await async_ultra_fast_tts(emotional_text)
 
-1. [ ] Installer PyTorch CUDA: `pip install torch --index-url https://download.pytorch.org/whl/cu124`
-2. [ ] Ajouter torch à requirements.txt
-3. [ ] Redémarrer backend
-4. [ ] Vérifier tests passent (199+)
-5. [ ] Vérifier GPU > 0%
-6. [ ] Vérifier E2E retourne audio
+    # Fallback to GPU TTS (Piper - works at ~165ms)
+    if not audio:
+        audio = await async_gpu_tts(emotional_text)
 
----
+    # Fallback to fast TTS (MMS)
+    if not audio:
+        audio = await async_fast_tts(emotional_text)
 
-## PROCHAINE REVIEW
+    return audio
+```
 
-Après installation de PyTorch CUDA.
+### BLOCAGE 2: GPU Utilisation
 
-**CRITÈRES DE DÉBLOCAGE:**
-- [ ] `pip list | grep torch` → torch>=2.0.0
-- [ ] `torch.cuda.is_available() == True`
-- [ ] pytest → 199+ passed
-- [ ] GPU utilisation > 0%
-- [ ] E2E audio_length > 0
+**État actuel:** 0% GPU, 678 MiB mémoire
+
+**Cause probable:** TTS utilise GPU mais seulement pendant génération (burst usage)
+
+**Action:** Pas de blocage si TTS fonctionne. Observer pendant conversation longue.
 
 ---
 
-*Ralph Moderator ULTRA-EXIGEANT - Cycle 48*
-*Status: BLOCAGE CRITIQUE (PyTorch DÉSINSTALLÉ)*
-*Score: 53% (-18% vs cycle précédent)*
-*"Comment peut-on désinstaller torch et laisser le backend tourner dans un état zombie?"*
+## ACTIONS REQUISES
+
+1. **IMMÉDIAT:** Fixer `async_emotional_tts` pour ajouter fallback
+2. **TEST:** Vérifier que WebSocket retourne audio après fix
+3. **OPTIONNEL:** Installer modèle Piper VITS si performance requise
+
+---
+
+## VERDICT
+
+**BLOCAGE CRITIQUE:** WebSocket audio cassé (0 bytes)
+
+Le système est fonctionnel à 81% mais l'expérience utilisateur via WebSocket est brisée car aucun audio n'est généré. Le fix est simple (ajouter fallback dans async_emotional_tts).
+
+---
+
+*Ralph Moderator - Cycle 49*
+*Status: BLOCAGE - WebSocket Audio*
+*Score: 81%*
+*"TTS endpoint works. WebSocket TTS doesn't. One line of fallback code missing."*
