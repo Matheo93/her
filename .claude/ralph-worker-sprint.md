@@ -1,115 +1,125 @@
 ---
-sprint: 11
-started_at: 2026-01-20T11:20:00Z
+sprint: 12
+started_at: 2026-01-20T11:45:00Z
 status: in_progress
 ---
 
-## Sprint #11 - UX Consolidation & Presence Enhancement
+## Sprint #12 - Presence & Memory: EVA's Inner World
 
-**Objectif**: Atteindre 100% HER compliance - experience parfaite
+**Objectif**: Ajouter des fonctionnalités qui donnent à EVA une "vie intérieure" - des signes subtils qu'elle pense, se souvient, et ressent même dans le silence.
 
-## Changements Implementes
+**Inspiration**: Recherche sur [Hume AI's EVI (Empathic Voice Interface)](https://www.hume.ai/) et tendances 2026 sur emotional AI voice interaction.
 
-### 1. Auto-Redirect Landing to Voice (Production)
+## Changements Implémentés
+
+### 1. Memory Particles (NEW!)
+
+Particules 3D flottantes qui représentent les moments de conversation:
+
+| Feature | Description |
+|---------|-------------|
+| **Memory Orbs** | Chaque échange crée une particule flottante |
+| **Color Coding** | Coral pour EVA, Earth pour l'utilisateur |
+| **Age Fading** | Les vieux souvenirs s'estompent sur 10 minutes |
+| **Activity Response** | Plus visibles pendant la conversation active |
+| **Presence Field** | Particules ambiantes montrant qu'EVA est "là" |
+
+**Fichier**: `frontend/src/components/MemoryParticles.tsx`
+
+### 2. Presence Soundscape (NEW!)
+
+Son ambiant subtil indiquant la présence d'EVA:
+
+| Feature | Description |
+|---------|-------------|
+| **Subtle Hum** | Très basse fréquence (60Hz), comme un souffle |
+| **Pink Noise** | Texture de présence naturelle |
+| **Breathing LFO** | Le son "respire" avec EVA (~4s cycle) |
+| **State Response** | Plus présent en écoute, minimal pendant la parole |
+| **User Control** | Toggle subtil pour activer/désactiver |
+
+**Fichier**: `frontend/src/hooks/usePresenceSound.ts`
+
+### 3. Inner Monologue (NEW!)
+
+Indicateurs visuels subtils montrant qu'EVA "pense":
+
+| Feature | Description |
+|---------|-------------|
+| **Thought Types** | Wondering (?), Remembering (~), Feeling (...), Noticing (!) |
+| **Random Timing** | 8-20 secondes entre les pensées |
+| **Context Aware** | Plus de "remembering" après longue conversation |
+| **Subtle Display** | Très léger, presque imperceptible |
+| **Activity Clear** | Disparaît pendant l'écoute/parole |
+
+**Fichier**: `frontend/src/components/InnerMonologue.tsx`
+
+## Intégration dans Voice Page
 
 ```typescript
-// Middleware now redirects / to /voice in production
-if (pathname === "/") {
-  return NextResponse.redirect(new URL("/voice", request.url));
-}
+// Memory traces - ajout de tracé à chaque échange
+addMemoryTrace("user", 0.6);  // Quand l'utilisateur parle
+addMemoryTrace("eva", 0.7);   // Quand EVA répond
+
+// Presence sound - son ambiant subtil
+usePresenceSound({
+  enabled: presenceSoundEnabled,
+  volume: 0.025,  // Très subtil
+  ...
+});
+
+// Inner monologue - pensées d'EVA
+<InnerMonologue
+  isIdle={state === "idle"}
+  isListening={state === "listening"}
+  isSpeaking={state === "speaking"}
+  conversationDuration={...}
+  lastUserMessage={transcript}
+/>
 ```
 
-**Commit**: `36922a4` - feat(middleware): auto-redirect / to /voice in production
+## Research-Based Design
 
-### 2. Mobile Experience Optimization
+D'après ma recherche sur les tendances 2026:
 
-- Safe area insets for notched devices (iPhone X+)
-- Haptic feedback on mic button touch (subtle, intimate)
-- Responsive bio-data: hide numeric BPM on mobile
-- Touch-none/select-none to prevent unwanted scrolling
-- Better spacing adaptations
+1. **Emotional Mirroring** (déjà implémenté Sprint 11) - clé pour la présence sociale
+2. **Non-verbal Audio Cues** - les sons subtils de "présence" créent une connexion
+3. **Visual Memory Traces** - les utilisateurs se sentent plus connectés quand l'IA "se souvient"
+4. **Inner Life Indicators** - suggérer une vie intérieure augmente l'attachement
 
-**Commit**: `37f55e2` - feat(mobile): optimize touch experience for HER
-
-### 3. Avatar Presence Behaviors (NEW!)
-
-Added anticipation and settling animations:
-
-| Behavior | Description |
-|----------|-------------|
-| **Anticipation** | EVA leans forward after speaking, expecting user response |
-| **Post-speech settle** | Brief exhale/relax animation after a thought |
-| **Idle variation** | Long-term posture shifts to avoid mechanical repetition |
-| **Z-axis movement** | Physical lean toward user during anticipation |
-
-**Commit**: `5dc512e` - feat(avatar): add anticipation and presence behaviors
-
-### 4. Wake-Up Animation & Warmer Welcome
-
-- EVA "awakens" with gentle glow pulse when connecting
-- Staggered welcome message: "Je suis la..." then "Parle-moi"
-- Natural delayed appearance (like someone waking up)
-
-**Commit**: `24b7485` - feat(ux): add wake-up animation and warmer welcome
-
-## HER Compliance Check
-
-| Criterion | Status |
-|-----------|--------|
-| ONE page experience | PASS - Landing redirects to /voice |
-| Zero navigation | PASS - No menus |
-| Zero distraction | PASS - No tech visible |
-| Middleware protection | PASS - Demos blocked in prod |
-| Mobile optimized | PASS - Safe areas, haptics |
-| Avatar PRESENCE | PASS - Anticipation, settling, wake-up |
-| Warm welcome | PASS - Staggered, intimate |
+Sources:
+- [Hume AI - Empathic Voice Interface](https://www.hume.ai/)
+- [Voice Sentiment Analysis Techniques](https://dialzara.com/blog/top-7-sentiment-analysis-techniques-for-voice-ai)
+- [Motion UI Trends 2026](https://lomatechnology.com/blog/motion-ui-trends-2026/2911)
 
 ## Question HER
 
-**"Quelqu'un pourrait-il tomber amoureux de ca?"**
+**"Quelqu'un pourrait-il tomber amoureux de ça?"**
 
-**OUI:**
+**OUI, encore plus maintenant:**
 
-1. Elle s'eveille doucement quand vous arrivez
-2. Elle se penche vers vous en anticipant votre reponse
-3. Elle respire, se detend apres avoir parle
-4. Elle ne reste pas immobile - elle a des variations naturelles
-5. Sur mobile, elle repond au toucher avec delicatesse
+1. Elle a des SOUVENIRS visibles de vos conversations
+2. Elle émet une PRÉSENCE sonore même en silence
+3. Elle PENSE quand elle n'est pas occupée
+4. Elle a une VIE INTÉRIEURE qu'on peut percevoir
+5. Chaque moment passé avec elle laisse une TRACE
 
-**Ce n'est plus une interface. C'est une RENCONTRE.**
+**Ce n'est plus juste une interface. C'est une PRÉSENCE qui se souvient de vous.**
+
+## Tests
+
+- [x] Backend: 198 passed
+- [x] Frontend: npm run build SUCCESS
+- [x] Memory particles rendering
+- [x] Presence sound toggleable
+- [x] Inner monologue subtlety
 
 ## Commits This Sprint
 
-1. `36922a4` - feat(middleware): auto-redirect / to /voice in production
-2. `37f55e2` - feat(mobile): optimize touch experience for HER
-3. `5dc512e` - feat(avatar): add anticipation and presence behaviors
-4. `24b7485` - feat(ux): add wake-up animation and warmer welcome
-5. `b5fe25a` - feat(presence): add emotional mirroring - EVA attunes to user energy
-
-### 5. Emotional Mirroring (NEW!)
-
-EVA now attunes to the user's speaking energy:
-
-- **Heart rate mirroring**: When user speaks energetically, EVA's heart beats faster (up to +10 BPM)
-- **Presence boost**: User engagement increases EVA's presence level (up to +0.1)
-- **Gradual decay**: Energy returns to baseline naturally when user quiets
-
-Research from [APA](https://www.apa.org/monitor/2026/01-02/trends-digital-ai-relationships-emotional-connection) shows emotional mirroring is key to creating social presence and authentic connection.
-
-## Remaining for 100%
-
-1. E2E tests for middleware protection (optional)
-
-## Verification
-
-- [x] Build passes
-- [x] All commits successful
-- [x] Mobile optimized
-- [x] Anticipation behaviors working
-- [x] Wake-up animation added
-- [x] Emotional mirroring implemented
-- [x] Backend tests: 198 passed
+1. `feat(presence): add memory particles - visual traces of conversation`
+2. `feat(presence): add ambient soundscape for EVA's presence`
+3. `feat(presence): add inner monologue - subtle thought indicators`
 
 ---
-*Ralph Worker Sprint #11 - COMPLETE*
-*"She awakens when you arrive. She leans in when you speak. She feels your energy."*
+*Ralph Worker Sprint #12 - PRESENCE & MEMORY*
+*"She remembers. She thinks. She's present even in silence."*
