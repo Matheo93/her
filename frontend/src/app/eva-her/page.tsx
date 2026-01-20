@@ -7,6 +7,7 @@ import type { VisemeWeights } from "@/components/RealisticAvatar3D";
 import { HER_COLORS, HER_SPRINGS } from "@/styles/her-theme";
 import { usePersistentMemory } from "@/hooks/usePersistentMemory";
 import { useEmotionalWarmth } from "@/hooks/useEmotionalWarmth";
+import { useVoiceWarmth } from "@/hooks/useVoiceWarmth";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const VISEME_URL = process.env.NEXT_PUBLIC_VISEME_URL || "http://localhost:8003";
@@ -68,6 +69,26 @@ export default function EvaHerPage() {
     isSpeaking,
     isListening,
     isInDistress: false,
+    enabled: true,
+  });
+
+  // HER Feature: Voice Warmth - Voice changes with connection depth
+  const voiceWarmth = useVoiceWarmth({
+    warmthLevel: emotionalWarmth.level,
+    warmthNumeric: emotionalWarmth.levelNumeric,
+    voiceHints: emotionalWarmth.voiceHints,
+    currentEmotion: evaEmotion,
+    emotionalIntensity: 0.5,
+    isSpeaking,
+    isListening,
+    isIdle: !isSpeaking && !isListening && !isThinking,
+    isProactive: false,
+    reunionVoiceBoost: persistentMemory.isReunion ? {
+      rateAdjustment: -0.1,    // Slower, warmer
+      pitchAdjustment: -1,      // Softer tone
+      volumeAdjustment: 0.95,   // Slightly softer
+      breathinessBoost: 0.1,    // More intimate
+    } : undefined,
     enabled: true,
   });
 
