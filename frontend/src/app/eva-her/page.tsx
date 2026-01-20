@@ -4,19 +4,17 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 import type { VisemeWeights } from "@/components/RealisticAvatar3D";
+import { HER_COLORS, HER_SPRINGS } from "@/styles/her-theme";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const VISEME_URL = process.env.NEXT_PUBLIC_VISEME_URL || "http://localhost:8003";
 
-// HER color palette - warm, intimate, human
-const HER_COLORS = {
-  coral: "#E8846B",
-  cream: "#F5E6D3",
-  warmWhite: "#FAF8F5",
-  earth: "#8B7355",
-  softShadow: "#D4C4B5",
-  blush: "#E8A090",
-};
+// Bio-data simulation for presence feeling
+interface BioData {
+  heartRate: number;
+  breathPhase: number;
+  presence: number;
+}
 
 // Dynamic import for 3D avatar (avoid SSR issues with Three.js)
 const RealisticAvatar3D = dynamic(
@@ -44,6 +42,14 @@ export default function EvaHerPage() {
   const [audioLevel, setAudioLevel] = useState(0);
   const [visemeWeights, setVisemeWeights] = useState<VisemeWeights>({ sil: 1 });
 
+  // JARVIS Feature: Bio-data for presence feeling
+  const [bioData, setBioData] = useState<BioData>({
+    heartRate: 72,
+    breathPhase: 0,
+    presence: 0.8,
+  });
+  const [showWelcome, setShowWelcome] = useState(true);
+
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
   const visemeWsRef = useRef<WebSocket | null>(null);
@@ -53,6 +59,43 @@ export default function EvaHerPage() {
   const isPlayingRef = useRef(false);
   const playNextAudioRef = useRef<() => void>(() => {});
   const analyzerRef = useRef<AnalyserNode | null>(null);
+  const bioAnimationRef = useRef<number | null>(null);
+
+  // Determine current state for bio-data
+  const currentState = isSpeaking ? "speaking" : isListening ? "listening" : isThinking ? "thinking" : "idle";
+
+  // JARVIS Feature: Bio-data animation
+  useEffect(() => {
+    let startTime = Date.now();
+
+    const animateBio = () => {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const breathPhase = (Math.sin(elapsed * Math.PI / 4) + 1) / 2;
+      const baseHR = isListening ? 78 : isSpeaking ? 75 : 72;
+      const hrVariation = Math.sin(elapsed * 0.5) * 3;
+      const targetPresence = currentState === "idle" ? 0.7 : currentState === "listening" ? 0.95 : 0.9;
+
+      setBioData((prev) => ({
+        heartRate: Math.round(baseHR + hrVariation),
+        breathPhase,
+        presence: prev.presence + (targetPresence - prev.presence) * 0.05,
+      }));
+
+      bioAnimationRef.current = requestAnimationFrame(animateBio);
+    };
+
+    bioAnimationRef.current = requestAnimationFrame(animateBio);
+    return () => {
+      if (bioAnimationRef.current) cancelAnimationFrame(bioAnimationRef.current);
+    };
+  }, [currentState, isListening, isSpeaking]);
+
+  // Welcome disappears after first interaction
+  useEffect(() => {
+    if (isListening || isSpeaking || isThinking) {
+      setShowWelcome(false);
+    }
+  }, [isListening, isSpeaking, isThinking]);
 
   // Connect to Viseme WebSocket
   useEffect(() => {
