@@ -1,23 +1,25 @@
 ---
-reviewed_at: 2026-01-20T15:20:00Z
-commit: 95ecdad
-status: EXCELLENT - TOUS LES TESTS PASSENT
-blockers: []
+reviewed_at: 2026-01-20T16:03:00Z
+commit: 3404648
+status: ALERTE - LATENCE LLM COLD START + GPU SOUS-UTILISÉ
+blockers:
+  - LLM cold start 911ms > 500ms (chaud: 151-211ms OK)
+  - GPU 0% utilisation au repos (806 MiB chargés mais idle)
+  - Audio non retourné dans /chat (TTS séparé fonctionne)
 progress:
   - Backend health: OK
   - Tests: 199 passed, 1 skipped
   - Frontend build: OK
-  - LLM latency: 267-395ms (EXCELLENT - sous 500ms)
-  - TTS latency: 242ms (EXCELLENT - sous 300ms)
-  - GPU: 806 MiB utilisés, Piper VITS + Whisper sur CUDA
-  - E2E Total: 387ms
+  - LLM latency cold: 911ms (FAIL), warm: 151-211ms (OK)
+  - TTS endpoint: 198ms + audio binaire OK
+  - GPU: 0% util, 806 MiB / 49140 MiB
 ---
 
-# Ralph Moderator Review - Cycle 55 ULTRA-EXIGEANT
+# Ralph Moderator Review - Cycle 56 ULTRA-EXIGEANT
 
-## STATUS: **EXCELLENT - AUCUN BLOCAGE**
+## STATUS: **ALERTE - PROBLÈMES IDENTIFIÉS**
 
-Tous les tests passent. Les latences sont excellentes. Le système est stable.
+Certains tests révèlent des problèmes de performance et d'intégration.
 
 ---
 
@@ -34,96 +36,83 @@ Tous les tests passent. Les latences sont excellentes. Le système est stable.
 }
 ```
 
-**Backend logs au démarrage:**
-```
-✅ Groq LLM connected (llama-3.1-8b-instant)
-✅ Whisper STT loaded (tiny on CUDA - ULTRA FAST ~130ms)
-🚀 Loading GPU TTS (Piper VITS on CUDA)...
-   Using provider: CUDAExecutionProvider
-✅ GPU TTS ready (sample rate: 22050Hz)
-✅ GPU TTS ready (Piper VITS ~30-100ms)
-🚀 Loading Ultra-Fast TTS...
-✅ Ultra-Fast TTS ready (GPU backend, ~50-70ms)
-```
-
-**GPU TTS actif!** Whisper et Piper sur CUDA.
-
-### 2. GPU Utilisation ✅ PASS
+### 2. GPU Utilisation ⚠️ ALERTE
 ```
 utilization.gpu [%], memory.used [MiB], memory.total [MiB], name
 0 %, 806 MiB, 49140 MiB, NVIDIA GeForce RTX 4090
 ```
 
-**806 MiB VRAM utilisés** - modèles chargés sur GPU.
-Le 0% utilization est normal au repos (burst computing pendant les requêtes).
+**PROBLÈME:**
+- **49140 MiB disponibles** mais seulement **806 MiB utilisés** (1.6%)
+- **0% GPU utilisation** au repos
+- Le RTX 4090 est largement sous-utilisé
 
-### 3. LLM Latence ✅✅ EXCELLENT
+**SOLUTIONS:**
+1. Charger Whisper `small` ou `medium` au lieu de `tiny`
+2. Utiliser un LLM local sur GPU (llama.cpp, vLLM)
+3. Batch processing TTS pour utilisation continue
+
+### 3. LLM Latence ⚠️ ALERTE COLD START
 ```
-Test 1: 395ms (message complexe)
-Test 2: 267ms (message court)
-Test 3: 357ms (blague)
-Test 4: 172ms (message simple)
-```
-
-**Moyenne: ~298ms** - **EXCELLENT!** Bien sous le seuil de 500ms.
-
-### 4. TTS Latence ✅✅ EXCELLENT
-```
-Warmup logs:
-🔊 TTS (GPU): 232ms (11957 bytes)
-🔊 TTS (GPU): 186ms (12897 bytes)
-🔊 TTS (GPU): 188ms (16345 bytes)
-🔊 TTS (GPU): 163ms (14465 bytes)
-🔊 TTS (GPU): 177ms (11957 bytes)
-🔊 TTS (GPU): 164ms (14778 bytes)
-🔊 TTS (GPU): 179ms (15718 bytes)
-
-Fresh TTS test (no cache): 242ms
-Direct TTS test: 215ms
+Premier appel (cold): 911ms ❌ > 500ms
+Appel 2: 211ms ✅
+Appel 3: 151ms ✅
+Appel 4: 204ms ✅
 ```
 
-**163-242ms** - **EXCELLENT!** Bien sous le seuil de 300ms.
-**GPU Piper VITS** en action.
+**PROBLÈME:** Cold start à **911ms** dépasse le seuil de 500ms.
 
-### 5. WebSocket ℹ️ ENDPOINT FONCTIONNEL
+**ANALYSE:**
+- Latence chaude excellente (151-211ms)
+- Groq API a un cold start penalty
+- Premier appel après inactivité = lent
+
+**SOLUTIONS:**
+1. Keep-alive ping toutes les 30s
+2. Warmup au démarrage du backend
+3. Fallback local si Groq lent (llama.cpp sur RTX 4090)
+
+### 4. TTS Endpoint ✅ PASS
 ```
-WebSocket endpoint présent: /ws/chat
-HTTP 400 sans headers WS valides (normal)
+TTS latency: 198ms
+Response: 5687 bytes MP3 binaire
 ```
 
-L'endpoint répond correctement (refuse connexion non-WS).
+**OK:** TTS fonctionne, retourne audio MP3 directement.
+
+### 5. Chat + Audio ⚠️ PROBLÈME INTÉGRATION
+```
+E2E avec voice=eva:
+- Total time: 451ms
+- Response: "Voici une blague..."
+- has_audio: false ❌
+```
+
+**PROBLÈME:** Le endpoint `/chat` ne retourne pas d'audio même avec `voice=eva`.
+
+**ANALYSE:**
+- `/tts` retourne de l'audio binaire OK
+- `/chat` ne combine pas LLM + TTS automatiquement
+- L'intégration E2E est cassée ou nécessite un autre endpoint
+
+**SOLUTIONS:**
+1. Vérifier si `/chat/expression` ou `/her/conversation` existe
+2. Ajouter paramètre `generate_audio: true` au chat
+3. Combiner appels `/chat` + `/tts` côté client
 
 ### 6. Frontend Build ✅ PASS
 ```
-✓ Compiled successfully
-✓ 29 routes générées
-├ ○ /avatar-demo, /avatar-gpu, /avatar-live
-├ ○ /eva, /eva-chat, /eva-her, /eva-live
-├ ○ /facetime, /call, /voice
-└ ƒ /api/tts (dynamic)
+29 routes générées
+ƒ /api/tts (dynamic)
+○ /eva, /eva-chat, /eva-her, /eva-live...
 ```
 
-### 7. Pytest Suite ✅ PASS
+### 7. Pytest ✅ PASS
 ```
-199 passed, 1 skipped, 10 warnings in 3.70s
-```
-
-**Tous les tests passent!**
-Les warnings sont des deprecation notices pour `@app.on_event` (non-bloquant).
-
-### 8. E2E Test ✅ PASS
-```bash
-# Chat + TTS séparés
-LLM Latency: 357ms
-TTS Latency: 9ms (cache hit)
-Total E2E: 387ms
-
-# TTS fresh (no cache)
-Fresh TTS Latency: 242ms
-Audio Size: 41083 bytes
+199 passed, 1 skipped, 10 warnings in 3.71s
 ```
 
-**Total E2E: ~500-600ms** pour Chat + TTS non-caché.
+**Warnings:** DeprecationWarning pour `@app.on_event` (cosmétique)
 
 ---
 
@@ -132,24 +121,33 @@ Audio Size: 41083 bytes
 | Composant | Valeur | Objectif | Status |
 |-----------|--------|----------|--------|
 | Backend health | OK | OK | ✅ PASS |
-| LLM latency | **172-395ms** | < 500ms | ✅✅ EXCELLENT |
-| TTS latency | **163-242ms** | < 300ms | ✅✅ EXCELLENT |
-| GPU VRAM | **806 MiB** | Utilisé | ✅ PASS |
+| LLM cold start | **911ms** | < 500ms | ❌ **FAIL** |
+| LLM warm | **151-211ms** | < 500ms | ✅ PASS |
+| TTS latency | **198ms** | < 300ms | ✅ PASS |
+| GPU VRAM | 806/49140 MiB | Utilisé | ⚠️ 1.6% |
+| GPU utilization | **0%** | Active | ⚠️ IDLE |
+| Chat + Audio | **No audio** | Audio | ❌ FAIL |
 | Frontend build | OK | OK | ✅ PASS |
-| Tests | **199/200** | 100% | ✅ PASS |
-| E2E Total | **387-600ms** | < 1000ms | ✅ PASS |
+| Tests | 199/200 | 100% | ✅ PASS |
 
 ---
 
-## GPU UTILISATION - DÉTAIL
+## BLOCAGES
 
-Le RTX 4090 est utilisé pour:
+### 🔴 BLOCAGE 1: LLM Cold Start
+**Condition:** Premier appel > 500ms
+**Valeur:** 911ms
+**Action:** Implémenter warmup ou keep-alive
 
-1. **Whisper STT** - `tiny on CUDA - ULTRA FAST ~130ms`
-2. **Piper VITS TTS** - `CUDAExecutionProvider` actif
-3. **Ultra-Fast TTS** - `GPU backend, ~50-70ms`
+### 🔴 BLOCAGE 2: Chat sans Audio
+**Condition:** `/chat` avec `voice=eva` ne retourne pas d'audio
+**Valeur:** `has_audio: false`
+**Action:** Investiguer intégration TTS dans chat
 
-Les 806 MiB représentent les modèles chargés. L'utilisation GPU monte pendant les requêtes (burst).
+### 🟡 WARNING: GPU Sous-utilisé
+**Condition:** RTX 4090 à 0% utilisation
+**Valeur:** 806 MiB / 49140 MiB
+**Action:** Charger plus de modèles sur GPU
 
 ---
 
@@ -159,87 +157,71 @@ Les 806 MiB représentent les modèles chargés. L'utilisation GPU monte pendant
 |---------|-------|-------------|
 | Tests | 10/10 | 199 passed |
 | Build | 10/10 | Frontend OK |
-| Backend | 10/10 | Health OK, toutes features |
-| LLM Latency | **10/10** | 172-395ms - EXCELLENT |
-| TTS Latency | **10/10** | 163-242ms - EXCELLENT |
-| GPU | **9/10** | 806 MiB, Whisper+Piper sur CUDA |
-| E2E | **9/10** | 387-600ms total |
-| **TOTAL** | **78/80** | **97.5%** |
+| Backend | 10/10 | Health OK |
+| LLM Cold | **5/10** | 911ms > 500ms |
+| LLM Warm | 10/10 | 151-211ms excellent |
+| TTS | 10/10 | 198ms OK |
+| GPU | **5/10** | 0% util, sous-utilisé |
+| Audio E2E | **3/10** | Pas d'audio dans /chat |
+| **TOTAL** | **63/80** | **78.75%** |
 
 ---
 
-## ARCHITECTURE AUDIO - RAPPEL
+## ACTIONS REQUISES
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Endpoints Audio                       │
-├─────────────────────────────────────────────────────────┤
-│ /chat              │ Texte seul (rapide, léger)         │
-│ /tts               │ Audio seul (POST text → MP3)       │
-│ /chat/expression   │ Streaming texte + audio + émotion  │
-│ /ws/chat           │ WebSocket temps réel               │
-│ /her/conversation  │ Full pipeline: STT → LLM → TTS     │
-└─────────────────────────────────────────────────────────┘
-```
+### CRITIQUE - À FAIRE IMMÉDIATEMENT
 
----
-
-## VERDICT FINAL
-
-**EXCELLENT - AUCUN BLOCAGE**
-
-| Métrique | Status |
-|----------|--------|
-| ✅ Backend health | PASS |
-| ✅ LLM 172-395ms | **EXCELLENT** |
-| ✅ TTS 163-242ms | **EXCELLENT** |
-| ✅ GPU 806 MiB | ACTIF (Whisper+Piper sur CUDA) |
-| ✅ Tests 199/200 | PASS |
-| ✅ Frontend build | PASS |
-| ✅ E2E 387-600ms | PASS |
-
-**Score global: 97.5%** (vs 88.75% cycle 54 = **+8.75%**)
-
----
-
-## RECOMMANDATIONS
-
-### 1. ✅ SYSTÈME STABLE - AUCUNE ACTION REQUISE
-
-Le système fonctionne parfaitement:
-- Latences excellentes
-- GPU utilisé
-- Tests passent
-- Build OK
-
-### 2. ⚠️ WARNINGS FASTAPI - FAIBLE PRIORITÉ
-
-Les `DeprecationWarning` pour `@app.on_event` peuvent être corrigés:
+1. **Warmup LLM au démarrage**
 ```python
-# Remplacer @app.on_event("startup") par:
-from contextlib import asynccontextmanager
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # startup
-    yield
-    # shutdown
-
-app = FastAPI(lifespan=lifespan)
+# Dans main.py startup
+async def warmup_llm():
+    await chat("ping", "warmup_session")
+    print("✅ LLM warmed up")
 ```
 
-Ceci est cosmétique, non-bloquant.
+2. **Investiguer /chat audio**
+```bash
+# Vérifier les endpoints audio
+grep -r "audio_base64\|generate_audio" backend/main.py
+```
 
-### 3. ℹ️ OPTIMISATION FUTURE
+### HAUTE PRIORITÉ
 
-Pour pousser encore plus loin:
-- Whisper `small` ou `medium` sur GPU (meilleure qualité)
-- Batch processing pour TTS concurrent
-- Streaming WebSocket pour latence perçue minimale
+3. **Keep-alive pour Groq**
+```python
+# Background task
+async def keep_alive():
+    while True:
+        await asyncio.sleep(30)
+        await chat(".", "keepalive")
+```
+
+4. **Augmenter utilisation GPU**
+- Charger Whisper `small` au lieu de `tiny`
+- Considérer LLM local (llama3:8b) en fallback
+
+### MOYENNE PRIORITÉ
+
+5. **Migrer `@app.on_event` vers `lifespan`**
 
 ---
 
-*Ralph Moderator - Cycle 55*
-*Status: EXCELLENT - AUCUN BLOCAGE*
-*Score: 97.5% (+8.75%)*
-*"Système stable. Latences excellentes. GPU actif. Zéro blocage."*
+## VERDICT
+
+**ALERTE - 2 BLOCAGES + 1 WARNING**
+
+Le système fonctionne partiellement mais:
+- ❌ LLM cold start inacceptable (911ms)
+- ❌ Audio non intégré dans `/chat`
+- ⚠️ GPU RTX 4090 gaspillé (0% util)
+
+**Score: 78.75%** (vs 97.5% cycle 55 = **-18.75%**)
+
+Ce cycle a testé plus rigoureusement et révélé des problèmes masqués.
+
+---
+
+*Ralph Moderator - Cycle 56*
+*Status: ALERTE - BLOCAGES IDENTIFIÉS*
+*Score: 78.75%*
+*"Tests plus rigoureux = problèmes révélés. Cold start et audio E2E à corriger."*
