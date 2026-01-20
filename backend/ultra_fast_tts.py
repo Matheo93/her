@@ -1,31 +1,36 @@
 """
-Ultra-Fast TTS Module - Sherpa-ONNX Piper VITS
-Target latency: ~30-60ms (3-5x faster than MMS-TTS)
+Ultra-Fast TTS Module - GPU Piper VITS Backend
+Target latency: ~30-60ms
+
+Uses gpu_tts (ONNX Runtime) as primary backend.
+Falls back to sherpa_onnx if available.
 """
 
-import sherpa_onnx
-import numpy as np
-import io
 import time
 from typing import Optional
-import scipy.io.wavfile as wav
 
-# Global instances
-_tts = None
-_sample_rate = 16000
+# Global state
+_backend = None  # "gpu" | "sherpa" | None
 
-MODEL_PATH = "/workspace/eva-gpu/models/tts/vits-piper-fr_FR-siwis-low"
+def _init_gpu_backend() -> bool:
+    """Try to initialize GPU TTS backend"""
+    try:
+        from gpu_tts import init_gpu_tts
+        return init_gpu_tts()
+    except Exception as e:
+        print(f"GPU backend unavailable: {e}")
+        return False
 
 
-def init_ultra_fast_tts() -> bool:
-    """Initialize Sherpa-ONNX Piper VITS for ultra-fast French TTS"""
-    global _tts, _sample_rate
-
-    if _tts is not None:
-        return True
+def _init_sherpa_backend() -> bool:
+    """Try to initialize Sherpa-ONNX backend"""
+    global _sherpa_tts, _sherpa_sample_rate
 
     try:
-        print("🚀 Loading Ultra-Fast TTS (Sherpa-ONNX Piper VITS)...")
+        import sherpa_onnx
+        import numpy as np
+
+        MODEL_PATH = "/workspace/eva-gpu/models/tts/vits-piper-fr_FR-siwis-low"
 
         tts_config = sherpa_onnx.OfflineTtsConfig(
             model=sherpa_onnx.OfflineTtsModelConfig(
@@ -34,30 +39,53 @@ def init_ultra_fast_tts() -> bool:
                     tokens=f"{MODEL_PATH}/tokens.txt",
                     data_dir=f"{MODEL_PATH}/espeak-ng-data",
                 ),
-                provider="cpu",  # Fast even on CPU
+                provider="cpu",
                 num_threads=4,
             ),
             max_num_sentences=1,
         )
 
-        _tts = sherpa_onnx.OfflineTts(tts_config)
-        _sample_rate = _tts.sample_rate
+        _sherpa_tts = sherpa_onnx.OfflineTts(tts_config)
+        _sherpa_sample_rate = _sherpa_tts.sample_rate
 
         # Warmup
-        for _ in range(5):
-            _ = _tts.generate("Bonjour")
+        for _ in range(3):
+            _ = _sherpa_tts.generate("Bonjour")
 
-        print(f"✅ Ultra-Fast TTS ready (sample rate: {_sample_rate}Hz, ~30-60ms latency)")
+        return True
+    except Exception as e:
+        print(f"Sherpa backend unavailable: {e}")
+        return False
+
+
+def init_ultra_fast_tts() -> bool:
+    """Initialize the fastest available TTS backend"""
+    global _backend
+
+    if _backend is not None:
         return True
 
-    except Exception as e:
-        print(f"❌ Ultra-Fast TTS init failed: {e}")
-        return False
+    print("🚀 Loading Ultra-Fast TTS...")
+
+    # Try GPU backend first (ONNX Runtime with Piper model)
+    if _init_gpu_backend():
+        _backend = "gpu"
+        print("✅ Ultra-Fast TTS ready (GPU backend, ~50-70ms)")
+        return True
+
+    # Fallback to Sherpa-ONNX
+    if _init_sherpa_backend():
+        _backend = "sherpa"
+        print("✅ Ultra-Fast TTS ready (Sherpa backend, ~30-60ms)")
+        return True
+
+    print("❌ No TTS backend available")
+    return False
 
 
 def ultra_fast_tts(text: str, speed: float = 1.0) -> Optional[bytes]:
     """
-    Generate speech ultra-fast using Sherpa-ONNX Piper VITS
+    Generate speech ultra-fast using best available backend.
 
     Args:
         text: Text to synthesize (French)
@@ -66,30 +94,39 @@ def ultra_fast_tts(text: str, speed: float = 1.0) -> Optional[bytes]:
     Returns:
         WAV audio bytes or None on error
     """
-    global _tts, _sample_rate
+    global _backend
 
-    if _tts is None:
+    if _backend is None:
         if not init_ultra_fast_tts():
             return None
 
     try:
-        # Generate audio
-        audio = _tts.generate(text, speed=speed)
+        if _backend == "gpu":
+            from gpu_tts import gpu_tts
+            return gpu_tts(text)
 
-        if audio.samples is None or len(audio.samples) == 0:
-            return None
+        elif _backend == "sherpa":
+            import numpy as np
+            import io
+            import scipy.io.wavfile as wav
 
-        # Convert to int16
-        samples = np.array(audio.samples)
-        max_val = np.max(np.abs(samples))
-        if max_val > 0:
-            samples = samples / max_val * 0.95
-        audio_int16 = (samples * 32767).astype(np.int16)
+            audio = _sherpa_tts.generate(text, speed=speed)
 
-        # Convert to WAV bytes
-        buffer = io.BytesIO()
-        wav.write(buffer, _sample_rate, audio_int16)
-        return buffer.getvalue()
+            if audio.samples is None or len(audio.samples) == 0:
+                return None
+
+            # Convert to int16 WAV
+            samples = np.array(audio.samples)
+            max_val = np.max(np.abs(samples))
+            if max_val > 0:
+                samples = samples / max_val * 0.95
+            audio_int16 = (samples * 32767).astype(np.int16)
+
+            buffer = io.BytesIO()
+            wav.write(buffer, _sherpa_sample_rate, audio_int16)
+            return buffer.getvalue()
+
+        return None
 
     except Exception as e:
         print(f"Ultra-Fast TTS error: {e}")
@@ -114,7 +151,7 @@ def benchmark():
         "Oh la la, j'adore discuter avec toi!",
     ]
 
-    print("\n=== Ultra-Fast TTS Benchmark ===\n")
+    print(f"\n=== Ultra-Fast TTS Benchmark (backend: {_backend}) ===\n")
 
     for phrase in phrases:
         times = []
@@ -126,7 +163,8 @@ def benchmark():
 
         avg = sum(times) / len(times)
         min_t = min(times)
-        print(f"'{phrase[:30]}' -> AVG {avg:.0f}ms | MIN {min_t:.0f}ms ({len(audio)} bytes)")
+        size = len(audio) if audio else 0
+        print(f"'{phrase[:30]}' -> AVG {avg:.0f}ms | MIN {min_t:.0f}ms ({size} bytes)")
 
     print("\n✅ Benchmark complete!")
 
