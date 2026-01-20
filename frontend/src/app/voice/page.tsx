@@ -30,6 +30,7 @@ import { useEmotionalWarmth } from "@/hooks/useEmotionalWarmth";
 import { EmotionalWarmthIndicator } from "@/components/EmotionalWarmthIndicator";
 import { useVoiceWarmth, applyVoiceWarmthToText, getEdgeTTSParams } from "@/hooks/useVoiceWarmth";
 import { usePersistentMemory, formatTimeSince, getReunionMessage } from "@/hooks/usePersistentMemory";
+import { ReunionIndicator, useReunionVoice } from "@/components/ReunionIndicator";
 
 // Haptic feedback for iOS - subtle, intimate
 const triggerHaptic = (style: "light" | "medium" | "heavy" = "light") => {
@@ -269,7 +270,11 @@ export default function VoiceFirstPage() {
     enabled: isConnected,
   });
 
+  // SPRINT 23: Reunion voice boost - warmer voice when returning after absence
+  const reunionVoiceBoost = useReunionVoice(persistentMemory);
+
   // SPRINT 22: Voice warmth - voice parameters that change with connection
+  // SPRINT 23: Now includes reunion voice boost
   const voiceWarmth = useVoiceWarmth({
     warmthLevel: emotionalWarmth.level,
     warmthNumeric: emotionalWarmth.levelNumeric,
@@ -280,6 +285,7 @@ export default function VoiceFirstPage() {
     isSpeaking: state === "speaking",
     isIdle: state === "idle",
     isProactive: proactivePresence.shouldInitiate,
+    reunionVoiceBoost: persistentMemory.isReunion ? reunionVoiceBoost : undefined,
     enabled: isConnected,
   });
 

@@ -66,6 +66,14 @@ export interface VoiceWarmthState {
   };
 }
 
+// Reunion voice adjustments
+export interface ReunionVoiceBoost {
+  rateAdjustment: number;   // -0.15 to 0 (slower for warmth)
+  pitchAdjustment: number;  // -2 to 2 Hz (softer)
+  volumeAdjustment: number; // 0.9 to 1 (slightly softer)
+  breathinessBoost: number; // 0 to 0.2 (more intimate)
+}
+
 interface UseVoiceWarmthOptions {
   // From useEmotionalWarmth
   warmthLevel: WarmthLevel;
@@ -83,6 +91,9 @@ interface UseVoiceWarmthOptions {
 
   // Is this a proactive message?
   isProactive: boolean;
+
+  // SPRINT 23: Reunion voice boost
+  reunionVoiceBoost?: ReunionVoiceBoost;
 
   // Enable feature
   enabled?: boolean;
@@ -161,6 +172,7 @@ export function useVoiceWarmth({
   isSpeaking,
   isIdle,
   isProactive,
+  reunionVoiceBoost,
   enabled = true,
 }: UseVoiceWarmthOptions): VoiceWarmthState {
   // State
@@ -212,6 +224,20 @@ export function useVoiceWarmth({
       params.rate = Math.min(params.rate, 0.9);
       params.softStart = true;
       params.breathiness = Math.max(params.breathiness, 0.2);
+    }
+
+    // SPRINT 23: Apply reunion voice boost if present
+    // When user returns after absence, voice should be warmer
+    if (reunionVoiceBoost) {
+      params.rate = params.rate + reunionVoiceBoost.rateAdjustment;
+      params.pitch = params.pitch + reunionVoiceBoost.pitchAdjustment;
+      params.volume = params.volume * reunionVoiceBoost.volumeAdjustment;
+      params.breathiness = Math.max(
+        params.breathiness,
+        params.breathiness + reunionVoiceBoost.breathinessBoost
+      );
+      // Reunion always starts soft - she's tender about seeing you again
+      params.softStart = true;
     }
 
     // Clamp values to valid ranges
@@ -281,7 +307,7 @@ export function useVoiceWarmth({
         pitchChange: smoothedParams.pitch,
       },
     });
-  }, [enabled, calculateParams, getMode, getDescription, warmthLevel, isProactive]);
+  }, [enabled, calculateParams, getMode, getDescription, warmthLevel, isProactive, reunionVoiceBoost]);
 
   return state;
 }

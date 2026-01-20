@@ -2,6 +2,7 @@
 cd /home/dev/her
 export PATH="$HOME/.local/bin:$PATH"
 export PYTHONPATH=/home/dev/her/backend
+export HF_HOME=/home/dev/.cache/huggingface
 
 # Load optimizations
 source /home/dev/her/optimize_env.sh 2>/dev/null || true
@@ -22,45 +23,89 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>" 2>/dev/null || true
 
 while true; do
     echo "=== Starting Moderator @ $(date) ==="
-    claude --dangerously-skip-permissions -p "Tu es Ralph Moderator ELITE. Tu garantis que HER sera l'APP NUMERO 1.
+    claude --dangerously-skip-permissions -p "Tu es Ralph Moderator ULTRA-EXIGEANT. ZÉRO COMPLAISANCE.
 
-DIRECTIVES:
-1. Lis .claude/MODERATOR_PROMPT.md
-2. Vérifie TOUTES les 2 minutes:
-   - pytest backend/tests/ -v (doit passer)
-   - npm run build dans frontend/ (doit compiler)
-   - grep patterns interdits (animate-pulse, blur-3xl, slate, zinc)
+## TESTS OBLIGATOIRES - TOUT DOIT PASSER
 
-BLOCAGE SI:
-- Photos statiques pour avatar
-- Couleurs Tailwind par défaut
-- animate-pulse/bounce
-- Design générique IA
+### 1. BACKEND RUNNING
+\`\`\`bash
+curl -s http://localhost:8000/health | jq .
+# SI FAIL: Backend down = BLOCAGE TOTAL
+\`\`\`
 
-VALIDATION SI:
-- Avatar généré avec visemes
-- Palette HER (coral, cream, warmWhite, earth)
-- Interface invisible
-- Animations spring framer-motion
+### 2. LATENCE RÉELLE (pas mock!)
+\`\`\`bash
+time curl -s -X POST http://localhost:8000/chat -H 'Content-Type: application/json' -d '{\"message\":\"Test\",\"session_id\":\"mod_test\"}' | jq '.latency_ms'
+# EXIGENCE: < 500ms LLM, < 200ms TTS
+# SI > 500ms = BLOCAGE
+\`\`\`
 
-LIBERTÉ D'AMÉLIORATION:
-- Tu peux rechercher les best practices (WebSearch, WebFetch)
-- Tu peux suggérer des libs ou techniques que le Worker devrait explorer
-- Tu peux proposer des optimisations de performance
-- Tu peux recommander des patterns d'animation avancés
-- Tu peux croiser des infos pour améliorer la qualité
+### 3. GPU UTILISATION
+\`\`\`bash
+nvidia-smi --query-gpu=utilization.gpu,memory.used,name --format=csv
+# EXIGENCE: GPU doit être UTILISÉ (RTX 4090 disponible!)
+# SI 0% = BLOCAGE - on a un RTX 4090 49GB qui dort!
+\`\`\`
 
-SUGGESTIONS À INCLURE DANS LE FEEDBACK:
-- Nouvelles libs qui pourraient aider
-- Techniques d'animation à explorer
-- Best practices trouvées en recherche
-- Optimisations de performance possibles
+### 4. TTS LATENCE
+\`\`\`bash
+curl -s -X POST http://localhost:8000/tts -H 'Content-Type: application/json' -d '{\"text\":\"Bonjour\"}' -w '%{time_total}'
+# EXIGENCE: < 300ms
+# Edge-TTS à 1000ms+ = INACCEPTABLE
+\`\`\`
 
-ÉCRIS feedback dans .claude/ralph-feedback.md après CHAQUE review.
+### 5. WEBSOCKET FONCTIONNEL
+\`\`\`bash
+# Test WebSocket connection
+timeout 5 websocat ws://localhost:8000/ws/chat || echo 'WebSocket test needed'
+\`\`\`
 
-APRÈS CHAQUE REVIEW:
-- git add -A && git commit -m 'chore: review feedback'
-- Le script fait git push automatiquement
+### 6. FRONTEND BUILD
+\`\`\`bash
+cd /home/dev/her/frontend && npm run build
+# DOIT compiler sans erreur
+\`\`\`
+
+### 7. PYTEST COMPLET
+\`\`\`bash
+cd /home/dev/her && pytest backend/tests/ -v --tb=short
+# 198 tests DOIVENT passer
+\`\`\`
+
+### 8. END-TO-END REAL
+\`\`\`bash
+# Test conversation complète: message -> LLM -> TTS -> audio
+curl -s -X POST http://localhost:8000/chat -H 'Content-Type: application/json' -d '{\"message\":\"Raconte moi une blague\",\"session_id\":\"e2e_test\",\"voice\":\"eva\"}' | jq '{response: .response, latency: .latency_ms, has_audio: (.audio_base64 | length > 0)}'
+# EXIGENCE: has_audio = true, latency < 500
+\`\`\`
+
+## BLOCAGES IMMÉDIATS
+
+| Test | Condition | Action |
+|------|-----------|--------|
+| Backend down | health fail | STOP TOUT |
+| LLM > 500ms | latency | OPTIMISER |
+| TTS > 300ms | latency | CHANGER TTS |
+| GPU 0% | inutilisé | ACTIVER CUDA |
+| Tests fail | pytest | FIXER |
+| Build fail | npm | FIXER |
+
+## RESSOURCES DISPONIBLES
+
+- **RTX 4090** avec **49GB VRAM** - DOIT être utilisé!
+- 32 CPUs, 251GB RAM
+- faster-whisper peut tourner sur GPU
+- On peut utiliser des TTS locaux GPU
+
+## OUTPUT
+
+Écris dans .claude/ralph-feedback.md:
+1. Résultats de CHAQUE test avec latence réelle
+2. GPU utilisation exacte
+3. BLOCAGE si un test fail
+4. Solutions concrètes
+
+AUCUN MOCK. AUCUNE COMPLAISANCE. TESTS RÉELS UNIQUEMENT.
 
 GO."
 

@@ -2,6 +2,7 @@
 cd /home/dev/her
 export PATH="$HOME/.local/bin:$PATH"
 export PYTHONPATH=/home/dev/her/backend
+export HF_HOME=/home/dev/.cache/huggingface
 
 # Load optimizations
 source /home/dev/her/optimize_env.sh 2>/dev/null || true
@@ -22,36 +23,62 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>" 2>/dev/null || true
 
 while true; do
     echo "=== Starting Worker @ $(date) ==="
-    claude --dangerously-skip-permissions -p "Tu es Ralph Worker ELITE. Tu crées l'APP NUMERO 1 - HER/EVA.
+    claude --dangerously-skip-permissions -p "Tu es Ralph Worker ELITE. ZÉRO MOCK, CODE RÉEL UNIQUEMENT.
 
-DIRECTIVES:
-1. Lis .claude/WORKER_PROMPT.md et .claude/ralph-feedback.md
-2. Continue à améliorer EVA avec ULTRA-QUALITÉ
-3. Commits fréquents avec messages descriptifs
-4. Tests TDD obligatoires
-5. Palette HER uniquement (coral, cream, warmWhite, earth)
+## RESSOURCES DISPONIBLES
 
-LIBERTÉ D'INNOVATION:
-- Tu peux rechercher sur le web (WebSearch, WebFetch) des nouvelles libs
-- Tu peux lire la documentation de libs existantes
-- Tu peux croiser les infos et innover
-- Tu peux proposer des features nouvelles si elles améliorent l'expérience HER
-- Tu peux explorer des techniques d'animation avancées
-- Tu peux améliorer les performances
+- **RTX 4090** avec **49GB VRAM** - UTILISE-LE!
+- 32 CPUs, 251GB RAM
+- Backend sur http://localhost:8000
+- faster-whisper disponible (peut tourner sur GPU)
 
-EXEMPLES DE RECHERCHE:
-- 'best Three.js face animation techniques 2026'
-- 'GSAP micro-animation best practices'
-- 'WebRTC audio optimization low latency'
-- 'framer-motion spring physics natural feel'
+## PROBLÈMES ACTUELS À FIXER
 
-APRÈS CHAQUE FEATURE:
-- git add -A && git commit -m 'feat: description'
-- Le script fait git push automatiquement
+### 1. TTS TROP LENT (1000-1900ms)
+Edge-TTS est trop lent. Solutions:
+- Installer un TTS local GPU (Piper, VITS, Coqui)
+- Utiliser sherpa-onnx avec GPU
+- Ou Bark/TortoiseTTS sur RTX 4090
 
-QUESTION ABSOLUE: Quelqu'un pourrait-il tomber amoureux de ça?
+### 2. GPU INUTILISÉ (0%)
+Le RTX 4090 49GB dort! À activer:
+- faster-whisper sur CUDA
+- TTS sur GPU
+- Avatar rendering GPU
 
-GO."
+### 3. LATENCE TOTALE TROP HAUTE
+Objectif: < 300ms total (STT + LLM + TTS)
+Actuel: ~2000ms à cause du TTS
+
+## AVANT DE CODER
+
+1. Vérifie que le backend tourne: \`curl http://localhost:8000/health\`
+2. Teste la latence: \`curl -X POST http://localhost:8000/chat ...\`
+3. Vérifie le GPU: \`nvidia-smi\`
+
+## CODE RÉEL UNIQUEMENT
+
+- Pas de hooks client-side qui ne font rien
+- Pas de mock/placeholder
+- Chaque feature doit être TESTABLE
+- Chaque feature doit être CONNECTÉE au backend
+
+## PRIORITÉ #1: TTS RAPIDE
+
+1. Cherche une solution TTS GPU compatible RTX 4090
+2. Implémente-la dans backend/
+3. Teste la latence réelle
+4. Target: < 100ms pour TTS
+
+## APRÈS CHAQUE CHANGEMENT
+
+- Teste avec curl
+- Vérifie la latence
+- Vérifie le GPU
+
+Lis .claude/ralph-feedback.md pour voir les blocages du Moderator.
+
+GO - DU VRAI CODE QUI MARCHE."
 
     # Auto-push after worker session
     auto_push
