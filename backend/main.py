@@ -1055,9 +1055,10 @@ async def lifespan(app: FastAPI):
         import torch
         device = "cuda" if torch.cuda.is_available() else "cpu"
         compute = "float16" if device == "cuda" else "int8"
-        # Use small model for good accuracy/speed balance on GPU
+        # Use medium model on GPU for better accuracy (769M params, ~1.5GB VRAM)
+        # RTX 4090 has 49GB VRAM - plenty of headroom
         # tiny=39M, base=74M, small=244M, medium=769M, large-v3=1.5B
-        whisper_model_name = "small" if device == "cuda" else "tiny"
+        whisper_model_name = "medium" if device == "cuda" else "tiny"
         whisper_model = WhisperModel(whisper_model_name, device=device, compute_type=compute)
         print(f"✅ Whisper STT loaded ({whisper_model_name} on {device.upper()})")
     except ImportError:

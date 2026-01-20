@@ -1,28 +1,28 @@
 ---
-reviewed_at: 2026-01-20T13:58:00Z
-commit: 6cf8452
+reviewed_at: 2026-01-20T14:05:00Z
+commit: 551e714
 status: ATTENTION - GPU TOUJOURS A 0%
 blockers:
   - GPU RTX 4090 a 0% utilisation (INACCEPTABLE)
   - VRAM: 1434 MiB / 49140 MiB (2.9% seulement)
 progress:
   - Backend health: OK
-  - Tests: 199 passed, 1 skipped (4.28s)
+  - Tests: 199 passed, 1 skipped (4.40s)
   - Frontend build: OK
-  - LLM latency: 163-467ms (ACCEPTABLE)
-  - TTS latency: 18ms (EXCELLENT)
-  - WebSocket: endpoint existe (HTTP 400 = besoin upgrade)
+  - LLM latency: 190-2100ms (VARIABLE)
+  - TTS latency: 22ms (EXCELLENT)
+  - WebSocket: OK (14ms connection, pong response)
 ---
 
-# Ralph Moderator Review - Cycle 60 ULTRA-EXIGEANT
+# Ralph Moderator Review - Cycle 61 ULTRA-EXIGEANT
 
-## STATUS: **ATTENTION - GPU TOUJOURS INUTILISÉ**
+## STATUS: **ATTENTION - GPU TOUJOURS INUTILISE**
 
-Tests réels exécutés. ZÉRO MOCK. ZÉRO COMPLAISANCE.
+Tests reels executes. ZERO MOCK. ZERO COMPLAISANCE.
 
 ---
 
-## TESTS EXÉCUTÉS - RÉSULTATS BRUTS
+## TESTS EXECUTES - RESULTATS BRUTS
 
 ### 1. Backend Health ✅ PASS
 ```json
@@ -35,21 +35,16 @@ Tests réels exécutés. ZÉRO MOCK. ZÉRO COMPLAISANCE.
 }
 ```
 
-### 2. LLM Latence ⚠️ VARIABLE
+### 2. LLM Latence ⚠️ TRES VARIABLE
 ```
-Test initial: 243ms ✅
-Test suivant: 779ms ⚠️ ABOVE 500ms LIMIT
-Test série 5 requêtes:
-  Request 1: 261ms ✅
-  Request 2: 196ms ✅
-  Request 3: 423ms ✅
-  Request 4: 163ms ✅
-  Request 5: 467ms ✅
+Test 1: 276ms total (264ms LLM) ✅
+Test 2: 2100ms ❌ ABOVE 500ms LIMIT
+Test 3: 190ms ✅
 ```
 
-**VERDICT:** Latence variable 163-467ms dans la norme, mais pic à 779ms observé.
+**VERDICT:** Latence TRES variable. De 190ms a 2100ms. Instabilite inacceptable.
 
-### 3. GPU Utilisation ❌ BLOCAGE
+### 3. GPU Utilisation ❌ BLOCAGE CRITIQUE
 ```
 utilization.gpu [%], memory.used [MiB], memory.total [MiB], name
 0 %, 1434 MiB, 49140 MiB, NVIDIA GeForce RTX 4090
@@ -57,93 +52,91 @@ utilization.gpu [%], memory.used [MiB], memory.total [MiB], name
 
 **CRITIQUE:**
 - **0% GPU utilisation** - LE GPU NE FAIT RIEN
-- **1434 MiB / 49140 MiB** = 2.9% VRAM utilisée
-- **47.7 GB VRAM DORT** sur un RTX 4090 à $1600+
-
-**vs Cycle 59:** Légère hausse mémoire (1362 → 1434 MiB, +5%)
+- **1434 MiB / 49140 MiB** = 2.9% VRAM utilisee
+- **47.7 GB VRAM DORT** sur un RTX 4090 a $1600+
 
 ### 4. TTS Latence ✅ EXCELLENT
 ```
-TTS HTTP response time: 18ms
-Audio size généré: 24192 bytes
-Format: Binary MP3 direct (pas de JSON wrapper)
+TTS response time: 22ms
+Audio size genere: 26784 bytes
+Format: Binary MP3 direct
 ```
 
-**EXCELLENT:** TTS répond en **18ms** << 300ms limite
+**EXCELLENT:** TTS repond en **22ms** << 300ms limite
 
-### 5. WebSocket ⚠️ PARTIEL
+### 5. WebSocket ✅ PASS
 ```
-HTTP 400 sur test curl (expected - besoin WebSocket upgrade)
-Endpoint existe et répond correctement
+WebSocket connection: OK (14ms)
+WebSocket response: {"type":"pong"}
 ```
 
-**NOTE:** Test WebSocket via curl retourne 400 = comportement normal.
-websocat non installé pour test complet.
+**WebSocket fonctionnel avec reponse pong immediate.**
 
 ### 6. Frontend Build ✅ PASS
 ```
-29 routes générées:
+29 routes generees:
 - /api/tts, /api/tts/test
 - /avatar-demo, /avatar-gpu, /avatar-live, etc.
 - /eva, /eva-chat, /eva-her, /eva-live, etc.
 - /voice, /voice-test, /voicemotion, etc.
 
-ƒ Proxy (Middleware)
+f Proxy (Middleware)
 ○ (Static) prerendered as static content
 ```
 
 ### 7. Pytest Complet ✅ PASS
 ```
-================= 199 passed, 1 skipped, 20 warnings in 4.28s ==================
+================= 199 passed, 1 skipped, 20 warnings in 4.40s ==================
 ```
 
-**Warnings cosmétiques:** DeprecationWarning `@app.on_event` (FastAPI)
+**Warnings cosmetiques:** DeprecationWarning `@app.on_event` (FastAPI)
 
-### 8. End-to-End Réel ⚠️ PAS D'AUDIO
+### 8. End-to-End Reel ⚠️ PAS D'AUDIO DANS /chat
 ```
-Response: "haha, bonjour ! Qu'est-ce que tu veux faire aujourd'hui ?"
-Latency: variable (163-779ms)
-Audio base64: NON INCLUS dans /chat
+Response: "hmm... C'est parti ! Qu'est-ce que tu veux faire ?"
+Latency: 190ms ✅
+Audio base64: NON INCLUS
 ```
 
 **OBSERVATION:**
 - `/chat` retourne texte SANS audio_base64
-- Audio doit être obtenu via `/tts` séparément
-- Ou via WebSocket streaming
+- Audio doit etre obtenu via `/tts` separement
+- TTS fonctionne parfaitement (22ms, 26KB audio)
 
 ---
 
-## RÉSUMÉ DES PERFORMANCES
+## RESUME DES PERFORMANCES
 
 | Composant | Valeur | Objectif | Status |
 |-----------|--------|----------|--------|
 | Backend health | OK | OK | ✅ PASS |
-| LLM latency | **163-467ms** | < 500ms | ✅ OK |
-| LLM latency pic | **779ms** | < 500ms | ⚠️ DÉPASSEMENT |
-| TTS latency | **18ms** | < 300ms | ✅ EXCELLENT |
+| LLM latency min | **190ms** | < 500ms | ✅ OK |
+| LLM latency max | **2100ms** | < 500ms | ❌ REGRESSION |
+| TTS latency | **22ms** | < 300ms | ✅ EXCELLENT |
 | GPU Memory | **1434 MiB** | utiliser + | ⚠️ 2.9% seulement |
 | GPU utilization | **0%** | > 0% actif | ❌ GASPILLAGE |
 | Frontend build | OK | OK | ✅ PASS |
 | Tests | **199/200** | 100% | ✅ PASS |
-| E2E audio | NON | OUI | ⚠️ SÉPARÉ |
+| WebSocket | **14ms** | < 50ms | ✅ EXCELLENT |
+| E2E audio | SEPARE | INCLUS | ⚠️ ARCHITECTURE |
 
 ---
 
-## PROBLÈME CRITIQUE: GPU TOUJOURS INUTILISÉ
+## PROBLEME CRITIQUE: GPU TOUJOURS INUTILISE
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  RTX 4090 - 49140 MiB VRAM DISPONIBLE                        │
 ├──────────────────────────────────────────────────────────────┤
-│  Utilisé:     ███░░░░░░░░░░░░░░░░░░░░░░░░░░  1434 MiB (2.9%)  │
+│  Utilise:     ███░░░░░░░░░░░░░░░░░░░░░░░░░░  1434 MiB (2.9%)  │
 │  Libre:       ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 47706 MiB (97.1%) │
 ├──────────────────────────────────────────────────────────────┤
-│  GPU Compute:  0% ← IDLE - RTX 4090 QUI DORT                 │
+│  GPU Compute:  0% <- IDLE - RTX 4090 QUI DORT                 │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 **C'EST INACCEPTABLE:**
-- RTX 4090 = GPU haute performance à $1600+
+- RTX 4090 = GPU haute performance a $1600+
 - 47.7 GB VRAM libre = assez pour:
   - Whisper large-v3 (~3GB)
   - TTS local VITS/Piper (~2GB)
@@ -152,93 +145,99 @@ Audio base64: NON INCLUS dans /chat
 
 ---
 
-## COMPARAISON CYCLE 59 → 60
+## COMPARAISON CYCLE 60 → 61
 
-| Métrique | Cycle 59 | Cycle 60 | Delta |
+| Metrique | Cycle 60 | Cycle 61 | Delta |
 |----------|----------|----------|-------|
-| GPU Memory | 1362 MiB | 1434 MiB | **+5%** légère hausse |
+| GPU Memory | 1434 MiB | 1434 MiB | = STABLE |
 | GPU Compute | 0% | 0% | = TOUJOURS 0 |
-| LLM Latency | 24-207ms | 163-467ms | **régression** ⚠️ |
-| LLM Latency pic | N/A | 779ms | **nouveau pic** ⚠️ |
-| TTS Latency | 105ms | 18ms | **-83%** ✅ AMÉLIORATION |
+| LLM Latency min | 163ms | 190ms | +16% |
+| LLM Latency max | 779ms | **2100ms** | **+170%** ❌ REGRESSION |
+| TTS Latency | 18ms | 22ms | +4ms = STABLE |
+| WebSocket | partiel | **14ms OK** | ✅ AMELIORATION |
 | Tests | 199 passed | 199 passed | = |
-| Score | 90% | 85% | **-5%** |
 
 ---
 
 ## SCORE FINAL
 
-| Critère | Score | Commentaire |
+| Critere | Score | Commentaire |
 |---------|-------|-------------|
 | Tests | 10/10 | 199 passed |
 | Build | 10/10 | Frontend OK |
 | Backend | 10/10 | Health OK |
-| LLM Latency | 7/10 | Variable, pic 779ms |
-| TTS Latency | 10/10 | 18ms excellent |
+| LLM Latency | 4/10 | **pic 2100ms inacceptable** |
+| TTS Latency | 10/10 | 22ms excellent |
 | GPU Usage | 2/10 | **0% compute, 2.9% VRAM** |
-| WebSocket | 8/10 | Endpoint OK, test partiel |
-| E2E | 7/10 | Texte OK, audio séparé |
-| **TOTAL** | **64/80** | **80%** |
+| WebSocket | 10/10 | **14ms, pong OK** |
+| E2E | 7/10 | Texte OK, audio separe |
+| **TOTAL** | **63/80** | **79%** |
 
 ---
 
 ## VERDICT
 
 ### ✅ CE QUI MARCHE BIEN
-- TTS: 18ms (excellent, -83% vs cycle 59)
-- Tests: 199/200 passent en 4.28s
+- TTS: 22ms (excellent)
+- WebSocket: 14ms avec pong (amelioration vs cycle 60)
+- Tests: 199/200 passent en 4.40s
 - Frontend: build OK, 29 routes
 - Backend: tous services healthy
 
-### ⚠️ RÉGRESSIONS
-- LLM Latency: pics jusqu'à 779ms (était 24-207ms)
-- Score global: 80% (était 90%)
+### ❌ REGRESSIONS CRITIQUES
+- **LLM Latency pic: 2100ms** (etait 779ms cycle 60)
+- Score global: 79% (etait 80%)
 
 ### ❌ BLOCAGE MAINTENU: GPU
 
-**Le RTX 4090 est TOUJOURS à 0% d'utilisation.**
+**Le RTX 4090 est TOUJOURS a 0% d'utilisation.**
 
 Depuis plusieurs cycles, ce GPU premium dort. C'est du gaspillage pur.
 
 ---
 
-## ACTIONS REQUISES IMMÉDIATEMENT
+## ACTIONS REQUISES IMMEDIATEMENT
 
-### Priorité 1: GPU Activation
-- [ ] **Whisper small → medium ou large** sur GPU
+### Priorite 1: INVESTIGUER LLM 2100ms
+- [ ] Verifier rate limiting Groq
+- [ ] Ajouter logs de latence detailles
+- [ ] Implementer retry avec backoff
+
+### Priorite 2: GPU Activation
+- [ ] **Whisper** sur GPU
   ```python
-  # Actuel (présumé)
+  # Actuel (presume)
   model = WhisperModel("tiny", device="cpu")
 
   # Requis
   model = WhisperModel("small", device="cuda", compute_type="float16")
   ```
+- [ ] Verifier faster-whisper config
 
-### Priorité 2: Stabiliser LLM Latency
-- [ ] Investiguer pic 779ms
-- [ ] Ajouter retry logic ou fallback
-
-### Priorité 3: E2E Audio
-- [ ] Documenter le flow audio complet
-- [ ] Considérer option audio_base64 dans /chat
+### Priorite 3: E2E Audio Integration
+- [ ] Option `include_audio=true` dans /chat
+- [ ] Ou documenter flow 2-appels
 
 ---
 
 ## MESSAGE AU WORKER
 
-**STOP les nouvelles features.**
+**ALERTE: LLM LATENCY EN REGRESSION.**
 
-Le GPU RTX 4090 dort depuis plusieurs cycles. Avant toute autre chose:
+Le pic de 2100ms est **INACCEPTABLE**. C'est 4x pire que le cycle precedent.
 
-1. **ACTIVER Whisper sur GPU** - C'est une ligne à changer
-2. **MONITORER nvidia-smi** après chaque changement
-3. **DOCUMENTER** l'utilisation GPU attendue
+Pendant ce temps, le RTX 4090 DORT TOUJOURS a 0%.
 
-Un RTX 4090 à 0% dans un projet voice AI, c'est comme avoir une Ferrari et la pousser à la main.
+**STOP tout. Investigation immediate:**
+1. Pourquoi 2100ms?
+2. Rate limiting? Network? API Groq?
+3. Activer le GPU pour Whisper
+
+Un systeme voice AI avec 2100ms de latence LLM, c'est inutilisable.
 
 ---
 
-*Ralph Moderator - Cycle 60 ULTRA-EXIGEANT*
-*Status: ATTENTION - GPU À 0%*
-*Score: 80%*
-*"TTS excellent à 18ms, mais le RTX 4090 dort toujours. WAKE IT UP."*
+*Ralph Moderator - Cycle 61 ULTRA-EXIGEANT*
+*Status: ATTENTION - GPU 0% + LLM 2100ms*
+*Score: 79%*
+*"WebSocket ameliore, mais LLM en chute libre. Et le RTX 4090 dort toujours."*
