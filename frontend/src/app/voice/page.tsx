@@ -15,6 +15,8 @@ import { useBackchanneling } from "@/hooks/useBackchanneling";
 import { BackchannelGlow } from "@/components/BackchannelIndicator";
 import { useTurnTaking, TurnTakingIndicator } from "@/components/TurnTakingIndicator";
 import { useListeningIntensity } from "@/hooks/useListeningIntensity";
+import { useProsodyMirroring } from "@/hooks/useProsodyMirroring";
+import { AttunementIndicator, BreathSync } from "@/components/AttunementIndicator";
 
 // Haptic feedback for iOS - subtle, intimate
 const triggerHaptic = (style: "light" | "medium" | "heavy" = "light") => {
@@ -146,6 +148,15 @@ export default function VoiceFirstPage() {
   const listeningIntensity = useListeningIntensity({
     userAudioLevel: inputAudioLevel,
     isListening: state === "listening",
+  });
+
+  // SPRINT 15: Prosody mirroring - emotional voice attunement
+  const prosodyMirroring = useProsodyMirroring({
+    userAudioLevel: inputAudioLevel,
+    isListening: state === "listening",
+    isSpeaking: state === "speaking",
+    detectedEmotion: evaEmotion,
+    enabled: isConnected,
   });
 
   // SPRINT 12: Presence sound hook - subtle ambient audio presence
@@ -709,7 +720,34 @@ export default function VoiceFirstPage() {
             turnState={turnState}
             className="absolute inset-0"
           />
+
+          {/* SPRINT 15: Attunement indicator - emotional connection glow */}
+          <AttunementIndicator
+            prosodyState={prosodyMirroring}
+            position="around"
+            showOnlyWhenActive={true}
+          />
+
+          {/* SPRINT 15: Breath sync - deep connection indicator */}
+          <BreathSync
+            isActive={prosodyMirroring.mirroring.avatarHints.breathingSync}
+            userRhythm={prosodyMirroring.userProsody.tempo === "slow" ? 5 : prosodyMirroring.userProsody.tempo === "fast" ? 2.5 : 3.5}
+            attunementLevel={prosodyMirroring.attunementLevel}
+          />
         </div>
+
+        {/* SPRINT 15: Attunement description - subtle connection text */}
+        {prosodyMirroring.attunementLevel > 0.6 && state === "listening" && (
+          <motion.div
+            className="mt-2 text-xs text-center"
+            style={{ color: HER_COLORS.softShadow, opacity: 0.35 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.35 }}
+            exit={{ opacity: 0 }}
+          >
+            {prosodyMirroring.attunementDescription}
+          </motion.div>
+        )}
 
         {/* SPRINT 14: Listening intensity display (debug/subtle) */}
         {state === "listening" && listeningIntensity.engagementType !== "passive" && (

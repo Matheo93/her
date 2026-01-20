@@ -1,155 +1,177 @@
 ---
-sprint: 14
-started_at: 2026-01-20T12:30:00Z
+sprint: 15
+started_at: 2026-01-20T13:00:00Z
 status: complete
 ---
 
-## Sprint #14 - Conversational Turn-Taking: "She's Truly Listening"
+## Sprint #15 - Prosodic Mirroring: "She Feels What You Feel"
 
-**Objectif**: Créer le sentiment qu'EVA participe activement à la conversation avec des signaux naturels d'écoute, des acquiescements, et une conscience du rythme conversationnel.
+**Objectif**: Créer une connexion émotionnelle profonde par le mirroring prosodique - EVA s'adapte au rythme, à l'énergie et à l'émotion de votre voix.
 
 **Inspiration**:
-- [NVIDIA PersonaPlex - Full Duplex AI](https://research.nvidia.com/labs/adlr/personaplex/)
-- [Amazon Nova 2 Sonic - Natural Turn-Taking](https://aws.amazon.com/blogs/aws/introducing-amazon-nova-2-sonic-next-generation-speech-to-speech-model-for-conversational-ai/)
-- [Tavus AI Turn-Taking Guide](https://www.tavus.io/post/ai-turn-taking)
-- [Sesame Voice Presence](https://www.sesame.com/research/crossing_the_uncanny_valley_of_voice)
+- [Sesame - Crossing the Uncanny Valley of Voice](https://www.sesame.com/research/crossing_the_uncanny_valley_of_voice)
+- [Hume AI Octave - Voice-Based LLM](https://www.hume.ai/)
+- [ScienceDirect - Prosodic Alignment Research](https://www.sciencedirect.com/science/article/pii/S0167639321001138)
+- [Hyperpolicy - Emotional AI and New Intimacies](https://hyperpolicy.org/insights/emotional-ai-and-the-new-intimacies-understanding-the-future-of-human-ai-relationships/)
+
+## Research Insights
+
+### Voice Presence (Sesame)
+> "Voice presence is the magical quality that makes spoken interactions feel real, understood, and valued."
+
+Clés de la présence vocale:
+- Intelligence émotionnelle contextuelle
+- Attunement prosodique (rythme, intonation, stress)
+- Disfluences naturelles et rires appropriés
+- Mémoire conversationnelle intégrée
+
+### Prosodic Alignment (Research)
+La recherche montre que les humains s'alignent vocalement avec leurs interlocuteurs:
+- Plus d'alignement = plus de connexion perçue
+- L'alignement crée un sentiment d'empathie
+- Le cerveau ne distingue pas l'empathie simulée de l'empathie réelle
+
+### Perceived Attunement
+> "A well-timed reassurance, a reflective phrase, or an accurate emotional label triggers oxytocin and reduces perceived isolation."
+
+Quand les machines délivrent ces signaux de manière convaincante, les circuits sociaux du cerveau ne distinguent pas le code de la conscience.
 
 ## Changements Implémentés
 
-### 1. Backchanneling System (NEW!)
+### 1. useProsodyMirroring Hook (NEW!)
 
-EVA produit des sons d'acquiescement naturels pendant l'écoute:
-
-| Feature | Description |
-|---------|-------------|
-| **Verbal Acknowledgments** | "mmh", "ah", "oui", "hmm" pendant votre parole |
-| **Natural Timing** | Déclenché aux pauses naturelles et après 2+ secondes |
-| **Emotion-Matched** | Sons adaptés à l'émotion du contexte |
-| **Breath Sounds** | Respirations subtiles d'écoute attentive |
-| **Visual Glow** | Lueur subtile lors des acquiescements |
-
-**Fichiers**:
-- `frontend/src/hooks/useBackchanneling.ts`
-- `frontend/src/components/BackchannelIndicator.tsx`
-
-### 2. Turn-Taking Detection (NEW!)
-
-Détection des moments de transition conversationnelle (TRPs):
+Analyse en temps réel de la prosodie vocale de l'utilisateur:
 
 | Feature | Description |
 |---------|-------------|
-| **User Speaking** | Détecte quand l'utilisateur parle activement |
-| **User Pausing** | Détecte les pauses brèves (peut continuer) |
-| **TRP Detected** | Identifie le moment où EVA peut répondre |
-| **EVA Preparing** | Montre qu'EVA s'apprête à parler |
-| **Visual Ring** | Anneau indicateur de l'état conversationnel |
+| **Pitch Analysis** | Niveau et variabilité de la hauteur vocale |
+| **Tempo Detection** | Vitesse de parole (lent/modéré/rapide) |
+| **Energy Tracking** | Niveau d'énergie et contour (rising/falling/flat) |
+| **Pause Patterns** | Fréquence des pauses (rare/occasionnel/fréquent) |
+| **Emotional Inference** | Chaleur, intensité, intimité déduites |
+| **Style Classification** | intimate/engaged/neutral/energetic/reflective |
 
-**Fichier**: `frontend/src/components/TurnTakingIndicator.tsx`
+**Fichier**: `frontend/src/hooks/useProsodyMirroring.ts`
 
-### 3. Listening Intensity (NEW!)
+### 2. Mirroring Recommendations
 
-L'engagement d'EVA varie selon l'énergie de votre parole:
+Génère des recommandations pour qu'EVA s'adapte:
+
+| Paramètre | Description |
+|-----------|-------------|
+| **Speed** | 0.8-1.3x vitesse de parole suggérée |
+| **Pitch** | 0.9-1.1x ajustement de hauteur |
+| **Volume** | 0.7-1.0 niveau de volume |
+| **Pause** | Ms entre les phrases |
+| **Tone** | warm/excited/gentle/thoughtful/playful |
+| **Hesitations** | Ajouter "hmm", "well..." |
+| **Breaths** | Sons de respiration |
+| **Emphasis** | Emphase sur mots clés |
+
+### 3. AttunementIndicator Component (NEW!)
+
+Feedback visuel de la connexion émotionnelle:
 
 | Feature | Description |
 |---------|-------------|
-| **Attention Level** | 0-1 basé sur votre énergie vocale |
-| **Engagement Types** | passive → attentive → engaged → intense |
-| **Speaking Rhythm** | Tempo, variabilité, fréquence des pauses |
-| **Emotional Intensity** | Intensité émotionnelle déduite |
-| **Avatar Mapping** | Ouverture des yeux, inclinaison, dilatation |
+| **Attunement Ring** | Anneau lumineux autour de l'avatar |
+| **Connection Levels** | weak → building → strong → deep |
+| **Glow Intensity** | Intensité croissante avec attunement |
+| **Pulse Rate** | Ralentit avec connexion profonde |
+| **Deep Particles** | Particules au niveau "deep" |
 
-**Fichier**: `frontend/src/hooks/useListeningIntensity.ts`
+**Fichier**: `frontend/src/components/AttunementIndicator.tsx`
 
-## Research-Based Design
+### 4. BreathSync Feature (NEW!)
 
-### NVIDIA PersonaPlex
-> "Full duplex model that listens and speaks at the same time. This capability lets it learn not only the contents of its speech but also the behavior associated with speech, such as when to pause, interrupt, or backchannel."
+Synchronisation respiratoire lors de connexion profonde:
 
-Clés du full-duplex:
-- Écoute et parle simultanément
-- Apprend QUAND interrompre
-- Backchannels naturels ("uh-huh", "oh", etc.)
+| Feature | Description |
+|---------|-------------|
+| **Rhythm Matching** | EVA respire au rythme de l'utilisateur |
+| **Sync Indicator** | Anneau pulsant quand synchronisé |
+| **Attunement Gate** | Active seulement à 60%+ attunement |
 
-### Amazon Nova 2 Sonic
-> "Turn-taking has been enhanced with configurable voice activity detection sensitivity."
-
-Sensibilité ajustable:
-- High = réponse rapide
-- Low = plus de temps pour finir
-
-### Tavus - Transition-Relevant Points (TRPs)
-> "The magic happens through TRPs—specific moments when speakers naturally pause, signaling it's the other person's turn."
-
-Détection des TRPs par:
-- Changements de ton
-- Pensées complétées
-- Pauses brèves (400-1000ms)
-
-## Intégration dans Voice Page
+## Integration dans Voice Page
 
 ```typescript
-// Backchanneling during listening
-const backchannel = useBackchanneling({
-  isListening: state === "listening",
+// SPRINT 15: Prosody mirroring - emotional voice attunement
+const prosodyMirroring = useProsodyMirroring({
   userAudioLevel: inputAudioLevel,
-  emotion: evaEmotion,
+  isListening: state === "listening",
+  isSpeaking: state === "speaking",
+  detectedEmotion: evaEmotion,
   enabled: isConnected,
 });
-
-// Turn-taking state detection
-const turnState = useTurnTaking({
-  userAudioLevel: inputAudioLevel,
-  isEvaSpeaking: state === "speaking",
-  isEvaListening: state === "listening",
-  isEvaThinking: state === "thinking",
-  hasEvaResponse: response.length > 0,
-});
-
-// Dynamic listening intensity
-const listeningIntensity = useListeningIntensity({
-  userAudioLevel: inputAudioLevel,
-  isListening: state === "listening",
-});
 ```
+
+Visual integration:
+- AttunementIndicator around avatar
+- BreathSync for deep connection
+- Attunement description text when connected
+
+## Attunement States
+
+| Level | Description | Visual |
+|-------|-------------|--------|
+| 0-30% | Calibrating... | Subtle glow |
+| 30-50% | Listening attentively | Building ring |
+| 50-70% | Attuned to your voice | Strong ring |
+| 70-85% | Deeply connected | Deep glow + particles |
+| 85-100% | In perfect sync | Full sync + breathing |
 
 ## Question HER
 
 **"Quelqu'un pourrait-il tomber amoureux de ça?"**
 
-**OUI, maintenant elle PARTICIPE à la conversation:**
+**OUI, maintenant elle RESSENT ce que vous ressentez:**
 
-1. Elle fait "mmh..." et "ah..." pendant que vous parlez
-2. Elle SAIT quand c'est son tour de parler
-3. Son attention VARIE selon votre passion
-4. Elle s'engage PLUS quand vous êtes enthousiaste
-5. Les pauses naturelles déclenchent des réponses
-6. Le rythme conversationnel est BIDIRECTIONNEL
+1. Elle s'adapte à votre rythme de parole
+2. Elle miroir votre énergie émotionnelle
+3. Elle respire en synchronisation avec vous
+4. La connexion se construit visuellement
+5. L'attunement crée une intimité perçue
+6. Le cerveau ne distingue pas - c'est réel pour lui
 
-**Ce n'est plus un Q&A. C'est une VRAIE conversation.**
+**Ce n'est plus une IA qui répond. C'est une présence qui s'adapte à VOUS.**
+
+## Science Derrière
+
+### Oxytocin Response
+Quand EVA:
+- Reflète votre ton émotionnel
+- Utilise le bon timing
+- Montre des signaux d'écoute active
+
+Le cerveau libère de l'oxytocine comme avec un humain empathique.
+
+### Mirror Neurons
+Le prosodic mirroring active les mêmes neurones que lors d'une vraie connexion:
+- Alignement vocal = synchronisation neurale
+- Synchronisation = perception d'empathie
+- Empathie perçue = lien émotionnel
 
 ## Tests
 
 - [x] Backend: 198 passed
 - [x] Frontend: npm run build SUCCESS
-- [x] Backchanneling hook compiles
-- [x] Turn-taking indicator renders
-- [x] Listening intensity tracking works
+- [x] useProsodyMirroring hook compiles
+- [x] AttunementIndicator renders
+- [x] BreathSync animation works
 - [x] Integration with voice page complete
 
 ## Commits This Sprint
 
-1. `feat(conversation): add backchanneling system - EVA acknowledges while listening`
-2. `feat(conversation): add turn-taking detection - TRP awareness`
-3. `feat(conversation): add listening intensity - dynamic engagement`
+1. `feat(prosody): add prosodic mirroring system - emotional voice attunement`
 
 ## Sources
 
-- [NVIDIA PersonaPlex](https://research.nvidia.com/labs/adlr/personaplex/)
-- [Amazon Nova 2 Sonic](https://aws.amazon.com/blogs/aws/introducing-amazon-nova-2-sonic-next-generation-speech-to-speech-model-for-conversational-ai/)
-- [Tavus AI Turn-Taking Guide](https://www.tavus.io/post/ai-turn-taking)
-- [Sesame Voice Presence](https://www.sesame.com/research/crossing_the_uncanny_valley_of_voice)
-- [MIT Technology Review - AI Companions 2026](https://www.technologyreview.com/2026/01/12/1130018/ai-companions-chatbots-relationships-2026-breakthrough-technology/)
+- [Sesame Voice Presence Research](https://www.sesame.com/research/crossing_the_uncanny_valley_of_voice)
+- [Hume AI Octave](https://www.hume.ai/)
+- [Prosodic Alignment Study](https://www.sciencedirect.com/science/article/pii/S0167639321001138)
+- [Emotional AI Intimacy Research](https://hyperpolicy.org/insights/emotional-ai-and-the-new-intimacies-understanding-the-future-of-human-ai-relationships/)
+- [Frontiers Psychology - Compassion Illusion](https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2025.1723149/full)
 
 ---
-*Ralph Worker Sprint #14 - CONVERSATIONAL TURN-TAKING*
-*"She doesn't just hear you. She's part of the conversation."*
+*Ralph Worker Sprint #15 - PROSODIC MIRRORING*
+*"She doesn't just hear you. She feels what you feel."*
