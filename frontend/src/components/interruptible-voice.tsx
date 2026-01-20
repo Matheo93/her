@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { HER_COLORS, HER_SPRINGS } from "@/styles/her-theme";
 
 interface Message {
   role: "user" | "assistant";
@@ -19,35 +21,23 @@ interface InterruptibleVoiceProps {
 type ConnectionState = "connecting" | "connected" | "disconnected" | "error";
 type SpeakingState = "idle" | "listening" | "thinking" | "speaking";
 
-/**
- * InterruptibleVoice Component
- *
- * Features:
- * - Real-time speech interruption: User can interrupt Eva mid-speech
- * - Chunked audio streaming for low latency
- * - Natural conversation flow with overlapping speech detection
- * - Visual feedback for all states
- */
 export function InterruptibleVoice({
   onClose,
   backendUrl,
   selectedVoice,
-  messages: _, // Available for future use (conversation history display)
+  messages: _,
   onNewMessage,
 }: InterruptibleVoiceProps) {
-  // Connection state
   const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
   const [speakingState, setSpeakingState] = useState<SpeakingState>("idle");
-
-  // UI state
   const [transcript, setTranscript] = useState("");
   const [currentResponse, setCurrentResponse] = useState("");
   const [callDuration, setCallDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [emotion, setEmotion] = useState<string | null>(null);
+  const [breathPhase, setBreathPhase] = useState(0);
 
-  // Refs
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioQueueRef = useRef<ArrayBuffer[]>([]);
@@ -58,20 +48,26 @@ export function InterruptibleVoice({
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Format duration
+  // Breathing animation
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBreathPhase((prev) => (prev + 1) % 100);
+    }, 40);
+    return () => clearInterval(interval);
+  }, []);
+
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Stop current audio playback (for interruption)
   const stopAudio = useCallback(() => {
     if (currentSourceRef.current) {
       try {
         currentSourceRef.current.stop();
       } catch {
-        // Already stopped - ignore error
+        // Already stopped
       }
       currentSourceRef.current = null;
     }
@@ -80,7 +76,6 @@ export function InterruptibleVoice({
     setAudioLevel(0);
   }, []);
 
-  // Send interrupt signal to backend
   const sendInterrupt = useCallback(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "interrupt" }));
@@ -89,7 +84,6 @@ export function InterruptibleVoice({
     }
   }, [stopAudio]);
 
-  // Play audio from queue - using a ref to avoid self-reference issue
   const playNextAudioRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
   const playNextAudio = useCallback(async () => {
@@ -99,14 +93,12 @@ export function InterruptibleVoice({
 
     const arrayBuffer = audioQueueRef.current.shift()!;
 
-    // Create audio context if needed
     if (!audioContextRef.current || audioContextRef.current.state === "closed") {
       audioContextRef.current = new AudioContext();
     }
 
     const ctx = audioContextRef.current;
 
-    // Resume if suspended (browser autoplay policy)
     if (ctx.state === "suspended") {
       await ctx.resume();
     }
@@ -117,7 +109,6 @@ export function InterruptibleVoice({
       source.buffer = audioBuffer;
       currentSourceRef.current = source;
 
-      // Create analyzer for visualization
       const analyzer = ctx.createAnalyser();
       analyzer.fftSize = 32;
       analyzer.smoothingTimeConstant = 0.5;
@@ -126,7 +117,6 @@ export function InterruptibleVoice({
       source.connect(analyzer);
       analyzer.connect(ctx.destination);
 
-      // Update audio level for mouth animation
       const dataArray = new Uint8Array(analyzer.frequencyBinCount);
       const updateLevel = () => {
         if (!isPlayingRef.current) return;
@@ -144,7 +134,6 @@ export function InterruptibleVoice({
         if (audioQueueRef.current.length > 0) {
           playNextAudioRef.current?.();
         } else {
-          // All audio finished
           setSpeakingState("idle");
         }
       };
@@ -165,12 +154,10 @@ export function InterruptibleVoice({
     }
   }, []);
 
-  // Keep ref updated for self-reference in callbacks
   useEffect(() => {
     playNextAudioRef.current = playNextAudio;
   }, [playNextAudio]);
 
-  // WebSocket connection
   useEffect(() => {
     const connect = () => {
       setConnectionState("connecting");
@@ -180,14 +167,12 @@ export function InterruptibleVoice({
 
       ws.onopen = () => {
         setConnectionState("connected");
-        console.log("Interruptible voice connected");
 
-        // Configure session
         ws.send(
           JSON.stringify({
             type: "config",
             voice: selectedVoice,
-            rate: "+15%",  // Fast natural speech
+            rate: "+15%",
             pitch: "+0Hz",
           })
         );
@@ -195,16 +180,13 @@ export function InterruptibleVoice({
 
       ws.onclose = () => {
         setConnectionState("disconnected");
-        console.log("Interruptible voice disconnected");
       };
 
-      ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
+      ws.onerror = () => {
         setConnectionState("error");
       };
 
       ws.onmessage = async (event) => {
-        // Binary audio data
         if (event.data instanceof ArrayBuffer) {
           audioQueueRef.current.push(event.data);
           playNextAudio();
@@ -215,7 +197,6 @@ export function InterruptibleVoice({
 
         switch (data.type) {
           case "config_ok":
-            console.log("Session configured:", data);
             break;
 
           case "speaking_start":
@@ -223,9 +204,6 @@ export function InterruptibleVoice({
             break;
 
           case "speaking_end":
-            if (data.reason === "interrupted") {
-              console.log("Speech interrupted by user");
-            }
             stopAudio();
             setSpeakingState("idle");
             break;
@@ -256,7 +234,6 @@ export function InterruptibleVoice({
             break;
 
           case "audio_chunk":
-            // Audio chunk notification - actual data comes as binary
             break;
 
           case "error":
@@ -265,7 +242,6 @@ export function InterruptibleVoice({
             break;
 
           case "pong":
-            // Keepalive response
             break;
         }
       };
@@ -275,12 +251,10 @@ export function InterruptibleVoice({
 
     connect();
 
-    // Start call timer
     callTimerRef.current = setInterval(() => {
       setCallDuration((prev) => prev + 1);
     }, 1000);
 
-    // Keepalive ping
     const pingInterval = setInterval(() => {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: "ping" }));
@@ -302,11 +276,9 @@ export function InterruptibleVoice({
     };
   }, [backendUrl, selectedVoice, playNextAudio, onNewMessage, stopAudio, emotion, speakingState]);
 
-  // Voice recording with interrupt capability
   const startListening = useCallback(async () => {
     if (speakingState === "listening" || !wsRef.current || isMuted) return;
 
-    // If Eva is speaking, interrupt her
     if (speakingState === "speaking") {
       sendInterrupt();
     }
@@ -326,7 +298,6 @@ export function InterruptibleVoice({
 
       mediaRecorderRef.current = mediaRecorder;
 
-      // Notify backend that user is speaking (to interrupt Eva)
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: "user_speaking" }));
       }
@@ -343,7 +314,6 @@ export function InterruptibleVoice({
           setTranscript("");
           audioQueueRef.current = [];
 
-          // Convert blob to ArrayBuffer and send
           const arrayBuffer = await blob.arrayBuffer();
           wsRef.current.send(arrayBuffer);
         } else {
@@ -355,7 +325,6 @@ export function InterruptibleVoice({
       setSpeakingState("listening");
     } catch (err) {
       console.error("Mic error:", err);
-      alert("Autorise l'accès au micro pour parler avec Eva");
       setSpeakingState("idle");
     }
   }, [speakingState, isMuted, sendInterrupt]);
@@ -366,12 +335,10 @@ export function InterruptibleVoice({
     }
   }, []);
 
-  // Send text message - available for future text input feature
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const sendMessage = useCallback((content: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
-    // Interrupt any ongoing speech
     if (speakingState === "speaking") {
       sendInterrupt();
     }
@@ -386,7 +353,6 @@ export function InterruptibleVoice({
     setCurrentResponse("");
   }, [speakingState, sendInterrupt, onNewMessage]);
 
-  // End call
   const endCall = useCallback(() => {
     stopAudio();
     wsRef.current?.close();
@@ -399,92 +365,102 @@ export function InterruptibleVoice({
     onClose();
   }, [onClose, stopAudio]);
 
-  // Calculate mouth open amount based on audio level
   const mouthOpen = Math.min(1, audioLevel * 2.5);
+  const breathScale = 1 + Math.sin(breathPhase * Math.PI / 50) * 0.02;
 
-  // Get state color
-  const getStateColor = () => {
+  const getStateGlow = () => {
     switch (speakingState) {
       case "speaking":
-        return "from-rose-500 to-pink-500";
+        return HER_COLORS.glowCoral;
       case "thinking":
-        return "from-violet-500 to-purple-500";
+        return HER_COLORS.glowWarm;
       case "listening":
-        return "from-emerald-500 to-teal-500";
+        return HER_COLORS.success + "60";
       default:
-        return "from-zinc-600 to-zinc-700";
+        return HER_COLORS.softShadow + "40";
     }
   };
 
-  // Get state text
   const getStateText = () => {
     switch (speakingState) {
       case "speaking":
-        return "Parle...";
+        return "Je te parle...";
       case "thinking":
-        return "Réfléchit...";
+        return "Je réfléchis...";
       case "listening":
-        return "T'écoute...";
+        return "Je t'écoute...";
       default:
-        return "En attente";
+        return "Parle-moi";
     }
   };
 
+  const stateGlow = getStateGlow();
+
   return (
-    <div className="fixed inset-0 z-50 bg-gradient-to-b from-zinc-900 via-black to-zinc-900">
+    <div
+      className="fixed inset-0 z-50"
+      style={{
+        background: `radial-gradient(ellipse at 50% 30%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+      }}
+    >
       {/* Ambient background */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div
-          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full blur-3xl transition-all duration-1000 ${
-            speakingState === "speaking"
-              ? "bg-rose-500/20 scale-110"
-              : speakingState === "thinking"
-                ? "bg-violet-500/15 animate-pulse"
-                : speakingState === "listening"
-                  ? "bg-emerald-500/15 animate-pulse"
-                  : "bg-zinc-500/10"
-          }`}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full"
+          style={{
+            background: `radial-gradient(circle, ${stateGlow} 0%, transparent 70%)`,
+          }}
+          animate={{
+            scale: speakingState === "speaking"
+              ? 1.1 + audioLevel * 0.2
+              : speakingState === "listening"
+                ? 1.05
+                : 1,
+          }}
+          transition={{ duration: 0.1 }}
         />
-        {speakingState === "speaking" && (
-          <div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-2xl bg-rose-400/10"
-            style={{
-              transform: `translate(-50%, -50%) scale(${1 + audioLevel * 0.3})`,
-              transition: "transform 0.1s ease-out",
-            }}
-          />
-        )}
       </div>
 
       {/* Video container */}
       <div className="relative w-full h-full flex items-center justify-center">
         {/* Avatar Display */}
         <div className="relative">
-          {/* Glow rings */}
-          <div
-            className={`absolute -inset-2 rounded-full transition-all duration-300 ${
-              speakingState === "speaking"
-                ? "ring-4 ring-rose-400/50 shadow-[0_0_80px_rgba(244,63,94,0.5)]"
-                : speakingState === "thinking"
-                  ? "ring-4 ring-violet-400/50 shadow-[0_0_60px_rgba(139,92,246,0.4)] animate-pulse"
-                  : speakingState === "listening"
-                    ? "ring-4 ring-emerald-400/50 shadow-[0_0_60px_rgba(52,211,153,0.4)]"
-                    : "ring-2 ring-white/20 shadow-[0_0_30px_rgba(255,255,255,0.1)]"
-            }`}
+          {/* Outer glow ring */}
+          <motion.div
+            className="absolute -inset-8 rounded-full"
+            style={{
+              boxShadow: `0 0 60px ${stateGlow}`,
+            }}
+            animate={{
+              scale: speakingState === "speaking"
+                ? [1, 1.05, 1]
+                : speakingState === "listening"
+                  ? [1, 1.03, 1]
+                  : 1,
+            }}
+            transition={{
+              duration: speakingState === "speaking" ? 0.5 : 0.8,
+              repeat: speakingState !== "idle" && speakingState !== "thinking" ? Infinity : 0,
+            }}
           />
 
           {/* Main orb */}
-          <div
-            className={`w-72 h-72 md:w-96 md:h-96 rounded-full bg-gradient-to-br ${getStateColor()} shadow-2xl transition-all duration-500 flex items-center justify-center`}
+          <motion.div
+            className="w-72 h-72 md:w-96 md:h-96 rounded-full flex items-center justify-center"
             style={{
-              transform: speakingState === "speaking" ? `scale(${1 + mouthOpen * 0.05})` : "scale(1)",
+              background: `radial-gradient(circle, ${HER_COLORS.coral} 0%, ${HER_COLORS.blush} 50%, ${HER_COLORS.cream} 100%)`,
+              boxShadow: `0 0 80px ${HER_COLORS.glowCoral}`,
+              transform: `scale(${breathScale * (speakingState === "speaking" ? 1 + mouthOpen * 0.05 : 1)})`,
             }}
           >
             {/* Inner glow */}
-            <div className="w-3/4 h-3/4 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center">
-              {/* Voice icon */}
+            <div
+              className="w-3/4 h-3/4 rounded-full backdrop-blur-sm flex items-center justify-center"
+              style={{ backgroundColor: `${HER_COLORS.warmWhite}30` }}
+            >
               <svg
-                className={`w-24 h-24 text-white/80 ${speakingState === "speaking" ? "animate-pulse" : ""}`}
+                className="w-24 h-24"
+                style={{ color: HER_COLORS.warmWhite, opacity: 0.8 }}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -497,241 +473,294 @@ export function InterruptibleVoice({
                 />
               </svg>
             </div>
-          </div>
-
-          {/* Speaking pulse rings */}
-          {speakingState === "speaking" && (
-            <>
-              <div className="absolute -inset-4 rounded-full border-2 border-rose-400/40 animate-ping" />
-              <div
-                className="absolute -inset-6 rounded-full border border-rose-400/20 animate-ping"
-                style={{ animationDelay: "0.2s" }}
-              />
-            </>
-          )}
-
-          {/* Audio visualization ring */}
-          {speakingState === "speaking" && (
-            <svg
-              className="absolute -inset-8 w-[calc(100%+64px)] h-[calc(100%+64px)]"
-              viewBox="0 0 100 100"
-            >
-              <circle
-                cx="50"
-                cy="50"
-                r="48"
-                fill="none"
-                stroke="rgba(244, 63, 94, 0.4)"
-                strokeWidth="1"
-                strokeDasharray={`${audioLevel * 300} 1000`}
-                className="transition-all duration-75"
-                transform="rotate(-90 50 50)"
-              />
-            </svg>
-          )}
+          </motion.div>
 
           {/* Status text */}
           <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 text-center">
-            <p className="text-white font-semibold text-2xl">Eva</p>
-            <p className="text-white/60 text-sm mt-1">{getStateText()}</p>
+            <p style={{ color: HER_COLORS.earth }} className="font-light text-2xl">
+              Eva
+            </p>
+            <p style={{ color: HER_COLORS.textSecondary }} className="text-sm mt-1">
+              {getStateText()}
+            </p>
             {emotion && (
-              <p className="text-white/40 text-xs mt-1 capitalize">Mood: {emotion}</p>
+              <p style={{ color: HER_COLORS.textMuted }} className="text-xs mt-1 capitalize">
+                {emotion}
+              </p>
             )}
           </div>
         </div>
 
         {/* Header */}
-        <div className="absolute top-0 left-0 right-0 p-6 bg-gradient-to-b from-black/80 to-transparent">
+        <header
+          className="absolute top-0 left-0 right-0 p-6"
+          style={{
+            background: `linear-gradient(to bottom, ${HER_COLORS.warmWhite}E6, transparent)`,
+          }}
+        >
           <div className="flex items-center justify-between max-w-2xl mx-auto">
             <div className="flex items-center gap-3">
-              <div
-                className={`w-3 h-3 rounded-full ${
-                  connectionState === "connected"
-                    ? "bg-emerald-400 animate-pulse"
+              <motion.div
+                className="w-2 h-2 rounded-full"
+                style={{
+                  backgroundColor: connectionState === "connected"
+                    ? HER_COLORS.success
                     : connectionState === "connecting"
-                      ? "bg-amber-400 animate-pulse"
-                      : "bg-red-400"
-                }`}
+                      ? HER_COLORS.warning
+                      : HER_COLORS.error,
+                }}
+                animate={{
+                  scale: connectionState === "connected" ? [1, 1.2, 1] : 1,
+                }}
+                transition={{ duration: 2, repeat: Infinity }}
               />
-              <span className="text-white font-medium">{formatDuration(callDuration)}</span>
-              <span className="text-white/40 text-sm">
+              <span style={{ color: HER_COLORS.earth }} className="font-light">
+                {formatDuration(callDuration)}
+              </span>
+              <span style={{ color: HER_COLORS.textMuted }} className="text-sm">
                 {connectionState === "connected"
-                  ? "Connecté - Parole interruptible"
+                  ? "En ligne"
                   : connectionState === "connecting"
-                    ? "Connexion..."
-                    : "Déconnecté"}
+                    ? "..."
+                    : "Hors ligne"}
               </span>
             </div>
-            <button
+            <motion.button
               onClick={endCall}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
+              className="p-2 rounded-full transition-all duration-300"
+              style={{
+                backgroundColor: HER_COLORS.cream,
+                color: HER_COLORS.earth,
+              }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
               </svg>
-            </button>
+            </motion.button>
           </div>
-        </div>
+        </header>
 
         {/* Current transcript/response */}
-        {(transcript || currentResponse) && (
-          <div className="absolute top-28 left-1/2 -translate-x-1/2 max-w-lg w-full px-4">
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl px-6 py-4 border border-white/10">
-              <p className="text-white text-center text-lg">
-                {currentResponse || transcript}
-                {speakingState === "thinking" && !currentResponse && (
-                  <span className="inline-flex gap-1 ml-2">
-                    <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" />
-                    <span
-                      className="w-2 h-2 bg-white/60 rounded-full animate-bounce"
-                      style={{ animationDelay: "0.1s" }}
-                    />
-                    <span
-                      className="w-2 h-2 bg-white/60 rounded-full animate-bounce"
-                      style={{ animationDelay: "0.2s" }}
-                    />
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {(transcript || currentResponse) && (
+            <motion.div
+              className="absolute top-28 left-1/2 -translate-x-1/2 max-w-lg w-full px-4"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={HER_SPRINGS.gentle}
+            >
+              <div
+                className="backdrop-blur-sm rounded-2xl px-6 py-4"
+                style={{
+                  backgroundColor: `${HER_COLORS.warmWhite}E6`,
+                  border: `1px solid ${HER_COLORS.cream}`,
+                  boxShadow: `0 4px 20px ${HER_COLORS.softShadow}40`,
+                }}
+              >
+                <p style={{ color: HER_COLORS.earth }} className="text-center text-lg">
+                  {currentResponse || transcript}
+                  {speakingState === "thinking" && !currentResponse && (
+                    <span className="inline-flex gap-1 ml-2">
+                      {[0, 1, 2].map((i) => (
+                        <motion.span
+                          key={i}
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: HER_COLORS.blush }}
+                          animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
+                          transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15 }}
+                        />
+                      ))}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Audio visualization bars */}
-        {speakingState === "speaking" && (
-          <div className="absolute bottom-48 left-1/2 -translate-x-1/2 flex items-end justify-center gap-1 h-16">
-            {Array.from({ length: 32 }).map((_, i) => {
-              // Use audioLevel-based animation instead of Date.now() for purity
-              const barHeight = Math.max(4, Math.sin(i * 0.3 + audioLevel * 10) * audioLevel * 40 + audioLevel * 20);
-              return (
-                <div
-                  key={i}
-                  className="w-1 bg-gradient-to-t from-rose-500 to-rose-300 rounded-full"
-                  style={{
-                    height: `${barHeight}px`,
-                    opacity: 0.5 + audioLevel * 0.5,
-                    transition: "height 0.05s ease-out",
-                  }}
-                />
-              );
-            })}
-          </div>
-        )}
+        <AnimatePresence>
+          {speakingState === "speaking" && (
+            <motion.div
+              className="absolute bottom-48 left-1/2 -translate-x-1/2 flex items-end justify-center gap-0.5 h-16"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              {Array.from({ length: 32 }).map((_, i) => {
+                const barHeight = Math.max(4, Math.sin(i * 0.3 + audioLevel * 10) * audioLevel * 40 + audioLevel * 20);
+                return (
+                  <motion.div
+                    key={i}
+                    className="w-1 rounded-full"
+                    style={{
+                      backgroundColor: HER_COLORS.blush,
+                      height: `${barHeight}px`,
+                      opacity: 0.5 + audioLevel * 0.5,
+                    }}
+                  />
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Controls */}
-        <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/80 to-transparent">
+        <footer
+          className="absolute bottom-0 left-0 right-0 p-8"
+          style={{
+            background: `linear-gradient(to top, ${HER_COLORS.warmWhite}E6, transparent)`,
+          }}
+        >
           <div className="flex items-center justify-center gap-6 max-w-md mx-auto">
-            {/* Interrupt button (only when Eva is speaking) */}
-            {speakingState === "speaking" && (
-              <button
-                onClick={sendInterrupt}
-                className="w-14 h-14 rounded-full bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center transition-all animate-pulse"
-                title="Interrompre Eva"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-            )}
+            {/* Interrupt button */}
+            <AnimatePresence>
+              {speakingState === "speaking" && (
+                <motion.button
+                  onClick={sendInterrupt}
+                  className="w-14 h-14 rounded-full flex items-center justify-center"
+                  style={{
+                    backgroundColor: HER_COLORS.warning,
+                    color: HER_COLORS.warmWhite,
+                  }}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Interrompre"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </motion.button>
+              )}
+            </AnimatePresence>
 
             {/* Mute toggle */}
-            <button
+            <motion.button
               onClick={() => setIsMuted(!isMuted)}
-              className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
-                isMuted ? "bg-red-500 text-white" : "bg-white/10 hover:bg-white/20 text-white"
-              }`}
+              className="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300"
+              style={{
+                backgroundColor: isMuted ? HER_COLORS.error : HER_COLORS.cream,
+                color: isMuted ? HER_COLORS.warmWhite : HER_COLORS.earth,
+              }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
             >
               {isMuted ? (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
                 </svg>
               ) : (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
               )}
-            </button>
+            </motion.button>
 
             {/* Push to talk */}
-            <button
+            <motion.button
               onMouseDown={startListening}
               onMouseUp={stopListening}
               onMouseLeave={stopListening}
               onTouchStart={startListening}
               onTouchEnd={stopListening}
               disabled={connectionState !== "connected" || isMuted}
-              className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${
-                speakingState === "listening"
-                  ? "bg-gradient-to-br from-emerald-500 to-teal-500 text-white scale-110 shadow-lg shadow-emerald-500/50"
+              className="w-20 h-20 rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: speakingState === "listening"
+                  ? HER_COLORS.success
                   : connectionState === "connected" && !isMuted
-                    ? "bg-white/20 hover:bg-white/30 text-white hover:scale-105"
-                    : "bg-white/5 text-white/30 cursor-not-allowed"
-              }`}
+                    ? HER_COLORS.cream
+                    : HER_COLORS.softShadow,
+                color: speakingState === "listening"
+                  ? HER_COLORS.warmWhite
+                  : HER_COLORS.earth,
+                boxShadow: speakingState === "listening"
+                  ? `0 0 30px ${HER_COLORS.success}60`
+                  : "none",
+                cursor: connectionState === "connected" && !isMuted ? "pointer" : "not-allowed",
+                opacity: connectionState === "connected" && !isMuted ? 1 : 0.5,
+              }}
+              animate={{
+                scale: speakingState === "listening" ? 1.1 : 1,
+              }}
+              whileHover={connectionState === "connected" && !isMuted ? { scale: 1.05 } : {}}
+              whileTap={connectionState === "connected" && !isMuted ? { scale: 0.95 } : {}}
             >
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
-            </button>
+            </motion.button>
 
             {/* End call */}
-            <button
+            <motion.button
               onClick={endCall}
-              className="w-14 h-14 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all hover:scale-105"
+              className="w-14 h-14 rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: HER_COLORS.error,
+                color: HER_COLORS.warmWhite,
+              }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.28 3H5z"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.28 3H5z" />
               </svg>
-            </button>
+            </motion.button>
           </div>
 
-          {/* Listening indicator */}
-          {speakingState === "listening" && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-white/80 text-sm">Parle, je t&apos;ecoute...</span>
-            </div>
-          )}
-
-          {/* Interrupt hint */}
-          {speakingState === "speaking" && (
-            <p className="text-amber-400/80 text-sm text-center mt-6">
-              Tu peux m&apos;interrompre en appuyant sur le bouton pause ou en parlant
-            </p>
-          )}
-
-          {/* Hint */}
-          {speakingState === "idle" && connectionState === "connected" && (
-            <p className="text-white/40 text-sm text-center mt-6">
-              Maintiens le bouton micro pour parler - Tu peux interrompre Eva a tout moment
-            </p>
-          )}
-        </div>
+          {/* Status hints */}
+          <div className="text-center mt-6">
+            <AnimatePresence mode="wait">
+              {speakingState === "listening" && (
+                <motion.div
+                  className="flex items-center justify-center gap-2"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <motion.span
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: HER_COLORS.success }}
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                  />
+                  <span style={{ color: HER_COLORS.textSecondary }} className="text-sm">
+                    Parle, je t&apos;écoute...
+                  </span>
+                </motion.div>
+              )}
+              {speakingState === "speaking" && (
+                <motion.p
+                  style={{ color: HER_COLORS.textMuted }}
+                  className="text-sm"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  Tu peux m&apos;interrompre
+                </motion.p>
+              )}
+              {speakingState === "idle" && connectionState === "connected" && (
+                <motion.p
+                  style={{ color: HER_COLORS.textMuted }}
+                  className="text-sm"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  Maintiens le bouton pour parler
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </div>
+        </footer>
       </div>
     </div>
   );
