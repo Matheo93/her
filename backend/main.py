@@ -1579,7 +1579,7 @@ async def text_to_speech(
 
     start_time = time.time()
 
-    # ========== FAST TTS MODE (GPU Piper ~30-100ms) ==========
+    # ========== FAST TTS MODE (MMS-TTS GPU ~70-100ms) ==========
     if USE_FAST_TTS:
         # Check cache first
         cached = tts_cache.get(processed_text, "gpu", rate, pitch)
@@ -1587,15 +1587,16 @@ async def text_to_speech(
             print(f"🔊 TTS: 0ms (cached, {len(cached)} bytes)")
             return cached
 
-        # Try GPU TTS first (Piper ~30-100ms), then Ultra-Fast, then MMS
-        audio_data = await async_gpu_tts_mp3(processed_text)
-        tts_engine = "GPU"
+        # Priority: MMS-TTS (PyTorch GPU, ~70ms) > Ultra-Fast > GPU Piper (CPU fallback)
+        # MMS-TTS uses PyTorch with CUDA 12.4 which works on this system
+        audio_data = await async_fast_tts_mp3(processed_text)  # MMS-TTS GPU
+        tts_engine = "MMS-GPU"
         if not audio_data:
             audio_data = await async_ultra_fast_tts(processed_text)
             tts_engine = "Ultra"
         if not audio_data:
-            audio_data = await async_fast_tts(processed_text)
-            tts_engine = "MMS"
+            audio_data = await async_gpu_tts_mp3(processed_text)  # Piper CPU fallback
+            tts_engine = "Piper"
         if audio_data:
             # Cache short phrases
             if len(processed_text) < 200:
