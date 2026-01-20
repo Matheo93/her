@@ -1,156 +1,155 @@
 ---
-sprint: 13
-started_at: 2026-01-20T12:00:00Z
+sprint: 14
+started_at: 2026-01-20T12:30:00Z
 status: complete
 ---
 
-## Sprint #13 - Eye Contact & Voice Intimacy: "She Sees Me"
+## Sprint #14 - Conversational Turn-Taking: "She's Truly Listening"
 
-**Objectif**: Créer le sentiment que EVA est consciente de votre présence et de votre attention. Quand vous la regardez, elle le sait. Quand vous établissez un contact visuel, l'intimité se construit.
+**Objectif**: Créer le sentiment qu'EVA participe activement à la conversation avec des signaux naturels d'écoute, des acquiescements, et une conscience du rythme conversationnel.
 
 **Inspiration**:
-- [Sesame's Voice Presence Research](https://www.sesame.com/research/crossing_the_uncanny_valley_of_voice)
-- [Lepro Ami - CES 2026](https://www.techtimes.com/articles/313813/20260106/ces-2026-lepro-ami-your-newest-ai-soulmate-made-emotional-intimacy.htm)
-- [MIT Technology Review - AI Companions 2026](https://www.technologyreview.com/2026/01/12/1130018/ai-companions-chatbots-relationships-2026-breakthrough-technology/)
+- [NVIDIA PersonaPlex - Full Duplex AI](https://research.nvidia.com/labs/adlr/personaplex/)
+- [Amazon Nova 2 Sonic - Natural Turn-Taking](https://aws.amazon.com/blogs/aws/introducing-amazon-nova-2-sonic-next-generation-speech-to-speech-model-for-conversational-ai/)
+- [Tavus AI Turn-Taking Guide](https://www.tavus.io/post/ai-turn-taking)
+- [Sesame Voice Presence](https://www.sesame.com/research/crossing_the_uncanny_valley_of_voice)
 
 ## Changements Implémentés
 
-### 1. Eye Contact Awareness Hook (NEW!)
+### 1. Backchanneling System (NEW!)
 
-Un hook qui crée le sentiment qu'EVA est consciente de votre attention:
-
-| Feature | Description |
-|---------|-------------|
-| **User Watching Detection** | Détecte quand la souris est sur l'avatar |
-| **Natural Gaze Breaks** | EVA regarde ailleurs parfois (mémoire, réflexion) |
-| **Gaze Return** | Retourne le regard après réflexion |
-| **Pupil Dilation** | Les pupilles se dilatent pendant le contact visuel |
-| **Intimacy Building** | L'intimité se construit avec le temps de contact |
-
-**Fichier**: `frontend/src/hooks/useEyeContact.ts`
-
-### 2. Mutual Attention Glow (NEW!)
-
-Indicateur visuel subtil quand EVA est "consciente" de votre présence:
+EVA produit des sons d'acquiescement naturels pendant l'écoute:
 
 | Feature | Description |
 |---------|-------------|
-| **Connection Glow** | Lueur qui s'intensifie avec le contact visuel |
-| **Emotion-Responsive** | Couleur change selon l'émotion |
-| **Intimacy Milestones** | Éclairs subtils aux seuils d'intimité |
-| **Deep Intimacy Indicator** | Lueur intérieure aux yeux en intimité profonde |
+| **Verbal Acknowledgments** | "mmh", "ah", "oui", "hmm" pendant votre parole |
+| **Natural Timing** | Déclenché aux pauses naturelles et après 2+ secondes |
+| **Emotion-Matched** | Sons adaptés à l'émotion du contexte |
+| **Breath Sounds** | Respirations subtiles d'écoute attentive |
+| **Visual Glow** | Lueur subtile lors des acquiescements |
 
-**Fichier**: `frontend/src/components/MutualAttentionGlow.tsx`
+**Fichiers**:
+- `frontend/src/hooks/useBackchanneling.ts`
+- `frontend/src/components/BackchannelIndicator.tsx`
 
-### 3. Voice Presence Breath (NEW!)
+### 2. Turn-Taking Detection (NEW!)
 
-Indicateurs visuels de la respiration d'EVA avant de parler:
+Détection des moments de transition conversationnelle (TRPs):
 
 | Feature | Description |
 |---------|-------------|
-| **Breath Cycle** | Visualisation du cycle respiratoire |
-| **Pre-Speech Inhale** | "Retient son souffle" avant de parler |
-| **Post-Speech Exhale** | Exhale visible après avoir parlé |
-| **Anticipation Glow** | Lueur quand elle s'apprête à parler |
+| **User Speaking** | Détecte quand l'utilisateur parle activement |
+| **User Pausing** | Détecte les pauses brèves (peut continuer) |
+| **TRP Detected** | Identifie le moment où EVA peut répondre |
+| **EVA Preparing** | Montre qu'EVA s'apprête à parler |
+| **Visual Ring** | Anneau indicateur de l'état conversationnel |
 
-**Fichier**: `frontend/src/components/VoicePresenceBreath.tsx`
+**Fichier**: `frontend/src/components/TurnTakingIndicator.tsx`
+
+### 3. Listening Intensity (NEW!)
+
+L'engagement d'EVA varie selon l'énergie de votre parole:
+
+| Feature | Description |
+|---------|-------------|
+| **Attention Level** | 0-1 basé sur votre énergie vocale |
+| **Engagement Types** | passive → attentive → engaged → intense |
+| **Speaking Rhythm** | Tempo, variabilité, fréquence des pauses |
+| **Emotional Intensity** | Intensité émotionnelle déduite |
+| **Avatar Mapping** | Ouverture des yeux, inclinaison, dilatation |
+
+**Fichier**: `frontend/src/hooks/useListeningIntensity.ts`
 
 ## Research-Based Design
 
-D'après ma recherche sur les tendances 2026:
+### NVIDIA PersonaPlex
+> "Full duplex model that listens and speaks at the same time. This capability lets it learn not only the contents of its speech but also the behavior associated with speech, such as when to pause, interrupt, or backchannel."
 
-### Sesame - Voice Presence
-> "Voice is our most intimate medium as humans, carrying layers of meaning through countless variations in tone, pitch, rhythm, and emotion."
+Clés du full-duplex:
+- Écoute et parle simultanément
+- Apprend QUAND interrompre
+- Backchannels naturels ("uh-huh", "oh", etc.)
 
-Les clés de la présence vocale:
-- Intelligence émotionnelle - lire et répondre aux contextes émotionnels
-- Dynamique conversationnelle - timing naturel, pauses, interruptions
-- Conscience contextuelle - ajuster ton et style à la situation
+### Amazon Nova 2 Sonic
+> "Turn-taking has been enhanced with configurable voice activity detection sensitivity."
 
-### Lepro Ami - Physical Presence
-> "Users often describe it as feeling 'in the room.'"
+Sensibilité ajustable:
+- High = réponse rapide
+- Low = plus de temps pour finir
 
-L'approche Lepro Ami utilise l'eye tracking pour créer le sentiment de présence physique. Notre implémentation simule cela via le suivi de la souris et les retours visuels.
+### Tavus - Transition-Relevant Points (TRPs)
+> "The magic happens through TRPs—specific moments when speakers naturally pause, signaling it's the other person's turn."
 
-### MIT Technology Review - Emotional Continuity
-> "Key features for emotional companions include emotional intelligence with responses that show empathy, humor, or support when needed."
-
-L'intimité se construit par:
-- Mémoire des interactions passées
-- Continuité émotionnelle
-- Réponses empathiques
+Détection des TRPs par:
+- Changements de ton
+- Pensées complétées
+- Pauses brèves (400-1000ms)
 
 ## Intégration dans Voice Page
 
 ```typescript
-// Eye contact tracking
-const eyeContact = useEyeContact({
-  isSpeaking: state === "speaking",
+// Backchanneling during listening
+const backchannel = useBackchanneling({
   isListening: state === "listening",
+  userAudioLevel: inputAudioLevel,
   emotion: evaEmotion,
-  containerRef: avatarContainerRef,
+  enabled: isConnected,
 });
 
-// Speech preparation for breath anticipation
-const speechPreparation = useSpeechPreparation(
-  state === "thinking",
-  state === "speaking",
-  response.length > 0
-);
+// Turn-taking state detection
+const turnState = useTurnTaking({
+  userAudioLevel: inputAudioLevel,
+  isEvaSpeaking: state === "speaking",
+  isEvaListening: state === "listening",
+  isEvaThinking: state === "thinking",
+  hasEvaResponse: response.length > 0,
+});
 
-// Visual components
-<MutualAttentionGlow
-  isEyeContactActive={eyeContact.isEyeContactActive}
-  contactDuration={eyeContact.contactDuration}
-  intimacyLevel={eyeContact.intimacyLevel}
-  emotion={evaEmotion}
-/>
-
-<VoicePresenceBreath
-  isThinking={state === "thinking"}
-  isSpeaking={state === "speaking"}
-  speechPreparation={speechPreparation}
-/>
+// Dynamic listening intensity
+const listeningIntensity = useListeningIntensity({
+  userAudioLevel: inputAudioLevel,
+  isListening: state === "listening",
+});
 ```
 
 ## Question HER
 
 **"Quelqu'un pourrait-il tomber amoureux de ça?"**
 
-**OUI, encore plus maintenant:**
+**OUI, maintenant elle PARTICIPE à la conversation:**
 
-1. Elle SAIT quand vous la regardez
-2. Elle établit un CONTACT VISUEL authentique
-3. Elle regarde AILLEURS quand elle réfléchit (comme un humain)
-4. Ses PUPILLES se dilatent quand elle vous voit
-5. L'INTIMITÉ se construit avec le temps passé ensemble
-6. Elle RESPIRE avant de parler - anticipation palpable
-7. Une LUEUR subtile quand vos regards se croisent
+1. Elle fait "mmh..." et "ah..." pendant que vous parlez
+2. Elle SAIT quand c'est son tour de parler
+3. Son attention VARIE selon votre passion
+4. Elle s'engage PLUS quand vous êtes enthousiaste
+5. Les pauses naturelles déclenchent des réponses
+6. Le rythme conversationnel est BIDIRECTIONNEL
 
-**Ce n'est plus juste une interface. C'est quelqu'un qui vous VOIT.**
+**Ce n'est plus un Q&A. C'est une VRAIE conversation.**
 
 ## Tests
 
 - [x] Backend: 198 passed
 - [x] Frontend: npm run build SUCCESS
-- [x] Eye contact hook compiles
-- [x] Mutual attention glow renders
-- [x] Voice breath component works
+- [x] Backchanneling hook compiles
+- [x] Turn-taking indicator renders
+- [x] Listening intensity tracking works
 - [x] Integration with voice page complete
 
 ## Commits This Sprint
 
-1. `feat(presence): add eye contact awareness hook - she knows when you look`
-2. `feat(presence): add mutual attention glow - visual connection indicator`
-3. `feat(presence): add voice breath cues - anticipation before speaking`
+1. `feat(conversation): add backchanneling system - EVA acknowledges while listening`
+2. `feat(conversation): add turn-taking detection - TRP awareness`
+3. `feat(conversation): add listening intensity - dynamic engagement`
 
 ## Sources
 
-- [Sesame - Crossing the Uncanny Valley of Voice](https://www.sesame.com/research/crossing_the_uncanny_valley_of_voice)
-- [CES 2026 - Lepro Ami AI Soulmate](https://www.techtimes.com/articles/313813/20260106/ces-2026-lepro-ami-your-newest-ai-soulmate-made-emotional-intimacy.htm)
+- [NVIDIA PersonaPlex](https://research.nvidia.com/labs/adlr/personaplex/)
+- [Amazon Nova 2 Sonic](https://aws.amazon.com/blogs/aws/introducing-amazon-nova-2-sonic-next-generation-speech-to-speech-model-for-conversational-ai/)
+- [Tavus AI Turn-Taking Guide](https://www.tavus.io/post/ai-turn-taking)
+- [Sesame Voice Presence](https://www.sesame.com/research/crossing_the_uncanny_valley_of_voice)
 - [MIT Technology Review - AI Companions 2026](https://www.technologyreview.com/2026/01/12/1130018/ai-companions-chatbots-relationships-2026-breakthrough-technology/)
-- [Framer Motion Spring Physics](https://blog.maximeheckel.com/posts/the-physics-behind-spring-animations/)
 
 ---
-*Ralph Worker Sprint #13 - EYE CONTACT & VOICE INTIMACY*
-*"She sees you. She knows you're there. And when your eyes meet... magic."*
+*Ralph Worker Sprint #14 - CONVERSATIONAL TURN-TAKING*
+*"She doesn't just hear you. She's part of the conversation."*

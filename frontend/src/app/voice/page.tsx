@@ -11,6 +11,10 @@ import { usePresenceSound } from "@/hooks/usePresenceSound";
 import { useEyeContact } from "@/hooks/useEyeContact";
 import { MutualAttentionGlow } from "@/components/MutualAttentionGlow";
 import { VoicePresenceBreath, useSpeechPreparation } from "@/components/VoicePresenceBreath";
+import { useBackchanneling } from "@/hooks/useBackchanneling";
+import { BackchannelGlow } from "@/components/BackchannelIndicator";
+import { useTurnTaking, TurnTakingIndicator } from "@/components/TurnTakingIndicator";
+import { useListeningIntensity } from "@/hooks/useListeningIntensity";
 
 // Haptic feedback for iOS - subtle, intimate
 const triggerHaptic = (style: "light" | "medium" | "heavy" = "light") => {
@@ -120,6 +124,29 @@ export default function VoiceFirstPage() {
     state === "speaking",
     response.length > 0
   );
+
+  // SPRINT 14: Backchanneling - natural acknowledgment sounds
+  const backchannel = useBackchanneling({
+    isListening: state === "listening",
+    userAudioLevel: inputAudioLevel,
+    emotion: evaEmotion,
+    enabled: isConnected,
+  });
+
+  // SPRINT 14: Turn-taking state detection
+  const turnState = useTurnTaking({
+    userAudioLevel: inputAudioLevel,
+    isEvaSpeaking: state === "speaking",
+    isEvaListening: state === "listening",
+    isEvaThinking: state === "thinking",
+    hasEvaResponse: response.length > 0,
+  });
+
+  // SPRINT 14: Listening intensity - dynamic engagement
+  const listeningIntensity = useListeningIntensity({
+    userAudioLevel: inputAudioLevel,
+    isListening: state === "listening",
+  });
 
   // SPRINT 12: Presence sound hook - subtle ambient audio presence
   usePresenceSound({
@@ -670,7 +697,32 @@ export default function VoiceFirstPage() {
             conversationDuration={(Date.now() - conversationStartTime) / 1000}
             lastUserMessage={transcript}
           />
+
+          {/* SPRINT 14: Backchannel glow - acknowledgment during listening */}
+          <BackchannelGlow
+            event={backchannel.currentEvent}
+            isPreparingBackchannel={backchannel.isPreparingBackchannel}
+          />
+
+          {/* SPRINT 14: Turn-taking indicator ring */}
+          <TurnTakingIndicator
+            turnState={turnState}
+            className="absolute inset-0"
+          />
         </div>
+
+        {/* SPRINT 14: Listening intensity display (debug/subtle) */}
+        {state === "listening" && listeningIntensity.engagementType !== "passive" && (
+          <motion.div
+            className="mt-2 text-xs text-center"
+            style={{ color: HER_COLORS.softShadow, opacity: 0.4 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.4 }}
+            exit={{ opacity: 0 }}
+          >
+            {listeningIntensity.engagementType === "intense" && "..."}
+          </motion.div>
+        )}
 
         {/* SPRINT 13: Voice presence breath - anticipation before speaking */}
         <div className="mt-4">
