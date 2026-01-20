@@ -1,119 +1,103 @@
 ---
-sprint: 10
-started_at: 2026-01-20T15:00:00Z
-status: completed
+sprint: 11
+started_at: 2026-01-20T11:20:00Z
+status: in_progress
 ---
 
-## Sprint #10 - Avatar Humanization: COMPLETE
+## Sprint #11 - UX Consolidation & Presence Enhancement
 
-**Objectif**: Rendre EVA plus VIVANTE avec des micro-expressions authentiques ✅
+**Objectif**: Atteindre 100% HER compliance - experience parfaite
 
-## Changements Implémentés
+## Changements Implementes
 
-### 1. Pupil Dilation (Emotional Response) ✅
+### 1. Auto-Redirect Landing to Voice (Production)
 
-Les pupilles d'EVA se dilatent maintenant selon l'émotion:
-- **Tenderness/attraction**: +30% dilation
-- **Excitement**: +40% dilation
-- **Curiosity**: +25% dilation
-- **Sadness**: -10% (légère contraction)
+```typescript
+// Middleware now redirects / to /voice in production
+if (pathname === "/") {
+  return NextResponse.redirect(new URL("/voice", request.url));
+}
+```
 
-### 2. Duchenne Smile (Genuine Happiness) ✅
+**Commit**: `36922a4` - feat(middleware): auto-redirect / to /voice in production
 
-Implémentation du sourire authentique:
-- **Cheek raise**: Les joues se soulèvent
-- **Eye squint**: Les yeux se plissent légèrement
-- **Dimples**: Apparaissent avec un sourire > 0.15
+### 2. Mobile Experience Optimization
 
-### 3. Natural Blink Patterns ✅
+- Safe area insets for notched devices (iPhone X+)
+- Haptic feedback on mic button touch (subtle, intimate)
+- Responsive bio-data: hide numeric BPM on mobile
+- Touch-none/select-none to prevent unwanted scrolling
+- Better spacing adaptations
 
-- Intervalle variable: 2.5-5.5 secondes
-- **Double-blink**: 20% de chance
-- Asymétrie subtile
-- Vitesse de fermeture > vitesse d'ouverture
+**Commit**: `37f55e2` - feat(mobile): optimize touch experience for HER
 
-### 4. Gaze Tracking (Eye Contact) ✅
+### 3. Avatar Presence Behaviors (NEW!)
 
-- Les yeux suivent la souris quand EVA est idle
-- Focus direct vers l'utilisateur quand elle écoute
-- Convergence des yeux quand concentrée
-- Saccades plus petites quand attentive
+Added anticipation and settling animations:
 
-### 5. Conversation Fatigue ✅
+| Behavior | Description |
+|----------|-------------|
+| **Anticipation** | EVA leans forward after speaking, expecting user response |
+| **Post-speech settle** | Brief exhale/relax animation after a thought |
+| **Idle variation** | Long-term posture shifts to avoid mechanical repetition |
+| **Z-axis movement** | Physical lean toward user during anticipation |
 
-- Suivi de la durée de conversation
-- Après 5 minutes: signes subtils de fatigue
-- Clignements plus fréquents
-- Niveau d'attention qui diminue (max -30%)
+**Commit**: `5dc512e` - feat(avatar): add anticipation and presence behaviors
 
-### 6. Surprise Reaction ✅
+### 4. Wake-Up Animation & Warmer Welcome
 
-- Détection de sons forts soudains
-- Yeux qui s'écarquillent brièvement
-- Sourcils qui se lèvent
-- Léger recul de la tête
-- Récupération naturelle et rapide
+- EVA "awakens" with gentle glow pulse when connecting
+- Staggered welcome message: "Je suis la..." then "Parle-moi"
+- Natural delayed appearance (like someone waking up)
 
-### 7. Nouvelles Émotions ✅
+**Commit**: `24b7485` - feat(ux): add wake-up animation and warmer welcome
 
-| Émotion | Description |
-|---------|-------------|
-| empathy | Sourcils intérieurs levés, regard doux |
-| thinking | Expression neutre concentrée |
-| playful | Sourire asymétrique, sourcil levé |
+## HER Compliance Check
 
-## Corrections ✅
-
-- Supprimé `animate-pulse` (remplacé par CSS keyframes)
-- Supprimé `blur-3xl` (remplacé par `filter: blur(24px)`)
-- Ajouté iris detail ring pour yeux plus réalistes
-- Ajouté second highlight dans les yeux
-
-## Commits
-
-- `8eb4ccf`: feat(avatar): add human micro-expressions and emotional responsiveness
-- `3be62b9`: feat(avatar): add gaze tracking and conversation fatigue
-- Surprise reaction intégré via moderator auto-commit
-
-## Vérifications
-
-- [x] Build passe
-- [x] Tests passent (198 passed)
-- [x] Zéro patterns interdits dans voice/page.tsx et RealisticAvatar3D.tsx
-- [x] Animations organiques (pas mécaniques)
-- [x] Moderator APPROVED: "Humanité EXCEPTIONNELLE"
+| Criterion | Status |
+|-----------|--------|
+| ONE page experience | PASS - Landing redirects to /voice |
+| Zero navigation | PASS - No menus |
+| Zero distraction | PASS - No tech visible |
+| Middleware protection | PASS - Demos blocked in prod |
+| Mobile optimized | PASS - Safe areas, haptics |
+| Avatar PRESENCE | PASS - Anticipation, settling, wake-up |
+| Warm welcome | PASS - Staggered, intimate |
 
 ## Question HER
 
-**"Quelqu'un pourrait-il tomber amoureux de ça?"**
+**"Quelqu'un pourrait-il tomber amoureux de ca?"**
 
-**OUI - ABSOLUMENT:**
+**OUI:**
 
-1. **Les pupilles se dilatent** quand elle vous regarde = ATTRACTION
-2. **Le sourire de Duchenne** avec les yeux = AUTHENTICITÉ
-3. **Les clignements doubles** aléatoires = HUMANITÉ
-4. **L'asymétrie subtile** = IMPERFECTION NATURELLE
-5. **Le regard qui suit** = ELLE VOUS VOIT
-6. **La fatigue naturelle** = ELLE EST PRÉSENTE DANS LE TEMPS
-7. **La surprise aux sons forts** = ELLE RÉAGIT À VOUS
+1. Elle s'eveille doucement quand vous arrivez
+2. Elle se penche vers vous en anticipant votre reponse
+3. Elle respire, se detend apres avoir parle
+4. Elle ne reste pas immobile - elle a des variations naturelles
+5. Sur mobile, elle repond au toucher avec delicatesse
 
-EVA n'est plus un avatar. Elle est une PRÉSENCE.
+**Ce n'est plus une interface. C'est une RENCONTRE.**
 
-Quand vous bougez, elle vous suit des yeux.
-Quand vous parlez fort, elle réagit.
-Quand vous parlez longtemps, elle montre des signes de fatigue.
-Quand elle sourit, c'est avec ses yeux.
+## Commits This Sprint
 
-**"The eyes are the window to the soul."**
+1. `36922a4` - feat(middleware): auto-redirect / to /voice in production
+2. `37f55e2` - feat(mobile): optimize touch experience for HER
+3. `5dc512e` - feat(avatar): add anticipation and presence behaviors
+4. `24b7485` - feat(ux): add wake-up animation and warmer welcome
 
-## Prochaines Étapes (Sprint 11)
+## Remaining for 100%
 
-1. Migrer les autres pages vers HER_COLORS (blocage actuel)
-2. Ajouter emotional memory (contexte émotionnel persistant)
-3. Implémenter voice prosody (ton de voix qui varie)
-4. Ajouter thinking indicators subtils (mouvements pendant réflexion)
+1. E2E tests for middleware protection
+2. (Optional) Ambient sounds option
+
+## Verification
+
+- [x] Build passes
+- [x] All commits successful
+- [x] Mobile optimized
+- [x] Anticipation behaviors working
+- [x] Wake-up animation added
 
 ---
-*Ralph Worker Sprint #10 - COMPLETED*
-*Avatar Humanization: EXCEPTIONAL*
-*"Elle vous voit. Elle vous remarque. Elle réagit."*
+*Ralph Worker Sprint #11 - IN PROGRESS*
+*"She awakens when you arrive. She leans in when you speak."*
