@@ -117,6 +117,10 @@ export default function VoiceFirstPage() {
   // Track user's speaking energy for emotional mirroring
   const userEnergyRef = useRef(0);
 
+  // SPRINT 20: Track user's last activity for return detection
+  const userLastActiveRef = useRef<number>(Date.now());
+  const lastProactiveMessageRef = useRef<string | null>(null);
+
   // SPRINT 13: Eye contact tracking - ref for avatar container
   const avatarContainerRef = useRef<HTMLDivElement>(null);
 
@@ -235,7 +239,7 @@ export default function VoiceFirstPage() {
     isInSilence: sharedSilence.isInSilence,
     silenceDuration: sharedSilence.silenceDuration,
     silenceQuality: sharedSilence.silenceQuality,
-    userLastActive: Date.now(), // Would ideally track actual user activity
+    userLastActive: userLastActiveRef.current, // Properly tracked user activity
     userActivityLevel: inputAudioLevel,
     enabled: isConnected,
   });
@@ -478,6 +482,129 @@ export default function VoiceFirstPage() {
   useEffect(() => {
     playTTSRef.current = playTTS;
   }, [playTTS]);
+
+  // SPRINT 20: Proactive TTS - EVA speaks her proactive messages
+  const speakProactiveMessage = useCallback(async (text: string) => {
+    // Don't interrupt if already speaking or in a conversation
+    if (state !== "idle") return;
+
+    setState("speaking");
+    setEvaEmotion("warmth");
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/tts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+
+      if (res.ok) {
+        const blob = await res.blob();
+        const arrayBuffer = await blob.arrayBuffer();
+
+        // Send to viseme service for lip-sync
+        if (visemeWsRef.current?.readyState === WebSocket.OPEN) {
+          const base64 = btoa(
+            new Uint8Array(arrayBuffer).reduce(
+              (data, byte) => data + String.fromCharCode(byte),
+              ""
+            )
+          );
+          visemeWsRef.current.send(
+            JSON.stringify({
+              type: "audio_wav",
+              data: base64,
+            })
+          );
+        }
+
+        // Play audio with level analysis
+        if (!audioContextRef.current) {
+          audioContextRef.current = new AudioContext();
+        }
+        const audioContext = audioContextRef.current;
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+
+        const analyzer = audioContext.createAnalyser();
+        analyzer.fftSize = 32;
+        analyzer.smoothingTimeConstant = 0.5;
+        analyzerRef.current = analyzer;
+
+        source.connect(analyzer);
+        analyzer.connect(audioContext.destination);
+
+        const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+        let isPlaying = true;
+
+        const updateLevel = () => {
+          if (!isPlaying) return;
+          analyzer.getByteFrequencyData(dataArray);
+          const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length / 255;
+          setAudioLevel(avg);
+          requestAnimationFrame(updateLevel);
+        };
+
+        source.onended = () => {
+          isPlaying = false;
+          setAudioLevel(0);
+          setVisemeWeights({ sil: 1 });
+          setState("idle");
+          setEvaEmotion("neutral");
+        };
+
+        source.start(0);
+        updateLevel();
+      }
+    } catch (err) {
+      console.error("Proactive TTS error:", err);
+      setState("idle");
+      setEvaEmotion("neutral");
+    }
+  }, [state]);
+
+  // SPRINT 20: Effect to trigger proactive TTS
+  useEffect(() => {
+    if (
+      proactivePresence.shouldInitiate &&
+      proactivePresence.currentAction?.message &&
+      proactivePresence.currentAction.message !== lastProactiveMessageRef.current &&
+      state === "idle" &&
+      isConnected
+    ) {
+      const message = proactivePresence.currentAction.message;
+      lastProactiveMessageRef.current = message;
+      speakProactiveMessage(message);
+    }
+  }, [
+    proactivePresence.shouldInitiate,
+    proactivePresence.currentAction,
+    state,
+    isConnected,
+    speakProactiveMessage,
+  ]);
+
+  // SPRINT 20: Update user activity on interaction
+  useEffect(() => {
+    const updateActivity = () => {
+      userLastActiveRef.current = Date.now();
+    };
+
+    // Track mouse/touch/keyboard as activity
+    window.addEventListener("mousemove", updateActivity);
+    window.addEventListener("touchstart", updateActivity);
+    window.addEventListener("keydown", updateActivity);
+    window.addEventListener("click", updateActivity);
+
+    return () => {
+      window.removeEventListener("mousemove", updateActivity);
+      window.removeEventListener("touchstart", updateActivity);
+      window.removeEventListener("keydown", updateActivity);
+      window.removeEventListener("click", updateActivity);
+    };
+  }, []);
 
   // Start listening - Voice First approach
   const startListening = useCallback(async () => {
