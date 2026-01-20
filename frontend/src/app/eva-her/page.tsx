@@ -547,39 +547,100 @@ export default function EvaHerPage() {
             style={{
               backgroundColor: HER_COLORS.cream,
               color: HER_COLORS.earth,
+              boxShadow: `inset 0 2px 4px ${HER_COLORS.softShadow}20`,
             }}
           />
 
-          {/* Microphone button - subtle, warm */}
-          <motion.button
-            onMouseDown={startListening}
-            onMouseUp={stopListening}
-            onMouseLeave={stopListening}
-            onTouchStart={startListening}
-            onTouchEnd={stopListening}
-            disabled={!isConnected}
-            className="w-12 h-12 rounded-full flex items-center justify-center transition-colors"
-            style={{
-              backgroundColor: isListening ? HER_COLORS.coral : HER_COLORS.cream,
-              color: isListening ? HER_COLORS.warmWhite : HER_COLORS.earth,
-            }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-            </svg>
-          </motion.button>
+          {/* Microphone button - with breathing ambient ring */}
+          <div className="relative">
+            <motion.div
+              className="absolute -inset-2 rounded-full"
+              style={{
+                background: `radial-gradient(circle, ${HER_COLORS.coral}15 0%, transparent 70%)`,
+              }}
+              animate={{
+                scale: [1, 1.1, 1],
+                opacity: isListening ? [0.8, 1, 0.8] : [0.2, 0.4, 0.2],
+              }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            />
+
+            <motion.button
+              onMouseDown={startListening}
+              onMouseUp={stopListening}
+              onMouseLeave={stopListening}
+              onTouchStart={startListening}
+              onTouchEnd={stopListening}
+              disabled={!isConnected}
+              className="relative w-12 h-12 rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: isListening ? HER_COLORS.coral : HER_COLORS.cream,
+                boxShadow: isListening
+                  ? `0 0 30px ${HER_COLORS.coral}40, inset 0 0 15px ${HER_COLORS.warmWhite}30`
+                  : `0 4px 12px ${HER_COLORS.softShadow}30`,
+              }}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.95 }}
+              animate={
+                isListening
+                  ? { scale: [1, 1.05, 1] }
+                  : isSpeaking && audioLevel > 0.1
+                    ? { scale: [1, 1 + audioLevel * 0.05, 1] }
+                    : {}
+              }
+              transition={{
+                duration: isListening ? 1.2 : 0.15,
+                repeat: isListening ? Infinity : 0,
+              }}
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke={isListening ? HER_COLORS.warmWhite : HER_COLORS.earth}
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                />
+              </svg>
+
+              {/* Listening rings */}
+              <AnimatePresence>
+                {isListening && (
+                  <>
+                    {[0, 1].map((i) => (
+                      <motion.div
+                        key={i}
+                        className="absolute inset-0 rounded-full"
+                        style={{ border: `1px solid ${HER_COLORS.coral}` }}
+                        initial={{ scale: 1, opacity: 0.5 }}
+                        animate={{ scale: 1.5 + i * 0.2, opacity: 0 }}
+                        transition={{
+                          duration: 1.5,
+                          repeat: Infinity,
+                          delay: i * 0.3,
+                          ease: "easeOut",
+                        }}
+                      />
+                    ))}
+                  </>
+                )}
+              </AnimatePresence>
+            </motion.button>
+          </div>
         </div>
 
         {/* Connection status - minimal, only when disconnected */}
         <AnimatePresence>
           {!isConnected && (
             <motion.p
-              className="text-center text-sm mt-3"
+              className="text-center text-sm mt-3 font-light"
               style={{ color: HER_COLORS.softShadow }}
               initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              animate={{ opacity: 0.7 }}
               exit={{ opacity: 0 }}
             >
               Connexion...
