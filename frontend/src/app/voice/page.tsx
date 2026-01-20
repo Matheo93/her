@@ -26,6 +26,8 @@ import { useEmotionalMemory } from "@/hooks/useEmotionalMemory";
 import { SharedSilenceIndicator, SilenceMessage, EmotionalMemoryGlow } from "@/components/SharedSilenceIndicator";
 import { useProactivePresence } from "@/hooks/useProactivePresence";
 import { ProactivePresenceIndicator, ReturnWelcome } from "@/components/ProactivePresenceIndicator";
+import { useEmotionalWarmth } from "@/hooks/useEmotionalWarmth";
+import { EmotionalWarmthIndicator } from "@/components/EmotionalWarmthIndicator";
 
 // Haptic feedback for iOS - subtle, intimate
 const triggerHaptic = (style: "light" | "medium" | "heavy" = "light") => {
@@ -241,6 +243,22 @@ export default function VoiceFirstPage() {
     silenceQuality: sharedSilence.silenceQuality,
     userLastActive: userLastActiveRef.current, // Properly tracked user activity
     userActivityLevel: inputAudioLevel,
+    enabled: isConnected,
+  });
+
+  // SPRINT 21: Emotional warmth - connection that deepens over time
+  const emotionalWarmth = useEmotionalWarmth({
+    connectionDuration: (Date.now() - conversationStartTime) / 1000,
+    sharedMoments: emotionalMemory.patterns.peakCount + emotionalMemory.patterns.vulnerabilityCount,
+    proactiveCareCount: proactivePresence.readiness.lastInitiation ? 1 : 0,
+    silenceQuality: sharedSilence.silenceQuality,
+    attunementLevel: prosodyMirroring.attunementLevel,
+    currentEmotion: evaEmotion,
+    emotionalIntensity: prosodyMirroring.userProsody.emotionalIntensity,
+    isConnected,
+    isListening: state === "listening",
+    isSpeaking: state === "speaking",
+    isInDistress: ["sadness", "anxiety", "fear", "stress"].includes(evaEmotion),
     enabled: isConnected,
   });
 
@@ -776,6 +794,12 @@ export default function VoiceFirstPage() {
         type="ambient"
       />
 
+      {/* SPRINT 21: Emotional warmth ambient - connection deepens over time */}
+      <EmotionalWarmthIndicator
+        warmth={emotionalWarmth}
+        type="ambient"
+      />
+
       {/* JARVIS Feature: Bio-Data - subtle presence indicator (hidden on small mobile) */}
       <div className="absolute top-4 left-4 md:top-6 md:left-6 flex flex-col gap-2">
         <AnimatePresence>
@@ -1000,6 +1024,18 @@ export default function VoiceFirstPage() {
           <ProactivePresenceIndicator
             presence={proactivePresence}
             type="glow"
+          />
+
+          {/* SPRINT 21: Emotional warmth glow - connection deepens */}
+          <EmotionalWarmthIndicator
+            warmth={emotionalWarmth}
+            type="glow"
+          />
+
+          {/* SPRINT 21: Warmth blush - subtle skin warming */}
+          <EmotionalWarmthIndicator
+            warmth={emotionalWarmth}
+            type="blush"
           />
         </div>
 
