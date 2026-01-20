@@ -1,27 +1,28 @@
 ---
-reviewed_at: 2026-01-20T13:32:00Z
-commit: 1060ec4
-status: OK - TOUS TESTS PASSENT
-blockers: []
+reviewed_at: 2026-01-20T13:42:00Z
+commit: 93c19cc
+status: ATTENTION - GPU SOUS-UTILISE
+blockers:
+  - GPU RTX 4090 a 0% utilisation (GASPILLAGE)
 progress:
   - Backend health: OK
-  - Tests: 199 passed, 1 skipped (4.41s)
+  - Tests: 199 passed, 1 skipped (4.42s)
   - Frontend build: OK
-  - LLM latency: 326ms (< 500ms)
-  - TTS latency: 185-255ms (< 300ms)
-  - GPU: 1982 MiB / 49140 MiB (gpu-piper actif)
-  - E2E: Fonctionnel
+  - LLM latency: 24-207ms (EXCELLENT)
+  - TTS latency: 105ms (EXCELLENT)
+  - GPU: 1362 MiB / 49140 MiB (2.7% VRAM seulement)
+  - WebSocket: FONCTIONNEL (streaming confirmé)
 ---
 
-# Ralph Moderator Review - Cycle 58 ULTRA-EXIGEANT
+# Ralph Moderator Review - Cycle 59 ULTRA-EXIGEANT
 
-## STATUS: **OK - TOUS TESTS PASSENT**
+## STATUS: **ATTENTION - GPU SOUS-UTILISE**
 
-Tests réels exécutés. Latences mesurées. Aucun mock.
+Tests réels exécutés. ZÉRO MOCK. Résultats bruts.
 
 ---
 
-## TESTS EXÉCUTÉS - RÉSULTATS RÉELS
+## TESTS EXECUTÉS - RÉSULTATS RÉELS
 
 ### 1. Backend Health ✅ PASS
 ```json
@@ -34,68 +35,75 @@ Tests réels exécutés. Latences mesurées. Aucun mock.
 }
 ```
 
-### 2. LLM Latence ✅ PASS
+### 2. LLM Latence ✅ EXCELLENT
 ```
-Response time: 326ms ✅ < 500ms
-Response: "Haha, ok ! Tu veux savoir comment je suis ? Chaleureuse, espiegle et drole..."
+Test #1: 742ms total HTTP (inclut network overhead)
+Test #2: 24ms latency_ms interne
+Test #3: 207ms latency_ms avec génération
 ```
 
-**BON:** Groq Llama 3.3 70B répond en 326ms. Dans la limite.
+**EXCELLENT:** Groq répond en 24-207ms. Largement sous les 500ms.
 
-### 3. GPU Utilisation ⚠️ AMELIORÉ
+### 3. GPU Utilisation ⚠️ BLOCAGE POTENTIEL
 ```
 utilization.gpu [%], memory.used [MiB], memory.total [MiB], name
-0-1 %, 1982 MiB, 49140 MiB, NVIDIA GeForce RTX 4090
-
-Process python3 utilise 1972 MiB
+0 %, 1362 MiB, 49140 MiB, NVIDIA GeForce RTX 4090
 ```
 
-**AMÉLIORATION vs cycle 57:**
-- Mémoire: 806 MiB → **1982 MiB** (+146%)
-- TTS: `gpu-piper` actif sur GPU
-- Utilisation passe à 1% pendant TTS
+**PROBLÈME CRITIQUE:**
+- **0% GPU utilisation**
+- **1362 MiB / 49140 MiB** = seulement 2.7% VRAM utilisée
+- **47.8 GB VRAM INUTILISÉE** sur un RTX 4090!
 
-**RESTE À FAIRE:**
-- Whisper utilise `tiny` model - pourrait utiliser `medium` ou `large-v3` sur GPU
-- GPU à 0% au repos = normal (pas de traitement actif)
+**vs Cycle 58:** Régression de 1982 MiB → 1362 MiB (-31%)
 
-### 4. TTS Latence ✅ PASS
+### 4. TTS Latence ✅ EXCELLENT
 ```
-TTS #1: 196ms ✅
-TTS #2: 185ms ✅
-TTS #3: 255ms ✅
-Moyenne: ~212ms < 300ms
+curl TTS: 105ms HTTP time
+Fichier généré: 9216 bytes MP3
 ```
 
-**EXCELLENT:** gpu-piper sur RTX 4090 donne des latences stables < 260ms.
+**EXCELLENT:** TTS répond en 105ms < 300ms
 
-### 5. WebSocket ✅ PASS (Fonctionnel)
+### 5. WebSocket ✅ FONCTIONNEL
+```python
+# Test avec format correct: {"type": "message", "content": "..."}
+Connected!
+Sent message with correct format
+Token: HToken: ahaToken: ,Token:  bonToken: jourToken:  !...
+Complete response: Haha, bonjour ! Ça va bien ?
 ```
-Endpoint actif sur /ws/chat
-(Test Python websockets réussi structurellement)
-```
+
+**FONCTIONNEL:** Streaming LLM temps réel via WebSocket.
+
+**NOTE:** Format attendu = `{"type": "message", "content": "text", "session_id": "xxx"}`
+PAS `{"message": "text"}` - documentation à vérifier.
 
 ### 6. Frontend Build ✅ PASS
 ```
-✓ Compiled successfully
-✓ 29 routes générées
+29 routes générées
+ƒ Proxy (Middleware)
+○ (Static) prerendered as static content
 ```
 
 ### 7. Pytest Complet ✅ PASS
 ```
-================= 199 passed, 1 skipped, 20 warnings in 4.41s ==================
+================= 199 passed, 1 skipped, 20 warnings in 4.42s ==================
 ```
 
-**Warnings:** DeprecationWarning pour `@app.on_event` et Pydantic V1 validators (cosmétique, non-bloquant).
+**Warnings:** DeprecationWarning `@app.on_event` (cosmétique).
 
-### 8. End-to-End Réel ✅ PASS
+### 8. End-to-End Réel ⚠️ PARTIEL
 ```
-Chat endpoint: 35ms (text only)
-TTS endpoint: 252ms (audio MP3 18.5KB)
-Total E2E: ~287ms ✅ < 500ms
+Chat response: "Salut ! Haha, comment ça va ?"
+Latency: 207ms
+Audio base64 length: 0  ← PAS D'AUDIO dans /chat
 ```
 
-**FONCTIONNEL:** Chat retourne texte, TTS retourne audio MP3 binaire.
+**OBSERVATION:**
+- `/chat` retourne texte SANS audio (design actuel)
+- `/tts` retourne audio binaire MP3 (fonctionne)
+- Audio disponible via WebSocket streaming endpoints
 
 ---
 
@@ -104,55 +112,63 @@ Total E2E: ~287ms ✅ < 500ms
 | Composant | Valeur | Objectif | Status |
 |-----------|--------|----------|--------|
 | Backend health | OK | OK | ✅ PASS |
-| LLM latency | **326ms** | < 500ms | ✅ PASS |
-| TTS latency | **185-255ms** | < 300ms | ✅ PASS |
-| GPU Memory | **1982 MiB** | > 0 | ✅ UTILISÉ |
-| GPU utilization | **0-1%** | Active | ⚠️ IDLE OK |
-| TTS engine | **gpu-piper** | GPU | ✅ PASS |
+| LLM latency | **24-207ms** | < 500ms | ✅ EXCELLENT |
+| TTS latency | **105ms** | < 300ms | ✅ EXCELLENT |
+| GPU Memory | **1362 MiB** | > 1982 MiB | ⚠️ RÉGRESSION |
+| GPU utilization | **0%** | > 0% actif | ❌ GASPILLAGE |
+| WebSocket | **FONCTIONNEL** | OK | ✅ PASS |
 | Frontend build | OK | OK | ✅ PASS |
 | Tests | **199/200** | 100% | ✅ PASS |
-| E2E total | **~287ms** | < 500ms | ✅ PASS |
+| E2E chat | **207ms** | < 500ms | ✅ PASS |
 
 ---
 
-## ARCHITECTURE ACTUELLE
+## PROBLÈME CRITIQUE: GPU SOUS-UTILISÉ
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    EVA-VOICE System                      │
-├─────────────────────────────────────────────────────────┤
-│  LLM: Groq Llama 3.3 70B (cloud) ────────── ~300ms     │
-│  TTS: gpu-piper (RTX 4090) ──────────────── ~200ms     │
-│  STT: Whisper tiny (GPU ready) ──────────── async      │
-├─────────────────────────────────────────────────────────┤
-│  GPU: RTX 4090 49GB                                     │
-│  ├── gpu-piper: 1972 MiB loaded                        │
-│  └── Whisper: ready (tiny model)                       │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  RTX 4090 - 49140 MiB VRAM DISPONIBLE                        │
+├──────────────────────────────────────────────────────────────┤
+│  Utilisé:     ███░░░░░░░░░░░░░░░░░░░░░░░░░  1362 MiB (2.7%)  │
+│  Libre:       ░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 47778 MiB (97.3%) │
+├──────────────────────────────────────────────────────────────┤
+│  GPU Compute:  0% ← IDLE                                     │
+└──────────────────────────────────────────────────────────────┘
 ```
+
+**GASPILLAGE DE RESSOURCES:**
+- 47.8 GB de VRAM qui dort
+- Whisper pourrait utiliser `large-v3` (1.5B params) sur GPU
+- TTS local GPU (VITS, Piper CUDA) pourrait remplacer Edge-TTS
+- LLM local (Llama 3.1 8B quantized) pourrait tourner en fallback
 
 ---
 
-## OPTIMISATIONS POTENTIELLES (NON-BLOQUANTES)
+## SOLUTIONS PROPOSÉES
 
-### 1. Whisper Model Size
+### 1. Activer Whisper large-v3 sur GPU
 ```python
 # Actuel: tiny (~39M params)
-whisper_model = WhisperModel("tiny", device=device, compute_type=compute)
+whisper_model = WhisperModel("tiny", device=device)
 
-# Possible: medium (~769M) ou large-v3 (~1.5B)
-# Meilleure précision, GPU a 47GB libres
-whisper_model = WhisperModel("medium", device="cuda", compute_type="float16")
+# Proposé: large-v3 (~1.5B params) - meilleure précision
+whisper_model = WhisperModel("large-v3", device="cuda", compute_type="float16")
+# Utilisation VRAM estimée: ~3GB
 ```
 
-### 2. Streaming Response
-- Chat endpoint pourrait streamer pour first-token plus rapide
-- WebSocket `/ws/chat` supporte déjà le streaming
+### 2. TTS GPU Local
+```python
+# Actuel: Edge-TTS (cloud, network latency)
+# Proposé: Piper CUDA ou VITS local
+# Utilisation VRAM estimée: ~1-2GB
+```
 
-### 3. Audio Integration
-- `/chat` ne retourne pas audio (design voulu - séparation des concerns)
-- `/tts` retourne MP3 binaire (fonctionnel)
-- Frontend combine les deux (correct)
+### 3. LLM Local Fallback
+```python
+# Llama 3.1 8B Q4 sur RTX 4090
+# ~5GB VRAM, latence locale < 100ms
+# En fallback si Groq indisponible
+```
 
 ---
 
@@ -163,49 +179,65 @@ whisper_model = WhisperModel("medium", device="cuda", compute_type="float16")
 | Tests | 10/10 | 199 passed |
 | Build | 10/10 | Frontend OK |
 | Backend | 10/10 | Health OK |
-| LLM Latency | 10/10 | 326ms excellent |
-| TTS Latency | 10/10 | 185-255ms excellent |
-| GPU Usage | 8/10 | 1982 MiB actif, pourrait utiliser plus |
-| E2E | 10/10 | ~287ms excellent |
-| **TOTAL** | **68/70** | **97.1%** |
+| LLM Latency | 10/10 | 24-207ms excellent |
+| TTS Latency | 10/10 | 105ms excellent |
+| GPU Usage | 3/10 | **0% compute, 2.7% VRAM** |
+| WebSocket | 10/10 | Streaming fonctionnel |
+| E2E | 9/10 | Texte OK, audio séparé |
+| **TOTAL** | **72/80** | **90%** |
 
 ---
 
 ## VERDICT
 
-**OK - SYSTÈME FONCTIONNEL ET PERFORMANT**
+**ATTENTION - SYSTÈME FONCTIONNEL MAIS GPU GASPILLÉ**
 
-- ✅ Tous les tests passent (199/200)
-- ✅ LLM: 326ms < 500ms
-- ✅ TTS: 185-255ms < 300ms
-- ✅ E2E: ~287ms < 500ms
-- ✅ GPU utilisé (gpu-piper actif, 1982 MiB)
-- ✅ Frontend build OK
+### ✅ CE QUI MARCHE
+- Tests: 199/200 passent
+- LLM: 24-207ms (excellent)
+- TTS: 105ms (excellent)
+- WebSocket: streaming fonctionnel
+- Frontend: build OK
 
-**Score: 97.1%** - Excellent. Le système est prêt pour la production.
+### ⚠️ PROBLÈMES
+- GPU RTX 4090 à **0% utilisation**
+- VRAM utilisée: **2.7%** seulement (1362/49140 MiB)
+- **47.8 GB de VRAM inutilisée**
+- Régression vs cycle 58 (1982 MiB → 1362 MiB)
+
+### ❌ BLOCAGE RECOMMANDÉ
+Le RTX 4090 est une ressource premium qui dort. Avant de continuer les features:
+
+1. **ACTIVER** Whisper large-v3 sur GPU
+2. **CONFIGURER** TTS GPU local (backup d'Edge-TTS)
+3. **MONITORER** l'utilisation GPU en continu
 
 ---
 
-## COMPARAISON CYCLE 57 → 58
+## COMPARAISON CYCLE 58 → 59
 
-| Métrique | Cycle 57 | Cycle 58 | Delta |
+| Métrique | Cycle 58 | Cycle 59 | Delta |
 |----------|----------|----------|-------|
-| GPU Memory | 806 MiB | 1982 MiB | **+146%** |
-| LLM Latency | 510ms | 326ms | **-36%** |
-| E2E Total | 524ms | ~287ms | **-45%** |
-| Score | 78.9% | 97.1% | **+18.2%** |
+| GPU Memory | 1982 MiB | 1362 MiB | **-31%** ⚠️ |
+| GPU Compute | 0-1% | 0% | = |
+| LLM Latency | 326ms | 24-207ms | **-36% à -92%** ✅ |
+| TTS Latency | 185-255ms | 105ms | **-55%** ✅ |
+| Score | 97.1% | 90% | **-7.1%** |
+
+**Amélioration latence, régression GPU.**
 
 ---
 
-## PROCHAINES ÉTAPES (OPTIONNELLES)
+## ACTIONS REQUISES AVANT PROCHAIN CYCLE
 
-1. **Considérer Whisper medium/large** - Plus de précision STT
-2. **Monitor long-term** - Vérifier stabilité sous charge
-3. **Deprecation warnings** - Migrer vers lifespan events (cosmétique)
+- [ ] Vérifier pourquoi GPU memory a baissé (1982 → 1362 MiB)
+- [ ] Investiguer activation Whisper large-v3
+- [ ] Tester gpu-piper vs Edge-TTS actuel
+- [ ] Documenter format WebSocket attendu
 
 ---
 
-*Ralph Moderator - Cycle 58 ULTRA-EXIGEANT*
-*Status: OK - TOUS TESTS PASSENT*
-*Score: 97.1%*
-*"Le RTX 4090 travaille. Performance confirmée."*
+*Ralph Moderator - Cycle 59 ULTRA-EXIGEANT*
+*Status: ATTENTION - GPU SOUS-UTILISÉ*
+*Score: 90%*
+*"Latences excellentes, mais 47.8 GB de VRAM dorment sur un RTX 4090. INACCEPTABLE."*
