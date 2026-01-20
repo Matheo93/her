@@ -517,6 +517,7 @@ export default function VoiceFirstPage() {
   }, [playTTS]);
 
   // SPRINT 20: Proactive TTS - EVA speaks her proactive messages
+  // SPRINT 22: Enhanced with voice warmth parameters
   const speakProactiveMessage = useCallback(async (text: string) => {
     // Don't interrupt if already speaking or in a conversation
     if (state !== "idle") return;
@@ -525,10 +526,18 @@ export default function VoiceFirstPage() {
     setEvaEmotion("warmth");
 
     try {
+      // SPRINT 22: Apply voice warmth to text and get TTS parameters
+      const warmText = applyVoiceWarmthToText(text, voiceWarmth.params);
+      const ttsParams = getEdgeTTSParams(voiceWarmth.params);
+
       const res = await fetch(`${BACKEND_URL}/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({
+          text: warmText,
+          rate: ttsParams.rate,
+          pitch: ttsParams.pitch,
+        }),
       });
 
       if (res.ok) {
@@ -596,7 +605,7 @@ export default function VoiceFirstPage() {
       setState("idle");
       setEvaEmotion("neutral");
     }
-  }, [state]);
+  }, [state, voiceWarmth.params]);
 
   // SPRINT 20: Effect to trigger proactive TTS
   useEffect(() => {

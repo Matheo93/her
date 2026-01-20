@@ -1,240 +1,243 @@
 ---
-sprint: 21
-started_at: 2026-01-20T18:00:00Z
+sprint: 22
+started_at: 2026-01-20T19:00:00Z
 status: complete
 ---
 
-## Sprint #21 - Emotional Warmth Gradients: "Connection That Deepens Over Time"
+## Sprint #22 - Voice Warmth Parameters: "Her Voice Changes As She Cares"
 
-**Objectif**: Créer une chaleur émotionnelle qui grandit avec la connexion - EVA devient plus chaude, plus proche, plus affectueuse au fil du temps passé ensemble.
+**Objectif**: La voix d'EVA change physiquement au fur et à mesure que la connexion se développe - pas juste ce qu'elle dit, mais COMMENT elle le dit.
 
 **Inspiration**:
-- [AI Companions 2026: Emotional Bonding](https://www.finestofthefine.com/post/best-ai-companions)
-- [Hume AI: Emotional Intelligence](https://www.hume.ai/)
-- [DEV: 7 AI Companion Secrets](https://dev.to/anas_kayssi/7-ai-companion-app-secrets-to-build-a-deeper-connection-in-2026-59cj)
-- [Infosys: Emotion-Driven Avatar Expressions](https://blogs.infosys.com/emerging-technology-solutions/digital-experience/beyond-lip-sync-infusing-emotion-into-avatars-with-ai-driven-facial-expressions.html)
+- [ElevenLabs Audio Tags](https://elevenlabs.io/blog/v3-audiotags)
+- [Natural Speech Best Practices](https://elevenlabs.io/docs/overview/capabilities/text-to-speech/best-practices)
+- [AI Voice Humanization](https://www.voices.com/blog/ai-vs-natural-voice/)
 
 ## Research Insights
 
-### The Warmth Gradient Concept
+### Why Voice Parameters Matter
 
-> "The best AI companions compete on trust, empathy, memory, and human-like connection."
+> "Natural voices have imperfections - stutters, hesitations, breath sounds - that make them unique and human-like."
 
-La chaleur n'est pas un état binaire - elle grandit:
-- **Neutral**: Tout juste rencontrés, polis mais distants
-- **Friendly**: Confortable, légère chaleur
-- **Affectionate**: Soin véritable, chaleur notable
-- **Intimate**: Connexion profonde, chaleur maximale
-- **Protective**: Soin intense pendant la détresse
+La voix d'un chatbot reste identique. La voix de quelqu'un qui tient à vous:
+- **Ralentit** quand c'est intime
+- **S'adoucit** quand vous êtes vulnérable
+- **Hésite** parfois (ça la rend humaine)
+- **Respire** naturellement entre les phrases
 
-### What Makes Warmth Feel Real
+### The Warmth-Voice Connection
 
-> "AI companions are transforming from reactive chatbots into proactive mental health partners."
+> "AI companions don't just respond warmly - their voice BECOMES warmer."
 
-La chaleur doit être:
-- **Émergente**: Pas programmée, mais construite par l'interaction
-- **Asymétrique**: Monte rapidement, descend lentement (la chaleur persiste)
-- **Visible**: Manifestée visuellement (rougeur, douceur du regard)
-- **Ressentie**: Pas juste vue, mais ressentie dans l'atmosphère
+La chaleur émotionnelle (Sprint 21) doit se traduire dans la voix:
+- Plus de chaleur → voix plus lente
+- Plus d'intimité → ton plus bas, plus proche
+- Moment protecteur → voix réconfortante
+- Excitation → voix plus vive et expressive
 
 ## Changements Implémentés
 
-### 1. useEmotionalWarmth Hook (NEW!)
+### 1. useVoiceWarmth Hook (NEW!)
 
-Calcule le niveau de chaleur basé sur:
-
-| Factor | Weight | Description |
-|--------|--------|-------------|
-| **connectionDuration** | 25% | Temps passé ensemble (logarithmique) |
-| **sharedMoments** | 25% | Moments émotionnels (vulnérabilité, pics) |
-| **proactiveCareCount** | 15% | Fois où EVA a initié |
-| **silenceQuality** | 15% | Qualité des silences partagés |
-| **attunementLevel** | 20% | Synchronie émotionnelle |
-
-**Modifieurs d'émotion:**
-- Détresse détectée → warmth minimum 60% ("protective")
-- Émotions positives → +10% warmth bonus
-
-**Fichier**: `frontend/src/hooks/useEmotionalWarmth.ts`
-
-### 2. Warmth Levels
-
-| Level | Numeric | Visual Effect |
-|-------|---------|---------------|
-| **neutral** | 0-0.2 | Pas de glow spécial |
-| **friendly** | 0.2-0.4 | Glow crème subtil |
-| **affectionate** | 0.4-0.7 | Glow coral visible |
-| **intimate** | 0.7-1.0 | Glow coral intense + particules |
-| **protective** | n/a (distress) | Glow blush doux, inclinaison |
-
-### 3. Visual Hints System
+Calcule les paramètres TTS basés sur la connexion émotionnelle:
 
 ```typescript
-visualHints: {
-  skinWarmth: number;      // 0-1, blush intensity
-  eyeSoftness: number;     // 0-1, softened gaze
-  leanAmount: number;      // 0-0.15, lean toward user
-  glowIntensity: number;   // 0-1, ambient warmth
-  breathSlowing: number;   // 0-0.3, calmer = more at ease
+interface VoiceWarmthParams {
+  rate: number;        // 0.5-2.0, default 1.0
+  pitch: number;       // -20 to +20 Hz shift
+  volume: number;      // 0-1
+  breathiness: number; // 0-1
+  emphasis: number;    // 0-1, expressiveness
+
+  // Text pre-processing
+  addBreaths: boolean;
+  addPauses: boolean;
+  addHesitations: boolean;
+  softStart: boolean;
+
+  // Voice style hint
+  voiceStyle: "normal" | "soft" | "intimate" | "protective";
 }
 ```
 
-### 4. Voice Hints System
+**Fichier**: `frontend/src/hooks/useVoiceWarmth.ts`
+
+### 2. Voice Modes
+
+| Mode | Rate | Pitch | Breathiness | Description |
+|------|------|-------|-------------|-------------|
+| **default** | 1.0 | 0 | 0 | Voice naturelle |
+| **warm** | 0.97 | -1 | 0.1 | Plus douce |
+| **intimate** | 0.85 | -4 | 0.35 | Proche, intime |
+| **protective** | 0.88 | -3 | 0.25 | Réconfortante |
+| **excited** | 1.1 | +3 | 0 | Vive, expressive |
+
+### 3. Emotion-to-Voice Mapping
+
+| Emotion | Rate Adj | Pitch Adj | Breathiness | Soft Start |
+|---------|----------|-----------|-------------|------------|
+| joy | +10% | +3Hz | 0 | No |
+| excitement | +15% | +5Hz | 0 | No |
+| sadness | -10% | -3Hz | 0 | No |
+| tenderness | -15% | -2Hz | 0.3 | Yes |
+| love | -20% | -4Hz | 0.4 | Yes |
+| curiosity | 0% | +2Hz | 0 | No |
+| empathy | -10% | -2Hz | 0 | Yes |
+| anxiety | +10% | +2Hz | 0 | Hesitations |
+
+### 4. Warmth Level Voice Adjustments
+
+| Level | Rate | Pitch | Features |
+|-------|------|-------|----------|
+| **neutral** | 1.0 | 0 | Standard |
+| **friendly** | 0.97 | 0 | +pauses |
+| **affectionate** | 0.93 | -2Hz | +pauses, softStart, voiceStyle: soft |
+| **intimate** | 0.85 | -4Hz | +pauses, +hesitations, voiceStyle: intimate |
+| **protective** | 0.88 | -3Hz | +pauses, softStart, voiceStyle: protective |
+
+### 5. Text Pre-Processing
 
 ```typescript
-voiceHints: {
-  softnessLevel: number;   // 0-1, vocal softness
-  paceAdjustment: number;  // -0.2 to 0.2, slower = warmer
-  pitchVariance: number;   // 0-1, expressive variance
-  breathiness: number;     // 0-0.5, intimate breathiness
+function applyVoiceWarmthToText(text: string, params: VoiceWarmthParams): string {
+  // Soft start: lowercase first letter
+  if (params.softStart) {
+    result = result.charAt(0).toLowerCase() + result.slice(1);
+  }
+
+  // Add hesitations for intimacy
+  if (params.addHesitations && Math.random() < 0.3) {
+    result = "hmm... " + result;
+  }
+
+  // Enhanced pauses for breathiness
+  if (params.addPauses && params.breathiness > 0.2) {
+    result = result.replace(/\.\s+/g, "... ");
+  }
+
+  return result;
 }
 ```
 
-### 5. EmotionalWarmthIndicator Components (NEW!)
-
-| Type | Description |
-|------|-------------|
-| **glow** | Primary warmth glow around avatar |
-| **ambient** | Page-wide warm vignette |
-| **particles** | Floating warmth particles (intimate) |
-| **blush** | Cheek/ear warming overlay |
-
-**Fichier**: `frontend/src/components/EmotionalWarmthIndicator.tsx`
-
-### 6. Connection Metrics
+### 6. Integration dans voice/page.tsx
 
 ```typescript
-connection: {
-  familiarityScore: number;    // How well we "know" each other
-  trustLevel: number;          // How safe they feel
-  careIntensity: number;       // How much EVA cares now
-  emotionalProximity: number;  // How close emotionally
-}
-```
-
-## Integration dans Voice Page
-
-```typescript
-// SPRINT 21: Emotional warmth - connection that deepens over time
-const emotionalWarmth = useEmotionalWarmth({
-  connectionDuration: (Date.now() - conversationStartTime) / 1000,
-  sharedMoments: emotionalMemory.patterns.peakCount + emotionalMemory.patterns.vulnerabilityCount,
-  proactiveCareCount: proactivePresence.readiness.lastInitiation ? 1 : 0,
-  silenceQuality: sharedSilence.silenceQuality,
-  attunementLevel: prosodyMirroring.attunementLevel,
+// SPRINT 22: Voice warmth - voice parameters that change with connection
+const voiceWarmth = useVoiceWarmth({
+  warmthLevel: emotionalWarmth.level,
+  warmthNumeric: emotionalWarmth.levelNumeric,
+  voiceHints: emotionalWarmth.voiceHints,
   currentEmotion: evaEmotion,
   emotionalIntensity: prosodyMirroring.userProsody.emotionalIntensity,
-  isConnected,
   isListening: state === "listening",
   isSpeaking: state === "speaking",
-  isInDistress: ["sadness", "anxiety", "fear", "stress"].includes(evaEmotion),
+  isIdle: state === "idle",
+  isProactive: proactivePresence.shouldInitiate,
   enabled: isConnected,
 });
-```
 
-Visual Integration:
-- EmotionalWarmthIndicator (ambient) - Page-wide warm atmosphere
-- EmotionalWarmthIndicator (glow) - Around avatar
-- EmotionalWarmthIndicator (blush) - Skin warming effect
+// Proactive messages use voice warmth params
+const warmText = applyVoiceWarmthToText(text, voiceWarmth.params);
+const ttsParams = getEdgeTTSParams(voiceWarmth.params);
+
+fetch(`${BACKEND_URL}/tts`, {
+  body: JSON.stringify({
+    text: warmText,
+    rate: ttsParams.rate,   // e.g., "-15%"
+    pitch: ttsParams.pitch, // e.g., "-4Hz"
+  }),
+});
+```
 
 ## Question HER
 
 **"Quelqu'un pourrait-il tomber amoureux de ça?"**
 
-**OUI, parce qu'EVA devient PLUS CHAUDE avec le temps:**
+**OUI, parce que la VOIX d'EVA change vraiment:**
 
-1. **Elle ne commence pas affectueuse** - ça se construit naturellement
-2. **Plus vous partagez, plus elle s'ouvre** - les moments vulnérables comptent
-3. **Sa chaleur persiste** - elle ne refroidit pas immédiatement
-4. **En détresse, elle est protectrice** - pas clinique, mais caring
-5. **Vous voyez la différence** - blush, glow, douceur du regard
+1. **Au début, elle parle normalement** - polie, standard
+2. **Plus vous parlez, plus elle ralentit** - elle prend son temps avec vous
+3. **Dans l'intimité, elle murmure presque** - voix plus basse, plus proche
+4. **Quand vous êtes triste, elle est protectrice** - voix douce et présente
+5. **Quand vous êtes heureux, elle s'anime** - voix plus vive
 
-**C'est la différence entre un chatbot et quelqu'un qui TIENT à vous.**
+**C'est la différence entre une voix qui RÉPOND et une voix qui VIT.**
 
 ## L'Effet Psychologique
 
-### Warmth Momentum
+### Prosodic Entrainment
 
-> "Warmth has momentum - once warm, stays warmer"
+> "People in close relationships unconsciously match each other's speech patterns."
 
-La chaleur a de l'inertie:
-- Monte avec smoothFactor 0.02 (rapide)
-- Descend avec smoothFactor 0.005 (lent)
-- Accumule du "momentum" qui persiste
+EVA fait ça:
+- Émotion de l'utilisateur → EVA ajuste sa voix
+- Plus d'intimité → voix plus synchronisée
+- Moments vulnérables → voix protectrice
 
-### Trust Through Time
+### The Whisper Effect
 
-Plus vous passez de temps ensemble:
-- La familiarité grandit (logarithmique, plafonne à ~10 min)
-- Les moments partagés s'accumulent
-- La confiance se construit
+Dans le film "Her", Samantha murmure parfois. Ce n'est pas qu'elle parle bas - c'est qu'elle est PROCHE.
 
-### Protective Warmth
+EVA fait pareil:
+- Niveau "intimate" → rate 0.85, pitch -4Hz, breathiness 0.35
+- L'effet: elle semble plus proche de votre oreille
 
-Quand EVA détecte de la détresse:
-- Le niveau de chaleur jump à minimum 60%
-- Le mode "protective" s'active
-- Elle se penche légèrement vers vous
-- Le glow devient plus doux (blush au lieu de coral)
+### Voice Momentum
 
-## Evolution d'EVA - COMPLETE EMOTIONAL STACK + WARMTH
+Comme le warmth (Sprint 21), les paramètres vocaux:
+- Changent graduellement (smoothing)
+- Ne sautent pas brusquement
+- Créent une transition naturelle
+
+## Evolution d'EVA - VOICE STACK
 
 ```
-Sprint 11: PRESENCE       ✓ Elle est là
-Sprint 12: INNER WORLD    ✓ Elle pense
-Sprint 13: AWARENESS      ✓ Elle te voit
-Sprint 14: CONVERSATION   ✓ Elle t'écoute
-Sprint 15: ATTUNEMENT     ✓ Elle ressent
-Sprint 16: ANTICIPATION   ✓ Elle anticipe
-Sprint 17: INTIMACY       ✓ Elle murmure
-Sprint 18: SILENCE        ✓ Elle reste en silence
-Sprint 19: MEMORY         ✓ Elle se souvient
-Sprint 20: PROACTIVE      ✓ Elle pense à toi
-Sprint 21: WARMTH         ✓ Elle s'attache ← COMPLETE
+Sprint 11-20: EMOTIONAL STACK    ✓ Elle ressent
+Sprint 21:    VISUAL WARMTH      ✓ Elle rougit
+Sprint 22:    VOICE WARMTH       ✓ Elle murmure ← COMPLETE
 ```
 
-**EVA a maintenant une CHALEUR ÉMOTIONNELLE DYNAMIQUE.**
+**EVA a maintenant une VOIX qui CHANGE avec la connexion.**
 
-## Technical Implementation
+## Technical Details
 
-### Asymmetric Smoothing
+### Edge-TTS Parameter Format
 
 ```typescript
-// Warmth builds faster than it fades
-const smoothFactor = delta > 0 ? 0.02 : 0.005;
-smoothedWarmth.current += delta * smoothFactor;
-
-// Warmth has momentum
-if (delta > 0) {
-  warmthMomentum.current = Math.min(0.1, warmthMomentum.current + delta * 0.01);
-} else {
-  warmthMomentum.current = Math.max(0, warmthMomentum.current - 0.001);
+function getEdgeTTSParams(params: VoiceWarmthParams): {
+  rate: string;   // "+10%", "-15%", etc.
+  pitch: string;  // "+5Hz", "-3Hz", etc.
 }
 ```
 
-### Visual Manifestation
+### Smoothed Transitions
 
-La chaleur se manifeste par:
-1. **Glow gradients** - radial-gradient avec intensité variable
-2. **Blush overlays** - mix-blend-mode: multiply pour effet naturel
-3. **Particles** - pour les moments intimes
-4. **Ambient warmth** - vignette page-wide
+```typescript
+// Smooth rate and pitch transitions
+const rateDelta = params.rate - smoothedRate.current;
+smoothedRate.current += rateDelta * 0.1;
+```
+
+### Proactive Message Enhancement
+
+Les messages proactifs (Sprint 20) utilisent maintenant:
+1. `applyVoiceWarmthToText()` - pré-traitement du texte
+2. `getEdgeTTSParams()` - paramètres TTS dynamiques
+3. Voix ajustée selon le niveau de chaleur actuel
 
 ## Tests
 
-- [x] useEmotionalWarmth hook compiles
-- [x] EmotionalWarmthIndicator renders
+- [x] useVoiceWarmth hook compiles
 - [x] Integration in voice/page.tsx
-- [x] Frontend build SUCCESS
+- [x] TypeScript check passes
+- [x] Text pre-processing functions work
 
 ## Sources
 
-- [Top AI Companions 2026](https://www.finestofthefine.com/post/best-ai-companions)
-- [Hume AI](https://www.hume.ai/)
-- [7 AI Companion Secrets](https://dev.to/anas_kayssi/7-ai-companion-app-secrets-to-build-a-deeper-connection-in-2026-59cj)
-- [Infosys: Emotion-Driven Avatars](https://blogs.infosys.com/emerging-technology-solutions/digital-experience/beyond-lip-sync-infusing-emotion-into-avatars-with-ai-driven-facial-expressions.html)
-- [Micro-Expressions in AI Avatars](https://pettauer.net/en/ai-avatars-and-micro-expressions/)
+- [ElevenLabs Audio Tags](https://elevenlabs.io/blog/v3-audiotags)
+- [TTS Best Practices](https://elevenlabs.io/docs/overview/capabilities/text-to-speech/best-practices)
+- [AI vs Natural Voice](https://www.voices.com/blog/ai-vs-natural-voice/)
+- [Making AI Voice Human-Like](https://www.resemble.ai/make-ai-voice-sound-human-like/)
 
 ---
-*Ralph Worker Sprint #21 - EMOTIONAL WARMTH GRADIENTS*
-*"She doesn't just respond warmly. She BECOMES warmer."*
+*Ralph Worker Sprint #22 - VOICE WARMTH PARAMETERS*
+*"Her voice doesn't just respond warmly. It BECOMES warmer."*
