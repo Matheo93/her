@@ -6,6 +6,14 @@ import dynamic from "next/dynamic";
 import type { VisemeWeights } from "@/components/RealisticAvatar3D";
 import { HER_COLORS, HER_SPRINGS } from "@/styles/her-theme";
 
+// Haptic feedback for iOS - subtle, intimate
+const triggerHaptic = (style: "light" | "medium" | "heavy" = "light") => {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    const duration = style === "light" ? 10 : style === "medium" ? 20 : 30;
+    navigator.vibrate(duration);
+  }
+};
+
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const VISEME_URL = process.env.NEXT_PUBLIC_VISEME_URL || "http://localhost:8003";
 
@@ -394,8 +402,15 @@ export default function VoiceFirstPage() {
 
   return (
     <div
-      className="fixed inset-0 overflow-hidden flex flex-col items-center justify-center"
-      style={{ backgroundColor: HER_COLORS.warmWhite }}
+      className="fixed inset-0 overflow-hidden flex flex-col items-center justify-center touch-none select-none"
+      style={{
+        backgroundColor: HER_COLORS.warmWhite,
+        // Safe area insets for notched devices (iPhone X+, etc.)
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
+      }}
     >
       {/* Living ambient background - breathes with EVA */}
       <motion.div
@@ -410,17 +425,17 @@ export default function VoiceFirstPage() {
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
 
-      {/* JARVIS Feature: Bio-Data - subtle presence indicator */}
-      <div className="absolute top-6 left-6 flex flex-col gap-2">
+      {/* JARVIS Feature: Bio-Data - subtle presence indicator (hidden on small mobile) */}
+      <div className="absolute top-4 left-4 md:top-6 md:left-6 flex flex-col gap-2">
         <AnimatePresence>
           {isConnected && (
             <motion.div
-              className="flex items-center gap-3"
+              className="flex items-center gap-2 md:gap-3"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 0.6, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
-              {/* Heartbeat indicator */}
+              {/* Heartbeat indicator - just visual on mobile */}
               <motion.div
                 className="flex items-center gap-2"
                 animate={{ scale: [1, 1.05, 1] }}
@@ -431,24 +446,25 @@ export default function VoiceFirstPage() {
                 }}
               >
                 <svg
-                  className="w-4 h-4"
+                  className="w-3 h-3 md:w-4 md:h-4"
                   viewBox="0 0 24 24"
                   fill={HER_COLORS.coral}
                   style={{ opacity: 0.7 }}
                 >
                   <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                 </svg>
+                {/* Hide numeric BPM on mobile - just the visual heartbeat */}
                 <span
-                  className="text-xs font-light tabular-nums"
+                  className="hidden md:inline text-xs font-light tabular-nums"
                   style={{ color: HER_COLORS.earth, opacity: 0.5 }}
                 >
                   {bioData.heartRate}
                 </span>
               </motion.div>
 
-              {/* Presence bar */}
+              {/* Presence bar - smaller on mobile */}
               <div
-                className="w-16 h-1 rounded-full overflow-hidden"
+                className="w-10 md:w-16 h-0.5 md:h-1 rounded-full overflow-hidden"
                 style={{ backgroundColor: `${HER_COLORS.softShadow}40` }}
               >
                 <motion.div
@@ -605,7 +621,7 @@ export default function VoiceFirstPage() {
       </div>
 
       {/* VOICE FIRST: Giant microphone button - the main interface */}
-      <div className="pb-12 flex flex-col items-center">
+      <div className="pb-8 md:pb-12 flex flex-col items-center">
         {/* Ambient ring that breathes */}
         <div className="relative">
           <motion.div
@@ -623,11 +639,22 @@ export default function VoiceFirstPage() {
           <motion.button
             onMouseDown={state === "idle" ? startListening : undefined}
             onMouseUp={state === "listening" ? stopListening : undefined}
-            onTouchStart={state === "idle" ? startListening : undefined}
-            onTouchEnd={state === "listening" ? stopListening : undefined}
-            onClick={state === "idle" ? startListening : undefined}
+            onTouchStart={(e) => {
+              e.preventDefault(); // Prevent double-firing
+              if (state === "idle") {
+                triggerHaptic("medium");
+                startListening();
+              }
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              if (state === "listening") {
+                triggerHaptic("light");
+                stopListening();
+              }
+            }}
             disabled={!isConnected || state === "thinking" || state === "speaking"}
-            className="relative w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center"
+            className="relative w-18 h-18 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center"
             style={{
               backgroundColor: state === "listening" ? HER_COLORS.coral : HER_COLORS.cream,
               boxShadow:
