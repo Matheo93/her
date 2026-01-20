@@ -116,7 +116,7 @@ export default function EvaHerPage() {
 
   // JARVIS Feature: Bio-data animation
   useEffect(() => {
-    let startTime = Date.now();
+    const startTime = Date.now();
 
     const animateBio = () => {
       const elapsed = (Date.now() - startTime) / 1000;
@@ -246,7 +246,14 @@ export default function EvaHerPage() {
         ws.send(JSON.stringify({
           type: "config",
           user_id: "eva_her_user",
-          voice: "french"
+          voice: "french",
+          // Voice warmth parameters from hook
+          voice_warmth: {
+            rate: voiceWarmth.params.rate,
+            pitch: voiceWarmth.params.pitch,
+            volume: voiceWarmth.params.volume,
+            mode: voiceWarmth.mode,
+          }
         }));
       };
 
