@@ -1145,9 +1145,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# CORS - configurable via environment
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+if os.getenv("CORS_ALLOW_ALL", "false").lower() == "true":
+    CORS_ORIGINS = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: Restrict in production
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
