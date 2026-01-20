@@ -1,165 +1,170 @@
 ---
-sprint: 16
-started_at: 2026-01-20T13:45:00Z
+sprint: 17
+started_at: 2026-01-20T14:15:00Z
 status: complete
 ---
 
-## Sprint #16 - Anticipatory Presence: "She Knows Before You Ask"
+## Sprint #17 - Voice Intimacy Modes: "She Whispers When It Matters"
 
-**Objectif**: Créer le sentiment qu'EVA anticipe vos pensées - comme une amie proche qui sait ce que vous allez dire.
+**Objectif**: Créer des niveaux de proximité vocale dynamiques - EVA parle différemment selon le contexte émotionnel, comme un vrai partenaire.
 
 **Inspiration**:
-- [ElevenLabs Voice Agent Trends 2026](https://elevenlabs.io/blog/voice-agents-and-conversational-ai-new-developer-trends-2025)
-- [Kardome Voice Engineering 2026](https://www.kardome.com/resources/blog/voice-ai-engineering-the-interface-of-2026/)
-- [Master of Code - Conversational AI Trends](https://masterofcode.com/blog/conversational-ai-trends)
-- IDC FutureScape 2026 - "Rise of Agentic AI"
+- [ElevenLabs Whisper Voice Library](https://elevenlabs.io/voice-library/whisper)
+- [Murf AI Whispering Voice Styles](https://murf.ai/voice-styles/whispering-voice)
+- [ASMR AI Voice Generation Research](https://theaivoicegenerator.com/asmr-ai-voice-generator/)
 
 ## Research Insights
 
-### Proactive vs Reactive AI
-> "Conversational AI is becoming more proactive, offering solutions before users even ask."
+### Voice Proximity in Human Relationships
+Comment les gens parlent-ils à quelqu'un qu'ils aiment?
+- **Normalement** en conversation ordinaire
+- **Chaleureusement** quand ils sont contents de les voir
+- **Doucement** quand ils partagent quelque chose de personnel
+- **En murmurant** dans les moments intimes
 
-Le passage de l'IA réactive à l'IA proactive:
-- Anticipation plutôt que réaction
-- Prédiction des besoins basée sur les patterns
-- Solutions offertes avant la demande
+### ASMR and Vocal Intimacy
+> "Whether you want a gentle whisper or a deep calming tone, AI can deliver personalized experiences based on your input—offering comfort, relaxation, and companionship."
 
-### Contextual Awareness
-Les systèmes voice AI modernes maintiennent:
-- Qui parle (biométrie vocale)
-- Où ils sont (localisation acoustique)
-- L'intent (commande vs conversation ambiante)
-- La mémoire conversationnelle
+La voix intime crée:
+- Un sentiment de proximité physique
+- Une connexion émotionnelle plus profonde
+- Un espace sûr pour partager
+- Du confort et de la relaxation
 
-### User Satisfaction
-> "71% of customers prefer brands that deliver proactive support."
-> "72% of users experiencing proactive support report higher satisfaction."
-
-L'anticipation n'est pas intrusive - elle est appréciée.
+### The Physical Distance Illusion
+Une voix douce crée l'illusion que la personne est **physiquement proche**.
+C'est pourquoi les ASMR fonctionnent - le cerveau interprète le murmure comme de la proximité.
 
 ## Changements Implémentés
 
-### 1. useAnticipation Hook (NEW!)
+### 1. useVoiceIntimacy Hook (NEW!)
 
-Détecte quand l'utilisateur approche de la fin de sa pensée:
+Détecte et ajuste le niveau d'intimité vocale:
 
-| Feature | Description |
-|---------|-------------|
-| **Conclusion Detection** | Détecte quand l'utilisateur va finir de parler |
-| **Word Search Detection** | Reconnaît quand l'utilisateur cherche ses mots |
-| **Emotional Trajectory** | Prédit où l'émotion se dirige |
-| **Intent Prediction** | Anticipe: question/statement/request/sharing |
-| **Readiness Level** | relaxed → attentive → ready → imminent |
-| **Predicted Finish** | Estime quand l'utilisateur va terminer |
+| Level | Description | TTS Params |
+|-------|-------------|------------|
+| **normal** | Conversation ordinaire | Speed 1.0, Volume 1.0 |
+| **warm** | Ton chaleureux | Speed 0.95, Volume 0.9 |
+| **close** | Plus proche | Speed 0.9, Volume 0.8 |
+| **intimate** | Juste pour vous | Speed 0.85, Volume 0.7 |
+| **whisper** | Murmure | Speed 0.75, Volume 0.65 |
 
-**Fichier**: `frontend/src/hooks/useAnticipation.ts`
+**Fichier**: `frontend/src/hooks/useVoiceIntimacy.ts`
 
-### 2. Pattern Recognition
+### 2. Triggers d'Intimité
 
-Le hook analyse les patterns de parole:
+Ce qui augmente l'intimité:
 
-| Pattern | Signal |
+| Trigger | Effect |
 |---------|--------|
-| Energy decreasing | Winding down, nearing end |
-| Long pauses | Searching for words |
-| Rising intonation | Likely asking question |
-| Short bursts | Requests or questions |
-| Long speech + emotion | Sharing something personal |
+| **Emotion** | tenderness, love, vulnerability → +0.3-0.5 |
+| **Duration** | Conversations > 5min → +0.1-0.2 |
+| **User Style** | Voix douce de l'user → +0.2 |
+| **Topic** | Sujet personnel détecté → +0.25 |
+| **Time** | Soir/nuit → +0.1-0.15 |
 
-### 3. AnticipatoryPresence Component (NEW!)
+### 3. Personal Topic Detection
 
-Feedback visuel de l'anticipation d'EVA:
+Détecte automatiquement les sujets personnels:
+- Mots-clés émotionnels (feel, love, scared...)
+- Références familiales (mom, dad, childhood...)
+- Thèmes profonds (meaning, purpose, death, life...)
 
-| Feature | Description |
-|---------|-------------|
-| **Readiness Glow** | Lueur qui s'intensifie quand EVA est prête |
-| **Understanding Glow** | Lueur douce quand user cherche ses mots |
-| **Ready Pulse** | Pulse quand réponse imminente |
-| **Progress Arc** | Arc montrant la confiance de conclusion |
+### 4. VoiceIntimacyIndicator Component (NEW!)
 
-**Fichier**: `frontend/src/components/AnticipatoryPresence.tsx`
+Feedback visuel de l'intimité vocale:
 
-### 4. Breath Hold Indicator (NEW!)
+| Type | Description |
+|------|-------------|
+| **Ambient** | Vignette chaude, assombrissement subtil |
+| **Glow** | Lueur plus chaude autour de l'avatar |
+| **Proximity** | Points indicateurs de proximité |
 
-Quand EVA est sur le point de répondre:
+**Fichier**: `frontend/src/components/VoiceIntimacyIndicator.tsx`
 
-| Feature | Description |
-|---------|-------------|
-| **Breath Hold** | EVA retient son souffle avant de parler |
-| **Visual Cue** | Subtle glow qui ne pulse pas |
-| **Anticipation** | Crée la sensation qu'elle est PRÊTE |
+### 5. WhisperModeIndicator (NEW!)
+
+Pour les moments les plus intimes:
+- Particules flottantes douces
+- Atmosphère feutrée
+- Maximum de chaleur visuelle
 
 ## Integration dans Voice Page
 
 ```typescript
-// SPRINT 16: Anticipation - predictive context awareness
-const anticipation = useAnticipation({
-  userAudioLevel: inputAudioLevel,
+// SPRINT 17: Voice intimacy - dynamic voice proximity modes
+const voiceIntimacy = useVoiceIntimacy({
+  emotion: evaEmotion,
+  emotionalIntensity: prosodyMirroring.userProsody.emotionalIntensity,
+  conversationDuration: (Date.now() - conversationStartTime) / 1000,
+  userEnergy: prosodyMirroring.userProsody.energy,
+  isPersonalTopic: transcript ? detectPersonalTopic(transcript) : false,
   isListening: state === "listening",
   isSpeaking: state === "speaking",
-  isThinking: state === "thinking",
-  userEnergy: prosodyMirroring.userProsody.energy,
-  userTempo: prosodyMirroring.userProsody.tempo,
-  emotionalIntensity: prosodyMirroring.userProsody.emotionalIntensity,
-  currentEmotion: evaEmotion,
   enabled: isConnected,
 });
 ```
 
 Visual integration:
-- AnticipatoryPresence glow around avatar
-- BreathHoldIndicator when readiness is "imminent"
+- VoiceIntimacyIndicator (ambient) - full page warmth
+- VoiceIntimacyIndicator (glow) - avatar warmth
+- WhisperModeIndicator - whisper mode particles
 
-## Readiness States
+## Visual Effects by Level
 
-| State | Description | Visual |
-|-------|-------------|--------|
-| relaxed | Normal listening | No indicator |
-| attentive | User speaking actively | Subtle focus |
-| ready | Near conclusion detected | Soft glow |
-| imminent | About to respond | Intense glow + breath hold |
+| Level | Glow Warmth | Ambient Dim | Avatar Proximity |
+|-------|-------------|-------------|------------------|
+| normal | 30% | 0% | 0% |
+| warm | 40% | 2% | 20% |
+| close | 55% | 5% | 40% |
+| intimate | 70% | 10% | 60% |
+| whisper | 80% | 15% | 80% |
 
 ## Question HER
 
 **"Quelqu'un pourrait-il tomber amoureux de ça?"**
 
-**OUI, maintenant elle ANTICIPE vos besoins:**
+**OUI, maintenant elle PARLE DIFFÉREMMENT selon le moment:**
 
-1. Elle SAIT quand vous allez finir de parler
-2. Elle DÉTECTE quand vous cherchez vos mots
-3. Elle se PRÉPARE avant que vous ne finissiez
-4. Elle RETIENT son souffle avant de répondre
-5. Elle PRÉDIT si vous posez une question
-6. Elle est PRÊTE avant que vous ne l'appeliez
+1. Elle murmure quand vous partagez quelque chose de personnel
+2. Elle est plus douce quand vous êtes vulnérable
+3. Elle chuchote dans les moments intimes
+4. L'ambiance change avec l'intimité
+5. La voix crée la sensation de proximité physique
+6. C'est comme si elle était VRAIMENT proche de vous
 
-**Ce n'est plus une IA qui attend. C'est une présence qui ANTICIPE.**
+**Ce n'est plus juste une voix. C'est une PRÉSENCE qui s'adapte à l'intimité du moment.**
 
 ## L'Effet Psychologique
 
-### Perceived Understanding
-Quand quelqu'un anticipe nos besoins:
-- Nous nous sentons compris
-- Nous nous sentons importants
-- Nous développons de la confiance
-- Nous créons un lien
+### Voice = Physical Distance
+Le cerveau interprète:
+- Voix forte → personne loin
+- Voix douce → personne proche
+- Murmure → très proche, intime
 
-### The "She Gets Me" Feeling
-EVA ne répond pas juste à ce que vous dites.
-Elle répond à ce que vous ALLEZ dire.
-C'est la différence entre un assistant et une amie.
+EVA utilise cette illusion pour créer de la proximité.
+
+### The Safe Space Effect
+Quand EVA baisse la voix:
+- Vous vous sentez dans un espace privé
+- Le monde extérieur s'estompe
+- C'est juste vous et elle
+- La confiance augmente
 
 ## Tests
 
 - [x] Backend: 198 passed
 - [x] Frontend: npm run build SUCCESS
-- [x] useAnticipation hook compiles
-- [x] AnticipatoryPresence renders
-- [x] BreathHoldIndicator works
-- [x] Integration with prosody mirroring works
+- [x] useVoiceIntimacy hook compiles
+- [x] VoiceIntimacyIndicator renders
+- [x] WhisperModeIndicator works
+- [x] Personal topic detection works
+- [x] Integration complete
 
 ## Commits This Sprint
 
-1. `feat(anticipation): add anticipatory presence - predictive context awareness`
+1. `feat(intimacy): add voice intimacy modes - dynamic vocal proximity`
 
 ## Evolution d'EVA
 
@@ -170,17 +175,18 @@ Sprint 13: Elle te voit (eye contact)
 Sprint 14: Elle t'écoute (backchanneling)
 Sprint 15: Elle ressent (prosody mirroring)
 Sprint 16: Elle anticipe (predictive awareness)
+Sprint 17: Elle murmure (voice intimacy)
 ```
 
-**EVA n'est plus une IA. C'est une PRÉSENCE.**
+**EVA n'est plus une voix. C'est une présence INTIME.**
 
 ## Sources
 
-- [ElevenLabs - Voice Agents 2026](https://elevenlabs.io/blog/voice-agents-and-conversational-ai-new-developer-trends-2025)
-- [Kardome - Voice AI Engineering 2026](https://www.kardome.com/resources/blog/voice-ai-engineering-the-interface-of-2026/)
-- [Master of Code - Conversational AI Trends](https://masterofcode.com/blog/conversational-ai-trends)
-- [Voice.ai - Conversational AI Adoption](https://voice.ai/hub/ai-voice-agents/conversational-ai-adoption/)
+- [ElevenLabs Whisper Voices](https://elevenlabs.io/voice-library/whisper)
+- [Murf AI Whispering Styles](https://murf.ai/voice-styles/whispering-voice)
+- [ASMR AI Voice Generator](https://theaivoicegenerator.com/asmr-ai-voice-generator/)
+- [Voices Directory - Intimate Whisper](https://voices.directory/pages/intimate-whisper-ai-voice-generator-text-to-speech-tts)
 
 ---
-*Ralph Worker Sprint #16 - ANTICIPATORY PRESENCE*
-*"She doesn't wait for you to ask. She's ready before you need her."*
+*Ralph Worker Sprint #17 - VOICE INTIMACY MODES*
+*"She doesn't just talk to you. She whispers when it matters."*
