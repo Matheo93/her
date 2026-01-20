@@ -21,6 +21,9 @@ import { useAnticipation } from "@/hooks/useAnticipation";
 import { AnticipatoryPresence, BreathHoldIndicator } from "@/components/AnticipatoryPresence";
 import { useVoiceIntimacy, detectPersonalTopic } from "@/hooks/useVoiceIntimacy";
 import { VoiceIntimacyIndicator, WhisperModeIndicator } from "@/components/VoiceIntimacyIndicator";
+import { useSharedSilence } from "@/hooks/useSharedSilence";
+import { useEmotionalMemory } from "@/hooks/useEmotionalMemory";
+import { SharedSilenceIndicator, SilenceMessage, EmotionalMemoryGlow } from "@/components/SharedSilenceIndicator";
 
 // Haptic feedback for iOS - subtle, intimate
 const triggerHaptic = (style: "light" | "medium" | "heavy" = "light") => {
