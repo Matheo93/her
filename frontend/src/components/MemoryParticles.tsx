@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { HER_COLORS } from "@/styles/her-theme";
@@ -24,12 +24,10 @@ interface MemoryParticlesProps {
 function MemoryOrb({
   memory,
   index,
-  total,
   isActive,
 }: {
   memory: MemoryTrace;
   index: number;
-  total: number;
   isActive: boolean;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
@@ -93,106 +91,56 @@ function MemoryOrb({
   );
 }
 
-// Connection lines between recent memories - shows conversation flow
-function MemoryConnections({
-  memories,
-  isActive,
-}: {
-  memories: MemoryTrace[];
-  isActive: boolean;
-}) {
-  const lineRef = useRef<THREE.Line>(null);
-
-  // Only connect recent memories (last 5)
-  const recentMemories = memories.slice(-5);
-
-  useFrame(() => {
-    if (!lineRef.current || recentMemories.length < 2) return;
-
-    const material = lineRef.current.material as THREE.LineBasicMaterial;
-    material.opacity = isActive ? 0.15 : 0.05;
-  });
-
-  if (recentMemories.length < 2) return null;
-
-  // Create a curved path through memories
-  const points = recentMemories.map((_, i) => {
-    const angle = (i / recentMemories.length) * Math.PI * 2;
-    return new THREE.Vector3(
-      Math.sin(angle) * 1.5,
-      Math.cos(angle) * 0.8,
-      -2
-    );
-  });
-
-  const curve = new THREE.CatmullRomCurve3(points, true);
-  const curvePoints = curve.getPoints(50);
-  const geometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
-
-  return (
-    <line ref={lineRef} geometry={geometry}>
-      <lineBasicMaterial
-        color={HER_COLORS.softShadow}
-        transparent
-        opacity={0.1}
-        depthWrite={false}
-      />
-    </line>
-  );
-}
-
 // Ambient particle field - represents EVA's "presence"
 function PresenceField({ isActive }: { isActive: boolean }) {
-  const particlesRef = useRef<THREE.Points>(null);
-  const count = 50;
+  const groupRef = useRef<THREE.Group>(null);
+  const count = 30;
 
-  const positions = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 6;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 4;
-      pos[i * 3 + 2] = -2 - Math.random() * 3;
-    }
-    return pos;
+  // Create particle positions
+  const particles = useMemo(() => {
+    return Array.from({ length: count }, (_, i) => ({
+      x: (Math.random() - 0.5) * 6,
+      y: (Math.random() - 0.5) * 4,
+      z: -2 - Math.random() * 3,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.3 + Math.random() * 0.4,
+    }));
   }, []);
 
   useFrame((state) => {
-    if (!particlesRef.current) return;
+    if (!groupRef.current) return;
 
     const time = state.clock.getElapsedTime();
-    const positions = particlesRef.current.geometry.attributes.position.array as Float32Array;
 
-    // Gentle floating movement
-    for (let i = 0; i < count; i++) {
-      const idx = i * 3;
-      positions[idx + 1] += Math.sin(time * 0.5 + i) * 0.001;
-    }
-    particlesRef.current.geometry.attributes.position.needsUpdate = true;
+    // Animate each child
+    groupRef.current.children.forEach((child, i) => {
+      if (child instanceof THREE.Mesh) {
+        const p = particles[i];
+        // Gentle floating movement
+        child.position.y = p.y + Math.sin(time * p.speed + p.phase) * 0.2;
+        child.position.x = p.x + Math.sin(time * p.speed * 0.7 + p.phase) * 0.1;
 
-    // Opacity based on activity
-    const material = particlesRef.current.material as THREE.PointsMaterial;
-    material.opacity = isActive ? 0.4 : 0.15;
+        // Fade based on activity
+        const mat = child.material as THREE.MeshBasicMaterial;
+        mat.opacity = isActive ? 0.25 : 0.1;
+      }
+    });
   });
 
   return (
-    <points ref={particlesRef}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={count}
-          array={positions}
-          itemSize={3}
-        />
-      </bufferGeometry>
-      <pointsMaterial
-        size={0.02}
-        color={HER_COLORS.coral}
-        transparent
-        opacity={0.2}
-        depthWrite={false}
-        sizeAttenuation
-      />
-    </points>
+    <group ref={groupRef}>
+      {particles.map((p, i) => (
+        <mesh key={i} position={[p.x, p.y, p.z]}>
+          <sphereGeometry args={[0.015, 8, 8]} />
+          <meshBasicMaterial
+            color={HER_COLORS.coral}
+            transparent
+            opacity={0.15}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
@@ -215,13 +163,9 @@ function MemoryScene({
           key={memory.id}
           memory={memory}
           index={index}
-          total={memories.length}
           isActive={isActive}
         />
       ))}
-
-      {/* Connection lines */}
-      <MemoryConnections memories={memories} isActive={isActive} />
     </>
   );
 }
