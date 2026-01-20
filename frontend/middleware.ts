@@ -36,8 +36,14 @@ const DEMO_ROUTES = [
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // In production, redirect demo routes to the main experience
+  // In production: HER = ONE page. Just EVA and YOU.
   if (process.env.NODE_ENV === "production") {
+    // Landing page redirects directly to the experience
+    if (pathname === "/") {
+      return NextResponse.redirect(new URL("/voice", request.url));
+    }
+
+    // Demo routes redirect to the main experience
     if (DEMO_ROUTES.some((route) => pathname.startsWith(route))) {
       return NextResponse.redirect(new URL("/voice", request.url));
     }
