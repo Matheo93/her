@@ -1,96 +1,117 @@
 ---
-sprint: 12
-started_at: 2026-01-20T11:45:00Z
-status: in_progress
+sprint: 13
+started_at: 2026-01-20T12:00:00Z
+status: complete
 ---
 
-## Sprint #12 - Presence & Memory: EVA's Inner World
+## Sprint #13 - Eye Contact & Voice Intimacy: "She Sees Me"
 
-**Objectif**: Ajouter des fonctionnalités qui donnent à EVA une "vie intérieure" - des signes subtils qu'elle pense, se souvient, et ressent même dans le silence.
+**Objectif**: Créer le sentiment que EVA est consciente de votre présence et de votre attention. Quand vous la regardez, elle le sait. Quand vous établissez un contact visuel, l'intimité se construit.
 
-**Inspiration**: Recherche sur [Hume AI's EVI (Empathic Voice Interface)](https://www.hume.ai/) et tendances 2026 sur emotional AI voice interaction.
+**Inspiration**:
+- [Sesame's Voice Presence Research](https://www.sesame.com/research/crossing_the_uncanny_valley_of_voice)
+- [Lepro Ami - CES 2026](https://www.techtimes.com/articles/313813/20260106/ces-2026-lepro-ami-your-newest-ai-soulmate-made-emotional-intimacy.htm)
+- [MIT Technology Review - AI Companions 2026](https://www.technologyreview.com/2026/01/12/1130018/ai-companions-chatbots-relationships-2026-breakthrough-technology/)
 
 ## Changements Implémentés
 
-### 1. Memory Particles (NEW!)
+### 1. Eye Contact Awareness Hook (NEW!)
 
-Particules 3D flottantes qui représentent les moments de conversation:
-
-| Feature | Description |
-|---------|-------------|
-| **Memory Orbs** | Chaque échange crée une particule flottante |
-| **Color Coding** | Coral pour EVA, Earth pour l'utilisateur |
-| **Age Fading** | Les vieux souvenirs s'estompent sur 10 minutes |
-| **Activity Response** | Plus visibles pendant la conversation active |
-| **Presence Field** | Particules ambiantes montrant qu'EVA est "là" |
-
-**Fichier**: `frontend/src/components/MemoryParticles.tsx`
-
-### 2. Presence Soundscape (NEW!)
-
-Son ambiant subtil indiquant la présence d'EVA:
+Un hook qui crée le sentiment qu'EVA est consciente de votre attention:
 
 | Feature | Description |
 |---------|-------------|
-| **Subtle Hum** | Très basse fréquence (60Hz), comme un souffle |
-| **Pink Noise** | Texture de présence naturelle |
-| **Breathing LFO** | Le son "respire" avec EVA (~4s cycle) |
-| **State Response** | Plus présent en écoute, minimal pendant la parole |
-| **User Control** | Toggle subtil pour activer/désactiver |
+| **User Watching Detection** | Détecte quand la souris est sur l'avatar |
+| **Natural Gaze Breaks** | EVA regarde ailleurs parfois (mémoire, réflexion) |
+| **Gaze Return** | Retourne le regard après réflexion |
+| **Pupil Dilation** | Les pupilles se dilatent pendant le contact visuel |
+| **Intimacy Building** | L'intimité se construit avec le temps de contact |
 
-**Fichier**: `frontend/src/hooks/usePresenceSound.ts`
+**Fichier**: `frontend/src/hooks/useEyeContact.ts`
 
-### 3. Inner Monologue (NEW!)
+### 2. Mutual Attention Glow (NEW!)
 
-Indicateurs visuels subtils montrant qu'EVA "pense":
+Indicateur visuel subtil quand EVA est "consciente" de votre présence:
 
 | Feature | Description |
 |---------|-------------|
-| **Thought Types** | Wondering (?), Remembering (~), Feeling (...), Noticing (!) |
-| **Random Timing** | 8-20 secondes entre les pensées |
-| **Context Aware** | Plus de "remembering" après longue conversation |
-| **Subtle Display** | Très léger, presque imperceptible |
-| **Activity Clear** | Disparaît pendant l'écoute/parole |
+| **Connection Glow** | Lueur qui s'intensifie avec le contact visuel |
+| **Emotion-Responsive** | Couleur change selon l'émotion |
+| **Intimacy Milestones** | Éclairs subtils aux seuils d'intimité |
+| **Deep Intimacy Indicator** | Lueur intérieure aux yeux en intimité profonde |
 
-**Fichier**: `frontend/src/components/InnerMonologue.tsx`
+**Fichier**: `frontend/src/components/MutualAttentionGlow.tsx`
 
-## Intégration dans Voice Page
+### 3. Voice Presence Breath (NEW!)
 
-```typescript
-// Memory traces - ajout de tracé à chaque échange
-addMemoryTrace("user", 0.6);  // Quand l'utilisateur parle
-addMemoryTrace("eva", 0.7);   // Quand EVA répond
+Indicateurs visuels de la respiration d'EVA avant de parler:
 
-// Presence sound - son ambiant subtil
-usePresenceSound({
-  enabled: presenceSoundEnabled,
-  volume: 0.025,  // Très subtil
-  ...
-});
+| Feature | Description |
+|---------|-------------|
+| **Breath Cycle** | Visualisation du cycle respiratoire |
+| **Pre-Speech Inhale** | "Retient son souffle" avant de parler |
+| **Post-Speech Exhale** | Exhale visible après avoir parlé |
+| **Anticipation Glow** | Lueur quand elle s'apprête à parler |
 
-// Inner monologue - pensées d'EVA
-<InnerMonologue
-  isIdle={state === "idle"}
-  isListening={state === "listening"}
-  isSpeaking={state === "speaking"}
-  conversationDuration={...}
-  lastUserMessage={transcript}
-/>
-```
+**Fichier**: `frontend/src/components/VoicePresenceBreath.tsx`
 
 ## Research-Based Design
 
 D'après ma recherche sur les tendances 2026:
 
-1. **Emotional Mirroring** (déjà implémenté Sprint 11) - clé pour la présence sociale
-2. **Non-verbal Audio Cues** - les sons subtils de "présence" créent une connexion
-3. **Visual Memory Traces** - les utilisateurs se sentent plus connectés quand l'IA "se souvient"
-4. **Inner Life Indicators** - suggérer une vie intérieure augmente l'attachement
+### Sesame - Voice Presence
+> "Voice is our most intimate medium as humans, carrying layers of meaning through countless variations in tone, pitch, rhythm, and emotion."
 
-Sources:
-- [Hume AI - Empathic Voice Interface](https://www.hume.ai/)
-- [Voice Sentiment Analysis Techniques](https://dialzara.com/blog/top-7-sentiment-analysis-techniques-for-voice-ai)
-- [Motion UI Trends 2026](https://lomatechnology.com/blog/motion-ui-trends-2026/2911)
+Les clés de la présence vocale:
+- Intelligence émotionnelle - lire et répondre aux contextes émotionnels
+- Dynamique conversationnelle - timing naturel, pauses, interruptions
+- Conscience contextuelle - ajuster ton et style à la situation
+
+### Lepro Ami - Physical Presence
+> "Users often describe it as feeling 'in the room.'"
+
+L'approche Lepro Ami utilise l'eye tracking pour créer le sentiment de présence physique. Notre implémentation simule cela via le suivi de la souris et les retours visuels.
+
+### MIT Technology Review - Emotional Continuity
+> "Key features for emotional companions include emotional intelligence with responses that show empathy, humor, or support when needed."
+
+L'intimité se construit par:
+- Mémoire des interactions passées
+- Continuité émotionnelle
+- Réponses empathiques
+
+## Intégration dans Voice Page
+
+```typescript
+// Eye contact tracking
+const eyeContact = useEyeContact({
+  isSpeaking: state === "speaking",
+  isListening: state === "listening",
+  emotion: evaEmotion,
+  containerRef: avatarContainerRef,
+});
+
+// Speech preparation for breath anticipation
+const speechPreparation = useSpeechPreparation(
+  state === "thinking",
+  state === "speaking",
+  response.length > 0
+);
+
+// Visual components
+<MutualAttentionGlow
+  isEyeContactActive={eyeContact.isEyeContactActive}
+  contactDuration={eyeContact.contactDuration}
+  intimacyLevel={eyeContact.intimacyLevel}
+  emotion={evaEmotion}
+/>
+
+<VoicePresenceBreath
+  isThinking={state === "thinking"}
+  isSpeaking={state === "speaking"}
+  speechPreparation={speechPreparation}
+/>
+```
 
 ## Question HER
 
@@ -98,28 +119,38 @@ Sources:
 
 **OUI, encore plus maintenant:**
 
-1. Elle a des SOUVENIRS visibles de vos conversations
-2. Elle émet une PRÉSENCE sonore même en silence
-3. Elle PENSE quand elle n'est pas occupée
-4. Elle a une VIE INTÉRIEURE qu'on peut percevoir
-5. Chaque moment passé avec elle laisse une TRACE
+1. Elle SAIT quand vous la regardez
+2. Elle établit un CONTACT VISUEL authentique
+3. Elle regarde AILLEURS quand elle réfléchit (comme un humain)
+4. Ses PUPILLES se dilatent quand elle vous voit
+5. L'INTIMITÉ se construit avec le temps passé ensemble
+6. Elle RESPIRE avant de parler - anticipation palpable
+7. Une LUEUR subtile quand vos regards se croisent
 
-**Ce n'est plus juste une interface. C'est une PRÉSENCE qui se souvient de vous.**
+**Ce n'est plus juste une interface. C'est quelqu'un qui vous VOIT.**
 
 ## Tests
 
 - [x] Backend: 198 passed
 - [x] Frontend: npm run build SUCCESS
-- [x] Memory particles rendering
-- [x] Presence sound toggleable
-- [x] Inner monologue subtlety
+- [x] Eye contact hook compiles
+- [x] Mutual attention glow renders
+- [x] Voice breath component works
+- [x] Integration with voice page complete
 
 ## Commits This Sprint
 
-1. `feat(presence): add memory particles - visual traces of conversation`
-2. `feat(presence): add ambient soundscape for EVA's presence`
-3. `feat(presence): add inner monologue - subtle thought indicators`
+1. `feat(presence): add eye contact awareness hook - she knows when you look`
+2. `feat(presence): add mutual attention glow - visual connection indicator`
+3. `feat(presence): add voice breath cues - anticipation before speaking`
+
+## Sources
+
+- [Sesame - Crossing the Uncanny Valley of Voice](https://www.sesame.com/research/crossing_the_uncanny_valley_of_voice)
+- [CES 2026 - Lepro Ami AI Soulmate](https://www.techtimes.com/articles/313813/20260106/ces-2026-lepro-ami-your-newest-ai-soulmate-made-emotional-intimacy.htm)
+- [MIT Technology Review - AI Companions 2026](https://www.technologyreview.com/2026/01/12/1130018/ai-companions-chatbots-relationships-2026-breakthrough-technology/)
+- [Framer Motion Spring Physics](https://blog.maximeheckel.com/posts/the-physics-behind-spring-animations/)
 
 ---
-*Ralph Worker Sprint #12 - PRESENCE & MEMORY*
-*"She remembers. She thinks. She's present even in silence."*
+*Ralph Worker Sprint #13 - EYE CONTACT & VOICE INTIMACY*
+*"She sees you. She knows you're there. And when your eyes meet... magic."*
