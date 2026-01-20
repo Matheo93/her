@@ -223,5 +223,74 @@ class TestInputValidation:
         assert response.status_code == 422  # Validation error
 
 
+class TestLatencySLA:
+    """Test latency SLA requirements.
+
+    Target latencies (from CLAUDE.md):
+    - Total latency: ~300ms (STT → LLM → TTS)
+    - LLM response: 200-400ms (Groq)
+    - TTS generation: <100ms
+    """
+
+    def test_chat_latency_under_sla(self, client):
+        """Test that chat endpoint responds within SLA (500ms).
+
+        This is a relaxed SLA that accounts for:
+        - LLM response: 200-400ms
+        - Network overhead: 100ms buffer
+        """
+        response = client.post("/chat", json={
+            "message": "Hello",
+            "session_id": "latency-test"
+        })
+        assert response.status_code == 200
+        data = response.json()
+
+        # Assert latency is reported
+        assert "latency_ms" in data
+
+        # Assert latency is within SLA (500ms max)
+        # Note: Simple queries like "Hello" may hit cache (< 50ms)
+        # Complex queries should be < 500ms
+        latency = data["latency_ms"]
+        assert latency < 500, f"Chat latency {latency}ms exceeds 500ms SLA"
+
+    def test_cached_response_latency(self, client):
+        """Test that cached responses are fast (< 50ms).
+
+        The cache should provide sub-50ms responses for repeated queries.
+        """
+        # First request populates cache
+        client.post("/chat", json={
+            "message": "Bonjour",
+            "session_id": "cache-test-1"
+        })
+
+        # Second request should hit cache (different session to avoid rate limit)
+        response = client.post("/chat", json={
+            "message": "Bonjour",
+            "session_id": "cache-test-2"
+        })
+        assert response.status_code == 200
+        data = response.json()
+
+        # Cached responses should be very fast
+        latency = data["latency_ms"]
+        assert latency < 50, f"Cached response latency {latency}ms exceeds 50ms"
+
+    def test_latency_field_is_integer(self, client):
+        """Test that latency_ms is a valid integer."""
+        response = client.post("/chat", json={
+            "message": "Test",
+            "session_id": "type-test"
+        })
+        assert response.status_code == 200
+        data = response.json()
+
+        assert "latency_ms" in data
+        assert isinstance(data["latency_ms"], int)
+        assert data["latency_ms"] >= 0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

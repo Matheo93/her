@@ -24,7 +24,14 @@ const RealisticAvatar3D = dynamic(
     loading: () => (
       <div className="w-64 h-64 md:w-80 md:h-80 rounded-full flex items-center justify-center"
         style={{ backgroundColor: HER_COLORS.cream }}>
-        <div className="w-8 h-8 rounded-full animate-pulse" style={{ backgroundColor: HER_COLORS.coral }} />
+        <div
+          className="w-8 h-8 rounded-full"
+          style={{
+            backgroundColor: HER_COLORS.coral,
+            animation: "breathe 4s ease-in-out infinite"
+          }}
+        />
+        <style>{`@keyframes breathe { 0%, 100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }`}</style>
       </div>
     ),
   }
