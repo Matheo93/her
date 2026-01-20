@@ -1,24 +1,24 @@
 ---
-reviewed_at: 2026-01-20T13:57:00Z
-commit: 1ae9d6f
-status: BLOCAGE CRITIQUE - WEBSOCKET AUDIO TOUJOURS CASSÉ
+reviewed_at: 2026-01-20T14:10:00Z
+commit: 90963b0
+status: BLOCAGE CRITIQUE - async_emotional_tts SANS FALLBACK
 blockers:
-  - WebSocket audio: async_emotional_tts N'A PAS de fallback (FIX NON APPLIQUÉ!)
-  - GPU: 0% utilization (RTX 4090 gaspillé)
+  - async_emotional_tts retourne None (ultra_fast_tts fail, pas de fallback)
+  - GPU: 0% utilization (RTX 4090 49GB inutilisé)
+  - WebSocket audio: 0 chunks reçus
 progress:
   - Backend health: OK
   - Tests: 199 passed, 1 skipped
   - Frontend build: OK
-  - LLM latency: 19-390ms (EXCELLENT)
-  - TTS endpoint: 205ms (EXCELLENT)
-  - /her/chat: 274ms (EXCELLENT)
+  - LLM latency: 350ms (OK)
+  - TTS endpoint: 13ms (EXCELLENT)
 ---
 
-# Ralph Moderator Review - Cycle 50 ULTRA-EXIGEANT
+# Ralph Moderator Review - Cycle 51 ULTRA-EXIGEANT
 
-## STATUS: **BLOCAGE CRITIQUE - MÊME BUG NON FIXÉ**
+## STATUS: **BLOCAGE CRITIQUE - 3ème CYCLE CONSÉCUTIF**
 
-Le fix demandé au cycle 49 N'A PAS ÉTÉ APPLIQUÉ. Le code est identique.
+Le même bug persiste. **LE FIX N'A TOUJOURS PAS ÉTÉ APPLIQUÉ.**
 
 ---
 
@@ -35,96 +35,101 @@ Le fix demandé au cycle 49 N'A PAS ÉTÉ APPLIQUÉ. Le code est identique.
 }
 ```
 
-### 2. GPU Utilisation ❌❌❌ BLOCAGE
+### 2. GPU Utilisation ❌❌❌ BLOCAGE CRITIQUE
 ```
-utilization.gpu [%], memory.used [MiB], memory.total [MiB], name
-0 %, 678 MiB, 49140 MiB, NVIDIA GeForce RTX 4090
+utilization.gpu [%], memory.used [MiB], name
+0 %, 678 MiB, NVIDIA GeForce RTX 4090
 ```
 
-**RTX 4090 avec 49 GB VRAM = 0% utilisé = GASPILLAGE INACCEPTABLE**
+**RTX 4090 avec 49 GB VRAM = 0% utilisé = GASPILLAGE TOTAL**
 
-### 3. LLM Latence ✅ PASS (EXCELLENT)
-```
-Test /chat: 390ms (réponse: "Haha, bien sûr ! Qu'est-ce que je peux faire pour toi ?")
-Test /her/chat: 274ms (avec contexte émotionnel)
-Test cached: 19ms
-```
-**Latence LLM: 19-390ms** - Objectif < 500ms = **ATTEINT** ✅
+678 MiB utilisés sur 49140 MiB disponibles. Le GPU est DORMANT.
 
-### 4. TTS Endpoint ✅ PASS (EXCELLENT)
+### 3. LLM Latence ⚠️ ATTENTION
 ```
-TTS request time: 205ms
-Output: 17913 bytes MP3
-Backend logs: "🔊 TTS (GPU): 196ms"
+Premier test: 318ms curl time (réponse vide - jq parse fail)
+Second test: 1044ms latency_ms !!!
+Troisième test: 350ms latency_ms
 ```
-**TTS endpoint: 205ms** - Objectif < 300ms = **ATTEINT** ✅
+
+**Latence variable: 318-1044ms** - La latence à 1044ms **DÉPASSE** l'objectif de 500ms!
+
+### 4. TTS Endpoint ✅ EXCELLENT
+```
+TTS latency: 13ms
+```
+**13ms est EXCELLENT** - Le cache fonctionne bien pour les tests répétés.
 
 ### 5. WebSocket Connection ✅ PASS
 ```
-WebSocket connected: 14ms
+Connected in 14ms
 ```
 
 ### 6. Frontend Build ✅ PASS
 ```
 ✓ Compiled successfully
-✓ 29 routes generated
+✓ 29 routes (ƒ Proxy, ○ Static)
 ```
 
 ### 7. Pytest Suite ✅ PASS
 ```
-199 passed, 1 skipped, 10 warnings in 3.67s
+199 passed, 1 skipped, 10 warnings in 5.01s
 ```
 
-### 8. WebSocket E2E Audio ❌❌❌ BLOCAGE CRITIQUE
+### 8. E2E Chat ⚠️ PARTIAL
+```json
+{
+  "response": "Haha, une blague pour toi ! Un homme entre dans un bar...",
+  "latency": 350,
+  "has_audio": false
+}
+```
+- Réponse texte: OK
+- Latence: 350ms (OK)
+- **Audio: FALSE** - Pas d'audio_base64 retourné!
+
+### 9. WebSocket E2E Audio ❌❌❌ BLOCAGE CRITIQUE
 ```
 Connected in 14ms
-  token: @ 41ms
-  end: @ 41ms
-Timeout after 10s
-
-=== RESULTS ===
-No text
-NO AUDIO!
+Text: NO TEXT
 Audio chunks: 0
-
-AUDIO TEST: FAIL
+RESULT: FAIL - NO AUDIO
 ```
 
-**WEBSOCKET NE RETOURNE AUCUN AUDIO!**
+**WEBSOCKET NE RETOURNE NI TEXTE NI AUDIO!**
 
 ---
 
-## DIAGNOSTIC - LOGS BACKEND
+## STATISTIQUES BACKEND
 
-```
-🚀 Loading Ultra-Fast TTS (Sherpa-ONNX Piper VITS)...
-❌ Ultra-Fast TTS init failed: No graph was found in the protobuf.
-🚀 Loading Ultra-Fast TTS (Sherpa-ONNX Piper VITS)...
-❌ Ultra-Fast TTS init failed: No graph was found in the protobuf.
-[... répété 8 fois ...]
-
-🔌 WebSocket connected: ws_140329669082624
-⚡ CACHED: 0ms
-🔌 WebSocket disconnected: ws_140329669082624
+```json
+{
+  "total_requests": 36,
+  "avg_latency_ms": 380,
+  "requests_last_hour": 36,
+  "active_sessions": 35
+}
 ```
 
-**PENDANT CE TEMPS, L'ENDPOINT /TTS FONCTIONNE:**
-```
-🔊 TTS (GPU): 176ms (20734 bytes)
-🔊 TTS (GPU): 196ms (17913 bytes)
-```
+Latence moyenne: 380ms (acceptable mais au-dessus de l'objectif 300ms).
 
 ---
 
-## LE CODE NON FIXÉ
+## DIAGNOSTIC DU BUG - CODE SOURCE
 
 **Fichier:** `backend/main.py:1938-1955`
 
-**Code actuel (TOUJOURS CASSÉ):**
+**Code actuel (TOUJOURS SANS FALLBACK):**
 ```python
 async def async_emotional_tts(text: str, emotion: str = "neutral") -> Optional[bytes]:
+    """Generate TTS with emotional prosody hints.
+
+    Uses ultra_fast_tts with speed/pitch adjustments based on emotion.
+    Adds ~0ms latency (prosody applied at generation time).
+    """
     params = EMOTION_VOICE_PARAMS.get(emotion.lower(), EMOTION_VOICE_PARAMS["neutral"])
 
+    # Add emotional markers to text for more natural delivery
     emotional_text = text
     if emotion == "joy" and not text.endswith("!"):
         emotional_text = text.rstrip(".") + "!"
@@ -132,30 +137,31 @@ async def async_emotional_tts(text: str, emotion: str = "neutral") -> Optional[b
         emotional_text = text.replace("!", "...").replace("?", "?...")
 
     # Generate with ultra_fast_tts (already very fast)
-    audio = await async_ultra_fast_tts(emotional_text)  # ← SEUL APPEL, PAS DE FALLBACK!
-    return audio  # ← RETOURNE None SI FAIL!
+    audio = await async_ultra_fast_tts(emotional_text)  # ← SEUL APPEL!
+    return audio  # ← RETOURNE None SI ultra_fast_tts ÉCHOUE!
 ```
 
-**Fix requis (COPIER-COLLER DIRECT):**
+**Les fonctions de fallback EXISTENT et FONCTIONNENT:**
+- `async_gpu_tts` - importée ligne 66
+- `async_fast_tts` - importée ligne 63
+
+Elles sont utilisées ailleurs avec fallback (lignes 1591-1597, 2006-2008, etc.)
+
+---
+
+## FIX REQUIS (COPIER-COLLER EXACT)
+
+**Remplacer lignes 1953-1955 par:**
+
 ```python
-async def async_emotional_tts(text: str, emotion: str = "neutral") -> Optional[bytes]:
-    """Generate TTS with emotional prosody hints and automatic fallback."""
-    params = EMOTION_VOICE_PARAMS.get(emotion.lower(), EMOTION_VOICE_PARAMS["neutral"])
-
-    emotional_text = text
-    if emotion == "joy" and not text.endswith("!"):
-        emotional_text = text.rstrip(".") + "!"
-    elif emotion == "sadness":
-        emotional_text = text.replace("!", "...").replace("?", "?...")
-
-    # Try ultra-fast first
+    # Generate with ultra_fast_tts (already very fast)
     audio = await async_ultra_fast_tts(emotional_text)
 
-    # Fallback to GPU TTS (Piper - works at ~170ms)
+    # Fallback to GPU TTS if ultra_fast fails
     if not audio:
         audio = await async_gpu_tts(emotional_text)
 
-    # Fallback to fast TTS
+    # Fallback to fast TTS if GPU fails
     if not audio:
         audio = await async_fast_tts(emotional_text)
 
@@ -168,12 +174,16 @@ async def async_emotional_tts(text: str, emotion: str = "neutral") -> Optional[b
 
 | Composant | Latence | Objectif | Status |
 |-----------|---------|----------|--------|
-| LLM (Groq) | 19-390ms | < 500ms | ✅ EXCELLENT |
-| TTS endpoint | 205ms | < 300ms | ✅ EXCELLENT |
-| /her/chat | 274ms | < 500ms | ✅ EXCELLENT |
-| WebSocket conn | 14ms | < 50ms | ✅ EXCELLENT |
-| **WS Audio** | **∞ (cassé)** | < 500ms | ❌ **FAIL** |
-| **GPU Usage** | **0%** | > 50% | ❌ **FAIL** |
+| Backend health | - | OK | ✅ PASS |
+| LLM (Groq) | 350-1044ms | < 500ms | ⚠️ VARIABLE |
+| TTS endpoint | 13ms | < 300ms | ✅ EXCELLENT |
+| E2E chat text | 350ms | < 500ms | ✅ PASS |
+| E2E chat audio | NONE | audio=true | ❌ FAIL |
+| WebSocket conn | 14ms | < 50ms | ✅ PASS |
+| **WS Audio** | **0 chunks** | > 0 | ❌❌❌ FAIL |
+| **GPU Usage** | **0%** | > 50% | ❌❌❌ FAIL |
+| Tests | 199/200 | 100% | ✅ PASS |
+| Frontend | OK | OK | ✅ PASS |
 
 ---
 
@@ -184,61 +194,64 @@ async def async_emotional_tts(text: str, emotion: str = "neutral") -> Optional[b
 | Tests | 10/10 | 199 passed |
 | Build | 10/10 | Frontend OK |
 | Backend | 10/10 | Health OK |
-| LLM Latency | 10/10 | 19-390ms excellent |
-| TTS Endpoint | 10/10 | 205ms excellent |
-| /her/chat | 10/10 | 274ms excellent |
-| **WS Audio E2E** | **0/10** | **BROKEN - No audio** |
-| **GPU Utilization** | **2/10** | **0% - RTX 4090 gaspillé** |
-| **TOTAL** | **62/80** | **77.5%** |
+| LLM Latency | 7/10 | 350ms OK mais pic à 1044ms |
+| TTS Endpoint | 10/10 | 13ms excellent |
+| E2E Text | 10/10 | Réponse OK |
+| **E2E Audio** | **0/10** | **NO AUDIO** |
+| **WS Audio** | **0/10** | **0 chunks** |
+| **GPU Utilization** | **0/10** | **0% - 49GB dormant** |
+| **TOTAL** | **57/90** | **63%** |
 
 ---
 
-## ACTIONS OBLIGATOIRES
+## ACTIONS OBLIGATOIRES - PRIORITÉ MAXIMALE
 
-### 1. FIXER async_emotional_tts (CRITIQUE - 2 CYCLES D'ATTENTE)
+### 1. FIXER async_emotional_tts IMMÉDIATEMENT
 
-**Localisation exacte:** `backend/main.py:1954`
+**Localisation exacte:** `backend/main.py:1953-1955`
 
-**Ajouter APRÈS ligne 1954:**
-```python
-    # Fallback to GPU TTS
-    if not audio:
-        audio = await async_gpu_tts(emotional_text)
-    # Fallback to fast TTS
-    if not audio:
-        audio = await async_fast_tts(emotional_text)
+**Commande sed pour fix immédiat:**
+```bash
+sed -i 's/audio = await async_ultra_fast_tts(emotional_text)\n    return audio/audio = await async_ultra_fast_tts(emotional_text)\n    \n    # Fallback to GPU TTS\n    if not audio:\n        audio = await async_gpu_tts(emotional_text)\n    \n    # Fallback to fast TTS\n    if not audio:\n        audio = await async_fast_tts(emotional_text)\n    \n    return audio/' backend/main.py
 ```
 
-### 2. Vérifier les fonctions async_gpu_tts et async_fast_tts existent
+### 2. Activer GPU (RTX 4090 inutilisé!)
 
+Vérifier que Piper TTS utilise CUDA:
 ```bash
-grep -n "async def async_gpu_tts\|async def async_fast_tts" backend/main.py
+python3 -c "import torch; print(f'CUDA: {torch.cuda.is_available()}, Device: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"None\"}')"
 ```
 
-### 3. Tester WebSocket audio après fix
+### 3. Tester après fix
 
 ```bash
-# Test doit retourner audio_chunks > 0
-python3 -c "..." # (script de test WebSocket)
+# WebSocket doit retourner audio_chunks > 0
+python3 -c "import asyncio, websockets, json; asyncio.run(test_ws())"
 ```
 
 ---
 
 ## VERDICT FINAL
 
-**BLOCAGE CRITIQUE PERSISTANT DEPUIS CYCLE 49**
+**BLOCAGE CRITIQUE - 3ème CYCLE CONSÉCUTIF AVEC LE MÊME BUG**
 
-Le même bug est présent depuis le cycle précédent. Le fix n'a pas été appliqué.
+| Cycle | Status | Action prise |
+|-------|--------|--------------|
+| 49 | BLOCAGE | Fix demandé |
+| 50 | BLOCAGE | Fix re-demandé |
+| 51 | BLOCAGE | Fix TOUJOURS PAS APPLIQUÉ |
 
-- TTS endpoint fonctionne parfaitement (205ms)
-- WebSocket audio est cassé (0 bytes)
-- La seule différence: le fallback manquant dans `async_emotional_tts`
+**C'est un fix de 6 lignes qui débloque:**
+- WebSocket audio streaming
+- E2E audio response
+- Utilisation du GPU
 
-**C'est un fix de 6 lignes qui débloque toute la fonctionnalité audio WebSocket.**
+Le code de fallback est DÉJÀ utilisé ailleurs dans main.py (lignes 1591-1597, 2006-2008).
+Il suffit de copier le même pattern dans async_emotional_tts.
 
 ---
 
-*Ralph Moderator - Cycle 50*
-*Status: BLOCAGE CRITIQUE - 2ème cycle consécutif*
-*Score: 77.5%*
-*"TTS works. WebSocket TTS doesn't. 6 lines of fallback code STILL missing after 2 cycles."*
+*Ralph Moderator - Cycle 51*
+*Status: BLOCAGE CRITIQUE - 3ème cycle consécutif*
+*Score: 63%*
+*"6 lignes. 3 cycles. Toujours pas fixé. INACCEPTABLE."*
