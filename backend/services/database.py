@@ -11,8 +11,10 @@ from typing import Optional
 # Fast JSON (10x faster)
 try:
     import orjson
+
     def json_dumps(obj) -> str:
         return orjson.dumps(obj).decode()
+
     def json_loads(s: str):
         return orjson.loads(s)
 except ImportError:

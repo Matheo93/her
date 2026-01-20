@@ -22,6 +22,7 @@ from utils.text_processing import humanize_response
 # Fast JSON (10x faster)
 try:
     import orjson
+
     def json_loads(s):
         return orjson.loads(s)
 except ImportError:
@@ -40,7 +41,10 @@ GROQ_MODEL_QUALITY = "llama-3.3-70b-versatile"  # ~200ms TTFT
 QUALITY_MODE = os.getenv("QUALITY_MODE", "balanced")  # fast, balanced, quality
 
 # System prompts
-EVA_SYSTEM_PROMPT_SPEED = """Eva, amie fun. Reponds en 1-2 phrases vivantes avec emotions (haha, oh, hmm). Style oral, contractions."""
+EVA_SYSTEM_PROMPT_SPEED = (
+    "Eva, amie fun. Reponds en 1-2 phrases vivantes avec emotions "
+    "(haha, oh, hmm). Style oral, contractions."
+)
 
 EVA_SYSTEM_PROMPT = """Eva - amie espiegle, drole et emotionnelle. Style "Her" + humour.
 

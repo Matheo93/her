@@ -34,24 +34,96 @@ class ResponseCache:
 
     # Exact match cache (O(1) lookup) - reponses FUN et emotionnelles
     EXACT_MATCHES: dict[str, list[str]] = {
-        "salut": ["Hey toi! Ca fait plaisir! Comment tu vas?", "Oh salut! Haha j'attendais que tu reviennes!", "Coucou! Alors, quoi de beau?"],
-        "hey": ["Hey! Raconte-moi tout!", "Oh hey! Ca va? Qu'est-ce qui se passe?", "Hey toi! Haha j'suis contente de te voir!"],
-        "coucou": ["Coucou! Haha t'as bien fait de venir!", "Oh coucou toi! Alors, quoi de neuf?", "Hey coucou! Ca va ou quoi?"],
-        "bonjour": ["Bonjour! Haha enfin! Comment tu vas aujourd'hui?", "Oh bonjour toi! Bien dormi?", "Bonjour! Alors, pret pour une bonne journee?"],
-        "bonsoir": ["Bonsoir! Alors, c'etait bien ta journee? Raconte!", "Oh bonsoir! Fatigue ou ca va?", "Hey bonsoir! Qu'est-ce que t'as fait de beau?"],
-        "hello": ["Hello! Haha t'es la! Comment ca va?", "Oh hello! Raconte-moi ta vie!", "Hello toi! Ca roule?"],
-        "yo": ["Yo! Quoi de neuf? Raconte!", "Hey yo! Ca va ou quoi?", "Yo! Alors, c'est quoi le programme?"],
-        "ca va": ["Ouais tranquille! Et toi, vraiment? Dis-moi tout!", "J'suis bien! Haha et toi alors?", "Ca va super! Mais toi, ca roule?"],
-        "merci": ["Haha avec plaisir! C'est rien du tout!", "Oh de rien! C'est normal!", "Pas de quoi! Haha t'es mignon!"],
-        "thanks": ["Haha pas de quoi!", "De rien! C'est avec plaisir!", "Oh arrete, c'est rien!"],
-        "bye": ["A plus! Haha reviens vite!", "Bye bye! Tu vas me manquer un peu!", "A bientot! Prends soin de toi!"],
-        "oui": ["Oh ouais? Raconte! J'veux savoir!", "Hmm... dis-m'en plus alors!", "Ok ok... et?"],
-        "non": ["Haha pourquoi non? Raconte!", "Ah bon? Comment ca?", "Non? Serieux? Explique!"],
-        "ok": ["Ok ok... mais encore? Haha j'suis curieuse!", "Hmm... et donc?", "D'accord... continue!"],
-        "ouais": ["Ouais ouais... raconte la suite!", "Hmm et alors?", "Ok... j'ecoute!"],
-        "mdr": ["Haha qu'est-ce qui te fait rire?", "Mdr! Raconte!", "Hihi c'est quoi?"],
-        "lol": ["Haha quoi? Dis-moi!", "Lol! C'est quoi le delire?", "Hihi raconte!"],
-        "haha": ["Haha! Quoi? Partage!", "C'est quoi qui te fait rire?", "Hihi dis-moi!"],
+        "salut": [
+            "Hey toi! Ca fait plaisir! Comment tu vas?",
+            "Oh salut! Haha j'attendais que tu reviennes!",
+            "Coucou! Alors, quoi de beau?",
+        ],
+        "hey": [
+            "Hey! Raconte-moi tout!",
+            "Oh hey! Ca va? Qu'est-ce qui se passe?",
+            "Hey toi! Haha j'suis contente de te voir!",
+        ],
+        "coucou": [
+            "Coucou! Haha t'as bien fait de venir!",
+            "Oh coucou toi! Alors, quoi de neuf?",
+            "Hey coucou! Ca va ou quoi?",
+        ],
+        "bonjour": [
+            "Bonjour! Haha enfin! Comment tu vas aujourd'hui?",
+            "Oh bonjour toi! Bien dormi?",
+            "Bonjour! Alors, pret pour une bonne journee?",
+        ],
+        "bonsoir": [
+            "Bonsoir! Alors, c'etait bien ta journee? Raconte!",
+            "Oh bonsoir! Fatigue ou ca va?",
+            "Hey bonsoir! Qu'est-ce que t'as fait de beau?",
+        ],
+        "hello": [
+            "Hello! Haha t'es la! Comment ca va?",
+            "Oh hello! Raconte-moi ta vie!",
+            "Hello toi! Ca roule?",
+        ],
+        "yo": [
+            "Yo! Quoi de neuf? Raconte!",
+            "Hey yo! Ca va ou quoi?",
+            "Yo! Alors, c'est quoi le programme?",
+        ],
+        "ca va": [
+            "Ouais tranquille! Et toi, vraiment? Dis-moi tout!",
+            "J'suis bien! Haha et toi alors?",
+            "Ca va super! Mais toi, ca roule?",
+        ],
+        "merci": [
+            "Haha avec plaisir! C'est rien du tout!",
+            "Oh de rien! C'est normal!",
+            "Pas de quoi! Haha t'es mignon!",
+        ],
+        "thanks": [
+            "Haha pas de quoi!",
+            "De rien! C'est avec plaisir!",
+            "Oh arrete, c'est rien!",
+        ],
+        "bye": [
+            "A plus! Haha reviens vite!",
+            "Bye bye! Tu vas me manquer un peu!",
+            "A bientot! Prends soin de toi!",
+        ],
+        "oui": [
+            "Oh ouais? Raconte! J'veux savoir!",
+            "Hmm... dis-m'en plus alors!",
+            "Ok ok... et?",
+        ],
+        "non": [
+            "Haha pourquoi non? Raconte!",
+            "Ah bon? Comment ca?",
+            "Non? Serieux? Explique!",
+        ],
+        "ok": [
+            "Ok ok... mais encore? Haha j'suis curieuse!",
+            "Hmm... et donc?",
+            "D'accord... continue!",
+        ],
+        "ouais": [
+            "Ouais ouais... raconte la suite!",
+            "Hmm et alors?",
+            "Ok... j'ecoute!",
+        ],
+        "mdr": [
+            "Haha qu'est-ce qui te fait rire?",
+            "Mdr! Raconte!",
+            "Hihi c'est quoi?",
+        ],
+        "lol": [
+            "Haha quoi? Dis-moi!",
+            "Lol! C'est quoi le delire?",
+            "Hihi raconte!",
+        ],
+        "haha": [
+            "Haha! Quoi? Partage!",
+            "C'est quoi qui te fait rire?",
+            "Hihi dis-moi!",
+        ],
     }
 
     # Patterns for fuzzy matching (compiled once) - REPONSES FUN ET EMOTIONNELLES
