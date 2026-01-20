@@ -166,6 +166,13 @@ function RealisticHead({
   const lastInputLevel = useRef(0);
   const surpriseReaction = useRef(0); // 0-1, decays over time
 
+  // NEW: Presence enhancements
+  const anticipationLevel = useRef(0); // Leans in when expecting user to speak
+  const postSpeechSettle = useRef(0); // Settling animation after speaking
+  const idleVariationPhase = useRef(0); // For varied idle behavior
+  const lastWasSpeaking = useRef(false);
+  const lastWasListening = useRef(false);
+
   // Smoothed values for natural transitions
   const smoothedMouth = useRef({ jawOpen: 0, mouthWide: 0, lipRound: 0 });
   const smoothedExpression = useRef({
@@ -276,6 +283,11 @@ function RealisticHead({
     const breathAmount = breathWave * 0.006 + heartbeatMicro;
     headRef.current.position.y = breathAmount;
 
+    // Z position: lean forward during anticipation, settle back after speech
+    const anticipationZ = anticipationLevel.current * 0.015; // Lean toward user
+    const settleZ = postSpeechSettle.current * -0.01; // Brief settle back
+    headRef.current.position.z = anticipationZ + settleZ;
+
     // Chest/head expansion is more pronounced during inhale
     const expansionAmount = breathWave * 0.003;
     headRef.current.scale.setScalar(1 + expansionAmount);
@@ -291,14 +303,51 @@ function RealisticHead({
     surpriseReaction.current = Math.max(0, surpriseReaction.current - delta * 2);
     lastInputLevel.current = inputAudioLevel;
 
+    // === ANTICIPATION - EVA leans in when expecting user input ===
+    // After EVA stops speaking, she anticipates the user will respond
+    if (lastWasSpeaking.current && !isSpeaking) {
+      anticipationLevel.current = 1; // Full anticipation when just stopped speaking
+    }
+    // Slowly decay anticipation, faster if user starts speaking
+    if (isListening) {
+      anticipationLevel.current = Math.max(0, anticipationLevel.current - delta * 3);
+    } else {
+      anticipationLevel.current = Math.max(0, anticipationLevel.current - delta * 0.3);
+    }
+    lastWasSpeaking.current = isSpeaking;
+
+    // === POST-SPEECH SETTLING ===
+    // Brief settling/exhale animation after finishing a thought
+    if (lastWasListening.current && !isListening && !isSpeaking) {
+      postSpeechSettle.current = 1;
+    }
+    postSpeechSettle.current = Math.max(0, postSpeechSettle.current - delta * 2);
+    lastWasListening.current = isListening;
+
+    // === IDLE VARIATION ===
+    // When idle, introduce longer-term behavior changes
+    if (!isSpeaking && !isListening) {
+      idleVariationPhase.current += delta * 0.1;
+    }
+
     // === MICRO MOVEMENTS ===
     microMovementPhase.current += delta;
 
     // Subtle head sway (very gentle, like a real person)
     // Surprise adds a quick backward jolt
     const surpriseJolt = surpriseReaction.current * 0.03;
-    const headSwayX = Math.sin(microMovementPhase.current * 0.3) * 0.01 - surpriseJolt;
-    const headSwayY = Math.sin(microMovementPhase.current * 0.5) * 0.008;
+
+    // Anticipation makes EVA lean forward slightly (engaged, expectant)
+    const anticipationLean = anticipationLevel.current * 0.02;
+
+    // Post-speech settle: brief exhale/relax backward
+    const settleBack = postSpeechSettle.current * 0.015;
+
+    // Idle variation: occasionally shift posture subtly
+    const idleShift = Math.sin(idleVariationPhase.current) * 0.008;
+
+    const headSwayX = Math.sin(microMovementPhase.current * 0.3) * 0.01 - surpriseJolt + anticipationLean - settleBack;
+    const headSwayY = Math.sin(microMovementPhase.current * 0.5) * 0.008 + idleShift;
     const headSwayZ = Math.sin(microMovementPhase.current * 0.4) * 0.005;
 
     headRef.current.rotation.x = headSwayX + smoothedExpression.current.headTilt;
