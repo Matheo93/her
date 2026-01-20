@@ -172,6 +172,29 @@ export default function EvaHerPage() {
     };
   }, [emotionalWarmth.levelNumeric, emotionalWarmth.connection, persistentMemory]);
 
+  // HER Feature: Track shared moments (emotional peaks)
+  const lastEmotionRef = useRef(evaEmotion);
+  useEffect(() => {
+    // Detect emotional peaks - joy, tenderness, excitement
+    const peakEmotions = ["joy", "tenderness", "excitement", "love"];
+    const vulnerabilityEmotions = ["sadness", "fear", "empathy"];
+    const comfortEmotions = ["calm", "peaceful", "soothed"];
+
+    if (evaEmotion !== lastEmotionRef.current) {
+      const intensity = emotionalWarmth.levelNumeric;
+
+      if (peakEmotions.includes(evaEmotion) && intensity > 0.5) {
+        persistentMemory.addSharedMoment("peak", intensity);
+      } else if (vulnerabilityEmotions.includes(evaEmotion) && intensity > 0.3) {
+        persistentMemory.addSharedMoment("vulnerability", intensity);
+      } else if (comfortEmotions.includes(evaEmotion) && intensity > 0.4) {
+        persistentMemory.addSharedMoment("comfort", intensity);
+      }
+
+      lastEmotionRef.current = evaEmotion;
+    }
+  }, [evaEmotion, emotionalWarmth.levelNumeric, persistentMemory]);
+
   // Connect to Viseme WebSocket
   useEffect(() => {
     const connectViseme = () => {
