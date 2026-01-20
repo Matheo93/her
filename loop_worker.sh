@@ -26,10 +26,24 @@ while true; do
 
 DIRECTIVES:
 1. Lis .claude/WORKER_PROMPT.md et .claude/ralph-feedback.md
-2. Focus: RealisticAvatar3D intégration + JARVIS features
+2. Continue à améliorer EVA avec ULTRA-QUALITÉ
 3. Commits fréquents avec messages descriptifs
 4. Tests TDD obligatoires
 5. Palette HER uniquement (coral, cream, warmWhite, earth)
+
+LIBERTÉ D'INNOVATION:
+- Tu peux rechercher sur le web (WebSearch, WebFetch) des nouvelles libs
+- Tu peux lire la documentation de libs existantes
+- Tu peux croiser les infos et innover
+- Tu peux proposer des features nouvelles si elles améliorent l'expérience HER
+- Tu peux explorer des techniques d'animation avancées
+- Tu peux améliorer les performances
+
+EXEMPLES DE RECHERCHE:
+- 'best Three.js face animation techniques 2026'
+- 'GSAP micro-animation best practices'
+- 'WebRTC audio optimization low latency'
+- 'framer-motion spring physics natural feel'
 
 APRÈS CHAQUE FEATURE:
 - git add -A && git commit -m 'feat: description'

@@ -43,6 +43,19 @@ VALIDATION SI:
 - Interface invisible
 - Animations spring framer-motion
 
+LIBERTÉ D'AMÉLIORATION:
+- Tu peux rechercher les best practices (WebSearch, WebFetch)
+- Tu peux suggérer des libs ou techniques que le Worker devrait explorer
+- Tu peux proposer des optimisations de performance
+- Tu peux recommander des patterns d'animation avancés
+- Tu peux croiser des infos pour améliorer la qualité
+
+SUGGESTIONS À INCLURE DANS LE FEEDBACK:
+- Nouvelles libs qui pourraient aider
+- Techniques d'animation à explorer
+- Best practices trouvées en recherche
+- Optimisations de performance possibles
+
 ÉCRIS feedback dans .claude/ralph-feedback.md après CHAQUE review.
 
 APRÈS CHAQUE REVIEW:

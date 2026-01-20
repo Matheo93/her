@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { InterruptibleVoice } from "@/components/interruptible-voice";
+import { HER_COLORS, HER_SPRINGS } from "@/styles/her-theme";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
@@ -52,88 +54,172 @@ export default function InterruptiblePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-900 via-black to-zinc-900 flex flex-col items-center justify-center p-6">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-6"
+      style={{
+        background: `radial-gradient(ellipse at 50% 30%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+      }}
+    >
       {/* Back button */}
-      <button
+      <motion.button
         onClick={() => router.push("/")}
-        className="absolute top-6 left-6 p-2 text-zinc-400 hover:text-zinc-200 transition-colors"
+        className="absolute top-6 left-6 p-2 rounded-full transition-all duration-300"
+        style={{
+          backgroundColor: HER_COLORS.cream,
+          color: HER_COLORS.earth,
+        }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
-      </button>
+      </motion.button>
 
       {/* Main content */}
       <div className="flex flex-col items-center gap-8 max-w-md text-center">
-        {/* Animated orb */}
+        {/* Breathing orb - HER style */}
         <div className="relative">
-          <div className="w-40 h-40 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 shadow-2xl shadow-rose-500/30 animate-pulse" />
-          <div className="absolute inset-4 rounded-full bg-gradient-to-br from-rose-400 to-pink-400 opacity-50 blur-xl" />
+          <motion.div
+            className="w-40 h-40 rounded-full"
+            style={{
+              background: `radial-gradient(circle, ${HER_COLORS.coral} 0%, ${HER_COLORS.blush} 50%, ${HER_COLORS.cream} 100%)`,
+              boxShadow: `0 0 60px ${HER_COLORS.glowCoral}`,
+            }}
+            animate={{
+              scale: [1, 1.05, 1],
+            }}
+            transition={{
+              duration: 4,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          />
         </div>
 
         {/* Title */}
         <div>
-          <h1 className="text-3xl font-light text-white mb-2">Conversation Naturelle</h1>
-          <p className="text-zinc-400 text-sm">
-            Parle avec Eva comme si elle etait vraiment la.
+          <h1
+            className="text-3xl font-light mb-2"
+            style={{ color: HER_COLORS.earth }}
+          >
+            Conversation Naturelle
+          </h1>
+          <p style={{ color: HER_COLORS.textSecondary }} className="text-sm">
+            Parle avec Eva comme si elle était vraiment là.
             <br />
-            Tu peux l&apos;interrompre a tout moment.
+            Tu peux l&apos;interrompre à tout moment.
           </p>
         </div>
 
-        {/* Features */}
+        {/* Features - HER warm style */}
         <div className="grid grid-cols-2 gap-4 w-full">
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center mb-3 mx-auto">
-              <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          <motion.div
+            className="rounded-2xl p-4"
+            style={{
+              backgroundColor: HER_COLORS.warmWhite,
+              border: `1px solid ${HER_COLORS.cream}`,
+              boxShadow: `0 2px 12px ${HER_COLORS.softShadow}40`,
+            }}
+            whileHover={{ scale: 1.02 }}
+            transition={HER_SPRINGS.gentle}
+          >
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center mb-3 mx-auto"
+              style={{ backgroundColor: HER_COLORS.blush }}
+            >
+              <svg className="w-5 h-5" style={{ color: HER_COLORS.coral }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <h3 className="text-white font-medium text-sm">Ultra Rapide</h3>
-            <p className="text-zinc-500 text-xs mt-1">Reponses instantanees</p>
-          </div>
+            <h3 style={{ color: HER_COLORS.earth }} className="font-medium text-sm">Ultra Rapide</h3>
+            <p style={{ color: HER_COLORS.textMuted }} className="text-xs mt-1">Réponses instantanées</p>
+          </motion.div>
 
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center mb-3 mx-auto">
-              <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <motion.div
+            className="rounded-2xl p-4"
+            style={{
+              backgroundColor: HER_COLORS.warmWhite,
+              border: `1px solid ${HER_COLORS.cream}`,
+              boxShadow: `0 2px 12px ${HER_COLORS.softShadow}40`,
+            }}
+            whileHover={{ scale: 1.02 }}
+            transition={HER_SPRINGS.gentle}
+          >
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center mb-3 mx-auto"
+              style={{ backgroundColor: HER_COLORS.blush }}
+            >
+              <svg className="w-5 h-5" style={{ color: HER_COLORS.coral }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 className="text-white font-medium text-sm">Interruptible</h3>
-            <p className="text-zinc-500 text-xs mt-1">Coupe Eva quand tu veux</p>
-          </div>
+            <h3 style={{ color: HER_COLORS.earth }} className="font-medium text-sm">Interruptible</h3>
+            <p style={{ color: HER_COLORS.textMuted }} className="text-xs mt-1">Coupe Eva quand tu veux</p>
+          </motion.div>
 
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-            <div className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center mb-3 mx-auto">
-              <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+          <motion.div
+            className="rounded-2xl p-4"
+            style={{
+              backgroundColor: HER_COLORS.warmWhite,
+              border: `1px solid ${HER_COLORS.cream}`,
+              boxShadow: `0 2px 12px ${HER_COLORS.softShadow}40`,
+            }}
+            whileHover={{ scale: 1.02 }}
+            transition={HER_SPRINGS.gentle}
+          >
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center mb-3 mx-auto"
+              style={{ backgroundColor: HER_COLORS.blush }}
+            >
+              <svg className="w-5 h-5" style={{ color: HER_COLORS.coral }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
             </div>
-            <h3 className="text-white font-medium text-sm">Voix Naturelle</h3>
-            <p className="text-zinc-500 text-xs mt-1">Parole fluide et rapide</p>
-          </div>
+            <h3 style={{ color: HER_COLORS.earth }} className="font-medium text-sm">Voix Naturelle</h3>
+            <p style={{ color: HER_COLORS.textMuted }} className="text-xs mt-1">Parole fluide et rapide</p>
+          </motion.div>
 
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-            <div className="w-10 h-10 rounded-full bg-rose-500/20 flex items-center justify-center mb-3 mx-auto">
-              <svg className="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          <motion.div
+            className="rounded-2xl p-4"
+            style={{
+              backgroundColor: HER_COLORS.warmWhite,
+              border: `1px solid ${HER_COLORS.cream}`,
+              boxShadow: `0 2px 12px ${HER_COLORS.softShadow}40`,
+            }}
+            whileHover={{ scale: 1.02 }}
+            transition={HER_SPRINGS.gentle}
+          >
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center mb-3 mx-auto"
+              style={{ backgroundColor: HER_COLORS.blush }}
+            >
+              <svg className="w-5 h-5" style={{ color: HER_COLORS.coral }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
             </div>
-            <h3 className="text-white font-medium text-sm">Emotionnelle</h3>
-            <p className="text-zinc-500 text-xs mt-1">Detecte tes emotions</p>
-          </div>
+            <h3 style={{ color: HER_COLORS.earth }} className="font-medium text-sm">Émotionnelle</h3>
+            <p style={{ color: HER_COLORS.textMuted }} className="text-xs mt-1">Détecte tes émotions</p>
+          </motion.div>
         </div>
 
         {/* Voice selector */}
         <div className="w-full">
-          <label className="text-zinc-400 text-sm mb-2 block">Voix d&apos;Eva</label>
+          <label style={{ color: HER_COLORS.textSecondary }} className="text-sm mb-2 block">
+            Voix d&apos;Eva
+          </label>
           <select
             value={selectedVoice}
             onChange={(e) => setSelectedVoice(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+            className="w-full rounded-xl px-4 py-3 focus:outline-none transition-all duration-300"
+            style={{
+              backgroundColor: HER_COLORS.cream,
+              border: `1px solid ${HER_COLORS.softShadow}`,
+              color: HER_COLORS.earth,
+            }}
           >
             {voices.map((v) => (
-              <option key={v.id} value={v.id} className="bg-zinc-900">
+              <option key={v.id} value={v.id} style={{ backgroundColor: HER_COLORS.warmWhite }}>
                 {v.id === "eva" && "Eva (Douce)"}
                 {v.id === "eva-warm" && "Eva (Chaleureuse)"}
                 {v.id === "eva-young" && "Eva (Jeune)"}
@@ -146,35 +232,52 @@ export default function InterruptiblePage() {
           </select>
         </div>
 
-        {/* Start button */}
-        <button
+        {/* Start button - HER coral style */}
+        <motion.button
           onClick={() => setShowCall(true)}
-          className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-500 text-white font-medium hover:scale-[1.02] transition-all shadow-lg shadow-rose-500/30"
+          className="w-full py-4 rounded-2xl font-medium transition-all"
+          style={{
+            backgroundColor: HER_COLORS.coral,
+            color: HER_COLORS.warmWhite,
+            boxShadow: `0 4px 20px ${HER_COLORS.glowCoral}`,
+          }}
+          whileHover={{ scale: 1.02, boxShadow: `0 6px 30px ${HER_COLORS.glowCoral}` }}
+          whileTap={{ scale: 0.98 }}
         >
           Commencer l&apos;appel
-        </button>
+        </motion.button>
 
         {/* Hint */}
-        <p className="text-zinc-500 text-xs">
+        <p style={{ color: HER_COLORS.textMuted }} className="text-xs">
           Maintiens le bouton micro pour parler. Appuie sur pause pour interrompre Eva.
         </p>
       </div>
 
       {/* Conversation history */}
       {messages.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-xl border-t border-white/10 max-h-48 overflow-y-auto">
+        <motion.div
+          className="fixed bottom-0 left-0 right-0 backdrop-blur-sm max-h-48 overflow-y-auto"
+          style={{
+            backgroundColor: `${HER_COLORS.warmWhite}E6`,
+            borderTop: `1px solid ${HER_COLORS.cream}`,
+          }}
+          initial={{ y: 100 }}
+          animate={{ y: 0 }}
+          transition={HER_SPRINGS.gentle}
+        >
           <div className="max-w-2xl mx-auto p-4 space-y-2">
             {messages.map((msg, i) => (
               <div
                 key={i}
-                className={`text-sm ${msg.role === "user" ? "text-zinc-400" : "text-white"}`}
+                className="text-sm"
+                style={{ color: msg.role === "user" ? HER_COLORS.textSecondary : HER_COLORS.earth }}
               >
                 <span className="font-medium">{msg.role === "user" ? "Toi" : "Eva"}:</span>{" "}
                 {msg.content}
               </div>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );
