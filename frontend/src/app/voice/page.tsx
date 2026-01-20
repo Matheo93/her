@@ -875,6 +875,12 @@ export default function VoiceFirstPage() {
         type="ambient"
       />
 
+      {/* SPRINT 23: Reunion ambient - subtle warmth when user returns */}
+      <ReunionIndicator
+        persistentMemory={persistentMemory}
+        type="ambient"
+      />
+
       {/* JARVIS Feature: Bio-Data - subtle presence indicator (hidden on small mobile) */}
       <div className="absolute top-4 left-4 md:top-6 md:left-6 flex flex-col gap-2">
         <AnimatePresence>
