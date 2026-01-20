@@ -377,19 +377,86 @@ export default function EvaHerPage() {
       className="fixed inset-0 overflow-hidden flex flex-col items-center justify-center"
       style={{ backgroundColor: HER_COLORS.warmWhite }}
     >
-      {/* Subtle warm ambient background */}
-      <div
+      {/* Living ambient background */}
+      <motion.div
         className="absolute inset-0 pointer-events-none"
-        style={{
-          background: `radial-gradient(ellipse at 50% 30%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+        animate={{
+          background: [
+            `radial-gradient(ellipse at 50% 30%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+            `radial-gradient(ellipse at 50% 28%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 72%)`,
+            `radial-gradient(ellipse at 50% 30%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+          ],
         }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
+
+      {/* JARVIS Feature: Bio-Data indicator */}
+      <div className="absolute top-6 left-6 flex flex-col gap-2">
+        <AnimatePresence>
+          {isConnected && (
+            <motion.div
+              className="flex items-center gap-3"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 0.6, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <motion.div
+                className="flex items-center gap-2"
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{
+                  duration: 60 / bioData.heartRate,
+                  repeat: Infinity,
+                  ease: "easeOut",
+                }}
+              >
+                <svg
+                  className="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill={HER_COLORS.coral}
+                  style={{ opacity: 0.7 }}
+                >
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                </svg>
+                <span
+                  className="text-xs font-light tabular-nums"
+                  style={{ color: HER_COLORS.earth, opacity: 0.5 }}
+                >
+                  {bioData.heartRate}
+                </span>
+              </motion.div>
+              <div
+                className="w-16 h-1 rounded-full overflow-hidden"
+                style={{ backgroundColor: `${HER_COLORS.softShadow}40` }}
+              >
+                <motion.div
+                  className="h-full rounded-full"
+                  style={{ backgroundColor: HER_COLORS.coral }}
+                  animate={{ width: `${bioData.presence * 100}%` }}
+                  transition={{ duration: 0.5 }}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* Main content - centered, minimal */}
       <div className="relative flex flex-col items-center justify-center flex-1 px-4">
+        {/* Breathing glow around avatar */}
+        <motion.div
+          className="absolute w-72 h-72 md:w-96 md:h-96 rounded-full"
+          style={{
+            background: `radial-gradient(circle, ${HER_COLORS.coral}15 0%, transparent 70%)`,
+          }}
+          animate={{
+            scale: [1, 1 + bioData.breathPhase * 0.06, 1],
+            opacity: [0.4, 0.6, 0.4],
+          }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
 
         {/* 3D Realistic Avatar */}
-        <div className="w-64 h-64 md:w-80 md:h-80">
+        <div className="w-64 h-64 md:w-80 md:h-80 relative z-10">
           <RealisticAvatar3D
             visemeWeights={visemeWeights}
             emotion={evaEmotion}
@@ -398,6 +465,22 @@ export default function EvaHerPage() {
             audioLevel={audioLevel}
           />
         </div>
+
+        {/* Welcome message (proactive) */}
+        <AnimatePresence>
+          {showWelcome && !isListening && !isSpeaking && !isThinking && isConnected && (
+            <motion.p
+              className="mt-8 text-base max-w-md text-center px-4"
+              style={{ color: HER_COLORS.earth }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 0.8, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ delay: 0.5, ...HER_SPRINGS.gentle }}
+            >
+              Je suis là...
+            </motion.p>
+          )}
+        </AnimatePresence>
 
         {/* Eva's words - subtle, appearing below avatar */}
         <AnimatePresence mode="wait">
@@ -419,11 +502,11 @@ export default function EvaHerPage() {
           )}
         </AnimatePresence>
 
-        {/* Thinking indicator - very subtle */}
+        {/* Thinking indicator - organic, coral colored */}
         <AnimatePresence>
           {isThinking && !currentText && (
             <motion.div
-              className="mt-8 flex gap-1"
+              className="mt-8 flex gap-1.5"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -432,15 +515,15 @@ export default function EvaHerPage() {
                 <motion.div
                   key={i}
                   className="w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: HER_COLORS.softShadow }}
+                  style={{ backgroundColor: HER_COLORS.coral }}
                   animate={{
-                    opacity: [0.3, 0.7, 0.3],
-                    scale: [1, 1.2, 1],
+                    opacity: [0.3, 0.8, 0.3],
+                    y: [0, -3, 0],
                   }}
                   transition={{
-                    duration: 1.2,
+                    duration: 1.5,
                     repeat: Infinity,
-                    delay: i * 0.2,
+                    delay: i * 0.15,
                     ease: "easeInOut",
                   }}
                 />
