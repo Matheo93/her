@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const AVATAR_URL = process.env.NEXT_PUBLIC_AVATAR_URL || "http://localhost:8001";
@@ -16,6 +17,7 @@ export default function LipSyncPage() {
   const lipsyncWsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const frameUrlRef = useRef<string | null>(null);
+  const playAudioRef = useRef<(buffer: ArrayBuffer) => void>(() => {});
 
   // Connect to backend for TTS
   useEffect(() => {
@@ -40,7 +42,7 @@ export default function LipSyncPage() {
           const arrayBuffer = await event.data.arrayBuffer();
 
           // Play audio
-          playAudioWithLipSync(arrayBuffer);
+          playAudioRef.current(arrayBuffer);
           return;
         }
 
@@ -107,7 +109,7 @@ export default function LipSyncPage() {
   }, []);
 
   // Play audio and send to lip-sync engine
-  const playAudioWithLipSync = async (arrayBuffer: ArrayBuffer) => {
+  const playAudioWithLipSync = useCallback(async (arrayBuffer: ArrayBuffer) => {
     setIsSpeaking(true);
 
     try {
@@ -144,7 +146,12 @@ export default function LipSyncPage() {
       console.error("Audio error:", e);
       setIsSpeaking(false);
     }
-  };
+  }, []);
+
+  // Keep ref updated
+  useEffect(() => {
+    playAudioRef.current = playAudioWithLipSync;
+  }, [playAudioWithLipSync]);
 
   // Record voice
   const startListening = useCallback(async () => {
@@ -200,7 +207,7 @@ export default function LipSyncPage() {
         const arrayBuffer = await blob.arrayBuffer();
         playAudioWithLipSync(arrayBuffer);
       }
-    } catch (e) {
+    } catch {
       setStatus("Erreur TTS");
     }
   };
@@ -293,7 +300,7 @@ export default function LipSyncPage() {
           <p className="text-green-400 text-sm animate-pulse">🎤 Parle... Relâche pour envoyer</p>
         )}
 
-        <a href="/" className="text-white/40 hover:text-white/60 text-sm">← Retour</a>
+        <Link href="/" className="text-white/40 hover:text-white/60 text-sm">← Retour</Link>
       </div>
     </div>
   );

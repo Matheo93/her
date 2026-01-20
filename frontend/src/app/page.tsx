@@ -56,7 +56,7 @@ export default function Home() {
   // Emotion & Mood states
   const [currentEmotion, setCurrentEmotion] = useState<Emotion>("neutral");
   const [currentMood, setCurrentMood] = useState<Mood>("default");
-  const [emotionConfidence, setEmotionConfidence] = useState(0);
+  const [, setEmotionConfidence] = useState(0);
 
   // Video call state
   const [showVideoCall, setShowVideoCall] = useState(false);
@@ -68,6 +68,7 @@ export default function Home() {
   const isPlayingRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const currentEmotionRef = useRef<Emotion>("neutral");
+  const playNextAudioRef = useRef<() => void>(() => {});
 
   // Load available voices
   useEffect(() => {
@@ -103,7 +104,7 @@ export default function Home() {
       URL.revokeObjectURL(url);
       isPlayingRef.current = false;
       if (audioQueueRef.current.length > 0) {
-        playNextAudio();
+        playNextAudioRef.current();
       } else {
         setIsSpeaking(false);
       }
@@ -123,6 +124,11 @@ export default function Home() {
       setIsSpeaking(false);
     }
   }, []);
+
+  // Keep ref updated
+  useEffect(() => {
+    playNextAudioRef.current = playNextAudio;
+  }, [playNextAudio]);
 
   // WebSocket connection - use new /ws/stream endpoint
   useEffect(() => {
@@ -233,7 +239,6 @@ export default function Home() {
     return () => {
       wsRef.current?.close();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVoice, voiceEnabled, playNextAudio]); // Remove currentEmotion - it causes reconnects
 
   // Send message

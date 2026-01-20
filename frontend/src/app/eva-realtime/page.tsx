@@ -195,7 +195,7 @@ function renderVisemes({ weights, images, canvasRef }: VisemeRendererProps) {
 
   // Find the dominant viseme (highest weight)
   const sorted = Object.entries(weights)
-    .filter(([_, weight]) => weight > 0.05)
+    .filter(([, weight]) => weight > 0.05)
     .sort((a, b) => b[1] - a[1]);
 
   if (sorted.length === 0) {
@@ -236,11 +236,11 @@ function renderVisemes({ weights, images, canvasRef }: VisemeRendererProps) {
 // ============================================================================
 
 interface RealtimeAvatarProps {
-  audioElement: HTMLAudioElement | null;
+  audioRef: React.RefObject<HTMLAudioElement | null>;
   isPlaying: boolean;
 }
 
-function RealtimeAvatar({ audioElement, isPlaying }: RealtimeAvatarProps) {
+function RealtimeAvatar({ audioRef, isPlaying }: RealtimeAvatarProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const analyzerRef = useRef<GPUAudioAnalyzer | null>(null);
   const imagesRef = useRef<Map<string, HTMLImageElement>>(new Map());
@@ -280,10 +280,11 @@ function RealtimeAvatar({ audioElement, isPlaying }: RealtimeAvatarProps) {
 
   // Connect to audio when playing
   useEffect(() => {
-    if (audioElement && isPlaying && analyzerRef.current) {
-      analyzerRef.current.connectToAudio(audioElement).catch(console.error);
+    const audio = audioRef.current;
+    if (audio && isPlaying && analyzerRef.current) {
+      analyzerRef.current.connectToAudio(audio).catch(console.error);
     }
-  }, [audioElement, isPlaying]);
+  }, [audioRef, isPlaying]);
 
   // Render loop - runs at display refresh rate
   useEffect(() => {
@@ -354,7 +355,7 @@ function RealtimeAvatar({ audioElement, isPlaying }: RealtimeAvatarProps) {
         <div>FPS: {fps} | Latency: {latency.toFixed(1)}ms</div>
         <div className="text-[10px] opacity-70">
           {Object.entries(currentWeights)
-            .filter(([_, w]) => w > 0.1)
+            .filter(([, w]) => w > 0.1)
             .map(([n, w]) => `${n}:${(w * 100).toFixed(0)}%`)
             .join(" ")}
         </div>
@@ -379,6 +380,7 @@ export default function EvaRealtimePage() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioQueueRef = useRef<{ audio: ArrayBuffer; text: string }[]>([]);
   const isPlayingRef = useRef(false);
+  const playNextChunkRef = useRef<() => void>(() => {});
 
   // Connect to HER
   useEffect(() => {
@@ -431,7 +433,7 @@ export default function EvaRealtimePage() {
               });
 
               if (!isPlayingRef.current) {
-                playNextChunk();
+                playNextChunkRef.current();
               }
             }
             break;
@@ -473,14 +475,19 @@ export default function EvaRealtimePage() {
     }
   }, []);
 
+  // Keep ref updated
+  useEffect(() => {
+    playNextChunkRef.current = playNextChunk;
+  }, [playNextChunk]);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const handleEnded = () => playNextChunk();
+    const handleEnded = () => playNextChunkRef.current();
     audio.addEventListener("ended", handleEnded);
     return () => audio.removeEventListener("ended", handleEnded);
-  }, [playNextChunk]);
+  }, []);
 
   const sendText = useCallback(() => {
     if (!inputText.trim()) return;
@@ -514,8 +521,8 @@ export default function EvaRealtimePage() {
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="relative w-full max-w-2xl aspect-square bg-black/20 rounded-2xl overflow-hidden">
           <RealtimeAvatar
-            audioElement={audioRef.current}
-            isPlaying={isSpeaking || isPlayingRef.current}
+            audioRef={audioRef}
+            isPlaying={isSpeaking}
           />
 
           {isSpeaking && (

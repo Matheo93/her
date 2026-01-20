@@ -7,7 +7,7 @@ export async function GET() {
     const response = await fetch(`${DITTO_API}/health`);
     const data = await response.json();
     return NextResponse.json(data);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ status: 'error', sdk_ready: false }, { status: 503 });
   }
 }

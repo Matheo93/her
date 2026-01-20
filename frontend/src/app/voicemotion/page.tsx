@@ -45,6 +45,7 @@ export default function VoiceEmotionPage() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationRef = useRef<number | null>(null);
+  const processAudioRef = useRef<() => void>(() => {});
 
   const [isListening, setIsListening] = useState(false);
   const [currentEmotion, setCurrentEmotion] = useState<Emotion>("neutral");
@@ -187,8 +188,13 @@ export default function VoiceEmotionPage() {
       setConfidence(result.confidence);
     }
 
-    animationRef.current = requestAnimationFrame(processAudio);
+    animationRef.current = requestAnimationFrame(() => processAudioRef.current());
   }, [analyzeEmotion, currentEmotion]);
+
+  // Keep ref updated
+  useEffect(() => {
+    processAudioRef.current = processAudio;
+  }, [processAudio]);
 
   // Start listening
   const startListening = useCallback(async () => {
@@ -294,7 +300,7 @@ export default function VoiceEmotionPage() {
             onClick={startListening}
             className="px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-medium text-lg transition-all"
           >
-            Commencer l'analyse
+            Commencer l&apos;analyse
           </button>
         ) : (
           <button

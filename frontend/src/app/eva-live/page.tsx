@@ -51,6 +51,7 @@ export default function EvaLivePage() {
   const idleVideoRef = useRef<HTMLVideoElement>(null);
   const audioQueueRef = useRef<{ audio: ArrayBuffer; text: string; emotion: string }[]>([]);
   const isPlayingRef = useRef(false);
+  const processAudioQueueRef = useRef<() => void>(() => {});
 
   const emotionStyle = EMOTION_STYLES[evaEmotion] || EMOTION_STYLES.neutral;
 
@@ -117,7 +118,7 @@ export default function EvaLivePage() {
                 text: data.text || "",
                 emotion: data.emotion || "neutral"
               });
-              processAudioQueue();
+              processAudioQueueRef.current();
             }
             break;
 
@@ -135,7 +136,7 @@ export default function EvaLivePage() {
                 text: data.content || "",
                 emotion: "tenderness"
               });
-              processAudioQueue();
+              processAudioQueueRef.current();
             }
             break;
         }
@@ -148,6 +149,20 @@ export default function EvaLivePage() {
     return () => wsRef.current?.close();
   }, []);
 
+  // Fallback audio playback (defined before processAudioQueue)
+  const playAudioOnly = useCallback(async (audioData: ArrayBuffer): Promise<void> => {
+    return new Promise((resolve) => {
+      const audioContext = new AudioContext();
+      audioContext.decodeAudioData(audioData.slice(0), (buffer) => {
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.onended = () => resolve();
+        source.start(0);
+      }, () => resolve());
+    });
+  }, []);
+
   // Process audio queue with lip-sync
   const processAudioQueue = useCallback(async () => {
     if (isPlayingRef.current || audioQueueRef.current.length === 0) return;
@@ -155,7 +170,7 @@ export default function EvaLivePage() {
     isPlayingRef.current = true;
     setIsSpeaking(true);
 
-    const { audio, text, emotion } = audioQueueRef.current.shift()!;
+    const { audio, emotion } = audioQueueRef.current.shift()!;
     setEvaEmotion(emotion);
     setStatus(EMOTION_STYLES[emotion]?.label || "Parle...");
 
@@ -217,26 +232,17 @@ export default function EvaLivePage() {
 
     // Process next in queue
     if (audioQueueRef.current.length > 0) {
-      processAudioQueue();
+      processAudioQueueRef.current();
     } else {
       setIsSpeaking(false);
       setStatus("Prête");
     }
-  }, []);
+  }, [playAudioOnly]);
 
-  // Fallback audio playback
-  const playAudioOnly = async (audioData: ArrayBuffer): Promise<void> => {
-    return new Promise((resolve) => {
-      const audioContext = new AudioContext();
-      audioContext.decodeAudioData(audioData.slice(0), (buffer) => {
-        const source = audioContext.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioContext.destination);
-        source.onended = () => resolve();
-        source.start(0);
-      }, () => resolve());
-    });
-  };
+  // Keep ref updated
+  useEffect(() => {
+    processAudioQueueRef.current = processAudioQueue;
+  }, [processAudioQueue]);
 
   // Voice recording
   const startListening = useCallback(async () => {

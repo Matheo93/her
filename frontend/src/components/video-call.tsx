@@ -61,10 +61,13 @@ export function VideoCall({
   const [callDuration, setCallDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
-  const [selectedAvatar, setSelectedAvatar] = useState(() =>
-    VOICE_AVATAR_MAP[selectedVoice] || "eva"
-  );
+  // Track manual avatar selection vs voice-derived
+  const [manualAvatar, setManualAvatar] = useState<string | null>(null);
   const [showAvatarSelector, setShowAvatarSelector] = useState(false);
+
+  // Derive selectedAvatar from voice, but allow manual override
+  const selectedAvatar = manualAvatar ?? VOICE_AVATAR_MAP[selectedVoice] ?? "eva";
+  const setSelectedAvatar = (avatar: string) => setManualAvatar(avatar);
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioQueueRef = useRef<Blob[]>([]);
@@ -72,15 +75,8 @@ export function VideoCall({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const playNextAudioRef = useRef<() => void>(() => {});
   const analyzerRef = useRef<AnalyserNode | null>(null);
-
-  // Update avatar when voice changes
-  useEffect(() => {
-    const mappedAvatar = VOICE_AVATAR_MAP[selectedVoice];
-    if (mappedAvatar) {
-      setSelectedAvatar(mappedAvatar);
-    }
-  }, [selectedVoice]);
 
   // Format duration
   const formatDuration = (seconds: number) => {
@@ -135,7 +131,7 @@ export function VideoCall({
         setAudioLevel(0);
 
         if (audioQueueRef.current.length > 0) {
-          playNextAudio();
+          playNextAudioRef.current();
         } else {
           setIsSpeaking(false);
         }
@@ -150,10 +146,15 @@ export function VideoCall({
       setAudioLevel(0);
 
       if (audioQueueRef.current.length > 0) {
-        playNextAudio();
+        playNextAudioRef.current();
       }
     }
   }, []);
+
+  // Keep ref updated
+  useEffect(() => {
+    playNextAudioRef.current = playNextAudio;
+  }, [playNextAudio]);
 
   // WebSocket connection to backend
   useEffect(() => {
@@ -514,19 +515,20 @@ export function VideoCall({
         {isSpeaking && (
           <div className="absolute bottom-48 left-1/2 -translate-x-1/2 flex items-end justify-center gap-1 h-16">
             {Array.from({ length: 32 }).map((_, i) => {
-              const barHeight = Math.max(4, Math.sin(i * 0.3 + Date.now() * 0.01) * audioLevel * 40 + audioLevel * 20);
+              const baseHeight = Math.max(4, Math.sin(i * 0.3) * 20 + audioLevel * 40);
               return (
                 <div
                   key={i}
-                  className={`w-1 rounded-full ${
+                  className={`w-1 rounded-full animate-pulse ${
                     currentAvatar.gender === "male"
                       ? "bg-gradient-to-t from-blue-500 to-blue-300"
                       : "bg-gradient-to-t from-rose-500 to-rose-300"
                   }`}
                   style={{
-                    height: `${barHeight}px`,
+                    height: `${baseHeight}px`,
                     opacity: 0.5 + audioLevel * 0.5,
-                    transition: "height 0.05s ease-out",
+                    animationDelay: `${i * 50}ms`,
+                    animationDuration: "300ms",
                   }}
                 />
               );

@@ -20,15 +20,6 @@ const EMOTION_EMOJIS: Record<Emotion, string> = {
   neutral: "😐",
 };
 
-const EMOTION_COLORS: Record<Emotion, string> = {
-  happy: "bg-yellow-500",
-  sad: "bg-blue-500",
-  angry: "bg-red-500",
-  fearful: "bg-purple-500",
-  disgusted: "bg-green-500",
-  surprised: "bg-cyan-500",
-  neutral: "bg-zinc-500",
-};
 
 export default function FacetimePage() {
   const router = useRouter();
@@ -44,7 +35,7 @@ export default function FacetimePage() {
   const [cameraActive, setCameraActive] = useState(false);
   const [currentEmotion, setCurrentEmotion] = useState<Emotion>("neutral");
   const [emotionConfidence, setEmotionConfidence] = useState(0);
-  const [allEmotions, setAllEmotions] = useState<EmotionResult[]>([]);
+  const [, setAllEmotions] = useState<EmotionResult[]>([]);
   const [faceDetected, setFaceDetected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

@@ -28,6 +28,7 @@ export default function EvaPage() {
   const isPlayingRef = useRef(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const playNextAudioRef = useRef<() => void>(() => {});
 
   // WebSocket connection
   useEffect(() => {
@@ -60,7 +61,7 @@ export default function EvaPage() {
         } else if (data.type === "speech" && data.audio_base64) {
           const audioData = Uint8Array.from(atob(data.audio_base64), c => c.charCodeAt(0)).buffer;
           audioQueueRef.current.push(audioData);
-          playNextAudio();
+          playNextAudioRef.current();
         } else if (data.type === "speaking_end") {
           // handled by audio queue
         }
@@ -112,7 +113,7 @@ export default function EvaPage() {
         isPlayingRef.current = false;
         sourceRef.current = null;
         if (audioQueueRef.current.length > 0) {
-          playNextAudio();
+          playNextAudioRef.current();
         } else {
           setIsSpeaking(false);
           setCurrentText("");
@@ -122,11 +123,16 @@ export default function EvaPage() {
 
       source.start();
       updateMouth();
-    } catch (e) {
+    } catch {
       isPlayingRef.current = false;
-      playNextAudio();
+      playNextAudioRef.current();
     }
   }, []);
+
+  // Keep ref updated
+  useEffect(() => {
+    playNextAudioRef.current = playNextAudio;
+  }, [playNextAudio]);
 
   // Voice input
   const startListening = async () => {
@@ -152,7 +158,7 @@ export default function EvaPage() {
       mr.start();
       setIsListening(true);
       setStatus("Parle...");
-    } catch (e) {
+    } catch {
       setStatus("Erreur micro");
     }
   };
@@ -481,7 +487,7 @@ export default function EvaPage() {
               )}
             </div>
 
-            {isListening && <p className="listening-text">Je t'ecoute...</p>}
+            {isListening && <p className="listening-text">Je t&apos;ecoute...</p>}
           </div>
         </div>
       </div>

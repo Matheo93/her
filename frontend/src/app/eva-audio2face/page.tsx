@@ -42,7 +42,7 @@ interface Audio2FaceAvatarProps {
   isIdle: boolean;
 }
 
-function Audio2FaceAvatar({ audioData, isIdle }: Audio2FaceAvatarProps) {
+function Audio2FaceAvatar({ audioData }: Audio2FaceAvatarProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const frameQueueRef = useRef<string[]>([]);
@@ -80,7 +80,7 @@ function Audio2FaceAvatar({ audioData, isIdle }: Audio2FaceAvatarProps) {
           queueSize: frameQueueRef.current.length,
           activeShapes: data.blend_shapes
             ? Object.entries(data.blend_shapes)
-                .filter(([_, v]) => (v as number) > 0.1)
+                .filter(([, v]) => (v as number) > 0.1)
                 .map(([k, v]) => `${k}:${((v as number) * 100).toFixed(0)}%`)
                 .join(" ")
             : s.activeShapes
@@ -207,6 +207,7 @@ export default function EvaAudio2FacePage() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioQueueRef = useRef<{ audio: ArrayBuffer; text: string }[]>([]);
   const isPlayingRef = useRef(false);
+  const playNextChunkRef = useRef<() => void>(() => {});
 
   // Connect to HER WebSocket
   useEffect(() => {
@@ -255,7 +256,7 @@ export default function EvaAudio2FacePage() {
               });
 
               if (!isPlayingRef.current) {
-                playNextChunk();
+                playNextChunkRef.current();
               }
             }
             break;
@@ -299,14 +300,19 @@ export default function EvaAudio2FacePage() {
     }
   }, []);
 
+  // Keep ref updated
+  useEffect(() => {
+    playNextChunkRef.current = playNextChunk;
+  }, [playNextChunk]);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const handleEnded = () => playNextChunk();
+    const handleEnded = () => playNextChunkRef.current();
     audio.addEventListener("ended", handleEnded);
     return () => audio.removeEventListener("ended", handleEnded);
-  }, [playNextChunk]);
+  }, []);
 
   const sendText = useCallback(() => {
     if (!inputText.trim()) return;

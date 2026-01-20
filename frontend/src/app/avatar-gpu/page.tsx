@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
@@ -13,14 +14,16 @@ function useChromaKey2D(
 ) {
   const animationRef = useRef<number>(0);
   const hasAlphaRef = useRef<boolean | null>(null);
+  const renderRef = useRef<() => void>(() => {});
 
+  // Store the render function in a ref to avoid self-reference issues
   const render = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
     if (!video || !canvas || video.paused || video.ended || video.readyState < 2) {
       if (isActive) {
-        animationRef.current = requestAnimationFrame(render);
+        animationRef.current = requestAnimationFrame(() => renderRef.current());
       }
       return;
     }
@@ -61,7 +64,7 @@ function useChromaKey2D(
     if (hasAlphaRef.current) {
       ctx.putImageData(imageData, 0, 0);
       if (isActive) {
-        animationRef.current = requestAnimationFrame(render);
+        animationRef.current = requestAnimationFrame(() => renderRef.current());
       }
       return;
     }
@@ -93,20 +96,25 @@ function useChromaKey2D(
     ctx.putImageData(imageData, 0, 0);
 
     if (isActive) {
-      animationRef.current = requestAnimationFrame(render);
+      animationRef.current = requestAnimationFrame(() => renderRef.current());
     }
   }, [videoRef, canvasRef, isActive]);
 
+  // Keep renderRef updated with latest render function
+  useEffect(() => {
+    renderRef.current = render;
+  }, [render]);
+
   useEffect(() => {
     if (isActive) {
-      animationRef.current = requestAnimationFrame(render);
+      animationRef.current = requestAnimationFrame(() => renderRef.current());
     }
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isActive, render]);
+  }, [isActive]);
 }
 
 interface Timings {
@@ -145,10 +153,10 @@ export default function AvatarGPUPage() {
     "/avatars/eva_idle_transparent.webm",
   ];
   const [currentIdleIndex, setCurrentIdleIndex] = useState(0);
-  const [speakingVideoSrc, setSpeakingVideoSrc] = useState<string | null>(null);
+  const [_speakingVideoSrc, setSpeakingVideoSrc] = useState<string | null>(null);
 
   // Change idle video randomly when loop ends
-  const handleIdleVideoEnd = () => {
+  const _handleIdleVideoEnd = () => {
     if (!isSpeaking) {
       const newIndex = Math.floor(Math.random() * idleVideos.length);
       setCurrentIdleIndex(newIndex);
@@ -188,7 +196,7 @@ export default function AvatarGPUPage() {
       mediaRecorder.start();
       setIsRecording(true);
       setError(null);
-    } catch (err) {
+    } catch {
       setError("Microphone access denied");
     }
   };
@@ -305,19 +313,8 @@ export default function AvatarGPUPage() {
     setTimings({});
 
     try {
-      // Use TTS + lip-sync endpoint
-      const endpoint = useLipsync ? "/tts/lipsync" : "/tts";
-
       if (useLipsync) {
-        const response = await fetch(`${BACKEND_URL}/tts/lipsync`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, voice: "eva" }),
-        });
-
-        const data = await response.json();
-
-        // Also get LLM response
+        // Get LLM response
         const chatResponse = await fetch(`${BACKEND_URL}/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -428,9 +425,9 @@ export default function AvatarGPUPage() {
               />
               <span className="text-slate-400">Lip-Sync</span>
             </label>
-            <a href="/" className="text-purple-400 hover:text-purple-300 text-sm">
+            <Link href="/" className="text-purple-400 hover:text-purple-300 text-sm">
               Retour
-            </a>
+            </Link>
           </div>
         </div>
       </header>

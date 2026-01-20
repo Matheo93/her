@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const AVATAR_URL = process.env.NEXT_PUBLIC_AVATAR_URL || "http://localhost:8001";
@@ -10,7 +11,7 @@ export default function AvatarLive() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [status, setStatus] = useState("Initialisation...");
-  const [avatarFrame, setAvatarFrame] = useState<string | null>(null);
+  const [avatarFrame, setAvatarFrame] = useState<string | null>("/avatars/eva.jpg");
   const [error, setError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -18,13 +19,10 @@ export default function AvatarLive() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioQueueRef = useRef<ArrayBuffer[]>([]);
   const isPlayingRef = useRef(false);
+  const playNextAudioRef = useRef<() => void>(() => {});
 
-  // Load initial avatar frame
+  // Check avatar engine health on mount
   useEffect(() => {
-    // Fetch the static avatar first
-    setAvatarFrame("/avatars/eva.jpg");
-
-    // Check avatar engine health
     fetch(`${AVATAR_URL}/health`)
       .then(res => res.json())
       .then(data => {
@@ -63,7 +61,7 @@ export default function AvatarLive() {
           // Audio data from TTS - queue it
           const arrayBuffer = await event.data.arrayBuffer();
           audioQueueRef.current.push(arrayBuffer);
-          playNextAudio();
+          playNextAudioRef.current();
           return;
         }
 
@@ -169,7 +167,7 @@ export default function AvatarLive() {
       source.onended = () => {
         isPlayingRef.current = false;
         if (audioQueueRef.current.length > 0) {
-          playNextAudio();
+          playNextAudioRef.current();
         } else {
           setIsSpeaking(false);
           // Reset to static frame
@@ -183,10 +181,15 @@ export default function AvatarLive() {
       isPlayingRef.current = false;
       setIsSpeaking(false);
       if (audioQueueRef.current.length > 0) {
-        playNextAudio();
+        playNextAudioRef.current();
       }
     }
   }, []);
+
+  // Keep ref updated with latest callback
+  useEffect(() => {
+    playNextAudioRef.current = playNextAudio;
+  }, [playNextAudio]);
 
   // Voice recording - Push to talk
   const startListening = useCallback(async () => {
@@ -376,9 +379,9 @@ export default function AvatarLive() {
             )}
 
             {/* Back to chat */}
-            <a href="/" className="text-white/40 hover:text-white/60 text-sm mt-4 transition-colors">
+            <Link href="/" className="text-white/40 hover:text-white/60 text-sm mt-4 transition-colors">
               ← Retour au chat
-            </a>
+            </Link>
           </div>
         </div>
       </div>

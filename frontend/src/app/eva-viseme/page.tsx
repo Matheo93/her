@@ -41,13 +41,14 @@ interface VisemeAvatarProps {
   isIdle: boolean;
 }
 
-function VisemeAvatar({ audioData, isIdle }: VisemeAvatarProps) {
+function VisemeAvatar({ audioData }: VisemeAvatarProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const visemeImagesRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const wsRef = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [currentWeights, setCurrentWeights] = useState<Record<string, number>>({ sil: 1.0 });
   const [isLoaded, setIsLoaded] = useState(false);
+  const [imageCount, setImageCount] = useState(0);
   const animationRef = useRef<number>(0);
 
   // Load viseme images
@@ -70,6 +71,7 @@ function VisemeAvatar({ audioData, isIdle }: VisemeAvatarProps) {
 
       await Promise.all(promises);
       console.log(`Loaded ${visemeImagesRef.current.size} viseme images`);
+      setImageCount(visemeImagesRef.current.size);
       setIsLoaded(visemeImagesRef.current.size > 0);
     };
 
@@ -200,124 +202,11 @@ function VisemeAvatar({ audioData, isIdle }: VisemeAvatarProps) {
 
       {/* Stats overlay */}
       <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded font-mono">
-        <div>Viseme: {isConnected ? "✓" : "✗"} | Images: {visemeImagesRef.current.size}</div>
+        <div>Viseme: {isConnected ? "✓" : "✗"} | Images: {imageCount}</div>
         <div>Active: {Object.entries(currentWeights)
-          .filter(([_, w]) => w > 0.1)
+          .filter(([, w]) => w > 0.1)
           .map(([n, w]) => `${n}:${(w*100).toFixed(0)}%`)
           .join(" ")}</div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// SIMPLE AUDIO-REACTIVE AVATAR (Fallback without viseme images)
-// ============================================================================
-
-function AudioReactiveAvatar({ audioData, isIdle }: VisemeAvatarProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imageRef = useRef<HTMLImageElement | null>(null);
-  const [mouthOpen, setMouthOpen] = useState(0);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-
-  // Load Eva image
-  useEffect(() => {
-    const img = new Image();
-    img.onload = () => {
-      imageRef.current = img;
-    };
-    img.src = "/avatars/eva_nobg.png";
-  }, []);
-
-  // Process audio for mouth movement
-  useEffect(() => {
-    if (!audioData) return;
-
-    // Create audio context
-    const audioContext = new AudioContext();
-    const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 256;
-
-    audioContextRef.current = audioContext;
-    analyserRef.current = analyser;
-
-    // Decode and analyze audio
-    audioContext.decodeAudioData(audioData.slice(0)).then(buffer => {
-      const source = audioContext.createBufferSource();
-      source.buffer = buffer;
-      source.connect(analyser);
-      analyser.connect(audioContext.destination);
-      source.start(0);
-
-      // Animate mouth based on audio
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-      const updateMouth = () => {
-        analyser.getByteFrequencyData(dataArray);
-
-        // Calculate average volume
-        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-        const normalized = Math.min(1, avg / 128);
-
-        setMouthOpen(normalized);
-        requestAnimationFrame(updateMouth);
-      };
-
-      updateMouth();
-    });
-
-    return () => {
-      audioContext.close();
-    };
-  }, [audioData]);
-
-  // Render with mouth overlay
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const img = imageRef.current;
-    if (!canvas || !img) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    canvas.width = img.width;
-    canvas.height = img.height;
-
-    const render = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-
-      // Draw simple mouth overlay based on mouthOpen
-      if (mouthOpen > 0.1) {
-        // Approximate mouth position (center-lower face)
-        const mouthX = canvas.width * 0.5;
-        const mouthY = canvas.height * 0.62;
-        const mouthWidth = canvas.width * 0.15;
-        const mouthHeight = mouthOpen * canvas.height * 0.05;
-
-        // Dark mouth interior
-        ctx.fillStyle = `rgba(50, 30, 30, ${mouthOpen * 0.8})`;
-        ctx.beginPath();
-        ctx.ellipse(mouthX, mouthY, mouthWidth, mouthHeight, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      requestAnimationFrame(render);
-    };
-
-    render();
-  }, [mouthOpen]);
-
-  return (
-    <div className="relative w-full h-full">
-      <canvas
-        ref={canvasRef}
-        className="w-full h-full object-contain"
-      />
-      <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded font-mono">
-        <div>Audio-Reactive Mode</div>
-        <div>Mouth: {(mouthOpen * 100).toFixed(0)}%</div>
       </div>
     </div>
   );
@@ -330,7 +219,7 @@ function AudioReactiveAvatar({ audioData, isIdle }: VisemeAvatarProps) {
 export default function EvaVisemePage() {
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isListening, setIsListening] = useState(false);
+  const [, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState("Connexion...");
   const [currentText, setCurrentText] = useState("");
@@ -342,6 +231,7 @@ export default function EvaVisemePage() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioQueueRef = useRef<{ audio: ArrayBuffer; text: string }[]>([]);
   const isPlayingRef = useRef(false);
+  const playNextChunkRef = useRef<() => void>(() => {});
 
   // Connect to HER WebSocket
   useEffect(() => {
@@ -391,7 +281,7 @@ export default function EvaVisemePage() {
               });
 
               if (!isPlayingRef.current) {
-                playNextChunk();
+                playNextChunkRef.current();
               }
             }
             break;
@@ -447,14 +337,19 @@ export default function EvaVisemePage() {
     }
   }, [latency]);
 
+  // Keep ref updated
+  useEffect(() => {
+    playNextChunkRef.current = playNextChunk;
+  }, [playNextChunk]);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const handleEnded = () => playNextChunk();
+    const handleEnded = () => playNextChunkRef.current();
     audio.addEventListener("ended", handleEnded);
     return () => audio.removeEventListener("ended", handleEnded);
-  }, [playNextChunk]);
+  }, []);
 
   // Text input
   const sendText = useCallback(() => {

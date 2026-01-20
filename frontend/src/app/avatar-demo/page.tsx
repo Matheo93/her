@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Link from "next/link";
 
 export default function AvatarDemo() {
   const [selectedAvatar, setSelectedAvatar] = useState("eva");
@@ -224,12 +225,12 @@ export default function AvatarDemo() {
         </div>
 
         {/* Back link */}
-        <a
+        <Link
           href="/"
           className="mt-6 text-white/40 hover:text-white/60 text-sm transition-colors"
         >
           ← Retour
-        </a>
+        </Link>
       </div>
     </div>
   );
