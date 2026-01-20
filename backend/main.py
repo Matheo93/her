@@ -1952,6 +1952,15 @@ async def async_emotional_tts(text: str, emotion: str = "neutral") -> Optional[b
 
     # Generate with ultra_fast_tts (already very fast)
     audio = await async_ultra_fast_tts(emotional_text)
+
+    # Fallback to GPU TTS if ultra_fast fails
+    if not audio:
+        audio = await async_gpu_tts(emotional_text)
+
+    # Fallback to fast TTS if GPU fails
+    if not audio:
+        audio = await async_fast_tts(emotional_text)
+
     return audio
 
 
