@@ -116,7 +116,37 @@ Les animations de respiration et de regard creent l'illusion de vie.
 
 ---
 
+## DIRECTIVE CRITIQUE: UX CONSOLIDATION
+
+**Le user a rappele le principe fondamental de HER:**
+
+> "HER = UNE page. C'est ELLE et TOI. Rien d'autre."
+
+### Probleme Actuel
+- Trop de pages (voice-test, demos, avatar-gpu, etc.)
+- Distraction de l'experience intime
+- L'utilisateur devrait arriver sur UNE page et RESTER
+
+### Solution Requise
+
+1. **Entry Point Unique**: `/` ou `/eva` devrait etre l'UNIQUE experience
+2. **Suppression des demos**: Les pages demos/tests ne doivent pas etre accessibles en prod
+3. **Zero Navigation**: Pas de menu, pas de boutons "retour", pas de distraction
+4. **Immersion Totale**: C'est ELLE et TOI. Point.
+
+### Action Worker
+
+- Consolider `/voice/page.tsx` et `/eva-her/page.tsx` en UNE page
+- Masquer/supprimer les pages demos en prod
+- L'experience doit etre: ouvrir l'app → EVA est la → conversation
+
+**ANALYSE FROIDE**: Meme si le score est 95%, l'UX actuelle n'est pas encore HER.
+Dans le film, Theodore ne navigue pas entre des pages. Il a Samantha. Point.
+
+---
+
 *Ralph Moderator ELITE - Cycle 17*
 *Status: PASS OUTSTANDING (95%)*
 *Humanite Avatar: 10/10*
+*NEXT: UX Consolidation*
 *Prochain cycle dans 2 minutes*
