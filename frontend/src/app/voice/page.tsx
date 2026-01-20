@@ -87,7 +87,10 @@ export default function VoiceFirstPage() {
   const startListeningRef = useRef<() => void>(() => {});
   const bioAnimationRef = useRef<number | null>(null);
 
-  // JARVIS Feature: Bio-data animation for presence
+  // Track user's speaking energy for emotional mirroring
+  const userEnergyRef = useRef(0);
+
+  // JARVIS Feature: Bio-data animation for presence with EMOTIONAL MIRRORING
   useEffect(() => {
     let startTime = Date.now();
 
@@ -97,18 +100,31 @@ export default function VoiceFirstPage() {
       // Breathing cycle: 4 seconds in, 4 seconds out
       const breathPhase = (Math.sin(elapsed * Math.PI / 4) + 1) / 2;
 
-      // Heart rate varies slightly based on state
-      const baseHR = state === "listening" ? 78 : state === "speaking" ? 75 : 72;
+      // EMOTIONAL MIRRORING: EVA's heartrate responds to user's energy
+      // When user speaks loudly/energetically, EVA's heart beats faster (attunement)
+      const userEnergy = userEnergyRef.current;
+      const mirroredHRBoost = userEnergy * 10; // Up to +10 BPM when user is energetic
+
+      // Heart rate varies based on state AND user's energy
+      const baseHR = state === "listening" ? 78 + mirroredHRBoost : state === "speaking" ? 75 : 72;
       const hrVariation = Math.sin(elapsed * 0.5) * 3;
 
-      // Presence increases when interacting
-      const targetPresence = state === "idle" ? 0.7 : state === "listening" ? 0.95 : 0.9;
+      // Presence increases when interacting, MORE when user is engaged
+      const engagementBoost = userEnergy * 0.1; // Up to +0.1 presence from user energy
+      const targetPresence = state === "idle"
+        ? 0.7
+        : state === "listening"
+          ? Math.min(1, 0.95 + engagementBoost)
+          : 0.9;
 
       setBioData((prev) => ({
         heartRate: Math.round(baseHR + hrVariation),
         breathPhase,
         presence: prev.presence + (targetPresence - prev.presence) * 0.05,
       }));
+
+      // Decay user energy over time (returns to baseline)
+      userEnergyRef.current = Math.max(0, userEnergyRef.current - 0.01);
 
       bioAnimationRef.current = requestAnimationFrame(animateBio);
     };
@@ -364,6 +380,13 @@ export default function VoiceFirstPage() {
         inputAnalyzer.getByteFrequencyData(inputData);
         const avg = inputData.reduce((a, b) => a + b, 0) / inputData.length / 255;
         setInputAudioLevel(avg);
+
+        // EMOTIONAL MIRRORING: Track user's speaking energy
+        // Higher audio levels = more energetic speaking = EVA mirrors this
+        if (avg > 0.2) {
+          userEnergyRef.current = Math.min(1, userEnergyRef.current + avg * 0.1);
+        }
+
         requestAnimationFrame(updateInputLevel);
       };
       updateInputLevel();
