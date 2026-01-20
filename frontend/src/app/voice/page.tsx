@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 import type { VisemeWeights } from "@/components/RealisticAvatar3D";
 import { HER_COLORS, HER_SPRINGS } from "@/styles/her-theme";
+import { MemoryParticles, type MemoryTrace } from "@/components/MemoryParticles";
+import { InnerMonologue } from "@/components/InnerMonologue";
+import { usePresenceSound } from "@/hooks/usePresenceSound";
 
 // Haptic feedback for iOS - subtle, intimate
 const triggerHaptic = (style: "light" | "medium" | "heavy" = "light") => {
@@ -74,6 +77,12 @@ export default function VoiceFirstPage() {
 
   // Conversation tracking for fatigue simulation
   const [conversationStartTime] = useState<number>(() => Date.now());
+
+  // SPRINT 12: Memory traces - visual representation of conversation moments
+  const [memoryTraces, setMemoryTraces] = useState<MemoryTrace[]>([]);
+
+  // SPRINT 12: Presence sound enabled state
+  const [presenceSoundEnabled, setPresenceSoundEnabled] = useState(false);
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
