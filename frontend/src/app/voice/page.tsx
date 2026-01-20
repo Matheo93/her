@@ -868,6 +868,12 @@ export default function VoiceFirstPage() {
             connectionDepth={emotionalMemory.visualHints.connectionDepth}
             showParticle={emotionalMemory.visualHints.showMemoryParticle}
           />
+
+          {/* SPRINT 20: Proactive presence glow - EVA wants to connect */}
+          <ProactivePresenceIndicator
+            presence={proactivePresence}
+            type="glow"
+          />
         </div>
 
         {/* SPRINT 15: Attunement description - subtle connection text */}
