@@ -8,6 +8,9 @@ import { HER_COLORS, HER_SPRINGS } from "@/styles/her-theme";
 import { MemoryParticles, type MemoryTrace } from "@/components/MemoryParticles";
 import { InnerMonologue } from "@/components/InnerMonologue";
 import { usePresenceSound } from "@/hooks/usePresenceSound";
+import { useEyeContact } from "@/hooks/useEyeContact";
+import { MutualAttentionGlow } from "@/components/MutualAttentionGlow";
+import { VoicePresenceBreath, useSpeechPreparation } from "@/components/VoicePresenceBreath";
 
 // Haptic feedback for iOS - subtle, intimate
 const triggerHaptic = (style: "light" | "medium" | "heavy" = "light") => {
@@ -98,6 +101,25 @@ export default function VoiceFirstPage() {
 
   // Track user's speaking energy for emotional mirroring
   const userEnergyRef = useRef(0);
+
+  // SPRINT 13: Eye contact tracking - ref for avatar container
+  const avatarContainerRef = useRef<HTMLDivElement>(null);
+
+  // SPRINT 13: Eye contact awareness - creates "she sees me" feeling
+  const eyeContact = useEyeContact({
+    isSpeaking: state === "speaking",
+    isListening: state === "listening",
+    emotion: evaEmotion,
+    containerRef: avatarContainerRef,
+    isAppFocused: true, // Could track document.hasFocus() for deeper presence
+  });
+
+  // SPRINT 13: Speech preparation - anticipation before speaking
+  const speechPreparation = useSpeechPreparation(
+    state === "thinking",
+    state === "speaking",
+    response.length > 0
+  );
 
   // SPRINT 12: Presence sound hook - subtle ambient audio presence
   usePresenceSound({
@@ -617,8 +639,19 @@ export default function VoiceFirstPage() {
           )}
         </AnimatePresence>
 
-        {/* 3D Avatar */}
-        <div className="w-48 h-48 md:w-64 md:h-64 relative z-10">
+        {/* 3D Avatar with Eye Contact Awareness */}
+        <div
+          ref={avatarContainerRef}
+          className="w-48 h-48 md:w-64 md:h-64 relative z-10"
+        >
+          {/* SPRINT 13: Mutual attention glow - "she sees me" indicator */}
+          <MutualAttentionGlow
+            isEyeContactActive={eyeContact.isEyeContactActive}
+            contactDuration={eyeContact.contactDuration}
+            intimacyLevel={eyeContact.intimacyLevel}
+            emotion={evaEmotion}
+          />
+
           <RealisticAvatar3D
             visemeWeights={visemeWeights}
             emotion={getDisplayEmotion()}
@@ -636,6 +669,19 @@ export default function VoiceFirstPage() {
             isSpeaking={state === "speaking"}
             conversationDuration={(Date.now() - conversationStartTime) / 1000}
             lastUserMessage={transcript}
+          />
+        </div>
+
+        {/* SPRINT 13: Voice presence breath - anticipation before speaking */}
+        <div className="mt-4">
+          <VoicePresenceBreath
+            isIdle={state === "idle"}
+            isListening={state === "listening"}
+            isThinking={state === "thinking"}
+            isSpeaking={state === "speaking"}
+            speechPreparation={speechPreparation}
+            position="below"
+            size="md"
           />
         </div>
 
