@@ -579,90 +579,131 @@ export default function VoiceFirstPage() {
 
       {/* VOICE FIRST: Giant microphone button - the main interface */}
       <div className="pb-12 flex flex-col items-center">
-        <motion.button
-          onMouseDown={state === "idle" ? startListening : undefined}
-          onMouseUp={state === "listening" ? stopListening : undefined}
-          onTouchStart={state === "idle" ? startListening : undefined}
-          onTouchEnd={state === "listening" ? stopListening : undefined}
-          onClick={state === "idle" ? startListening : undefined}
-          disabled={!isConnected || state === "thinking" || state === "speaking"}
-          className="relative w-24 h-24 md:w-28 md:h-28 rounded-full flex items-center justify-center transition-all"
-          style={{
-            backgroundColor: state === "listening" ? HER_COLORS.coral : HER_COLORS.cream,
-            boxShadow:
+        {/* Ambient ring that breathes */}
+        <div className="relative">
+          <motion.div
+            className="absolute -inset-4 rounded-full"
+            style={{
+              background: `radial-gradient(circle, ${HER_COLORS.coral}15 0%, transparent 70%)`,
+            }}
+            animate={{
+              scale: [1, 1.1, 1],
+              opacity: state === "listening" ? [0.8, 1, 0.8] : [0.3, 0.5, 0.3],
+            }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          />
+
+          <motion.button
+            onMouseDown={state === "idle" ? startListening : undefined}
+            onMouseUp={state === "listening" ? stopListening : undefined}
+            onTouchStart={state === "idle" ? startListening : undefined}
+            onTouchEnd={state === "listening" ? stopListening : undefined}
+            onClick={state === "idle" ? startListening : undefined}
+            disabled={!isConnected || state === "thinking" || state === "speaking"}
+            className="relative w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center"
+            style={{
+              backgroundColor: state === "listening" ? HER_COLORS.coral : HER_COLORS.cream,
+              boxShadow:
+                state === "listening"
+                  ? `0 0 60px ${HER_COLORS.coral}50, 0 0 100px ${HER_COLORS.coral}20, inset 0 0 30px ${HER_COLORS.warmWhite}30`
+                  : `0 8px 32px ${HER_COLORS.softShadow}30, inset 0 2px 4px ${HER_COLORS.warmWhite}50`,
+            }}
+            whileHover={{ scale: 1.08, boxShadow: `0 12px 40px ${HER_COLORS.coral}30` }}
+            whileTap={{ scale: 0.95 }}
+            animate={
               state === "listening"
-                ? `0 0 40px ${HER_COLORS.coral}60, 0 0 80px ${HER_COLORS.coral}30`
-                : `0 4px 20px ${HER_COLORS.softShadow}40`,
-          }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          animate={
-            state === "listening"
-              ? {
-                  scale: [1, 1.05, 1],
-                }
-              : {}
-          }
-          transition={
-            state === "listening"
-              ? {
-                  duration: 1.5,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }
-              : { duration: 0.2 }
-          }
-        >
-          {/* Mic icon */}
-          <svg
-            className="w-10 h-10 md:w-12 md:h-12"
-            fill="none"
-            stroke={state === "listening" ? HER_COLORS.warmWhite : HER_COLORS.earth}
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
+                ? {
+                    scale: [1, 1.03, 1],
+                  }
+                : state === "speaking"
+                  ? {
+                      scale: [1, 1 + audioLevel * 0.05, 1],
+                    }
+                  : {}
+            }
+            transition={{
+              duration: state === "listening" ? 1.2 : 0.15,
+              repeat: state === "listening" ? Infinity : 0,
+              ease: "easeInOut",
+            }}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"
-            />
-          </svg>
+            {/* Mic icon - elegant, minimal */}
+            <motion.svg
+              className="w-8 h-8 md:w-10 md:h-10"
+              fill="none"
+              stroke={state === "listening" ? HER_COLORS.warmWhite : HER_COLORS.earth}
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              animate={{
+                scale: state === "listening" ? [1, 1.1, 1] : 1,
+              }}
+              transition={{ duration: 0.8, repeat: state === "listening" ? Infinity : 0 }}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"
+              />
+            </motion.svg>
 
-          {/* Listening rings animation */}
-          <AnimatePresence>
-            {state === "listening" && (
-              <>
-                {[0, 1, 2].map((i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute inset-0 rounded-full border-2"
-                    style={{ borderColor: HER_COLORS.coral }}
-                    initial={{ scale: 1, opacity: 0.6 }}
-                    animate={{ scale: 1.5 + i * 0.2, opacity: 0 }}
-                    transition={{
-                      duration: 1.5,
-                      repeat: Infinity,
-                      delay: i * 0.3,
-                      ease: "easeOut",
-                    }}
-                  />
-                ))}
-              </>
-            )}
-          </AnimatePresence>
-        </motion.button>
+            {/* Listening rings animation - softer, more organic */}
+            <AnimatePresence>
+              {state === "listening" && (
+                <>
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute inset-0 rounded-full"
+                      style={{
+                        border: `1.5px solid ${HER_COLORS.coral}`,
+                      }}
+                      initial={{ scale: 1, opacity: 0.5 }}
+                      animate={{ scale: 1.6 + i * 0.25, opacity: 0 }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        delay: i * 0.4,
+                        ease: "easeOut",
+                      }}
+                    />
+                  ))}
+                </>
+              )}
+            </AnimatePresence>
 
-        {/* Subtle state text */}
-        <motion.p
-          className="mt-4 text-sm"
-          style={{ color: HER_COLORS.softShadow }}
-          animate={{ opacity: state === "idle" ? 1 : 0.6 }}
-        >
-          {state === "idle" && "Appuie pour parler"}
-          {state === "listening" && "Je t\u2019\u00e9coute..."}
-          {state === "thinking" && ""}
-          {state === "speaking" && ""}
-        </motion.p>
+            {/* Speaking audio visualizer */}
+            <AnimatePresence>
+              {state === "speaking" && audioLevel > 0.1 && (
+                <motion.div
+                  className="absolute inset-0 rounded-full"
+                  style={{
+                    border: `2px solid ${HER_COLORS.coral}`,
+                    opacity: audioLevel * 0.8,
+                  }}
+                  initial={{ scale: 1 }}
+                  animate={{ scale: 1 + audioLevel * 0.3 }}
+                  exit={{ scale: 1, opacity: 0 }}
+                />
+              )}
+            </AnimatePresence>
+          </motion.button>
+        </div>
+
+        {/* State text - minimal, only when needed */}
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={state}
+            className="mt-5 text-sm font-light tracking-wide"
+            style={{ color: HER_COLORS.softShadow }}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: state === "idle" || state === "listening" ? 0.7 : 0, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.3 }}
+          >
+            {state === "idle" && "Maintiens pour parler"}
+            {state === "listening" && "Je t'écoute..."}
+          </motion.p>
+        </AnimatePresence>
       </div>
     </div>
   );
