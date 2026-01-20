@@ -375,3 +375,149 @@ class TestEvaExpressionHelpers:
 
             # Animation should be non-empty
             assert len(emotion.animation) > 0
+
+
+# =============================================================================
+# EVA MICRO EXPRESSIONS TESTS
+# =============================================================================
+
+class TestMicroExpressionEnums:
+    """Tests for micro expression enums."""
+
+    def test_blink_type_enum(self):
+        """Test BlinkType enum values."""
+        from eva_micro_expressions import BlinkType
+
+        assert BlinkType.NORMAL.value == "normal"
+        assert BlinkType.SLOW.value == "slow"
+        assert BlinkType.DOUBLE.value == "double"
+        assert BlinkType.HALF.value == "half"
+        assert BlinkType.LONG.value == "long"
+
+    def test_gaze_direction_enum(self):
+        """Test GazeDirection enum values."""
+        from eva_micro_expressions import GazeDirection
+
+        assert GazeDirection.CENTER.value == "center"
+        assert GazeDirection.UP_LEFT.value == "up_left"
+        assert GazeDirection.UP_RIGHT.value == "up_right"
+        assert GazeDirection.DOWN_LEFT.value == "down_left"
+        assert GazeDirection.DOWN_RIGHT.value == "down_right"
+
+
+class TestMicroExpressionDataclasses:
+    """Tests for micro expression dataclasses."""
+
+    def test_micro_expression_creation(self):
+        """Test MicroExpression dataclass."""
+        from eva_micro_expressions import MicroExpression
+
+        expr = MicroExpression(
+            type="blink",
+            target="eyes",
+            value=1.0,
+            duration=0.15
+        )
+
+        assert expr.type == "blink"
+        assert expr.target == "eyes"
+        assert expr.value == 1.0
+        assert expr.duration == 0.15
+        assert expr.easing == "ease_out"  # default
+        assert expr.delay == 0.0  # default
+
+    def test_micro_expression_with_easing(self):
+        """Test MicroExpression with custom easing."""
+        from eva_micro_expressions import MicroExpression
+
+        expr = MicroExpression(
+            type="smile",
+            target="mouth",
+            value=0.5,
+            duration=0.3,
+            easing="ease_in_out",
+            delay=0.1
+        )
+
+        assert expr.easing == "ease_in_out"
+        assert expr.delay == 0.1
+
+    def test_expression_frame_creation(self):
+        """Test ExpressionFrame dataclass."""
+        from eva_micro_expressions import ExpressionFrame, MicroExpression
+
+        frame = ExpressionFrame(timestamp=0.0)
+
+        assert frame.timestamp == 0.0
+        assert frame.expressions == []
+
+    def test_expression_frame_with_expressions(self):
+        """Test ExpressionFrame with expressions list."""
+        from eva_micro_expressions import ExpressionFrame, MicroExpression
+
+        expr1 = MicroExpression("blink", "eyes", 1.0, 0.15)
+        expr2 = MicroExpression("smile", "mouth", 0.3, 0.5)
+
+        frame = ExpressionFrame(
+            timestamp=1.0,
+            expressions=[expr1, expr2]
+        )
+
+        assert frame.timestamp == 1.0
+        assert len(frame.expressions) == 2
+        assert frame.expressions[0].type == "blink"
+        assert frame.expressions[1].type == "smile"
+
+
+class TestMicroExpressionSystems:
+    """Tests for micro expression system classes."""
+
+    def test_blinking_system_creation(self):
+        """Test BlinkingSystem can be created."""
+        from eva_micro_expressions import BlinkingSystem
+
+        system = BlinkingSystem()
+
+        assert system is not None
+        # Check default state
+        assert system.last_blink >= 0
+        assert system.current_state == "neutral"
+
+    def test_blinking_system_patterns(self):
+        """Test BlinkingSystem has patterns."""
+        from eva_micro_expressions import BlinkingSystem
+
+        assert "neutral" in BlinkingSystem.BLINK_PATTERNS
+        assert "attentive" in BlinkingSystem.BLINK_PATTERNS
+        assert "thinking" in BlinkingSystem.BLINK_PATTERNS
+
+    def test_gaze_system_creation(self):
+        """Test GazeSystem can be created."""
+        from eva_micro_expressions import GazeSystem
+
+        system = GazeSystem()
+
+        assert system is not None
+
+    def test_micro_smile_system_creation(self):
+        """Test MicroSmileSystem can be created."""
+        from eva_micro_expressions import MicroSmileSystem
+
+        system = MicroSmileSystem()
+
+        assert system is not None
+
+    def test_gaze_direction_values(self):
+        """Test all gaze directions are unique."""
+        from eva_micro_expressions import GazeDirection
+
+        values = [d.value for d in GazeDirection]
+        assert len(values) == len(set(values))  # All unique
+
+    def test_eva_engine_creation(self):
+        """Test EvaMicroExpressionEngine can be created."""
+        from eva_micro_expressions import EvaMicroExpressionEngine
+
+        engine = EvaMicroExpressionEngine()
+
+        assert engine is not None

@@ -665,6 +665,71 @@ class TestAudio2FaceWarpFunctions:
 
 
 # =============================================================================
+# GENERATE VISEMES SOLID TESTS
+# =============================================================================
+
+class TestGenerateVisemesSolid:
+    """Tests for generate_visemes_solid.py."""
+
+    def test_visemes_dict(self):
+        """Test VISEMES dictionary is defined correctly."""
+        from generate_visemes_solid import VISEMES
+
+        assert len(VISEMES) == 12  # Standard viseme set
+
+        expected_visemes = ["sil", "PP", "FF", "TH", "DD", "kk",
+                          "CH", "SS", "RR", "AA", "EE", "OO"]
+
+        for viseme in expected_visemes:
+            assert viseme in VISEMES
+            # Each viseme should have 3 float values
+            assert len(VISEMES[viseme]) == 3
+
+    def test_background_color(self):
+        """Test background color constant."""
+        from generate_visemes_solid import BACKGROUND_COLOR
+
+        # Should be BGR tuple
+        assert len(BACKGROUND_COLOR) == 3
+        assert all(0 <= c <= 255 for c in BACKGROUND_COLOR)
+
+    def test_composite_function_exists(self):
+        """Test composite_on_background function exists."""
+        from generate_visemes_solid import composite_on_background
+
+        assert callable(composite_on_background)
+
+    def test_composite_rgb_passthrough(self):
+        """Test composite returns RGB unchanged when no alpha."""
+        from generate_visemes_solid import composite_on_background
+
+        # Create RGB image (no alpha)
+        rgb_img = np.zeros((10, 10, 3), dtype=np.uint8)
+        rgb_img[:, :, 0] = 255  # Red
+
+        result = composite_on_background(rgb_img, (0, 0, 0))
+
+        assert result.shape == (10, 10, 3)
+        assert np.all(result[:, :, 0] == 255)
+
+    def test_composite_rgba(self):
+        """Test composite blends RGBA correctly."""
+        from generate_visemes_solid import composite_on_background
+
+        # Create RGBA image with 50% transparent red
+        rgba_img = np.zeros((10, 10, 4), dtype=np.uint8)
+        rgba_img[:, :, 2] = 255  # Red in BGR
+        rgba_img[:, :, 3] = 128  # 50% alpha
+
+        # Composite on black background
+        result = composite_on_background(rgba_img, (0, 0, 0))
+
+        assert result.shape == (10, 10, 3)
+        # Red should be ~128 (blended 50% with black)
+        assert 120 <= result[5, 5, 2] <= 135
+
+
+# =============================================================================
 # SADTALKER SERVICE TESTS
 # =============================================================================
 
