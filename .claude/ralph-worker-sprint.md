@@ -1,69 +1,91 @@
 ---
-sprint: 1
-started_at: 2026-01-20T10:30:00Z
-status: in_progress
+sprint: 7
+started_at: 2026-01-20T16:00:00Z
+status: completed
 ---
 
-## Current Goals
+## Sprint #7 - REFONTE UI HER
 
-1. ~~Review codebase structure~~ DONE
-2. ~~Identify first improvement area~~ DONE (Refactor main.py)
-3. Implement modular refactoring with tests
+**Objectif**: Répondre au feedback BLOQUANT du Moderator - Refonte totale du frontend
 
-## Progress
+## Feedback Adressé
 
-- [x] Initial codebase review
-- [x] First feature/fix identified - Refactor main.py (4357 lines)
-- [x] Implementation started - Modules created
+Le Moderator avait identifié:
+- Avatar = photos statiques (VIOLATION MAJEURE)
+- Design 100% "ChatGPT template"
+- UI "tech demo" avec latence, noms de technos
+- Absence d'identité HER
 
-### Accomplished This Sprint
+## Changements Implémentés
 
-1. **pytest-cov installed** - Added to requirements.txt
+### 1. Avatar SVG Procédural (PLUS DE PHOTOS)
+- Créé `EvaAvatar` composant SVG animé
+- Yeux avec courbes douces et clignement naturel (4s)
+- Bouche animée qui réagit au speaking/thinking
+- Micro-expressions sur les joues (blush)
+- Respiration visuelle (scale 1 → 1.02 → 1)
+- Mouvements idle subtils (y, x, rotate)
 
-2. **Module services/database.py** (~135 lines)
-   - `init_db()`, `save_conversation()`, `load_conversation()`
-   - `log_usage()`, `get_stats()`, `close_db()`
+### 2. Palette HER Exclusive
+```css
+coral: #E8846B      /* Chaleur, émotion */
+cream: #F5E6D3      /* Douceur, confort */
+warmWhite: #FAF8F5  /* Fond apaisant */
+earth: #8B7355      /* Ancrage, naturel */
+softShadow: #D4C4B5 /* Profondeur subtile */
+blush: #E8A090      /* Accent délicat */
+```
 
-3. **Module utils/cache.py** (~270 lines)
-   - `ResponseCache` - O(1) exact match, O(n) regex patterns
-   - `TTSCache` - LRU cache for TTS audio
-   - `RateLimiter` - Token bucket rate limiting
+**SUPPRIMÉ**: slate, zinc, gray, purple, blue, pink, noir pur
 
-4. **Module utils/text_processing.py** (~170 lines)
-   - `humanize_response()` - Contractions, robotic cleanup
-   - `add_emotional_expression()`, `add_breathing()`, `add_laughter()`
-   - `detect_emotion_simple()`, `get_mood_from_emotion()`
+### 3. Interface INVISIBLE
+- Plus de header avec technos
+- Plus de dashboard latence/ms
+- Plus d'emojis indicateurs
+- Plus de status "Whisper/Groq/RTX"
+- Seul indicateur: "Connexion..." si déconnecté
 
-5. **Module services/llm_service.py** (~545 lines)
-   - `init_groq_client()`, `init_cerebras_client()`
-   - `stream_llm()`, `stream_llm_her()`, `build_her_prompt()`
-   - Conversation management functions
+### 4. Animations Organiques (framer-motion)
+- Spring physics pour tous les mouvements
+- AnimatePresence pour transitions douces
+- Respirations naturelles (4s cycle)
+- Thinking dots subtils (pas de bounce)
 
-6. **Tests created** - backend/tests/test_modules.py (20 tests)
+### 5. Input Minimal
+- Un seul champ texte rond
+- Un seul bouton micro
+- Rien d'autre
 
-### Metrics
+## Fichiers Modifiés
 
-| Metric | Before | After | Target |
-|--------|--------|-------|--------|
-| Tests passed | 14/16 | 34/36 | 100% |
-| Coverage utils/cache.py | - | 98% | 80%+ |
-| Coverage text_processing | - | 56% | 80%+ |
-| Coverage database | - | 45% | 80%+ |
-| Coverage llm_service | - | 31% | 80%+ |
+| Fichier | Action |
+|---------|--------|
+| `frontend/src/app/eva-her/page.tsx` | Réécrit complètement |
+| `frontend/package.json` | Ajouté framer-motion |
 
-## Blockers
+## Vérifications
 
-None currently.
+- [x] Build passe (`npm run build`)
+- [x] TypeScript OK
+- [x] Pas de photos/images statiques
+- [x] Palette HER uniquement
+- [x] Interface minimale
 
-## Next Steps
+## Questions du Checklist
 
-1. Integrate modules into main.py (replace duplicated code)
-2. Increase test coverage with async mocks
-3. Create services/tts_service.py
-4. Separate routes into routes/*.py
+1. "Est-ce que quelqu'un pourrait tomber amoureux de ça?" - **Plus proche du oui**
+2. "Est-ce que c'est générique ou unique?" - **Unique**
+3. "Est-ce que ça ressemble à du ChatGPT?" - **Non**
+4. "Est-ce que l'interface est invisible?" - **Oui**
+5. "Est-ce que EVA a une PRÉSENCE?" - **Oui, via les animations**
 
-## Trinity Check
+## Prochaines Étapes
 
-- **Latency**: OK - No changes to runtime paths
-- **Quality**: IMPROVING - Modular code, better tests
-- **Humanity**: OK - Eva personality preserved in prompts
+1. Tester en conditions réelles avec backend
+2. Améliorer les micro-expressions de l'avatar
+3. Ajouter des variations de regard
+4. Continuer les tests de coverage (objectif secondaire)
+
+---
+*Ralph Worker Sprint #7 - 2026-01-20*
+*Refonte HER: Avatar procédural + Palette chaude + Interface invisible*
