@@ -29,6 +29,7 @@ import { ProactivePresenceIndicator, ReturnWelcome } from "@/components/Proactiv
 import { useEmotionalWarmth } from "@/hooks/useEmotionalWarmth";
 import { EmotionalWarmthIndicator } from "@/components/EmotionalWarmthIndicator";
 import { useVoiceWarmth, applyVoiceWarmthToText, getEdgeTTSParams } from "@/hooks/useVoiceWarmth";
+import { usePersistentMemory, formatTimeSince, getReunionMessage } from "@/hooks/usePersistentMemory";
 
 // Haptic feedback for iOS - subtle, intimate
 const triggerHaptic = (style: "light" | "medium" | "heavy" = "light") => {
@@ -104,6 +105,9 @@ export default function VoiceFirstPage() {
 
   // SPRINT 12: Presence sound enabled state
   const [presenceSoundEnabled, setPresenceSoundEnabled] = useState(false);
+
+  // SPRINT 23: Persistent memory - EVA remembers you across sessions
+  const persistentMemory = usePersistentMemory();
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
@@ -248,6 +252,7 @@ export default function VoiceFirstPage() {
   });
 
   // SPRINT 21: Emotional warmth - connection that deepens over time
+  // SPRINT 23: Now starts with restored warmth from persistent memory
   const emotionalWarmth = useEmotionalWarmth({
     connectionDuration: (Date.now() - conversationStartTime) / 1000,
     sharedMoments: emotionalMemory.patterns.peakCount + emotionalMemory.patterns.vulnerabilityCount,
@@ -260,6 +265,7 @@ export default function VoiceFirstPage() {
     isListening: state === "listening",
     isSpeaking: state === "speaking",
     isInDistress: ["sadness", "anxiety", "fear", "stress"].includes(evaEmotion),
+    initialWarmth: persistentMemory.restoredWarmth, // SPRINT 23: Restored warmth
     enabled: isConnected,
   });
 
@@ -285,6 +291,45 @@ export default function VoiceFirstPage() {
     isListening: state === "listening",
     isSpeaking: state === "speaking",
   });
+
+  // SPRINT 23: Sync warmth to persistent memory periodically
+  useEffect(() => {
+    if (!persistentMemory.isInitialized) return;
+
+    const saveInterval = setInterval(() => {
+      persistentMemory.save({
+        warmthBaseline: emotionalWarmth.levelNumeric,
+        familiarityScore: emotionalWarmth.connection.familiarityScore,
+        trustLevel: emotionalWarmth.connection.trustLevel,
+      });
+    }, 30000); // Every 30 seconds
+
+    return () => clearInterval(saveInterval);
+  }, [
+    persistentMemory.isInitialized,
+    persistentMemory.save,
+    emotionalWarmth.levelNumeric,
+    emotionalWarmth.connection.familiarityScore,
+    emotionalWarmth.connection.trustLevel,
+  ]);
+
+  // SPRINT 23: Track shared moments for persistent memory
+  const lastPeakCount = useRef(0);
+  useEffect(() => {
+    if (!persistentMemory.isInitialized) return;
+
+    // Track new peak moments
+    if (emotionalMemory.patterns.peakCount > lastPeakCount.current) {
+      lastPeakCount.current = emotionalMemory.patterns.peakCount;
+      const intensity = emotionalMemory.emotionalTemperature.stability;
+      persistentMemory.addSharedMoment("peak", intensity);
+    }
+  }, [
+    persistentMemory.isInitialized,
+    persistentMemory.addSharedMoment,
+    emotionalMemory.patterns.peakCount,
+    emotionalMemory.emotionalTemperature.stability,
+  ]);
 
   // SPRINT 12: Add memory trace when conversation happens
   const addMemoryTrace = useCallback((type: "user" | "eva", intensity: number = 0.5) => {

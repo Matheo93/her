@@ -95,6 +95,9 @@ interface UseEmotionalWarmthOptions {
   isSpeaking: boolean;
   isInDistress: boolean;
 
+  // SPRINT 23: Initial warmth from persistent memory
+  initialWarmth?: number; // 0-1, restored from previous sessions
+
   // Enable feature
   enabled?: boolean;
 }
@@ -123,13 +126,15 @@ export function useEmotionalWarmth({
   isListening,
   isSpeaking,
   isInDistress,
+  initialWarmth = 0,
   enabled = true,
 }: UseEmotionalWarmthOptions): EmotionalWarmthState {
   // State
   const [state, setState] = useState<EmotionalWarmthState>(getDefaultState());
 
   // Smoothing refs
-  const smoothedWarmth = useRef(0);
+  // SPRINT 23: Initialize with restored warmth from persistent memory
+  const smoothedWarmth = useRef(initialWarmth);
   const warmthMomentum = useRef(0); // Warmth tends to stick
   const frameRef = useRef<number | null>(null);
 
