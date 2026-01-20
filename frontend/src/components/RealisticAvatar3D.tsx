@@ -248,11 +248,37 @@ function RealisticHead({
 
     const time = state.clock.getElapsedTime();
 
-    // === BREATHING ===
-    breathPhase.current += delta * 0.8; // ~4 second cycle
-    const breathAmount = Math.sin(breathPhase.current) * 0.005;
+    // === ENHANCED BREATHING with Natural Rhythm ===
+    // Human breathing isn't perfectly sinusoidal - it has slight variations
+    // Inhale is slightly faster than exhale (natural rhythm)
+    breathPhase.current += delta * 0.75; // ~5.3 second cycle (12 breaths/min - relaxed)
+
+    // Composite waveform for more natural breathing
+    const inhaleExhaleRatio = 0.45; // Inhale is 45% of cycle
+    const phase = breathPhase.current % (Math.PI * 2);
+    const normalizedPhase = phase / (Math.PI * 2);
+
+    let breathWave: number;
+    if (normalizedPhase < inhaleExhaleRatio) {
+      // Inhale: faster, with slight acceleration
+      const t = normalizedPhase / inhaleExhaleRatio;
+      breathWave = Math.sin(t * Math.PI / 2); // 0 to 1
+    } else {
+      // Exhale: slower, more gradual
+      const t = (normalizedPhase - inhaleExhaleRatio) / (1 - inhaleExhaleRatio);
+      breathWave = Math.cos(t * Math.PI / 2); // 1 to 0
+    }
+
+    // Add subtle respiratory sinus arrhythmia (heart rate variation with breathing)
+    // This creates micro-variations that feel more alive
+    const heartbeatMicro = Math.sin(time * 1.2) * 0.0008; // ~72 BPM subtle variation
+
+    const breathAmount = breathWave * 0.006 + heartbeatMicro;
     headRef.current.position.y = breathAmount;
-    headRef.current.scale.setScalar(1 + breathAmount * 0.5);
+
+    // Chest/head expansion is more pronounced during inhale
+    const expansionAmount = breathWave * 0.003;
+    headRef.current.scale.setScalar(1 + expansionAmount);
 
     // === SURPRISE REACTION TO SUDDEN AUDIO ===
     // Detect sudden increase in input audio level
@@ -293,7 +319,7 @@ function RealisticHead({
       delta * gazeSpeed
     );
 
-    // === EYE MICRO-SACCADES (layered on gaze) ===
+    // === EYE MICRO-SACCADES with Contemplative Gaze Drift ===
     eyeSaccadeTimer.current -= delta;
     if (eyeSaccadeTimer.current <= 0) {
       // Saccades are smaller when focused on user, larger when idle
@@ -308,6 +334,19 @@ function RealisticHead({
         : 0.15 + Math.random() * 0.3;
     }
 
+    // === CONTEMPLATIVE GAZE DRIFT ===
+    // When "thinking", eyes drift slowly upward-left (memory recall) or upward-right (visualization)
+    // This is a genuine human behavior during cognition
+    let contemplativeOffset = { x: 0, y: 0 };
+    if (emotion === "thinking" || (isSpeaking && !isListening)) {
+      // Slow sinusoidal drift - eyes wander while processing thoughts
+      const driftPhase = time * 0.3;
+      contemplativeOffset = {
+        x: Math.sin(driftPhase) * 0.04, // Gentle side-to-side
+        y: Math.sin(driftPhase * 0.7) * 0.02 + 0.02, // Slight upward tendency (recall)
+      };
+    }
+
     // === FATIGUE (conversation duration affects attention) ===
     // After 5 minutes, attention starts to wane subtly
     const fatigueThreshold = 300; // 5 minutes
@@ -318,11 +357,11 @@ function RealisticHead({
       attentionLevel.current = 1;
     }
 
-    // Apply eye movement: gaze + saccades
+    // Apply eye movement: gaze + saccades + contemplative drift
     if (leftEyeRef.current && rightEyeRef.current) {
-      // Combine gaze tracking with micro-saccades
-      const targetX = smoothedGaze.current.x + eyeSaccadeTarget.current.x;
-      const targetY = smoothedGaze.current.y + eyeSaccadeTarget.current.y;
+      // Combine gaze tracking with micro-saccades and contemplative offset
+      const targetX = smoothedGaze.current.x + eyeSaccadeTarget.current.x + contemplativeOffset.x;
+      const targetY = smoothedGaze.current.y + eyeSaccadeTarget.current.y + contemplativeOffset.y;
 
       // Eyes converge slightly when looking at user (closer = more convergence)
       const convergence = isListening ? 0.02 : 0;
