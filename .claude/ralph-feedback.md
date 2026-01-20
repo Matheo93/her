@@ -1,20 +1,22 @@
 ---
-reviewed_at: 2026-01-20T12:30:00Z
-commit: 14f332c
-status: BLOCAGE CRITIQUE - GPU + PYTORCH CPU-ONLY
+reviewed_at: 2026-01-20T12:35:00Z
+commit: 1e12acd
+status: BLOCAGE CRITIQUE - PYTORCH DÉSINSTALLÉ
 blockers:
-  - PyTorch 2.9.1+cpu installé (PAS DE CUDA!)
+  - PyTorch COMPLÈTEMENT DÉSINSTALLÉ
+  - Tests CASSÉS (ModuleNotFoundError: torch)
   - RTX 4090 49GB INUTILISÉ (0%)
   - Chat ne retourne PAS audio_base64
 progress:
   - Backend health: OK (all services healthy)
-  - Tests: 199 passed, 1 skipped
+  - Tests: CASSÉS (import error torch)
   - Frontend build: OK (29 routes)
-  - Chat LLM: 16-393ms (EXCELLENT quand cache)
-  - TTS endpoint: 9-109ms (EXCELLENT)
+  - Chat LLM: 238ms (PASS)
+  - TTS endpoint: 127ms (PASS)
+  - WebSocket: OK (14ms connection)
 ---
 
-# Ralph Moderator Review - Cycle 47 ULTRA-EXIGEANT
+# Ralph Moderator Review - Cycle 48 ULTRA-EXIGEANT
 
 ## STATUS: **BLOCAGE CRITIQUE**
 
@@ -23,14 +25,15 @@ progress:
 | Test | Résultat | Verdict |
 |------|----------|---------|
 | Backend Health | ✅ healthy (all services) | PASS |
-| Pytest | ✅ **199 passed**, 1 skipped | PASS |
+| Pytest | ❌ **CASSÉ** (ModuleNotFoundError: torch) | **BLOCAGE** |
 | Frontend Build | ✅ 29 routes compilées | PASS |
-| LLM Latence | ✅ 16-393ms (cachée) | **PASS** |
-| TTS Latence | ✅ 9-109ms | **PASS** |
-| E2E Total | ✅ 171-393ms | **PASS** |
+| LLM Latence | ✅ 238ms | **PASS** |
+| TTS Latence | ✅ 127ms | **PASS** |
+| WebSocket | ✅ 14ms connection | **PASS** |
+| E2E Total | ⚠️ 1242ms (audio_length: 0) | **ATTENTION** |
 | GPU Usage | ❌ **0%** | **BLOCAGE** |
-| PyTorch CUDA | ❌ **CPU-ONLY!** | **BLOCAGE** |
-| Chat Audio | ❌ **Pas audio_base64** | **ATTENTION** |
+| PyTorch | ❌ **DÉSINSTALLÉ!** | **BLOCAGE CRITIQUE** |
+| Chat Audio | ❌ **audio_length: 0** | **BLOCAGE** |
 
 ---
 
@@ -46,170 +49,156 @@ progress:
   "database": true
 }
 ```
-Backend opérationnel avec tous les services actifs.
+Backend opérationnel - mais comment tts: true si torch pas installé?
 
-### 2. Root Endpoint ✅ PASS
+### 2. GPU Utilisation ❌❌❌ BLOCAGE
+```
+utilization.gpu [%], memory.used [MiB], memory.total [MiB], name
+0 %, 1 MiB, 49140 MiB, NVIDIA GeForce RTX 4090
+```
+
+**RTX 4090 avec 49 GB VRAM = 0% utilisé = GASPILLAGE ÉNORME**
+
+### 3. LLM Latence ✅ PASS
 ```json
 {
-  "service": "EVA-VOICE",
-  "status": "online",
-  "version": "1.0.0",
-  "features": {
-    "llm": "groq-llama-3.3-70b",
-    "stt": "whisper",
-    "tts": "gpu-piper"
-  },
-  "voices": ["eva", "eva-warm", "eva-young", "eva-soft", "eva-sensual",
-             "male", "male-warm", "male-deep", "eva-en", "eva-en-warm"]
+  "response": "Haha, je vais bien, merci ! J'suis un peu fatiguée, mais ça va !",
+  "latency_ms": 238,
+  "model": null
 }
 ```
-10 voix disponibles. Service dit "gpu-piper" mais...
+**238ms** - Objectif < 500ms = **ATTEINT**
 
-### 3. Pytest ✅ PASS
+### 4. TTS Endpoint ✅ PASS
 ```
-199 passed, 1 skipped, 10 warnings in 2.77s
+0.127319s (127ms)
 ```
-**AMÉLIORATION:** +1 test par rapport au cycle précédent.
+**127ms** - Objectif < 300ms = **ATTEINT**
 
-### 4. Frontend Build ✅ PASS
+Mais quel TTS tourne? Sans torch, pas de GPU TTS possible.
+
+### 5. WebSocket ✅ PASS
+```
+WebSocket connected in 14ms
+Response: {"type":"pong"}
+```
+WebSocket fonctionnel.
+
+### 6. Frontend Build ✅ PASS
 ```
 29 routes compilées (static + dynamic)
 Proxy middleware OK
 ```
 
-### 5. LLM Latence ✅ **EXCELLENT**
+### 7. Pytest ❌❌❌ BLOCAGE CRITIQUE
 ```
-Test 1: 276ms
-Test 2: 393ms
-Test 3: 177ms
-Test 4: 224ms
-Test 5: 171ms
-```
-**Moyenne: 248ms** - Objectif < 500ms = **ATTEINT**
+ERROR backend/tests/test_api.py
+ModuleNotFoundError: No module named 'torch'
 
-Chat simple avec cache:
-```json
-{"response":"Bonjour! Haha enfin! Comment tu vas aujourd'hui?","session_id":"final_test","latency_ms":16}
-```
-**16ms avec cache Groq** - EXCELLENT
-
-### 6. TTS Latence ✅ **EXCELLENT**
-```
-TTS LATENCE: 9-109ms
-Audio généré: 140 bytes minimum
-Format: MP3 valide (ID3 header)
-```
-**Objectif < 300ms = LARGEMENT ATTEINT**
-
-### 7. E2E Total ✅ PASS (pour le texte)
-```
-LATENCE TOTALE: 272-314ms
-```
-Chat complet en < 350ms - **EXCELLENT pour le texte seul**
-
----
-
-## BLOCAGES CRITIQUES
-
-### BLOCAGE 1: PyTorch CPU-ONLY ❌❌❌
-
-```
-PyTorch version: 2.9.1+cpu
-CUDA version: None
-torch.cuda.is_available(): False
+backend/main.py:63: in <module>
+    from fast_tts import init_fast_tts, async_fast_tts, fast_tts, async_fast_tts_mp3, fast_tts_mp3
+backend/fast_tts.py:6: in <module>
+    import torch
 ```
 
-**C'EST LE PROBLÈME FONDAMENTAL.**
+**LES TESTS NE PEUVENT PAS TOURNER SANS TORCH**
 
-Le système dit `tts: "gpu-piper"` mais PyTorch n'a PAS CUDA.
-Tout tourne sur CPU.
+Situation étrange: le backend TOURNE mais les tests CASSENT.
+Le backend a été lancé AVANT la désinstallation de torch?
 
-Driver NVIDIA OK:
-```
-nvidia-smi: 580.95.05
-RTX 4090: 49140 MiB VRAM
-GPU Utilization: 0%
-```
-
-**La carte graphique fonctionne mais PyTorch ne peut pas l'utiliser!**
-
-### BLOCAGE 2: GPU 0% Utilisation ❌❌❌
-
-```
-index, name, utilization.gpu [%], memory.used [MiB], memory.total [MiB]
-0, NVIDIA GeForce RTX 4090, 0 %, 1 MiB, 49140 MiB
-```
-
-**49 GB DE VRAM = 1 MB UTILISÉ = 0.002%**
-
-Aucun process GPU:
-```
-pid, process_name, used_gpu_memory [MiB]
-(vide)
-```
-
-### ATTENTION: Chat sans Audio
-
-Le endpoint `/chat` retourne:
+### 8. E2E Conversation ⚠️ ATTENTION
 ```json
 {
-  "response": "texte",
-  "session_id": "...",
-  "latency_ms": 16,
-  "rate_limit_remaining": 26
+  "response": "Haha ! Un type entre dans un bar...",
+  "latency": 1242,
+  "audio_length": 0
 }
 ```
 
-**Pas de `audio_base64` dans la réponse.**
-
-Le TTS est séparé - 2 requêtes nécessaires.
+**PROBLÈMES:**
+- `latency: 1242ms` > 500ms objectif = **FAIL**
+- `audio_length: 0` = **PAS D'AUDIO** = **FAIL**
 
 ---
 
 ## DIAGNOSTIC
 
-### Ce qui FONCTIONNE BIEN:
+### PyTorch Status
+```bash
+pip list | grep -i torch
+# RÉSULTAT: NO TORCH PACKAGES
+```
 
-1. **Groq LLM** - 16-393ms - EXCELLENT
-2. **TTS endpoint** - 9-109ms - EXCELLENT
-3. **Tests** - 199 passed - SOLIDE
-4. **Build** - OK - STABLE
-5. **Backend** - Healthy - STABLE
+**PyTorch a été COMPLÈTEMENT désinstallé.**
 
-### Ce qui est CASSÉ:
+### Requirements.txt
+```
+# backend/requirements.txt
+# NE CONTIENT PAS torch!
+# Seulement edge-tts, faster-whisper, etc.
+```
 
-1. **PyTorch** - Version CPU installée au lieu de CUDA
-2. **GPU** - 0% utilisation malgré "gpu-piper" configuré
-3. **Intégration** - Chat ne génère pas l'audio inline
+**torch n'est PAS dans requirements.txt** mais `fast_tts.py` l'importe!
+
+---
+
+## CE QUI FONCTIONNE ENCORE
+
+1. **Backend health** - Services up
+2. **Groq LLM** - 238ms réponse
+3. **TTS endpoint** - 127ms (Edge-TTS probablement)
+4. **WebSocket** - Connexion OK
+5. **Frontend** - Build OK
+
+## CE QUI EST CASSÉ
+
+1. **PyTorch** - DÉSINSTALLÉ
+2. **Tests** - CASSÉS (import torch fail)
+3. **GPU** - 0% (pas de torch = pas de CUDA)
+4. **E2E Audio** - 0 bytes retournés
+5. **E2E Latence** - 1242ms > 500ms
 
 ---
 
 ## SOLUTION IMMÉDIATE
 
-### FIX PyTorch CUDA (5 minutes)
+### ÉTAPE 1: Installer PyTorch CUDA (5 min)
 
 ```bash
-# 1. Désinstaller PyTorch CPU
-pip uninstall torch torchvision torchaudio -y
-
-# 2. Installer PyTorch CUDA 12.4
+# Installer PyTorch avec CUDA 12.4
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 
-# 3. Vérifier
+# Vérifier
 python3 -c "import torch; print('CUDA:', torch.cuda.is_available())"
 ```
 
-### VÉRIFICATION POST-FIX
+### ÉTAPE 2: Ajouter torch aux requirements
 
 ```bash
-# Doit retourner True
-python3 -c "import torch; print(torch.cuda.is_available())"
+# Ajouter à backend/requirements.txt:
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+```
 
-# GPU doit montrer utilisation > 0%
+### ÉTAPE 3: Redémarrer le backend
+
+```bash
+pkill -f 'uvicorn main:app'
+cd /home/dev/her/backend && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+### ÉTAPE 4: Vérification
+
+```bash
+# Tests doivent passer
+pytest backend/tests/ -v
+
+# GPU doit être utilisé
 nvidia-smi --query-gpu=utilization.gpu --format=csv
 
-# TTS doit rester < 100ms
-time curl -s -X POST http://localhost:8000/tts -H 'Content-Type: application/json' -d '{"text":"Test"}'
+# E2E doit retourner audio
+curl -X POST http://localhost:8000/chat -d '{"message":"test","session_id":"test"}' | jq '.audio_base64 | length'
 ```
 
 ---
@@ -218,48 +207,49 @@ time curl -s -X POST http://localhost:8000/tts -H 'Content-Type: application/jso
 
 | Critère | Score | Commentaire |
 |---------|-------|-------------|
-| Tests | 10/10 | 199 passed |
+| Tests | **0/10** | CASSÉS - torch manquant |
 | Build | 10/10 | Frontend OK |
-| Backend | 10/10 | Health OK |
-| LLM | **10/10** | 16-393ms excellent |
-| TTS | **10/10** | 9-109ms excellent |
-| GPU | **0/10** | 0% - PyTorch CPU |
-| PyTorch CUDA | **0/10** | Version CPU! |
-| **TOTAL** | **50/70** | **71%** |
+| Backend | 8/10 | Health OK mais inconsistant |
+| LLM | **10/10** | 238ms excellent |
+| TTS | **8/10** | 127ms OK mais E2E fail |
+| WebSocket | 10/10 | 14ms excellent |
+| E2E | **2/10** | 1242ms, 0 audio |
+| GPU | **0/10** | 0% - torch absent |
+| PyTorch | **0/10** | DÉSINSTALLÉ |
+| **TOTAL** | **48/90** | **53%** |
 
 ---
 
-## AMÉLIORATION vs CYCLE 46
+## RÉGRESSION vs CYCLE 47
 
-| Métrique | Cycle 46 | Cycle 47 | Delta |
+| Métrique | Cycle 47 | Cycle 48 | Delta |
 |----------|----------|----------|-------|
-| Tests | 198 | 199 | +1 |
-| LLM Latence | 268-912ms | 16-393ms | **+60% meilleur** |
-| TTS Latence | 1199ms | 9-109ms | **+90% meilleur!** |
-| Score | 38/70 (54%) | 50/70 (71%) | **+17%** |
+| Tests | 199 passed | CASSÉS | **RÉGRESSION CRITIQUE** |
+| PyTorch | CPU-only | ABSENT | **RÉGRESSION** |
+| Score | 71% | 53% | **-18%** |
 
-**ÉNORME PROGRESSION sur la latence!**
-
-Mais le GPU reste à 0% car PyTorch CPU.
+**RÉGRESSION MAJEURE: Les tests fonctionnaient au cycle 47, maintenant ils sont cassés.**
 
 ---
 
 ## VERDICT FINAL
 
-**BLOCAGE sur PyTorch CUDA uniquement.**
+**BLOCAGE CRITIQUE: PyTorch désinstallé**
 
-Les performances sont EXCELLENTES maintenant:
-- LLM: ✅ 16-393ms (objectif < 500ms)
-- TTS: ✅ 9-109ms (objectif < 300ms)
-- E2E: ✅ 171-314ms (objectif < 500ms)
+Le système est dans un état INCONSISTANT:
+- Backend tourne (lancé avant désinstallation?)
+- Tests cassés (torch manquant)
+- GPU inutilisé (pas de CUDA possible)
+- E2E incomplet (pas d'audio)
 
-**SEUL PROBLÈME: PyTorch 2.9.1+cpu**
+### ACTIONS OBLIGATOIRES AVANT PROCHAIN CYCLE:
 
-```
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
-```
-
-Une fois fixé, le RTX 4090 sera utilisé et les performances seront encore meilleures.
+1. [ ] Installer PyTorch CUDA: `pip install torch --index-url https://download.pytorch.org/whl/cu124`
+2. [ ] Ajouter torch à requirements.txt
+3. [ ] Redémarrer backend
+4. [ ] Vérifier tests passent (199+)
+5. [ ] Vérifier GPU > 0%
+6. [ ] Vérifier E2E retourne audio
 
 ---
 
@@ -268,14 +258,15 @@ Une fois fixé, le RTX 4090 sera utilisé et les performances seront encore meil
 Après installation de PyTorch CUDA.
 
 **CRITÈRES DE DÉBLOCAGE:**
+- [ ] `pip list | grep torch` → torch>=2.0.0
 - [ ] `torch.cuda.is_available() == True`
+- [ ] pytest → 199+ passed
 - [ ] GPU utilisation > 0%
-- [x] TTS latence < 300ms ✅ DÉJÀ OK
-- [x] LLM latence < 500ms ✅ DÉJÀ OK
+- [ ] E2E audio_length > 0
 
 ---
 
-*Ralph Moderator ULTRA-EXIGEANT - Cycle 47*
-*Status: BLOCAGE CRITIQUE (PyTorch CPU)*
-*Score: 71% (+17% vs cycle précédent)*
-*"Les latences sont excellentes, mais on gaspille un RTX 4090 de $1600."*
+*Ralph Moderator ULTRA-EXIGEANT - Cycle 48*
+*Status: BLOCAGE CRITIQUE (PyTorch DÉSINSTALLÉ)*
+*Score: 53% (-18% vs cycle précédent)*
+*"Comment peut-on désinstaller torch et laisser le backend tourner dans un état zombie?"*
