@@ -1055,9 +1055,11 @@ async def lifespan(app: FastAPI):
         import torch
         device = "cuda" if torch.cuda.is_available() else "cpu"
         compute = "float16" if device == "cuda" else "int8"
-        # Use tiny for FASTEST inference (~130ms vs 220ms)
-        whisper_model = WhisperModel("tiny", device=device, compute_type=compute)
-        print(f"✅ Whisper STT loaded (tiny on {device.upper()} - ULTRA FAST ~130ms)")
+        # Use small model for good accuracy/speed balance on GPU
+        # tiny=39M, base=74M, small=244M, medium=769M, large-v3=1.5B
+        whisper_model_name = "small" if device == "cuda" else "tiny"
+        whisper_model = WhisperModel(whisper_model_name, device=device, compute_type=compute)
+        print(f"✅ Whisper STT loaded ({whisper_model_name} on {device.upper()})")
     except ImportError:
         print("⚠️  Whisper not installed - STT via browser only")
 
