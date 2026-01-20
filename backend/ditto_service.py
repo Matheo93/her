@@ -2,28 +2,23 @@
 Ditto Talking Head Service - Real-time audio-driven lip-sync
 Uses PyTorch models from ditto-talkinghead
 """
-
+# noqa: E402 - sys.path must be modified before other imports
 import sys
 import os
+
 sys.path.insert(0, '/workspace/ditto-talkinghead')
 
-import asyncio
-import base64
-import io
-import json
-import logging
-import pickle
-import tempfile
-import time
-from typing import Optional
+import base64  # noqa: E402
+import io  # noqa: E402
+import logging  # noqa: E402
+import tempfile  # noqa: E402
+from typing import Optional  # noqa: E402
 
-import cv2
-import numpy as np
-import torch
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
-import uvicorn
+import numpy as np  # noqa: E402
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import JSONResponse, StreamingResponse  # noqa: E402
+import uvicorn  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

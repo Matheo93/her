@@ -22,12 +22,11 @@ import numpy as np
 import base64
 import json
 import pickle
-from pathlib import Path
 from typing import Optional, List, Tuple
 from dataclasses import dataclass, field
 
 # FastAPI
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
@@ -38,7 +37,7 @@ from transformers import WhisperModel, AutoFeatureExtractor
 
 # MuseTalk
 sys.path.insert(0, "/workspace/MuseTalk")
-from musetalk.utils.utils import load_all_model
+from musetalk.utils.utils import load_all_model  # noqa: E402
 # Don't import preprocessing - avatar already preprocessed
 
 # ============================================================================
@@ -529,7 +528,7 @@ async def websocket_lipsync(ws: WebSocket):
         traceback.print_exc()
         try:
             await ws.send_json({"type": "error", "message": str(e)})
-        except:
+        except (RuntimeError, ConnectionError):
             pass
 
 

@@ -12,7 +12,6 @@ Approach:
 This is a lightweight implementation inspired by NVIDIA Audio2Face.
 """
 
-import os
 import io
 import cv2
 import numpy as np
@@ -21,9 +20,7 @@ import json
 import asyncio
 import torch
 import torch.nn as nn
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional
-from dataclasses import dataclass
+from typing import Dict, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -453,7 +450,7 @@ class AudioProcessor:
         try:
             pitches, magnitudes = librosa.piptrack(y=audio, sr=self.sr, hop_length=len(audio))
             pitch = pitches[magnitudes.argmax(axis=0)].mean()
-        except:
+        except (ValueError, IndexError, RuntimeError):
             pitch = 0
 
         return self.predictor.predict(mfcc, energy, pitch)

@@ -27,15 +27,12 @@ import numpy as np
 import base64
 import json
 import asyncio
-from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
 import uvicorn
 
 # Audio processing
 import librosa
-import numpy as np
 
 app = FastAPI(title="Viseme Lip-Sync Service")
 app.add_middleware(
