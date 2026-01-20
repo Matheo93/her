@@ -17,6 +17,8 @@ import { useTurnTaking, TurnTakingIndicator } from "@/components/TurnTakingIndic
 import { useListeningIntensity } from "@/hooks/useListeningIntensity";
 import { useProsodyMirroring } from "@/hooks/useProsodyMirroring";
 import { AttunementIndicator, BreathSync } from "@/components/AttunementIndicator";
+import { useAnticipation } from "@/hooks/useAnticipation";
+import { AnticipatoryPresence, BreathHoldIndicator } from "@/components/AnticipatoryPresence";
 
 // Haptic feedback for iOS - subtle, intimate
 const triggerHaptic = (style: "light" | "medium" | "heavy" = "light") => {
