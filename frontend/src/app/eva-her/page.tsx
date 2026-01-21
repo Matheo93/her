@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
-import type { VisemeWeights } from "@/components/RealisticAvatar3D";
+import type { VisemeWeights } from "@/components/RealisticAvatarImage";
 import { HER_COLORS, HER_SPRINGS } from "@/styles/her-theme";
 import { usePersistentMemory } from "@/hooks/usePersistentMemory";
 import { useEmotionalWarmth } from "@/hooks/useEmotionalWarmth";
@@ -22,9 +22,9 @@ interface BioData {
   presence: number;
 }
 
-// Dynamic import for 3D avatar (avoid SSR issues with Three.js)
-const RealisticAvatar3D = dynamic(
-  () => import("@/components/RealisticAvatar3D").then((mod) => mod.RealisticAvatar3D),
+// Dynamic import for avatar (avoid SSR issues)
+const RealisticAvatarImage = dynamic(
+  () => import("@/components/RealisticAvatarImage").then((mod) => mod.RealisticAvatarImage),
   {
     ssr: false,
     loading: () => (
@@ -673,9 +673,9 @@ export default function EvaHerPage() {
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
 
-        {/* 3D Realistic Avatar */}
+        {/* Realistic Human Avatar */}
         <div className="w-64 h-64 md:w-80 md:h-80 relative z-10">
-          <RealisticAvatar3D
+          <RealisticAvatarImage
             visemeWeights={visemeWeights}
             emotion={evaEmotion}
             isSpeaking={isSpeaking}
