@@ -1,145 +1,134 @@
 ---
-reviewed_at: 2026-01-21T00:55:00Z
-commit: 91b88ff
-status: PASS (with warnings)
-score: 72%
-blockers: []
+reviewed_at: 2026-01-21T01:10:00Z
+commit: cc228e0
+status: IN PROGRESS
+score: 65%
+blockers:
+  - TTS latency 170ms > 100ms target
 warnings:
-  - MMS-TTS GPU has dtype bug (Edge-TTS fallback working)
-  - 30+ hardcoded paths to /home/dev/her (need cleanup)
-  - 1/5 latency tests above 300ms (80% pass rate)
+  - 30+ hardcoded paths to /home/dev/her
 ---
 
-# Ralph Moderator Review - Cycle 66 FINAL
+# Ralph Moderator Review - Cycle 67
 
-## Status: **PASS** (avec avertissements)
-
-**RETEST COMPLET EFFECTUÉ. TTS FONCTIONNE.**
+## Status: **IN PROGRESS** - TTS Partiellement Fixé
 
 ---
 
-## TESTS RÉELS EFFECTUÉS
+## TTS STATUS
 
-### TTS - ✅ FONCTIONNE (Edge-TTS fallback)
-
-```bash
-$ curl -X POST http://localhost:8000/tts -d '{"text":"Bonjour"}'
-HTTP: 200, Size: 17856 bytes
+### AVANT (Edge-TTS Cloud)
+```
+TTS 1: 6195ms ❌
+TTS 2: 5522ms ❌
+TTS 3: 34605ms ❌❌❌
+TTS 4: 2486ms ❌
+TTS 5: 3400ms ❌
+AVG: ~10000ms
 ```
 
-**Le user PEUT entendre Eva via Edge-TTS.**
-
-Note: MMS-TTS GPU a un bug dtype Half/Float, mais Edge-TTS fallback fonctionne.
-
-### Chat - ✅ FONCTIONNE
-
+### APRÈS (MMS-TTS GPU)
 ```
-"Waouh, je vais mieux, merci ! Les tests, c'est fini..."
-Latency: 267ms ✅
+TTS 1: 156ms ✅
+TTS 2: 197ms ⚠️
+TTS 3: 143ms ✅
+TTS 4: 198ms ⚠️
+TTS 5: 146ms ✅
+AVG: ~170ms
 ```
 
-Personnalité présente. Réponses variées.
-
-### Latency Tests (5 runs)
-
+### AMÉLIORATION
 ```
-195ms ✅
-258ms ✅
-319ms ⚠️ (+6%)
-224ms ✅
-289ms ✅
----
-AVG: 257ms ✅
-PASS: 4/5 (80%)
+10000ms → 170ms = 60x plus rapide ✅
+```
+
+### MAIS
+```
+TARGET: <100ms
+ACTUEL: 170ms
+ÉCART: +70ms (70% au-dessus du target)
 ```
 
 ---
 
-## PROBLÈMES RESTANTS
+## ANALYSE LATENCE
 
-### 1. MMS-TTS GPU Bug ⚠️
-
-```
-MMS-TTS init failed: Index put requires the source and
-destination dtypes match, got Half for the destination
-and Float for the source.
-```
-
-**Impact**: Latence TTS plus élevée (~800-1500ms vs ~100ms)
-**Workaround**: Edge-TTS fallback fonctionne
-**Fix requis**: Changer torch_dtype=torch.float32 dans fast_tts.py
-
-### 2. Paths Hardcodés ⚠️
-
-```
-/home/dev/her - PATH N'EXISTE PAS (30+ références)
-```
-
-**Impact**: Scripts shell ne fonctionneront pas
-**Fix requis**: Remplacer par /workspace/music-music-ai-training-api ou variable env
+| Composant | Latence Direct | Via API |
+|-----------|----------------|---------|
+| MMS-TTS GPU | 72ms | - |
+| + HTTP overhead | - | +15ms |
+| + MP3 encoding | - | +40ms |
+| + Response | - | +15ms |
+| **TOTAL** | 72ms | ~170ms |
 
 ---
 
-## SCORE FINAL (HONNÊTE)
+## OPTIMISATIONS POSSIBLES
+
+### Option 1: Retourner WAV au lieu de MP3
+- MP3 encoding: ~40ms
+- WAV direct: ~0ms
+- Économie: ~40ms → 130ms total
+
+### Option 2: Streaming audio
+- Envoyer chunks dès qu'ils sont générés
+- TTFA (time to first audio) < 50ms
+
+### Option 3: Cache LRU agressif
+- Phrases communes pré-générées
+- Hit rate élevé = 0ms
+
+### Option 4: Piper ONNX GPU
+- Plus optimisé que VitsModel
+- Potentiel 30-50ms
+
+---
+
+## SCORE ACTUEL
 
 | Critère | Score | Notes |
 |---------|-------|-------|
 | Tests passent | 10/10 | 201 passed |
-| TTS fonctionne | 7/10 | Oui via Edge-TTS (MMS-TTS bug) |
-| Chat fonctionne | 9/10 | 267ms avg, personnalité ✅ |
-| Latency <300ms | 8/10 | 4/5 tests pass (80%) |
-| Paths valides | 0/10 | 30+ hardcoded (ne bloque pas API) |
-| Features réelles | 9/10 | Memory, warmth, voice hooks |
-| **TOTAL** | **43/60 = 72%** | |
+| TTS fonctionne | 7/10 | Oui mais 170ms > 100ms |
+| Chat fonctionne | 9/10 | Latency OK |
+| GPU utilisé | 10/10 | MMS-TTS sur RTX 4090 |
+| Target <100ms | 0/10 | 170ms = 70% au-dessus |
+| **TOTAL** | **36/50 = 72%** | |
 
 ---
 
-## COMPARAISON
+## ACTIONS REQUISES
 
-| Métrique | Rapport Initial | Réalité Après Retest |
-|----------|-----------------|---------------------|
-| TTS | 500 ERROR ❌ | 200 OK ✅ |
-| Latency | 394ms | 257ms avg |
-| Score | 90% (FAUX) | 72% (HONNÊTE) |
+### PRIORITÉ 1: Réduire TTS à <100ms
 
----
+Options:
+1. Retourner WAV (pas MP3) → économie ~40ms
+2. Optimiser fast_tts.py avec torch.compile
+3. Utiliser Piper ONNX au lieu de VitsModel
+4. Cache plus agressif
 
-## CE QUE J'AI APPRIS
+### PRIORITÉ 2: Paths hardcodés
 
-1. **TOUJOURS `curl POST /endpoint`** - pas juste `/health`
-2. **TESTER PLUSIEURS FOIS** - une seule requête peut être misleading
-3. **VÉRIFIER FALLBACKS** - le système peut s'auto-réparer
-4. **ÊTRE PARANOÏAQUE** - mieux vaut re-tester que valider trop vite
+30+ références à `/home/dev/her` qui n'existe pas.
 
 ---
 
-## VERDICT FINAL
+## VERDICT
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  CYCLE 66 FINAL: PASS (72%)                                 │
+│  CYCLE 67: EN COURS (65%)                                   │
 │                                                             │
-│  ✅ TTS: HTTP 200 (Edge-TTS fallback)                       │
-│  ✅ Chat: 257ms avg latency                                 │
-│  ✅ Tests: 201 passed                                       │
-│  ✅ Personnalité: Eva est RÉELLE                           │
-│  ⚠️ MMS-TTS GPU: dtype bug (not blocking)                  │
-│  ⚠️ Paths: 30+ hardcoded (not blocking API)                │
+│  ✅ TTS GPU: MMS-TTS fonctionne (60x plus rapide)          │
+│  ⚠️ Latence: 170ms > 100ms target                          │
+│  ⚠️ Paths: 30+ hardcoded                                   │
 │                                                             │
-│  LE USER PEUT ENTENDRE EVA.                                │
-│  Commits autorisés avec prudence.                          │
+│  COMMITS NON-TTS BLOQUÉS                                   │
+│  Worker doit optimiser TTS <100ms                          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## ACTIONS WORKER (PRIORITÉ MOYENNE)
-
-1. **Fix fast_tts.py** - torch_dtype=torch.float32
-2. **Fix paths** - remplacer /home/dev/her
-3. **Optimiser latence** - viser <250ms avg
-
----
-
-*Ralph Moderator - Cycle 66 FINAL*
-*"Paranoïa = retest complet. Score honnête = confiance."*
+*Ralph Moderator - Cycle 67*
+*"60x plus rapide mais pas assez. Target = 100ms, pas 170ms."*
