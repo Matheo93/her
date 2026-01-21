@@ -174,14 +174,29 @@ export default function EvaHerPage() {
     }
   }, [isListening, isSpeaking, isThinking]);
 
+  // Refs for stable callbacks to avoid infinite loops
+  const persistentMemorySaveRef = useRef(persistentMemory.save);
+  const persistentMemoryAddMomentRef = useRef(persistentMemory.addSharedMoment);
+  useEffect(() => {
+    persistentMemorySaveRef.current = persistentMemory.save;
+    persistentMemoryAddMomentRef.current = persistentMemory.addSharedMoment;
+  }, [persistentMemory.save, persistentMemory.addSharedMoment]);
+
   // HER Feature: Sync warmth to persistent memory every 30s
+  const warmthLevelRef = useRef(emotionalWarmth.levelNumeric);
+  const connectionRef = useRef(emotionalWarmth.connection);
+  useEffect(() => {
+    warmthLevelRef.current = emotionalWarmth.levelNumeric;
+    connectionRef.current = emotionalWarmth.connection;
+  }, [emotionalWarmth.levelNumeric, emotionalWarmth.connection]);
+
   useEffect(() => {
     const saveInterval = setInterval(() => {
-      if (emotionalWarmth.levelNumeric > 0) {
-        persistentMemory.save({
-          warmthBaseline: emotionalWarmth.levelNumeric,
-          familiarityScore: emotionalWarmth.connection?.familiarityScore || 0.5,
-          trustLevel: emotionalWarmth.connection?.trustLevel || 0.5,
+      if (warmthLevelRef.current > 0) {
+        persistentMemorySaveRef.current({
+          warmthBaseline: warmthLevelRef.current,
+          familiarityScore: connectionRef.current?.familiarityScore || 0.5,
+          trustLevel: connectionRef.current?.trustLevel || 0.5,
         });
       }
     }, 30000);
@@ -189,15 +204,15 @@ export default function EvaHerPage() {
     // Save on unmount too
     return () => {
       clearInterval(saveInterval);
-      if (emotionalWarmth.levelNumeric > 0) {
-        persistentMemory.save({
-          warmthBaseline: emotionalWarmth.levelNumeric,
-          familiarityScore: emotionalWarmth.connection?.familiarityScore || 0.5,
-          trustLevel: emotionalWarmth.connection?.trustLevel || 0.5,
+      if (warmthLevelRef.current > 0) {
+        persistentMemorySaveRef.current({
+          warmthBaseline: warmthLevelRef.current,
+          familiarityScore: connectionRef.current?.familiarityScore || 0.5,
+          trustLevel: connectionRef.current?.trustLevel || 0.5,
         });
       }
     };
-  }, [emotionalWarmth.levelNumeric, emotionalWarmth.connection, persistentMemory]);
+  }, []);
 
   // HER Feature: Track shared moments (emotional peaks)
   const lastEmotionRef = useRef(evaEmotion);
@@ -208,19 +223,19 @@ export default function EvaHerPage() {
     const comfortEmotions = ["calm", "peaceful", "soothed"];
 
     if (evaEmotion !== lastEmotionRef.current) {
-      const intensity = emotionalWarmth.levelNumeric;
+      const intensity = warmthLevelRef.current;
 
       if (peakEmotions.includes(evaEmotion) && intensity > 0.5) {
-        persistentMemory.addSharedMoment("peak", intensity);
+        persistentMemoryAddMomentRef.current("peak", intensity);
       } else if (vulnerabilityEmotions.includes(evaEmotion) && intensity > 0.3) {
-        persistentMemory.addSharedMoment("vulnerability", intensity);
+        persistentMemoryAddMomentRef.current("vulnerability", intensity);
       } else if (comfortEmotions.includes(evaEmotion) && intensity > 0.4) {
-        persistentMemory.addSharedMoment("comfort", intensity);
+        persistentMemoryAddMomentRef.current("comfort", intensity);
       }
 
       lastEmotionRef.current = evaEmotion;
     }
-  }, [evaEmotion, emotionalWarmth.levelNumeric, persistentMemory]);
+  }, [evaEmotion]);
 
   // Connect to Viseme WebSocket
   useEffect(() => {
@@ -483,6 +498,12 @@ export default function EvaHerPage() {
     }
   }, []);
 
+  // Stable ref for backchannel trigger to avoid infinite loops
+  const triggerBackchannelRef = useRef(backchannel.triggerBackchannel);
+  useEffect(() => {
+    triggerBackchannelRef.current = backchannel.triggerBackchannel;
+  }, [backchannel.triggerBackchannel]);
+
   // SPRINT 26: Trigger backchannels during emotional moments
   useEffect(() => {
     if (!isConnected || isListening || isSpeaking) return;
@@ -495,10 +516,10 @@ export default function EvaHerPage() {
     );
 
     if (shouldTrigger) {
-      backchannel.triggerBackchannel(evaEmotion);
+      triggerBackchannelRef.current(evaEmotion);
       lastBackchannelTimeRef.current = Date.now();
     }
-  }, [evaEmotion, isConnected, isListening, isSpeaking, backchannel]);
+  }, [evaEmotion, isConnected, isListening, isSpeaking]);
 
   // Send text message
   const sendMessage = (text: string) => {

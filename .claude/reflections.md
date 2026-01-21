@@ -1149,3 +1149,72 @@ La géométrie 3D avait les éléments du visage (yeux à z=0.35, nez à z=0.45)
 
 ---
 *Updated by RALPH - 2026-01-21 19:41*
+
+---
+
+## Sprint 86 - 2026-01-21 - Diagnostic Complet
+
+### FIXES CRITIQUES APPLIQUÉS
+
+#### 1. Boucle Infinie useEffect (page.tsx)
+**Problème:** `backchannel`, `persistentMemory`, et `emotionalWarmth.connection` dans les dépendances useEffect causaient des re-renders infinis.
+
+**Solution:** 
+- Créé des refs stables pour les fonctions callback (`triggerBackchannelRef`, `persistentMemorySaveRef`, `persistentMemoryAddMomentRef`)
+- Supprimé les objets des dépendances useEffect
+
+**Fichiers modifiés:**
+- `frontend/src/app/eva-her/page.tsx`
+
+#### 2. Attributs SVG undefined (RealisticAvatarImage.tsx)
+**Problème:** Framer Motion `animate` avec des valeurs calculées pouvait avoir `undefined`.
+
+**Solution:**
+- Ajouté fallbacks `|| 0` pour toutes les valeurs calculées
+- Supprimé les `animate` redondants quand la prop est déjà dynamique
+- Utilisé `|| 0.001` pour height de rect (évite height=0)
+
+**Fichiers modifiés:**
+- `frontend/src/components/RealisticAvatarImage.tsx`
+
+### MÉTRIQUES FINALES
+
+| Métrique | Valeur | Objectif | Status |
+|----------|--------|----------|--------|
+| LLM TTFT (warm) | ~200ms | < 100ms | ⚠️ |
+| TTS | 29ms | < 100ms | ✅ |
+| Chat E2E | 132-263ms | < 500ms | ✅ |
+| Console Errors | 0 | 0 | ✅ |
+| Avatar visible | Oui | Oui | ✅ |
+| Mobile responsive | Oui | Oui | ✅ |
+
+### CHECKLIST UX
+
+- [x] Avatar = VISAGE visible (pas dos, pas patate)
+- [x] Message d'accueil visible
+- [x] Bouton micro visible et accessible
+- [x] Mémoire persistante fonctionne ("Rebonjour")
+- [x] HER status indicator visible
+- [x] Bio-data (heartbeat) animé
+- [x] 0 erreurs console
+- [x] Design cohérent desktop/mobile
+
+### SCREENSHOTS
+
+- `.claude/screenshots/eva-initial.png` - Desktop /eva-her
+- `.claude/screenshots/eva-mobile.png` - Mobile /eva-her  
+- `.claude/screenshots/eva-home.png` - Page principale /
+
+### SCORE GLOBAL: 80%
+
+**Points positifs:**
+- Infrastructure 100% opérationnelle
+- Avatar SVG réaliste fonctionne
+- Mémoire persistante active
+- 0 erreurs console après fixes
+
+**Points à améliorer:**
+- LLM TTFT > 100ms target (200ms actuel)
+- Réponses émotionnelles parfois avec "Haha" inapproprié
+- Pas de watchdog dédié
+

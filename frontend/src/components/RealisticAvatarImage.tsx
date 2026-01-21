@@ -297,27 +297,25 @@ export function RealisticAvatarImage({
           <ellipse cx="100" cy="140" rx="6" ry="4" fill="#F5D0C5" opacity="0.5" />
 
           {/* Left eye group */}
-          <g transform={`translate(${gazeOffset.x}, ${gazeOffset.y})`}>
+          <g transform={`translate(${gazeOffset.x || 0}, ${gazeOffset.y || 0})`}>
             {/* Eye white */}
             <ellipse cx="72" cy="110" rx="14" ry="10" fill="white" />
 
             {/* Iris */}
             <motion.circle
-              cx="72"
+              cx={72 + (gazeOffset.x || 0) * 0.5}
               cy="110"
               r="7"
               fill="url(#irisGradient)"
-              animate={{ cx: 72 + gazeOffset.x * 0.5 }}
               transition={{ duration: 0.2 }}
             />
 
             {/* Pupil - dilates with emotion */}
             <motion.circle
-              cx="72"
+              cx={72 + (gazeOffset.x || 0) * 0.5}
               cy="110"
               r={emotion === "joy" || emotion === "tenderness" ? 3.5 : 3}
               fill="#0A0A0A"
-              animate={{ cx: 72 + gazeOffset.x * 0.5 }}
               transition={{ duration: 0.2 }}
             />
 
@@ -331,9 +329,8 @@ export function RealisticAvatarImage({
             x="56"
             y="98"
             width="32"
-            height={getEyeLidY()}
+            height={getEyeLidY() || 0.001}
             fill="url(#skinGradient)"
-            animate={{ height: getEyeLidY() }}
             transition={{ duration: 0.05 }}
           />
 
@@ -346,27 +343,25 @@ export function RealisticAvatarImage({
           />
 
           {/* Right eye group */}
-          <g transform={`translate(${gazeOffset.x}, ${gazeOffset.y})`}>
+          <g transform={`translate(${gazeOffset.x || 0}, ${gazeOffset.y || 0})`}>
             {/* Eye white */}
             <ellipse cx="128" cy="110" rx="14" ry="10" fill="white" />
 
             {/* Iris */}
             <motion.circle
-              cx="128"
+              cx={128 + (gazeOffset.x || 0) * 0.5}
               cy="110"
               r="7"
               fill="url(#irisGradient)"
-              animate={{ cx: 128 + gazeOffset.x * 0.5 }}
               transition={{ duration: 0.2 }}
             />
 
             {/* Pupil */}
             <motion.circle
-              cx="128"
+              cx={128 + (gazeOffset.x || 0) * 0.5}
               cy="110"
               r={emotion === "joy" || emotion === "tenderness" ? 3.5 : 3}
               fill="#0A0A0A"
-              animate={{ cx: 128 + gazeOffset.x * 0.5 }}
               transition={{ duration: 0.2 }}
             />
 
@@ -380,9 +375,8 @@ export function RealisticAvatarImage({
             x="112"
             y="98"
             width="32"
-            height={getEyeLidY()}
+            height={getEyeLidY() || 0.001}
             fill="url(#skinGradient)"
-            animate={{ height: getEyeLidY() }}
             transition={{ duration: 0.05 }}
           />
 
@@ -396,23 +390,21 @@ export function RealisticAvatarImage({
 
           {/* Left eyebrow */}
           <motion.path
-            d={`M58 ${90 + getEyebrowY()} Q72 ${85 + getEyebrowY()} 86 ${88 + getEyebrowY()}`}
+            d={`M58 ${90 + (getEyebrowY() || 0)} Q72 ${85 + (getEyebrowY() || 0)} 86 ${88 + (getEyebrowY() || 0)}`}
             fill="none"
             stroke="#5C4033"
             strokeWidth="2.5"
             strokeLinecap="round"
-            animate={{ d: `M58 ${90 + getEyebrowY()} Q72 ${85 + getEyebrowY()} 86 ${88 + getEyebrowY()}` }}
             transition={{ duration: 0.3 }}
           />
 
           {/* Right eyebrow */}
           <motion.path
-            d={`M114 ${88 + getEyebrowY()} Q128 ${85 + getEyebrowY()} 142 ${90 + getEyebrowY()}`}
+            d={`M114 ${88 + (getEyebrowY() || 0)} Q128 ${85 + (getEyebrowY() || 0)} 142 ${90 + (getEyebrowY() || 0)}`}
             fill="none"
             stroke="#5C4033"
             strokeWidth="2.5"
             strokeLinecap="round"
-            animate={{ d: `M114 ${88 + getEyebrowY()} Q128 ${85 + getEyebrowY()} 142 ${90 + getEyebrowY()}` }}
             transition={{ duration: 0.3 }}
           />
 
