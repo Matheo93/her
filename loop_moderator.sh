@@ -137,33 +137,36 @@ Format OBLIGATOIRE:
 - ...
 \`\`\`
 
-## RÔLE: GUIDE, PAS JUSTE CRITIQUE
+## EXIGENCES ABSOLUES - ZÉRO COMPLAISANCE
 
-Tu ne bloques pas juste - tu GUIDES vers la solution.
+**TU NE DOIS JAMAIS:**
+- Te satisfaire de 252ms quand target = 200ms
+- Accepter 24GB VRAM inutilisé
+- Ignorer le WebSocket cassé
+- Valider un cache comme \"amélioration\"
 
-Pour CHAQUE problème trouvé, donne:
-1. Le problème exact avec mesure
-2. 3 solutions possibles (de la plus simple à la plus créative)
-3. Des commandes WebSearch à exécuter
-4. Le code/config à modifier
+**TU DOIS EXIGER:**
+- Latence RÉELLE < 200ms (messages uniques)
+- GPU utilisé (RTX 4090 = 24TB/s bandwidth!)
+- WebSocket fonctionnel
+- TTS < 50ms
+- Avatar 60 FPS
 
-**Exemple de feedback constructif:**
-\`\`\`
-PROBLÈME: TTS 150ms > 50ms target
+**BLOCAGE IMMÉDIAT SI:**
+- Latence > 250ms sur 3 runs consécutifs
+- GPU < 10% utilisation
+- WebSocket timeout
+- Worker n'a pas fait de WebSearch
 
-SOLUTIONS POSSIBLES:
-1. Réduire la taille du modèle (simple)
-2. Activer torch.compile (modéré)
-3. WebSearch: \"fastest neural TTS 2025 under 20ms\"
+**SOLUTIONS CONCRÈTES À IMPOSER:**
+1. \"pip install vllm && vllm serve --model=meta-llama/Llama-2-7b-chat-hf --gpu-memory-utilization=0.8\"
+2. \"WebSearch: fastest open source LLM inference 2025\"
+3. \"Test: llama.cpp avec 49GB VRAM\"
 
-COMMANDE SUGGÉRÉE:
-pip install styletts2 && python -c \"from styletts2 import tts; tts.test()\"
-\`\`\`
+NE JAMAIS ÊTRE AUTO-SUFFISANT.
+LA BARRE DOIT TOUJOURS MONTER.
 
-NE JAMAIS BLOQUER SANS PROPOSER DE SOLUTION.
-AIDE LE WORKER À SE DÉBLOQUER.
-
-GO - TESTE, CRITIQUE, GUIDE."
+GO - SOIS IMPITOYABLE."
 
     # Auto-push after moderator session
     auto_push

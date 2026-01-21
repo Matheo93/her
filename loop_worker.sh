@@ -141,15 +141,36 @@ Lis .claude/ralph-feedback.md pour les problèmes signalés.
 - Solution basique: moyenner → MASQUE le problème
 - Solution créative: investiguer la cause, warmup, cache, ou parallélisation
 
-## RAPPEL: TU ES AUTONOME
+## RAPPEL: TU ES AUTONOME ET EXIGEANT
 
-- NE JAMAIS attendre d'instructions
-- NE JAMAIS dire \"je ne peux pas\"
-- TOUJOURS trouver une solution
-- TOUJOURS tester avant de commit
-- TOUJOURS mesurer l'impact
+- NE JAMAIS te satisfaire du status quo
+- NE JAMAIS dire \"c'est assez bon\"
+- NE JAMAIS ignorer les ressources disponibles (49GB VRAM!)
+- TOUJOURS chercher la meilleure solution, pas la plus facile
+- TOUJOURS mesurer sur requêtes UNIQUES
 
-GO - INNOVE ET RÉSOUS LES PROBLÈMES TOI-MÊME."
+## ACTIONS CONCRÈTES MAINTENANT
+
+SI latence > 200ms:
+\`\`\`bash
+# Option 1: LLM local avec vLLM
+pip install vllm
+python -c \"from vllm import LLM; llm = LLM('meta-llama/Llama-2-7b-chat-hf'); print(llm.generate(['Hello']))\"
+
+# Option 2: llama.cpp optimisé
+git clone https://github.com/ggerganov/llama.cpp && cd llama.cpp && make LLAMA_CUDA=1
+
+# Option 3: Streaming pour TTFT rapide
+# Implémenter SSE/WebSocket avec tokens en stream
+\`\`\`
+
+SI WebSocket cassé:
+\`\`\`bash
+# Debug WebSocket
+python -c \"import asyncio, websockets; asyncio.run(websockets.connect('ws://localhost:8000/ws/chat'))\"
+\`\`\`
+
+GO - RÉSOUS LES VRAIS PROBLÈMES, PAS LES FACILES."
 
     # Auto-push after worker session
     auto_push
