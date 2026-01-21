@@ -1,274 +1,277 @@
 ---
-reviewed_at: 2026-01-21T05:11:00Z
+reviewed_at: 2026-01-21T05:13:00Z
 commit: 99aae07
-status: AMÉLIORATION SIGNIFICATIVE
-score: 72%
+status: ALERTE - RÉGRESSION TTS
+score: 64%
+critical_issues:
+  - TTS endpoint /tts retourne 500 Internal Server Error
+  - TTS latence 485-787ms >> 50ms target
+  - GPU 0% utilisation (RTX 4090 idle)
 improvements:
-  - Latence E2E 177ms < 200ms TARGET ATTEINT (+27% vs #44)
-  - WebSocket FONCTIONNEL (était TIMEOUT)
-  - TTS produit audio WAV réel
+  - Latence E2E 181.8ms < 200ms TARGET ATTEINT
+  - WebSocket FONCTIONNEL
   - Tests 201/201 PASS
-remaining_issues:
-  - GPU 0% utilisation (RTX 4090)
-  - TTS 174ms > 50ms target
-  - Cold start toujours ~2s
 ---
 
-# Ralph Moderator - Sprint #45 - TRIADE CHECK
+# Ralph Moderator - Sprint #46 - TRIADE CHECK PARANOÏAQUE
 
-## SPRINT #45 - TRIADE CHECK
+## SPRINT #46 - TRIADE CHECK
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
-| QUALITÉ | 10/10 | Tests 201/201 PASS, build OK |
-| LATENCE | 8/10 | **177ms moyenne** - TARGET <200ms ATTEINT! |
-| STREAMING | 7/10 | WebSocket FONCTIONNEL (réparé!) |
-| HUMANITÉ | 5/10 | TTS 174ms > 50ms target - audio WAV OK |
-| CONNECTIVITÉ | 9/10 | Backend UP, WS OK, services healthy |
+| QUALITÉ | 7/10 | Tests PASS mais TTS /tts endpoint CASSÉ! |
+| LATENCE | 8/10 | E2E 181.8ms < 200ms ✅ MAIS TTS 485-787ms ❌ |
+| STREAMING | 7/10 | WebSocket OK mais TTS streaming non testé |
+| HUMANITÉ | 4/10 | TTS /direct fonctionne mais lent, /tts CASSÉ |
+| CONNECTIVITÉ | 6/10 | Backend UP, WS OK, TTS principal CASSÉ |
 
-**SCORE TRIADE: 36/50 (72%) - AMÉLIORATION +16 POINTS vs #44 (56%)**
+**SCORE TRIADE: 32/50 (64%) - RÉGRESSION -8 POINTS vs #45 (72%)**
 
 ---
 
-## MESURES EXACTES - SPRINT #45
+## MESURES EXACTES - SPRINT #46
 
 ### TEST E2E LATENCE (MESSAGES UNIQUES - ANTI-CACHE!)
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════╗
-║  ✅ LATENCE E2E - TARGET ATTEINT!                                         ║
+║  ✅ LATENCE E2E - TARGET ATTEINT                                         ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║
-║  Run 1: 189ms  ✅ < 200ms                                                  ║
+║  Run 1: 198ms  ✅ < 200ms                                                  ║
 ║  Run 2: 179ms  ✅ < 200ms                                                  ║
-║  Run 3: 171ms  ✅ < 200ms                                                  ║
-║  Run 4: 170ms  ✅ < 200ms                                                  ║
-║  Run 5: 174ms  ✅ < 200ms                                                  ║
+║  Run 3: 181ms  ✅ < 200ms                                                  ║
+║  Run 4: 181ms  ✅ < 200ms                                                  ║
+║  Run 5: 170ms  ✅ < 200ms                                                  ║
 ║                                                                            ║
-║  MOYENNE: 176.6ms ✅ TARGET <200ms ATTEINT (-11.7%)                        ║
+║  MOYENNE: 181.8ms ✅ TARGET <200ms ATTEINT (-9.1%)                         ║
 ║                                                                            ║
-║  COMPARAISON vs Sprint #44:                                                ║
-║  ├── Sprint #44: 225ms moyenne                                             ║
-║  ├── Sprint #45: 177ms moyenne                                             ║
-║  └── AMÉLIORATION: -48ms (-21%)                                            ║
+║  NOTE: +5ms vs Sprint #45 (177ms) - légère dégradation                    ║
 ║                                                                            ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
 
-### WEBSOCKET - RÉPARÉ!
+### TTS - CRITIQUE!
+
+```
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  ❌ ALERTE TTS - ENDPOINT PRINCIPAL CASSÉ!                                ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                            ║
+║  /tts (endpoint principal):                                               ║
+║  ├── Status: 500 Internal Server Error                                    ║
+║  ├── Avec API key: ÉCHEC                                                  ║
+║  └── Sans API key: ÉCHEC                                                  ║
+║                                                                            ║
+║  /tts/direct (fallback):                                                  ║
+║  ├── Status: 200 OK                                                       ║
+║  ├── Audio: MP3 valide (~16KB pour phrase courte)                        ║
+║  └── Latence: 485-787ms (TARGET <50ms = 10-15x trop lent!)               ║
+║                                                                            ║
+║  IMPACT SUR UX:                                                           ║
+║  ├── LLM: 182ms                                                           ║
+║  ├── TTS: ~650ms moyenne                                                  ║
+║  └── TOTAL perçu: ~832ms avant audio - INACCEPTABLE!                     ║
+║                                                                            ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+```
+
+### GPU STATUS - GASPILLAGE!
+
+```
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  ⚠️ RTX 4090 - 49GB VRAM INUTILISÉ                                       ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                            ║
+║  GPU: NVIDIA GeForce RTX 4090                                             ║
+║  Utilization: 0%                                                          ║
+║  Memory Used: 5428 MiB / 24564 MiB (22%)                                 ║
+║  Temperature: 25°C (idle)                                                 ║
+║                                                                            ║
+║  Processes GPU: AUCUN!                                                    ║
+║  Ollama: CHARGÉ mais IDLE                                                ║
+║                                                                            ║
+║  LE GPU N'EST PAS UTILISÉ POUR:                                          ║
+║  ├── LLM inference (Groq API = cloud)                                    ║
+║  ├── TTS (Edge-TTS = cloud Microsoft)                                    ║
+║  └── STT (Whisper non testé)                                             ║
+║                                                                            ║
+║  19GB VRAM DISPONIBLES - POTENTIEL INEXPLOITÉ                            ║
+║                                                                            ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+```
+
+### WEBSOCKET
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════╗
 ║  ✅ WEBSOCKET FONCTIONNEL                                                 ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║
-║  Test: ws://localhost:8000/ws/chat                                         ║
-║  Résultat: OK - Réponse reçue                                              ║
-║  Response: {"type":"token","content":"Haha un test? T'es curieux toi!"}   ║
-║                                                                            ║
-║  STATUS: RÉPARÉ depuis Sprint #44 (était TIMEOUT)                         ║
+║  Test: ws://localhost:8000/ws/chat                                        ║
+║  Résultat: 101 Switching Protocols - OK                                   ║
+║  Keepalive: Timeout après ping                                            ║
 ║                                                                            ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
 
-### TTS LATENCE - TOUJOURS LENT
+### TESTS & BUILD
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════╗
-║  ⚠️ TTS - FONCTIONNEL MAIS LENT                                           ║
+║  ✅ TESTS: 201 passed, 2 skipped in 17.64s                               ║
+║  ✅ BUILD: SUCCESS - Routes OK                                            ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║
-║  Latence: 174ms (target <50ms)                                             ║
-║  Format: WAV - Audio réel produit                                          ║
-║                                                                            ║
-║  IMPACT:                                                                   ║
-║  ├── LLM: 177ms                                                            ║
-║  ├── TTS: 174ms                                                            ║
-║  └── TOTAL perçu: ~351ms avant audio                                       ║
-║                                                                            ║
-║  RECOMMANDATION: Investiguer edge-tts streaming                            ║
+║  Backend Health:                                                          ║
+║  {                                                                         ║
+║    "status": "healthy",                                                   ║
+║    "groq": true,                                                          ║
+║    "whisper": true,                                                       ║
+║    "tts": true,    <-- MENSONGE! TTS /tts retourne 500!                  ║
+║    "database": true                                                       ║
+║  }                                                                         ║
 ║                                                                            ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
 
-### GPU STATUS
-
-```
-╔═══════════════════════════════════════════════════════════════════════════╗
-║  NVIDIA RTX 4090                                                          ║
-╠═══════════════════════════════════════════════════════════════════════════╣
-║                                                                            ║
-║  Utilization: 0%  (idle - pas d'inférence en cours)                       ║
-║  Memory Used: 5428 MiB / 24564 MiB (22%)                                  ║
-║  Temperature: 26°C                                                         ║
-║                                                                            ║
-║  NOTE: Ollama EST installé et chargé en VRAM                              ║
-║  Modèles disponibles: phi3:mini, qwen2.5:1.5b                             ║
-║                                                                            ║
-║  ANALYSE IMPORTANTE:                                                       ║
-║  ├── Groq API: ~177ms                                                      ║
-║  ├── Ollama phi3:mini: 112-123ms warm, 2195ms cold                        ║
-║  ├── Ollama qwen2.5: 320-440ms warm                                       ║
-║  └── CONCLUSION: Groq API est DÉJÀ plus fiable que local!                 ║
-║                                                                            ║
-║  Le GPU n'est PAS le bottleneck actuel.                                   ║
-║  Groq API fonctionne mieux que prévu.                                     ║
-║                                                                            ║
-╚═══════════════════════════════════════════════════════════════════════════╝
-```
-
-### TESTS UNITAIRES
-
-```
-201 passed, 2 skipped, 5 warnings in 17.26s ✅
-```
-
-### BACKEND HEALTH
-
-```json
-{
-  "status": "healthy",
-  "groq": true,
-  "whisper": true,
-  "tts": true,
-  "database": true
-}
-```
-
-### FRONTEND BUILD
-
-```
-Build: SUCCESS ✅
-Routes: /, /eva-her, /voice, /api/*
-```
-
 ---
 
-## COMPARAISON SPRINTS
+## BLOCAGES CRITIQUES
 
-| Sprint | Score | Latence | GPU | WebSocket | TTS | Trend |
-|--------|-------|---------|-----|-----------|-----|-------|
-| #40 | 76% | 252ms | 0% | OK | ? | → |
-| #41 | 70% | 355ms | 0% | OK | ? | ↘ |
-| #42 | 76% | 279ms | 0% | ? | ? | ↗ |
-| #43 | 64% | 262ms | 0% | TIMEOUT | 200ms | ⬇️ |
-| #44 | 56% | 225ms | 0% | TIMEOUT | 181ms | ⬇️ |
-| **#45** | **72%** | **177ms** | **0%** | **OK** | **174ms** | **⬆️⬆️** |
-
-**TENDANCE: RETOURNEMENT! +16 POINTS EN UN SPRINT**
-
----
-
-## ANALYSE CRITIQUE
-
-### CE QUI VA BIEN
-
-1. **LATENCE E2E < 200ms** - Objectif principal ATTEINT
-2. **WebSocket réparé** - Streaming fonctionnel
-3. **Tests 100%** - Stabilité maintenue
-4. **TTS fonctionne** - Audio WAV produit
-
-### CE QUI RESTE À AMÉLIORER
-
-1. **TTS 174ms > 50ms** - 3.5x trop lent
-2. **Cold start ~2s** - Impact première requête
-3. **GPU sous-utilisé** - Mais ce n'est plus prioritaire
-
-### CORRECTION DU FEEDBACK PRÉCÉDENT
-
-```
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  IMPORTANT: RÉVISION DU FEEDBACK #44                                         ║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║                                                                               ║
-║  Le feedback #44 affirmait:                                                   ║
-║  "Ollama local sera plus rapide que Groq API"                                ║
-║                                                                               ║
-║  MESURES RÉELLES:                                                             ║
-║  ├── Groq API: 177ms stable, fiable                                          ║
-║  ├── Ollama phi3: 112ms warm mais 2.2s cold                                  ║
-║  └── Cold start local = PIRE pour UX                                         ║
-║                                                                               ║
-║  CONCLUSION: Groq API est la BONNE architecture actuelle.                    ║
-║  L'obsession "GPU 0%" était mal placée.                                      ║
-║                                                                               ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-```
-
----
-
-## BLOCAGES RESTANTS (PRIORITÉ RÉVISÉE)
-
-| # | Issue | Sévérité | Action |
+| # | Issue | Sévérité | Impact |
 |---|-------|----------|--------|
-| 1 | TTS 174ms > 50ms | HIGH | Investiguer streaming TTS |
-| 2 | Cold start | MEDIUM | Warmup endpoint au démarrage |
-| 3 | GPU usage | LOW | Non prioritaire si API fonctionne |
+| 1 | TTS /tts endpoint 500 Error | **CRITICAL** | Endpoint principal inutilisable |
+| 2 | TTS latence 485-787ms | **HIGH** | 10-15x trop lent vs target 50ms |
+| 3 | GPU 0% utilisation | **MEDIUM** | Ressources gaspillées |
+| 4 | Health check ment sur TTS | **MEDIUM** | Monitoring non fiable |
 
 ---
 
-## INSTRUCTIONS WORKER - SPRINT #46
+## ANALYSE TECHNIQUE TTS
 
-### PRIORITÉ 1: TTS STREAMING (pas blocking)
+### Problème Identifié
 
 ```python
-# Le TTS actuel attend la génération complète
-# Objectif: streaming chunk par chunk
+# /tts utilise text_to_speech() qui ÉCHOUE
+# /tts/direct utilise edge_tts directement qui FONCTIONNE
 
-# Investiguer:
-# 1. edge-tts avec streaming
-# 2. Retourner premiers chunks pendant génération
-# 3. Target: first byte < 30ms
+# La différence:
+# /tts -> text_to_speech() -> ?????? -> 500 Error
+# /tts/direct -> edge_tts.Communicate() -> 200 OK + Audio
 ```
 
-### PRIORITÉ 2: WARMUP AU DÉMARRAGE
+### Solution Évidente
+
+Le Worker DOIT:
+1. Trouver pourquoi `text_to_speech()` échoue
+2. Aligner /tts sur le code de /tts/direct qui fonctionne
+3. OU remplacer complètement par edge_tts direct
+
+---
+
+## INSTRUCTIONS WORKER - SPRINT #47
+
+### PRIORITÉ 1: RÉPARER /tts ENDPOINT (BLOQUANT!)
+
+```bash
+# 1. Trouver la fonction text_to_speech
+grep -n "async def text_to_speech\|def text_to_speech" main.py
+
+# 2. Comparer avec tts_direct qui fonctionne
+# 3. Identifier l'erreur (logs, try/catch)
+# 4. CORRIGER - pas de workaround, vraie correction
+```
+
+### PRIORITÉ 2: RÉDUIRE TTS LATENCE
+
+Le TTS actuel fait 485-787ms. C'est INACCEPTABLE.
+
+Options:
+1. **Edge-TTS streaming** - premiers chunks avant fin génération
+2. **TTS local GPU** - SpeechT5 ou Piper avec RTX 4090
+3. **Caching intelligent** - pour phrases communes
 
 ```python
-@app.on_event("startup")
-async def warmup():
-    # Faire une requête dummy pour réchauffer les connexions
-    await get_response("warmup", "system")
+# EXEMPLE: TTS streaming first byte < 50ms
+async def stream_tts_fast(text: str):
+    communicate = edge_tts.Communicate(text, voice)
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            yield chunk["data"]  # Envoyer IMMÉDIATEMENT
+```
+
+### PRIORITÉ 3: UTILISER LE GPU!
+
+```bash
+# 19GB VRAM disponibles - utilisons-les!
+
+# Option A: TTS local rapide
+pip install piper-tts  # 15-30ms sur GPU
+
+# Option B: LLM local pour backup/hybride
+# Ollama déjà installé, phi3:mini disponible
+
+# Option C: Whisper local optimisé
+# Faster-whisper avec CUDA
 ```
 
 ### NE PAS FAIRE
 
-- Ne PAS changer Groq pour Ollama (Groq est plus fiable)
-- Ne PAS over-engineer l'architecture
-- Ne PAS ajouter de complexité
+- Ne PAS ignorer le 500 Error sur /tts
+- Ne PAS compter sur /tts/direct comme solution permanente
+- Ne PAS mentir dans les health checks
+- Ne PAS valider 650ms TTS comme "acceptable"
 
 ---
 
-## MÉTRIQUES TARGET SPRINT #46
+## MÉTRIQUES TARGET SPRINT #47
 
-| Métrique | Sprint #45 | Target #46 |
+| Métrique | Sprint #46 | Target #47 |
 |----------|------------|------------|
-| E2E Latency | 177ms ✅ | <170ms |
-| TTS | 174ms | <100ms |
-| First byte | N/A | <50ms |
+| E2E Latency | 181.8ms ✅ | <180ms |
+| TTS /tts | 500 ERROR ❌ | 200 OK |
+| TTS latence | 650ms avg | <100ms |
+| First audio byte | N/A | <50ms |
+| GPU utilisation | 0% | >10% |
 | Tests | 100% | 100% |
 
 ---
 
-## MESSAGE
+## MESSAGE FINAL
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║  SPRINT #45: RETOURNEMENT DE SITUATION                                        ║
+║  SPRINT #46: RÉGRESSION DÉTECTÉE                                             ║
 ║                                                                               ║
-║  Score: 56% → 72% (+16 points)                                               ║
-║  Latence: 225ms → 177ms (-21%)                                               ║
-║  WebSocket: TIMEOUT → OK                                                      ║
+║  Score: 72% → 64% (-8 points)                                                ║
+║  TTS: FONCTIONNEL → CASSÉ                                                    ║
+║  Latence E2E: OK mais TTS 10-15x trop lent                                   ║
 ║                                                                               ║
-║  Le système est maintenant dans les specs pour la latence E2E.               ║
-║  Focus next: TTS streaming pour améliorer perceived latency.                 ║
+║  LE SYSTÈME A RÉGRESSÉ DEPUIS LE DERNIER SPRINT.                             ║
 ║                                                                               ║
-║  GROQ API EST LE BON CHOIX - 177ms stable > Ollama avec cold starts.         ║
+║  ACTIONS IMMÉDIATES:                                                          ║
+║  1. RÉPARER /tts endpoint - BLOQUANT                                         ║
+║  2. Réduire TTS latence de 650ms → <100ms                                    ║
+║  3. Investiguer utilisation GPU                                              ║
+║                                                                               ║
+║  LA BARRE NE DOIT PAS BAISSER.                                               ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-*Ralph Moderator - Sprint #45 TRIADE CHECK*
-*"72% (+16pts). TARGET LATENCE ATTEINT. WebSocket RÉPARÉ. Focus TTS streaming next."*
+## CHECKLIST VALIDATION SPRINT #47
+
+- [ ] /tts endpoint retourne 200 OK avec audio
+- [ ] TTS latence < 100ms
+- [ ] Health check reflète état réel TTS
+- [ ] Tests TTS endpoint passent
+- [ ] E2E latence maintenue < 200ms
+
+---
+
+*Ralph Moderator - Sprint #46 TRIADE CHECK*
+*"64% (-8pts). TTS CASSÉ. RÉGRESSION INACCEPTABLE. RÉPARER IMMÉDIATEMENT."*

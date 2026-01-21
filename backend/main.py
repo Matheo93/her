@@ -64,6 +64,7 @@ from fast_tts import init_fast_tts, async_fast_tts, fast_tts, async_fast_tts_mp3
 from ultra_fast_tts import init_ultra_fast_tts, async_ultra_fast_tts, ultra_fast_tts
 # GPU TTS (Piper VITS - ~30-100ms, local)
 from gpu_tts import init_gpu_tts, async_gpu_tts, gpu_tts, async_gpu_tts_mp3, gpu_tts_mp3
+from streaming_tts import stream_tts_gpu, fast_first_byte_tts, split_into_chunks
 
 # Eva Expression System (breathing sounds, emotions, animations)
 from eva_expression import eva_expression, init_expression_system, detect_emotion, get_expression_data
@@ -1833,12 +1834,24 @@ async def text_to_speech_streaming(
     Ideal for real-time voice output where you want audio
     to start playing before the full synthesis is complete.
     Includes natural breathing and hesitations (100% LOCAL).
-    """
-    if not tts_available:
-        return
 
+    Uses MMS-TTS GPU streaming (TTFB ~50ms) when USE_FAST_TTS=true,
+    falls back to Edge-TTS streaming otherwise.
+    """
     # Apply natural breathing and hesitations
     processed_text = make_natural(text) if add_breathing else text
+
+    # ========== FAST GPU STREAMING (MMS-TTS ~50ms TTFB) ==========
+    if USE_FAST_TTS:
+        from fast_tts import _initialized as mms_ready
+        if mms_ready:
+            async for chunk in stream_tts_gpu(processed_text):
+                yield chunk
+            return
+
+    # ========== EDGE-TTS STREAMING (slower but more voices) ==========
+    if not tts_available:
+        return
 
     edge_tts = _get_edge_tts()
     voice_name = VOICES.get(voice, VOICES[DEFAULT_VOICE])
@@ -2835,13 +2848,17 @@ async def tts_stream(request: Request, data: dict, _: str = Depends(verify_api_k
     if voice not in VOICES:
         raise HTTPException(status_code=400, detail=f"Invalid voice. Available: {list(VOICES.keys())}")
 
+    # Determine media type based on TTS engine
+    # MMS-TTS GPU outputs WAV, Edge-TTS outputs MP3
+    media_type = "audio/wav" if USE_FAST_TTS else "audio/mpeg"
+
     async def generate():
         async for chunk in text_to_speech_streaming(text, voice, rate, pitch):
             yield chunk
 
     return StreamingResponse(
         generate(),
-        media_type="audio/mpeg",
+        media_type=media_type,
         headers={
             "Content-Disposition": "inline; filename=eva_response.mp3",
             "X-Rate-Limit-Remaining": str(rate_limiter.get_remaining(client_id))
