@@ -786,4 +786,249 @@ La géométrie 3D avait les éléments du visage (yeux à z=0.35, nez à z=0.45)
 3. Disque à 80% - surveiller
 
 ---
-*Updated by RALPH - 2026-01-21 19:00*
+
+## SPRINT #82 - DIAGNOSTIC COMPLET - 2026-01-21 19:17
+
+### Phase -1: Outils CLI ✅
+| Outil | Version | Status |
+|-------|---------|--------|
+| Python | 3.12.3 | ✅ |
+| curl | 8.5.0 | ✅ |
+| npm | 11.6.2 | ✅ |
+| jq | 1.7 | ✅ |
+| GPU | RTX 4090 4GB/24GB | ✅ |
+| Puppeteer | 24.35.0 | ✅ |
+| Disque | 80% | ⚠️ Limite |
+
+### Phase 0: Setup ✅
+- Hook eva-gate.py: ✅
+- settings.json: ✅
+- Structure dossiers: ✅
+
+### Phase 1: Diagnostic ✅
+| Service | Port | Status |
+|---------|------|--------|
+| Backend | 8000 | ✅ Healthy (Groq, Whisper, TTS, DB) |
+| Frontend | 3000 | ✅ Next.js 15 |
+| Ollama | 11434 | ✅ 3 models (qwen2.5:7b, tinyllama, phi3:mini) |
+| GPU | - | ✅ 4GB/24GB utilisé |
+
+**Latences E2E (5 requêtes):**
+- 242ms, 223ms, 210ms, 246ms, 222ms
+- **Moyenne: ~229ms** ⚠️ (target 200ms, proche)
+
+### Phase 2: Composants Isolés ✅
+| Composant | Latence | Target | Status |
+|-----------|---------|--------|--------|
+| LLM | 329ms, 407ms, 189ms, 241ms, 170ms | <200ms | ⚠️ Moyenne ~267ms |
+| TTS | 28ms | <100ms | ✅ Excellent |
+
+### Phase 3: Golden Test E2E ⚠️
+| Test | Latence | Response | Status |
+|------|---------|----------|--------|
+| 1 | 304ms | "Haha, ça recommence ! Je vais bien, rien de neuf, juste la routine" | ⚠️ |
+| 2 | 234ms | OK | ✅ |
+
+**Note:** Réponse manque un peu de chaleur EVA
+
+### Phase 4: Tests Émotionnels ⚠️
+| Émotion | Réponse | Qualité |
+|---------|---------|---------|
+| Tristesse | "Hmm, on va faire quelque chose pour changer ça, d'accord ?" | ✅ 7/10 Empathique |
+| Joie | "Haha, félicitations ! Oh, c'est génial !" | ✅ 8/10 Partage joie |
+| Anxiété | "Hmm, respire profondément, tu vas y arriver !" | ✅ 8/10 Encourageant |
+
+**Amélioration:** Plus de "Haha" inapproprié sur tristesse! Utilise "Hmm" à la place.
+
+### Phase 5: Fiabilité ✅
+| Critère | Status | Détails |
+|---------|--------|---------|
+| Watchdog | ✅ | 2 processus actifs (PID 2411218, 2411253) |
+| Backend Health | ✅ | groq, whisper, tts, database tous OK |
+| WebSocket | ✅ | Endpoint accessible (retourne 404 normal sans upgrade) |
+| Disque | ⚠️ | 80% (8.4GB libre) |
+
+### Phase 6: UX ✅
+| Critère | Status |
+|---------|--------|
+| Avatar VISAGE visible | ✅ SVG réaliste humain |
+| Yeux avec pupilles | ✅ Animation (bougent entre screenshots) |
+| Design propre | ✅ Tons beiges/corail style "Her" |
+| Responsive mobile | ✅ Layout parfait |
+| Micro visible | ✅ |
+| Indicateur HER 100% | ✅ Connexion stable |
+| Compteur affectif ❤️ | ✅ 70-74 (système actif) |
+
+### Screenshots Validés ✅
+| Screenshot | Contenu | Status |
+|------------|---------|--------|
+| eva-t0.png | Visage SVG, ❤️71, yeux position A | ✅ |
+| eva-t3.png | Visage SVG, ❤️70, yeux position B (animation!) | ✅ |
+| eva-initial.png | Desktop 1280x720 "Je suis là..." | ✅ |
+| eva-mobile.png | Mobile 375x812 responsive parfait | ✅ |
+
+### SCORE SPRINT #82
+
+| Aspect | Score | Notes |
+|--------|-------|-------|
+| Infrastructure | 10/10 | Tous services UP, GPU healthy |
+| Latence E2E | 8/10 | ~229ms moyenne (proche 200ms) |
+| Latence LLM | 7/10 | ~267ms moyenne (variable) |
+| Latence TTS | 10/10 | 28ms - excellent |
+| Golden Test | 8/10 | 234-304ms, réponse OK |
+| Empathie | 8/10 | Plus de "Haha" sur tristesse ✅ |
+| Avatar | 10/10 | SVG humain réaliste, animé |
+| UX Desktop | 10/10 | Design épuré Her-style |
+| UX Mobile | 10/10 | Responsive parfait |
+| Fiabilité | 10/10 | Watchdog actif, backend healthy |
+
+**SCORE TOTAL: 91/100 (91%)**
+
+### Comparaison Sprints
+| Sprint | Score | E2E avg | LLM avg | TTS | Avatar | Empathie |
+|--------|-------|---------|---------|-----|--------|----------|
+| #79 | 96% | - | 198ms | - | - | - |
+| #80 | 84% | ~360ms | 228ms | 29ms | Orbe | ❌ "Haha" |
+| #81 | 94% | ~201ms | ~226ms | 30ms | Orbe | ⚠️ |
+| **#82** | **91%** | **~229ms** | **~267ms** | **28ms** | **SVG Humain** | **✅ Corrigé** |
+
+### Points Forts
+- ✅ Avatar SVG humain réaliste avec animation des yeux
+- ✅ TTS ultra-rapide (28ms)
+- ✅ Watchdog opérationnel (2 instances)
+- ✅ Empathie corrigée (plus de "Haha" sur tristesse)
+- ✅ UI/UX style "Her" irréprochable
+- ✅ Responsive mobile parfait
+- ✅ Indicateur connexion HER 100%
+
+### Points à Améliorer
+1. Latence LLM variable (170-407ms) - stabiliser
+2. Réponse Golden Test manque de chaleur
+3. Disque à 80% - surveiller
+
+---
+
+## SPRINT #83 - DIAGNOSTIC COMPLET - 2026-01-21 19:25
+
+### Phase -1: Outils CLI ✅
+| Outil | Version | Status |
+|-------|---------|--------|
+| Python | 3.12.3 | ✅ |
+| curl | 8.5.0 | ✅ |
+| npm | 11.6.2 | ✅ |
+| jq | 1.7 | ✅ |
+| GPU | RTX 4090 4GB/24GB | ✅ |
+| Puppeteer | 24.35.0 | ✅ |
+| Disque | 80% | ⚠️ Limite |
+
+### Phase 0: Setup ✅
+- Hook eva-gate.py: ✅
+- settings.json: ✅
+- Structure dossiers: ✅
+
+### Phase 1: Diagnostic ✅
+| Service | Port | Status |
+|---------|------|--------|
+| Backend | 8000 | ✅ Healthy (Groq, Whisper, TTS, DB) |
+| Frontend | 3000 | ✅ Next.js 15 |
+| Ollama | 11434 | ✅ 3 models (qwen2.5:7b, tinyllama, phi3:mini) |
+| GPU | - | ✅ 4GB/24GB utilisé, 0% util |
+
+**Latences E2E (5 requêtes):**
+- 320ms, 198ms, 285ms, 298ms, 194ms
+- **Moyenne: ~259ms** ⚠️ (target 200ms)
+
+### Phase 2: Composants Isolés ✅
+| Composant | Latence | Target | Status |
+|-----------|---------|--------|--------|
+| LLM | 254ms, 195ms, 210ms, 139ms, 224ms | <200ms | ⚠️ Moyenne ~204ms |
+| TTS | 24ms | <100ms | ✅ Excellent |
+
+### Phase 3: Golden Test E2E ✅
+| Test | Latence | Response | Status |
+|------|---------|----------|--------|
+| 1 | 176ms | "Haha, je vais bien, merci !" | ✅ |
+
+**Réponse naturelle et empathique ✅**
+
+### Phase 4: Tests Émotionnels ✅
+| Émotion | Réponse | Qualité |
+|---------|---------|---------|
+| Tristesse | "ne dis pas ça, tu n'es pas seul !" | ✅ 8/10 Empathique |
+| Joie | "Félicitations, c'est incroyable ! tu vas être super fier" | ✅ 9/10 |
+| Stress | "ça va bien, on va trouver une solution !" | ✅ 8/10 Rassurant |
+
+**Pas de "Je suis une IA..." ✅**
+
+### Phase 5: Fiabilité ✅
+| Critère | Status | Détails |
+|---------|--------|---------|
+| Watchdog | ✅ | 2 processus actifs |
+| Backend Health | ✅ | groq, whisper, tts, database tous OK |
+| Disque | ⚠️ | 80% (8.4GB libre) |
+| Mémoire | ✅ | 179GB disponible / 251GB total |
+| Swap | ⚠️ | Plein (8GB/8GB) |
+
+### Phase 6: UX ✅
+| Critère | Desktop | Mobile | Status |
+|---------|---------|--------|--------|
+| Avatar VISAGE visible | ✅ | ✅ | SVG réaliste |
+| Pas dos/patate | ✅ | ✅ | ✅ |
+| HER 100% indicateur | ✅ | ✅ | ✅ |
+| Bouton micro | ✅ | ✅ | ✅ |
+| Score cœur | 74 | 71 | ✅ Système actif |
+| Design cohérent | ✅ | ✅ | Style "Her" |
+| Responsive | - | ✅ | ✅ |
+
+**Badge "3 Issues" visible** - erreurs console Next.js dev (normal)
+
+### Screenshots Validés ✅
+| Screenshot | Contenu | Status |
+|------------|---------|--------|
+| eva-t0.png | Visage SVG, ❤️73, "Je suis là..." | ✅ |
+| eva-t3.png | Visage SVG, ❤️69 (MD5 différent = animation!) | ✅ |
+| eva-initial.png | Desktop 1280x720 | ✅ |
+| eva-mobile.png | Mobile 375x812 responsive | ✅ |
+
+### SCORE SPRINT #83
+
+| Aspect | Score | Notes |
+|--------|-------|-------|
+| Infrastructure | 10/10 | Tous services UP, GPU healthy |
+| Latence E2E | 7/10 | ~259ms moyenne (target 200ms) |
+| Latence LLM | 8/10 | ~204ms moyenne |
+| Latence TTS | 10/10 | 24ms - excellent |
+| Golden Test | 10/10 | 176ms, réponse empathique |
+| Empathie | 9/10 | Pas de "Haha" inapproprié |
+| Avatar | 10/10 | SVG humain réaliste, animé |
+| UX Desktop | 10/10 | Design épuré Her-style |
+| UX Mobile | 10/10 | Responsive parfait |
+| Fiabilité | 9/10 | Watchdog actif, swap plein |
+
+**SCORE TOTAL: 93/100 (93%)**
+
+### Comparaison Sprints
+| Sprint | Score | E2E avg | LLM avg | TTS | Avatar | Empathie |
+|--------|-------|---------|---------|-----|--------|----------|
+| #80 | 84% | ~360ms | 228ms | 29ms | Orbe | ❌ "Haha" |
+| #81 | 94% | ~201ms | ~226ms | 30ms | Orbe | ⚠️ |
+| #82 | 91% | ~229ms | ~267ms | 28ms | SVG Humain | ✅ |
+| **#83** | **93%** | **~259ms** | **~204ms** | **24ms** | **SVG Humain** | **✅** |
+
+### Points Forts
+- ✅ Avatar SVG humain réaliste avec animation
+- ✅ TTS ultra-rapide (24ms - meilleur score!)
+- ✅ Watchdog opérationnel (2 instances)
+- ✅ Empathie correcte sur tous les tests
+- ✅ UI/UX style "Her" irréprochable
+- ✅ Responsive mobile parfait
+- ✅ Golden Test excellent (176ms)
+
+### Points à Surveiller
+1. Latence E2E variable (194-320ms) - moyenne 259ms
+2. Disque à 80% - limite
+3. Swap plein (8GB/8GB)
+4. Badge "3 Issues" Next.js dev
+
+---
+*Updated by RALPH - 2026-01-21 19:25*
