@@ -552,4 +552,124 @@ La géométrie 3D avait les éléments du visage (yeux à z=0.35, nez à z=0.45)
 | **#79** | **96%** | **198ms** | **286ms** | **✅** |
 
 ---
-*Updated by RALPH - 2026-01-21 18:45*
+
+## SPRINT #80 - DIAGNOSTIC COMPLET - 2026-01-21 18:50
+
+### Phase -1: Outils CLI ✅
+| Outil | Version | Status |
+|-------|---------|--------|
+| Python | 3.12.3 | ✅ |
+| curl | 8.5.0 | ✅ |
+| npm | 11.6.2 | ✅ |
+| jq | 1.7 | ✅ |
+| GPU | RTX 4090 4GB/24GB | ✅ |
+| Puppeteer | 24.35.0 | ✅ |
+| Disque | 80% | ⚠️ Limite |
+
+### Phase 0: Setup ✅
+- Hook eva-gate.py: ✅
+- settings.json: ✅
+- Structure dossiers: ✅
+- specs/metrics.md: ✅
+
+### Phase 1: Diagnostic ✅
+| Service | Port | Status |
+|---------|------|--------|
+| Backend | 8000 | ✅ Healthy (Groq, Whisper, TTS, DB) |
+| Frontend | 3000 | ✅ Next.js 15 running |
+| Ollama | 11434 | ✅ 3 models |
+| GPU | - | ✅ 3998/24564 MiB |
+
+**Latences E2E (5 requêtes uniques):**
+- 278ms, 205ms, 171ms, 202ms, 184ms
+- **Moyenne: ~208ms** ✅ (target 200ms)
+
+### Phase 2: Composants Isolés ✅
+| Composant | Latence | Target | Status |
+|-----------|---------|--------|--------|
+| LLM | 276, 235, 264, 159, 204ms | <200ms | ⚠️ Moyenne 228ms |
+| TTS | 29ms | <100ms | ✅ Excellent |
+| Voix | 10 disponibles | - | ✅ |
+
+### Phase 3: Golden Test E2E ✅
+| Test | Latence | Response | Status |
+|------|---------|----------|--------|
+| 1 | 379ms | OK | ⚠️ |
+| 2 | 341ms | "Ça fait plaisir de te voir!" | ✅ |
+
+**Note:** Réponse naturelle et empathique
+
+### Phase 4: Tests Émotionnels ⚠️
+| Émotion | Réponse | Qualité |
+|---------|---------|---------|
+| Tristesse | "Haha, vas-y, dis-moi..." | ❌ "Haha" inapproprié |
+| Joie | null | ❌ Pas de réponse |
+| Anxiété | "Haha, tu vas te dépasser..." | ⚠️ Déplacé mais encourageant |
+
+**Problème persistant:** "Haha" systématique même en contexte triste
+**Source:** backend/eva_expression.py (ligne 52, 125, 296)
+
+### Phase 5: Fiabilité ⚠️
+| Critère | Status | Détails |
+|---------|--------|---------|
+| Watchdog | ⚠️ | Script existe mais processus non détecté |
+| Tunnels | ✅ | 2 cloudflared tunnels actifs |
+| Disque | ⚠️ | 80% (8.5G libre) |
+
+### Phase 6: UX ✅
+| Critère | Status |
+|---------|--------|
+| Avatar visible | ✅ Orbe dégradé rose/corail (style minimaliste "Her") |
+| UI propre | ✅ Tons beiges/corail |
+| Responsive mobile | ✅ Layout adapté |
+| Micro visible | ✅ |
+| Input texte | ✅ |
+| "Rebonjour" reconnaît session | ✅ |
+
+### Screenshots Validés ✅
+| Screenshot | Contenu | Status |
+|------------|---------|--------|
+| eva-t0.png | Orbe rose, "Salut je suis Eva" | ✅ |
+| eva-t3.png | Identique (orbe statique normal) | ✅ |
+| eva-initial.png | Desktop 1280x720 | ✅ |
+| eva-mobile.png | Mobile responsive 390x844 | ✅ |
+
+### SCORE SPRINT #80
+
+| Aspect | Score | Notes |
+|--------|-------|-------|
+| Infrastructure | 10/10 | Tous services UP, GPU healthy |
+| Latence LLM | 8/10 | ~228ms moyenne (proche 200ms) |
+| Latence TTS | 10/10 | 29ms - excellent |
+| E2E Golden | 7/10 | 341-379ms (>300ms mais <500ms) |
+| Empathie | 4/10 | "Haha" inapproprié revenu |
+| Avatar | 10/10 | Design minimaliste propre |
+| UX Desktop | 10/10 | Épuré, cohérent |
+| UX Mobile | 10/10 | Responsive parfait |
+| Fiabilité | 7/10 | Watchdog script OK, processus absent |
+
+**SCORE TOTAL: 76/90 (84%)**
+
+### Comparaison Sprints
+| Sprint | Score | LLM avg | TTS | Empathie | Avatar |
+|--------|-------|---------|-----|----------|--------|
+| #78 | 87% | 210ms | 30ms | ✅ Corrigé | Visage 3D |
+| #79 | 96% | 198ms | - | - | - |
+| **#80** | **84%** | **228ms** | **29ms** | **❌ Régression** | **Orbe stylisé** |
+
+### Problèmes à Corriger
+
+1. **CRITIQUE:** Régression empathie - "Haha" revenu sur contextes tristes
+2. **MEDIUM:** Test joie retourne null (endpoint problème?)
+3. **LOW:** Watchdog processus non actif
+4. **LOW:** Disque à 80% limite
+
+### Actions Recommandées
+
+1. Investiguer régression dans eva_expression.py
+2. Debugger endpoint /chat pour réponse null sur joie
+3. Démarrer watchdog process manuellement
+4. Cleanup disque si nécessaire
+
+---
+*Updated by RALPH - 2026-01-21 18:55*
