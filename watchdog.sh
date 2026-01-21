@@ -78,7 +78,7 @@ while true; do
         pip cache purge 2>/dev/null
         ollama rm llama3.1:8b 2>/dev/null
         ollama rm llama3.2:3b 2>/dev/null
-        rm -rf /tmp/* 2>/dev/null
+        # Don't delete /tmp/* - it removes logs and breaks things
     fi
 
     # Clean if > 80%

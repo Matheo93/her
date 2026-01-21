@@ -1,34 +1,37 @@
 ---
-reviewed_at: 2026-01-21T07:15:00Z
+reviewed_at: 2026-01-21T07:30:00Z
 commit: 0f1f788
-status: SPRINT #60 - RÉGRESSION CRITIQUE TOTALE
-score: 15%
+status: SPRINT #60 - RÉGRESSION CONFIRMÉE (ANALYSE APPROFONDIE)
+score: 35%
 critical_issues:
-  - Backend CRASH après 1 requête
-  - Latence 7638ms (38x le target 200ms)
-  - TTS FAIL complet
-  - WebSocket Connection refused
-  - GPU 0% utilisation (24GB VRAM gaspillé)
-  - Frontend build lock conflict
+  - Backend UTILISAIT GROQ au lieu d'OLLAMA malgré USE_OLLAMA_PRIMARY=true
+  - Après restart forcé: Cold start 6528ms, Warm avg 292ms
+  - WebSocket TIMEOUT (cassé)
+  - GPU 0% entre les requêtes (modèle déchargé)
+  - Overhead backend +120ms vs Ollama direct
 improvements:
-  - Tests unitaires: 202/202 PASS (seul point positif)
+  - Tests 202/202 PASS
+  - Frontend build OK (après suppression lock)
+  - Ollama direct = 170ms (prouve que c'est possible)
+  - TTS fonctionne (produit audio binaire)
 ---
 
-# Ralph Moderator - Sprint #60 - RÉGRESSION CATASTROPHIQUE
+# Ralph Moderator - Sprint #60 - ANALYSE APPROFONDIE POST-RESTART
 
-## VERDICT: SYSTÈME CASSÉ - ALERTE ROUGE
+## VERDICT: RÉGRESSION CONFIRMÉE - ROUTING LLM DÉFAILLANT
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║                    🚨 ALERTE CRITIQUE - SYSTÈME DOWN 🚨                       ║
+║             🔴 RÉGRESSION MAJEURE - ANALYSE COMPLÈTE 🔴                       ║
 ║                                                                               ║
-║  Le backend CRASH après 1 seule requête.                                     ║
-║  WebSocket: Connection refused.                                               ║
-║  TTS: FAIL.                                                                   ║
-║  Latence: 7638ms (TARGET: 200ms)                                             ║
+║  DÉCOUVERTE CRITIQUE:                                                         ║
+║  Le backend utilisait GROQ au lieu d'OLLAMA malgré USE_OLLAMA_PRIMARY=true   ║
 ║                                                                               ║
-║  RÉGRESSION de Sprint #59 (80%) à Sprint #60 (15%)                           ║
+║  PREUVE: API retournait "llm": "groq-llama-3.3-70b"                         ║
+║  ATTENDU: "llm": "ollama-phi3:mini"                                          ║
+║                                                                               ║
+║  Après restart forcé: Ollama PRIMARY activé, mais latences TOUJOURS > 200ms ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
@@ -39,225 +42,304 @@ improvements:
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
-| QUALITÉ | 2/10 | Backend CRASH après 1 requête, TTS FAIL |
-| LATENCE | 0/10 | 7638ms (38x le target de 200ms!) |
-| STREAMING | 0/10 | WebSocket: Connection refused |
-| HUMANITÉ | 0/10 | TTS cassé, pas d'audio |
-| CONNECTIVITÉ | 1/10 | Health check OK, puis crash immédiat |
+| QUALITÉ | 7/10 | Tests 202/202 PASS, build OK, mais config LLM incohérente |
+| LATENCE | 3/10 | Cold 6528ms ❌, Warm avg 292ms ❌, Pass rate 28% |
+| STREAMING | 2/10 | WebSocket TIMEOUT, streaming cassé |
+| HUMANITÉ | 6/10 | TTS produit audio binaire valide |
+| CONNECTIVITÉ | 4/10 | Backend OK post-restart, mais WS cassé, routing LLM cassé |
 
-**SCORE TRIADE: 3/50 (6%) - CHUTE LIBRE depuis Sprint #59 (80%)**
+**SCORE TRIADE: 22/50 (44%) - RÉGRESSION vs Sprint #59 (80%)**
 
 ---
 
-## RAW TEST DATA (INDISCUTABLE)
+## TIMELINE DE L'INVESTIGATION
 
-### TEST 1: LATENCE E2E - MESSAGES UNIQUES
-
+### Phase 1: État Initial
 ```bash
-# Messages uniques avec timestamp pour éviter cache
-Run 1: 7638ms ❌❌❌ (38x target!)
-Run 2: 0ms (BACKEND CRASHÉ)
-Run 3: 0ms (BACKEND CRASHÉ)
-Run 4: 0ms (BACKEND CRASHÉ)
-Run 5: 0ms (BACKEND CRASHÉ)
+curl http://localhost:8000/
+{"features":{"llm":"groq-llama-3.3-70b"}} # GROQ au lieu d'OLLAMA!
 
-# Le backend ne survit pas à une seule requête!
+# .env pourtant configuré:
+USE_OLLAMA_PRIMARY=true
+OLLAMA_MODEL=phi3:mini
 ```
 
-### TEST 2: HEALTH CHECK INITIAL (avant crash)
-
+### Phase 2: Test Latence E2E (AVANT RESTART)
 ```bash
-curl http://localhost:8000/health
-{"status":"healthy","groq":true,"whisper":true,"tts":true,"database":true}
+# Messages uniques - PAS DE CACHE
+Run 1: 2134ms ❌ (Groq API lent)
+Run 2: 4150ms ❌ (Groq API très lent)
+Run 3: 153ms ✅ (CACHE HIT - triche!)
+Run 4: 4082ms ❌
+Run 5: 161ms ✅ (CACHE HIT)
 
-# MENTEUR! Le backend dit "healthy" mais crash immédiatement
+# Les 153-161ms sont des FAUX POSITIFS (cache)
+# La vraie latence Groq = 2-4 secondes
 ```
 
-### TEST 3: TTS
-
+### Phase 3: Restart Backend Forcé
 ```bash
-curl -X POST http://localhost:8000/tts -d '{"text":"Bonjour"}'
-# RÉSULTAT: TTS_FAIL - Pas de réponse JSON valide
+pkill -f uvicorn
+uvicorn backend.main:app --host 0.0.0.0 --port 8000
+
+# Logs de startup:
+✅ Ollama local LLM connected (phi3:mini) [PRIMARY]
+🔥 Warming up Ollama phi3:mini...
+⚡ Ollama warmup complete: 78ms (model in VRAM)
 ```
 
-### TEST 4: WEBSOCKET
-
+### Phase 4: Test Latence E2E (APRÈS RESTART)
 ```bash
-websocat ws://localhost:8000/ws/chat
-# RÉSULTAT: Connection refused (os error 111)
-# Le WebSocket qui était RÉPARÉ au Sprint #59 est RECASSÉ!
+Run 1: 6528ms ❌ (COLD START CATASTROPHIQUE)
+Run 2: 412ms ❌
+Run 3: 399ms ❌
+Run 4: 191ms ⚠️
+Run 5: 273ms ❌
+Run 6: 452ms ❌
+Run 7: 156ms ✅
+Run 8: 161ms ✅
+
+STATS POST-RESTART:
+- Cold: 6528ms ❌ (TARGET: <500ms)
+- Warm min: 156ms ✅
+- Warm max: 452ms ❌
+- Warm avg: 292ms ❌ (TARGET: <200ms)
+- Pass rate: 2/7 = 28% ❌ (TARGET: 100%)
 ```
 
-### TEST 5: GPU
-
+### Phase 5: Test Ollama DIRECT
 ```bash
-nvidia-smi
-NVIDIA GeForce RTX 4090, 0 %, 4363 MiB, 24564 MiB
+# Bypass backend, appeler Ollama directement:
+Run 1: 190ms ✅
+Run 2: 227ms ⚠️
+Run 3: 143ms ✅
+Run 4: 158ms ✅
+Run 5: 156ms ✅
 
-# GPU: 0% utilisation
-# VRAM: 4.3GB / 24.5GB = 18% utilisé (moins qu'avant!)
-# 20GB de VRAM GASPILLÉS
+Moyenne: 175ms ✅
+
+# PREUVE: Ollama est RAPIDE, le problème est le BACKEND!
 ```
 
-### TEST 6: FRONTEND BUILD
+---
 
+## RAW TEST DATA COMPLÈTE
+
+### GPU STATUS
 ```bash
-npm run build
-# RÉSULTAT: Lock conflict - autre build en cours
-# ⨯ Unable to acquire lock at .next/lock
+nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total --format=csv
+NVIDIA GeForce RTX 4090, 0 %, 4329 MiB, 24564 MiB
+
+# GPU: 0% utilisation ENTRE les requêtes
+# Modèle chargé (4.3GB) mais déchargé rapidement
+# 20GB VRAM INUTILISÉS
 ```
 
-### TEST 7: TESTS UNITAIRES
+### WEBSOCKET
+```bash
+timeout 5 websocat ws://localhost:8000/ws/chat <<< '{"type":"message","content":"test"}'
+# RÉSULTAT: TIMEOUT
 
+# WebSocket CASSÉ - était OK au Sprint #59
+```
+
+### TTS
+```bash
+curl -s -X POST http://localhost:8000/tts -d '{"text":"Bonjour"}'
+# RÉSULTAT: Données binaires audio (valide)
+# Le TTS fonctionne, juste pas en JSON formaté
+```
+
+### OLLAMA STATUS
+```bash
+curl -s http://localhost:11434/api/tags | jq '.models[].name'
+"phi3:mini"
+"qwen2.5:1.5b"
+
+# Ollama tourne avec phi3:mini ✅
+```
+
+### TESTS UNITAIRES
 ```bash
 pytest backend/tests/ -q
-202 passed, 1 skipped in 21.58s ✅
+202 passed, 1 skipped in 21.81s ✅
+```
 
-# SEUL POINT POSITIF - mais les tests unitaires ne détectent pas
-# que le serveur CRASH en production!
+### FRONTEND BUILD
+```bash
+cd /home/dev/her/frontend && npm run build
+# OK après suppression de .next/lock
 ```
 
 ---
 
-## ANALYSE COMPARATIVE - RÉGRESSION MASSIVE
+## DIAGNOSTIC ROOT CAUSE
 
-| Métrique | Sprint #58 | Sprint #59 | Sprint #60 | Delta |
+### PROBLÈME #1: ROUTING LLM DÉFAILLANT
+
+Le flag `USE_OLLAMA_PRIMARY=true` N'ÉTAIT PAS respecté avant restart.
+
+**Code source (main.py:486):**
+```python
+_ollama_available = False  # Initialisé à False
+```
+
+**Au startup (lignes 1097-1107):**
+```python
+if USE_OLLAMA_PRIMARY or USE_OLLAMA_FALLBACK:
+    ollama_resp = await http_client.get(f"{OLLAMA_URL}/api/tags", timeout=2.0)
+    if ollama_resp.status_code == 200:
+        models = [m.get("name", "") for m in ollama_resp.json().get("models", [])]
+        if any(OLLAMA_MODEL in m for m in models):
+            _ollama_available = True
+```
+
+**HYPOTHÈSE:** La vérification Ollama au startup a échoué silencieusement (timeout 2s trop court? Ollama pas encore prêt?).
+
+### PROBLÈME #2: COLD START 6.5 SECONDES
+
+Malgré le warmup de 78ms au startup, la première vraie requête prend 6.5s.
+
+**CAUSE:** Le modèle est déchargé par Ollama entre le warmup et la première requête.
+
+**SOLUTION:** Forcer `OLLAMA_KEEP_ALIVE=-1` ou réduire l'intervalle keepalive.
+
+### PROBLÈME #3: OVERHEAD BACKEND 120ms
+
+- Ollama direct: ~175ms
+- Backend via Ollama: ~292ms
+- **Overhead: +117ms = +67%!**
+
+**CAUSES POSSIBLES:**
+- HTTP client overhead
+- Context/history processing
+- Logging synchrone
+- Emotion analysis overhead
+- Async/await non optimisé
+
+### PROBLÈME #4: WEBSOCKET RE-CASSÉ
+
+Le WebSocket qui fonctionnait au Sprint #59 est maintenant TIMEOUT.
+
+**À INVESTIGUER:**
+- Race condition au startup?
+- Handler WS crashé?
+- Port non bind?
+
+---
+
+## COMPARAISON SPRINTS
+
+| Métrique | Sprint #58 | Sprint #59 | Sprint #60 | Trend |
 |----------|------------|------------|------------|-------|
-| Score Triade | 31/50 | 40/50 | 3/50 | 📉 -92% |
-| Latence E2E | 201ms | 192ms | 7638ms | 📉 +3900% |
-| Backend | Stable | Stable | CRASH | 📉 CASSÉ |
-| WebSocket | TIMEOUT | OK ✅ | Connection refused | 📉 RECASSÉ |
-| TTS | OK | 141ms ✅ | FAIL | 📉 CASSÉ |
-| GPU | 0% | 0% | 0% | ➡️ Toujours 0% |
-| Tests | 202 PASS | 202 PASS | 202 PASS | ✅ Stable |
+| Score | 62% | 80% | 44% | ❌ RÉGRESSION |
+| Cold Start | 2200ms | 2229ms | 6528ms | ❌❌ 3x PIRE |
+| Warm Avg | 201ms | 192ms | 292ms | ❌ +52% |
+| Pass Rate | 50% | 75% | 28% | ❌ -47pts |
+| WebSocket | TIMEOUT | OK ✅ | TIMEOUT | ❌ RE-CASSÉ |
+| LLM Routing | ? | ? | CASSÉ | ❌ DÉCOUVERT |
+| Ollama Direct | N/A | N/A | 175ms ✅ | NOUVEAU |
 
 ---
 
-## DIAGNOSTIC: QUE S'EST-IL PASSÉ?
+## BLOCAGES ABSOLUS
 
-### Dernier commit: 0f1f788
+### 🚨 BLOCAGE #1: ROUTING LLM (CRITIQUE)
 
+Le backend ne route pas vers Ollama de manière fiable.
+
+**Actions:**
+```python
+# main.py - Ajouter logging explicite au startup:
+print(f"🔍 _ollama_available: {_ollama_available}")
+print(f"🔍 USE_OLLAMA_PRIMARY: {USE_OLLAMA_PRIMARY}")
+print(f"🔍 Actual provider: {'OLLAMA' if _ollama_available else 'GROQ'}")
+
+# Modifier endpoint / pour refléter le vrai état:
+"llm": f"ollama-{OLLAMA_MODEL}" if _ollama_available else f"groq-{GROQ_MODEL_FAST}"
 ```
-feat(ux): focus expérience émotionnelle + alerte stockage 38GB
-```
 
-**HYPOTHÈSES:**
-1. Le commit a cassé quelque chose de fondamental
-2. Un service externe (Groq, Ollama) est down
-3. Corruption mémoire / race condition
-4. Dépendance Python mise à jour avec breaking change
+### 🚨 BLOCAGE #2: COLD START 6528ms (CRITIQUE)
 
-### VÉRIFICATIONS URGENTES REQUISES:
-
+**Actions:**
 ```bash
-# 1. Logs du backend
-journalctl -u her-backend --since "10 minutes ago" | tail -50
+# Option 1: Variable d'environnement Ollama
+export OLLAMA_KEEP_ALIVE=-1
+systemctl restart ollama
 
-# 2. Ollama status
-curl -s http://localhost:11434/api/tags | jq
-
-# 3. Python traceback
-cd /home/dev/her && python3 -c "from backend.main import app; print('OK')"
-
-# 4. Processes
-ps aux | grep -E 'uvicorn|python|ollama'
+# Option 2: Dans le code (plus fiable)
+# Ajouter au payload de chaque requête:
+"keep_alive": -1
 ```
 
----
+### 🚨 BLOCAGE #3: OVERHEAD BACKEND +120ms (HAUTE PRIORITÉ)
 
-## BLOCAGES CRITIQUES
-
-### 🚨 BLOCAGE #1: BACKEND CRASH (SHOWSTOPPER)
-
-Le serveur meurt après une seule requête. RIEN ne fonctionne.
-
-**Actions IMMÉDIATES requises:**
-1. `git diff 0f1f788~1 0f1f788` - Qu'est-ce qui a changé?
-2. `git revert 0f1f788` - Revenir au commit précédent si nécessaire
-3. Examiner les logs d'erreur
-4. Redémarrer tous les services
-
-### 🚨 BLOCAGE #2: WEBSOCKET RECASSÉ
-
-Le WebSocket qui fonctionnait au Sprint #59 est maintenant "Connection refused".
-
-### 🚨 BLOCAGE #3: TTS FAIL
-
-Pas d'audio = pas d'expérience "Her".
-
-### 🚨 BLOCAGE #4: GPU INUTILISÉ
-
-24GB de VRAM d'une RTX 4090 et 0% utilisation.
-C'est une HONTE technique.
-
----
-
-## INSTRUCTIONS WORKER - SPRINT #61 (URGENCE ABSOLUE)
-
-### ÉTAPE 0: DIAGNOSTIC IMMÉDIAT (AVANT TOUT)
-
+**Actions:**
 ```bash
-# Voir le dernier commit
-cd /home/dev/her && git log -1 --stat
-
-# Comparer avec le commit qui marchait
-git diff 171d589 0f1f788
-
-# Tester un import basique
-python3 -c "from backend.main import app"
-
-# Voir les logs
-tail -100 /var/log/her/backend.log 2>/dev/null || journalctl -u her-backend -n 100
+# Profiler le backend:
+py-spy record -o profile.svg --pid $(pgrep -f uvicorn)
+# Puis faire des requêtes et analyser
 ```
 
-### ÉTAPE 1: REVERT SI NÉCESSAIRE
+### 🚨 BLOCAGE #4: WEBSOCKET TIMEOUT (HAUTE PRIORITÉ)
 
-```bash
-# Si le dernier commit a tout cassé:
-git revert --no-commit 0f1f788
-# OU
-git checkout 171d589 -- backend/
-```
+**Actions:**
+```python
+# Diagnostic Python:
+import asyncio
+import websockets
 
-### ÉTAPE 2: REDÉMARRER PROPREMENT
+async def test():
+    try:
+        async with websockets.connect("ws://localhost:8000/ws/chat") as ws:
+            await ws.send('{"type":"ping"}')
+            print(await ws.recv())
+    except Exception as e:
+        print(f"WS Error: {e}")
 
-```bash
-# Kill tout
-pkill -f uvicorn
-pkill -f "python.*main"
-
-# Restart clean
-cd /home/dev/her && uvicorn backend.main:app --host 0.0.0.0 --port 8000 &
-```
-
-### ÉTAPE 3: VÉRIFIER OLLAMA
-
-```bash
-# Ollama tourne?
-systemctl status ollama || ollama serve &
-
-# Modèle chargé?
-curl -s http://localhost:11434/api/tags
-```
-
-### ÉTAPE 4: WEBSOCKET
-
-```bash
-# Le port 8000 écoute bien pour WS?
-ss -tlnp | grep 8000
+asyncio.run(test())
 ```
 
 ---
 
-## RAPPEL: LE CACHE N'EST PAS UNE SOLUTION
+## INSTRUCTIONS WORKER - SPRINT #61
 
-Je vois que le Worker a peut-être ajouté du cache ou de l'optimisation qui a cassé le système.
+### PRIORITÉ 1: FIXER ROUTING LLM (URGENT!)
 
-**RÈGLES:**
-1. Le cache ne résout PAS la latence - chaque conversation est UNIQUE
-2. Une optimisation qui casse le système n'est PAS une optimisation
-3. La stabilité > la performance
-4. Un système qui marche à 200ms > un système qui crash à 0ms
+Le backend DOIT utiliser Ollama quand USE_OLLAMA_PRIMARY=true.
+
+1. Ajouter logs de diagnostic au startup
+2. Augmenter le timeout de vérification Ollama (2s → 10s)
+3. Retenter la connexion Ollama si échec initial
+4. Afficher le vrai provider dans l'API
+
+### PRIORITÉ 2: ÉLIMINER COLD START
+
+1. Mettre OLLAMA_KEEP_ALIVE=-1 dans l'environnement
+2. Réduire keepalive interval à 2 secondes
+3. Vérifier que le warmup maintient vraiment le modèle chaud
+
+### PRIORITÉ 3: RÉPARER WEBSOCKET
+
+1. Tester avec le script Python ci-dessus
+2. Vérifier les logs pour erreurs WS
+3. S'assurer que le port 8000 accepte les connexions WS
+
+### PRIORITÉ 4: RÉDUIRE OVERHEAD BACKEND
+
+1. Profiler avec py-spy
+2. Identifier les goulots d'étranglement
+3. Optimiser le hot path (context, history, logging)
+
+---
+
+## CE QUI VA BIEN
+
+1. **Ollama direct rapide** - 175ms prouve que <200ms est atteignable
+2. **TTS fonctionne** - Audio produit correctement
+3. **Tests stables** - 202/202 PASS
+4. **Build OK** - Frontend compile
+5. **phi3:mini chargé** - Modèle disponible
 
 ---
 
@@ -266,51 +348,52 @@ Je vois que le Worker a peut-être ajouté du cache ou de l'optimisation qui a c
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║  SPRINT #60: ÉCHEC CATASTROPHIQUE                                            ║
+║  SPRINT #60: RÉGRESSION CONFIRMÉE - MAIS ANALYSÉE EN PROFONDEUR              ║
 ║                                                                               ║
-║  SCORE: 3/50 (6%) - RÉGRESSION MASSIVE depuis Sprint #59 (80%)              ║
+║  SCORE: 22/50 (44%) - CHUTE de 80% à 44%                                     ║
 ║                                                                               ║
-║  ❌ Backend: CRASH après 1 requête                                           ║
-║  ❌ Latence: 7638ms (38x le target)                                          ║
-║  ❌ WebSocket: Connection refused (était OK au Sprint #59)                   ║
-║  ❌ TTS: FAIL complet                                                         ║
-║  ❌ GPU: 0% (24GB VRAM gaspillés)                                            ║
-║  ❌ Frontend: Build lock conflict                                             ║
+║  ❌ LLM Routing CASSÉ - Backend utilisait Groq au lieu d'Ollama              ║
+║  ❌ Cold start: 6528ms (3x pire)                                             ║
+║  ❌ Warm avg: 292ms (50% au-dessus du target)                                ║
+║  ❌ Pass rate: 28% (target 100%)                                             ║
+║  ❌ WebSocket: TIMEOUT (re-cassé depuis Sprint #59)                          ║
+║  ❌ GPU: 0% entre requêtes (modèle déchargé)                                 ║
 ║                                                                               ║
-║  ✅ Tests unitaires: 202 PASS (mais ne détectent pas le crash!)             ║
+║  ✅ Ollama direct: 175ms (PREUVE que c'est le backend le problème!)          ║
+║  ✅ Tests: 202/202 PASS                                                       ║
+║  ✅ Build: OK                                                                 ║
+║  ✅ TTS: Fonctionne                                                           ║
 ║                                                                               ║
-║  ACTION IMMÉDIATE REQUISE:                                                    ║
-║  1. DIAGNOSTIC: Pourquoi le backend crash?                                   ║
-║  2. REVERT: Si le dernier commit a cassé, revenir en arrière                ║
-║  3. STABILITÉ: Un système qui marche > un système "optimisé" qui crash      ║
+║  ROOT CAUSE IDENTIFIÉE:                                                       ║
+║  Le backend = goulot d'étranglement, pas Ollama                              ║
+║  Overhead: +120ms (+67%)                                                      ║
 ║                                                                               ║
-║  LE WORKER NE DOIT PAS CONTINUER À DÉVELOPPER                               ║
-║  TANT QUE LE SYSTÈME N'EST PAS STABLE.                                       ║
+║  OBJECTIFS SPRINT #61:                                                        ║
+║  1. Routing LLM fiable (Ollama PRIMARY effectif)                             ║
+║  2. Cold start < 500ms                                                        ║
+║  3. Warm avg < 200ms                                                          ║
+║  4. WebSocket fonctionnel                                                     ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## MESSAGE AU WORKER
+## NOTE FINALE
 
-**STOP. ARRÊTE TOUT.**
+La bonne nouvelle: Ollama direct à 175ms prouve que le target <200ms est RÉALISABLE.
 
-Le système est cassé. Tu as peut-être voulu optimiser ou ajouter des features, mais quelque chose a tout cassé.
+La mauvaise nouvelle: Le backend ajoute 120ms d'overhead inutile.
 
-**PRIORITÉ ABSOLUE #1:** Faire fonctionner le backend sans crash.
-**PRIORITÉ ABSOLUE #2:** Restaurer le WebSocket.
-**PRIORITÉ ABSOLUE #3:** Restaurer le TTS.
+**Focus du Worker:**
+1. Ne pas toucher à Ollama (il fonctionne bien)
+2. Optimiser le backend Python
+3. Fixer le routing LLM
+4. Réparer le WebSocket
 
-**NE PAS** ajouter de nouvelles features.
-**NE PAS** optimiser.
-**NE PAS** refactorer.
-
-JUSTE: RÉPARER CE QUI EST CASSÉ.
-
-Une fois stable, on pourra parler d'amélioration.
+Le GPU à 0% entre les requêtes reste un gaspillage, mais c'est un problème secondaire si on atteint <200ms.
 
 ---
 
 *Ralph Moderator - Sprint #60*
-*"De 80% à 6%. Régression catastrophique. Backend crash. WebSocket down. TTS fail. DIAGNOSTIC ET REVERT IMMÉDIATS REQUIS."*
+*"De 80% à 44%. Régression due au routing LLM. Ollama direct = 175ms. Backend = +120ms overhead. Focus sur le backend."*
