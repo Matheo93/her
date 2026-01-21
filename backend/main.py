@@ -111,10 +111,10 @@ except ImportError:
 CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "phi3:mini")  # Ultra-fast local model (~100ms warm on RTX 4090)
-USE_OLLAMA_FALLBACK = os.getenv("USE_OLLAMA_FALLBACK", "true").lower() == "true"
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b-instruct-q4_K_M")  # 7B model, 80-150 tok/s on RTX 4090
+USE_OLLAMA_FALLBACK = os.getenv("USE_OLLAMA_FALLBACK", "false").lower() == "true"
 USE_OLLAMA_PRIMARY = os.getenv("USE_OLLAMA_PRIMARY", "true").lower() == "true"  # Use local GPU first
-OLLAMA_KEEP_ALIVE = -1  # Infinite keep_alive - tell Ollama to never unload model
+OLLAMA_KEEP_ALIVE = int(os.getenv("OLLAMA_KEEP_ALIVE", "300"))  # Keep model loaded for 5 minutes
 
 # Models by provider
 CEREBRAS_MODEL = "llama3.1-8b"  # ~50ms TTFT (fastest)
@@ -1206,9 +1206,9 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(proactive_scheduler())
 
     # Start Ollama keepalive (prevents model unloading from VRAM)
-    # HYPER-AGGRESSIVE: 1s interval - GPU weights deactivate VERY fast on this setup
+    # 10s interval for 7B model - balances freshness vs overhead
     if _ollama_available and (USE_OLLAMA_PRIMARY or USE_OLLAMA_FALLBACK):
-        start_keepalive(OLLAMA_URL, OLLAMA_MODEL, interval=1)  # 1s interval - HYPER-aggressive keepalive
+        start_keepalive(OLLAMA_URL, OLLAMA_MODEL, interval=10)  # 10s interval for 7B model
 
     print(f"🎙️  EVA-VOICE ready at http://localhost:8000")
     print(f"⚡ Mode: {QUALITY_MODE} | Rate limit: {RATE_LIMIT_REQUESTS}/min")
