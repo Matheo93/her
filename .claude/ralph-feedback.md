@@ -1,115 +1,187 @@
 ---
-reviewed_at: 2026-01-21T01:10:00Z
-commit: cc228e0
-status: IN PROGRESS
-score: 65%
+reviewed_at: 2026-01-21T01:30:00Z
+commit: 2e6bdd7
+status: CRITICAL FAILURE
+score: 35%
 blockers:
-  - TTS latency 170ms > 100ms target
+  - Pipeline 1190ms > 800ms target (FAIL 49%)
+  - STT Whisper ~500-700ms non optimisé
+  - API overhead ajoute latence au TTS
 warnings:
-  - 30+ hardcoded paths to /home/dev/her
+  - 30+ hardcoded paths /home/dev/her
 ---
 
-# Ralph Moderator Review - Cycle 67
+# Ralph Moderator Review - Cycle 68
 
-## Status: **IN PROGRESS** - TTS Partiellement Fixé
+## Status: **CRITICAL FAILURE** ❌
+
+**PIPELINE TOTAL: 1190ms vs 800ms TARGET = ÉCHEC**
 
 ---
 
-## TTS STATUS
+## MESURES RÉELLES DU PIPELINE
 
-### AVANT (Edge-TTS Cloud)
+### Test Complet E2E (sans STT)
 ```
-TTS 1: 6195ms ❌
-TTS 2: 5522ms ❌
-TTS 3: 34605ms ❌❌❌
-TTS 4: 2486ms ❌
-TTS 5: 3400ms ❌
-AVG: ~10000ms
-```
+LLM:   370ms
+TTS:   821ms (texte long)
+TOTAL: 1190ms
 
-### APRÈS (MMS-TTS GPU)
-```
-TTS 1: 156ms ✅
-TTS 2: 197ms ⚠️
-TTS 3: 143ms ✅
-TTS 4: 198ms ⚠️
-TTS 5: 146ms ✅
-AVG: ~170ms
+TARGET: 800ms
+ÉCART:  +390ms (49% au-dessus)
 ```
 
-### AMÉLIORATION
+### Avec STT Whisper (estimation)
 ```
-10000ms → 170ms = 60x plus rapide ✅
+STT:   500-700ms
+LLM:   370ms
+TTS:   200-800ms (selon longueur)
+TOTAL: 1070-1870ms
+
+TARGET: 500ms (user demande)
+ÉCART:  +570-1370ms (114-274% au-dessus)
 ```
 
-### MAIS
+---
+
+## ANALYSE DÉTAILLÉE
+
+### STT (Whisper large-v3) ❌
 ```
+Latence mesurée: 515ms (2s audio)
 TARGET: <100ms
-ACTUEL: 170ms
-ÉCART: +70ms (70% au-dessus du target)
+PROBLÈME: 5x trop lent
+```
+
+**Options d'optimisation:**
+1. Whisper tiny/base au lieu de large-v3 (~50-100ms)
+2. faster-whisper avec VAD (skip silence)
+3. WebSpeech API du navigateur (0ms côté serveur)
+4. Streaming STT chunk par chunk
+
+### LLM (Groq Llama 70B) ⚠️
+```
+Latence mesurée: 171-370ms
+TARGET: <200ms
+ÉCART: +170ms au pire cas
+```
+
+**Options d'optimisation:**
+1. Modèle plus petit (8B au lieu de 70B)
+2. Réduire max_tokens
+3. Streaming pour TTFT plus rapide
+4. Cerebras (plus rapide que Groq)
+
+### TTS (MMS-TTS GPU) ✅/⚠️
+```
+Direct Python: 71-114ms ✅
+Via API: 187-821ms ⚠️
+```
+
+**PROBLÈME: L'API ajoute overhead**
+- make_natural() text processing
+- HTTP parsing
+- Response formatting
+- Scaling avec longueur texte
+
+**Options d'optimisation:**
+1. Endpoint /tts/fast sans traitement texte
+2. Limiter longueur réponse LLM
+3. Streaming audio
+4. Pré-cache phrases communes
+
+---
+
+## BREAKDOWN LATENCE
+
+| Composant | Direct | Via API | Target | Status |
+|-----------|--------|---------|--------|--------|
+| STT | 515ms | N/A | <100ms | ❌ 5x |
+| LLM | - | 370ms | <200ms | ⚠️ 1.8x |
+| TTS | 71ms | 200-800ms | <100ms | ⚠️ 2-8x |
+| **TOTAL** | ~600ms | ~1200ms | <500ms | ❌ 2.4x |
+
+---
+
+## PLAN D'ACTION POUR <800ms
+
+### Phase 1: Quick Wins (Estimé: -300ms)
+
+1. **Réduire max_tokens LLM** (50 → 30)
+   - Économie: ~100ms
+
+2. **Limiter longueur réponse TTS**
+   - Max 100 caractères = TTS ~150ms
+   - Économie: ~200ms sur textes longs
+
+3. **Bypass make_natural()** pour mode rapide
+   - Économie: ~20ms
+
+### Phase 2: Medium Term (Estimé: -400ms)
+
+4. **Whisper tiny au lieu de large-v3**
+   - 515ms → ~100ms
+   - Économie: ~400ms
+   - Trade-off: Accuracy réduite
+
+5. **Streaming TTS**
+   - TTFA < 50ms
+   - User entend audio plus vite
+
+### Phase 3: Architecture (Estimé: -200ms)
+
+6. **WebSpeech API pour STT**
+   - Déplace STT côté client
+   - Économie: 500-700ms côté serveur
+
+7. **Pipeline parallèle**
+   - TTS pendant que LLM stream
+   - Économie: ~100ms
+
+---
+
+## PROJECTION APRÈS OPTIMISATIONS
+
+### Scénario Conservateur
+```
+STT (Whisper tiny): 100ms
+LLM (30 tokens):    200ms
+TTS (100 chars):    150ms
+TOTAL:              450ms ✅ < 500ms
+```
+
+### Scénario Agressif (WebSpeech)
+```
+STT (browser):      0ms (côté client)
+LLM (streaming):    150ms TTFT
+TTS (streaming):    50ms TTFA
+TOTAL SERVEUR:      200ms ✅
 ```
 
 ---
 
-## ANALYSE LATENCE
-
-| Composant | Latence Direct | Via API |
-|-----------|----------------|---------|
-| MMS-TTS GPU | 72ms | - |
-| + HTTP overhead | - | +15ms |
-| + MP3 encoding | - | +40ms |
-| + Response | - | +15ms |
-| **TOTAL** | 72ms | ~170ms |
-
----
-
-## OPTIMISATIONS POSSIBLES
-
-### Option 1: Retourner WAV au lieu de MP3
-- MP3 encoding: ~40ms
-- WAV direct: ~0ms
-- Économie: ~40ms → 130ms total
-
-### Option 2: Streaming audio
-- Envoyer chunks dès qu'ils sont générés
-- TTFA (time to first audio) < 50ms
-
-### Option 3: Cache LRU agressif
-- Phrases communes pré-générées
-- Hit rate élevé = 0ms
-
-### Option 4: Piper ONNX GPU
-- Plus optimisé que VitsModel
-- Potentiel 30-50ms
-
----
-
-## SCORE ACTUEL
+## SCORE CRITIQUE
 
 | Critère | Score | Notes |
 |---------|-------|-------|
-| Tests passent | 10/10 | 201 passed |
-| TTS fonctionne | 7/10 | Oui mais 170ms > 100ms |
-| Chat fonctionne | 9/10 | Latency OK |
-| GPU utilisé | 10/10 | MMS-TTS sur RTX 4090 |
-| Target <100ms | 0/10 | 170ms = 70% au-dessus |
-| **TOTAL** | **36/50 = 72%** | |
+| Pipeline <800ms | 0/20 | 1190ms = FAIL |
+| STT <100ms | 0/10 | 515ms = 5x trop lent |
+| LLM <200ms | 5/10 | 370ms = 1.8x |
+| TTS <100ms | 7/10 | Direct 71ms OK, API lent |
+| Tests | 10/10 | 201 passed |
+| **TOTAL** | **22/60 = 37%** | |
 
 ---
 
-## ACTIONS REQUISES
+## COMMITS BLOQUÉS
 
-### PRIORITÉ 1: Réduire TTS à <100ms
+**AUCUN COMMIT ACCEPTÉ JUSQU'À:**
+1. Pipeline total < 800ms
+2. OU plan d'action implémenté avec métriques
 
-Options:
-1. Retourner WAV (pas MP3) → économie ~40ms
-2. Optimiser fast_tts.py avec torch.compile
-3. Utiliser Piper ONNX au lieu de VitsModel
-4. Cache plus agressif
-
-### PRIORITÉ 2: Paths hardcodés
-
-30+ références à `/home/dev/her` qui n'existe pas.
+**EXCEPTION:**
+- Commits qui réduisent directement la latence
+- Doivent inclure mesures avant/après
 
 ---
 
@@ -117,18 +189,42 @@ Options:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  CYCLE 67: EN COURS (65%)                                   │
+│  CYCLE 68: CRITICAL FAILURE (37%)                          │
 │                                                             │
-│  ✅ TTS GPU: MMS-TTS fonctionne (60x plus rapide)          │
-│  ⚠️ Latence: 170ms > 100ms target                          │
-│  ⚠️ Paths: 30+ hardcoded                                   │
+│  ❌ Pipeline: 1190ms > 800ms (49% au-dessus)               │
+│  ❌ STT: 515ms > 100ms (5x trop lent)                      │
+│  ⚠️ LLM: 370ms > 200ms (1.8x)                              │
+│  ⚠️ TTS API: 200-800ms > 100ms                             │
+│  ✅ TTS Direct: 71ms                                        │
 │                                                             │
-│  COMMITS NON-TTS BLOQUÉS                                   │
-│  Worker doit optimiser TTS <100ms                          │
+│  TOUS COMMITS NON-LATENCE BLOQUÉS                          │
+│  Worker doit implémenter plan d'action                     │
+│                                                             │
+│  TARGET: <800ms                                             │
+│  ACTUEL: 1190ms                                            │
+│  ÉCART:  +49%                                               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-*Ralph Moderator - Cycle 67*
-*"60x plus rapide mais pas assez. Target = 100ms, pas 170ms."*
+## ERREUR DU MODERATOR
+
+**J'ai validé des commits sans mesurer le pipeline COMPLET.**
+
+Tests à effectuer AVANT chaque commit:
+```bash
+# 1. Chat latency
+curl -X POST localhost:8000/chat -d '{"message":"test"}' | jq '.latency_ms'
+
+# 2. TTS latency (texte long)
+time curl -X POST localhost:8000/tts -d '{"text":"Long response text here..."}'
+
+# 3. Pipeline total
+python3 test_full_pipeline.py
+```
+
+---
+
+*Ralph Moderator - Cycle 68*
+*"Pipeline 1190ms = ÉCHEC. Pas d'excuses. Fix it."*
