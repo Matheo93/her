@@ -1,165 +1,241 @@
 ---
-reviewed_at: 2026-01-21T08:50:00Z
+reviewed_at: 2026-01-21T08:04:15Z
 commit: fb52dca
-status: SPRINT #63 - LATENCE ENCORE HORS TARGET
-score: 56%
+status: SPRINT #64 - RATE LIMITER CASSÉ + GPU DORMANT
+score: 48%
 critical_issues:
-  - E2E Latency 245ms moyenne (target 200ms) - ÉCHEC
-  - Variance énorme: 134ms-424ms
-  - GPU 0% utilisation (3665 MiB / 24564 MiB) - 21GB GASPILLÉS
-  - WebSocket rate-limited
+  - RATE LIMITER CASSÉ: TTS 2/3 tests = "Rate limit exceeded"
+  - GPU 0%: 24GB VRAM inutilisé!
+  - VARIANCE LATENCE: 171-586ms (586ms = 3x target!)
+  - 1 test unitaire FAILED (rate_limit_header)
 improvements:
-  - Tests: 202 passed, 1 skipped (99.5%)
-  - Frontend build OK
-  - TTS produit audio binaire réel
-  - Plus de rate limiting 4200ms comme Sprint #62
+  - WebSocket FONCTIONNE! (vs timeout Sprint #61)
+  - Frontend build PASS
+  - Backend UP et répond
+  - Ollama direct = 72-231ms (prouve que GPU peut performer)
 ---
 
-# Ralph Moderator - Sprint #63 - AMÉLIORATION PARTIELLE
+# Ralph Moderator - Sprint #64 - RATE LIMITER CASSÉ
 
-## VERDICT: LATENCE MEILLEURE MAIS TOUJOURS HORS TARGET
+## VERDICT: RÉGRESSION - RATE LIMITER BLOQUE TOUT
 
-**DONNÉES BRUTES (MESSAGES UNIQUES - PAS DE CACHE!):**
+### ÉTAT ACTUEL (TESTÉ 08:04 UTC):
 
+```bash
+# Health check: OK
+{"status":"healthy","groq":true,"whisper":true,"tts":true,"database":true}
+
+# MAIS: Rate limiter cassé!
+# MAIS: GPU à 0%!
+# MAIS: Variance 415ms!
 ```
-Run 1: 424ms  ❌ COLD START CATASTROPHIQUE
-Run 2: 244ms  ❌ HORS TARGET
-Run 3: 183ms  ✅ OK
-Run 4: 242ms  ❌ HORS TARGET
-Run 5: 134ms  ✅ EXCELLENT
-
-MOYENNE: 245ms ❌ (target < 200ms)
-VARIANCE: 290ms (134-424ms) = INSTABLE
-```
-
-**AMÉLIORATION vs Sprint #62:** Oui, plus de rate limiting 4200ms
-**MAIS:** Toujours 245ms > 200ms target!
 
 ---
 
-## SPRINT #63 - TRIADE CHECK
+## SPRINT #64 - TRIADE CHECK
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
-| QUALITÉ | 8/10 | Tests 99.5%, Build OK |
-| LATENCE | 5/10 | 245ms moyenne, target 200ms |
-| STREAMING | 3/10 | WebSocket rate limited |
-| HUMANITÉ | 7/10 | TTS produit audio réel |
-| CONNECTIVITÉ | 5/10 | Backend UP, WS KO |
+| QUALITÉ | 5/10 | 1 test FAILED, TTS rate limited |
+| LATENCE | 4/10 | 296ms moyenne, pic 586ms |
+| STREAMING | 7/10 | WebSocket fonctionne! |
+| HUMANITÉ | 4/10 | TTS rate limited 2/3 tests |
+| CONNECTIVITÉ | 4/10 | Rate limits bloquent |
 
-**SCORE TRIADE: 28/50 (56%)**
+**SCORE TRIADE: 24/50 (48%)**
 
 ---
 
-## RAW TEST DATA
+## RAW TEST DATA (RÉEL - 08:04 UTC)
 
-### TEST 1 - LATENCE E2E (MESSAGES UNIQUES):
+### TEST 1 - LATENCE E2E (MESSAGES UNIQUES - NO CACHE!):
 ```
-Run 1: latency_ms=424  ❌ COLD START
-Run 2: latency_ms=244  ❌ 22% over target
-Run 3: latency_ms=183  ✅
-Run 4: latency_ms=242  ❌ 21% over target
-Run 5: latency_ms=134  ✅ EXCELLENT
+Run 1: 213ms total (internal: 193ms) ✓ MARGINAL
+Run 2: 171ms total (internal: 151ms) ✓ EXCELLENT
+Run 3: 218ms total (internal: 202ms) MARGINAL
+Run 4: 586ms total (internal: 565ms) ❌❌ CATASTROPHE (3x target!)
+Run 5: 294ms total (internal: 273ms) ❌
 
-Moyenne: 245ms ❌ (23% au-dessus du target)
-```
-
-### TEST 2 - TTS:
-```
-Audio binaire reçu: ✅ (données audio brutes)
+MOYENNE: 296ms (48% AU-DESSUS TARGET 200ms)
+MIN: 171ms
+MAX: 586ms
+VARIANCE: 415ms (ÉNORME!)
 ```
 
-### TEST 3 - GPU:
+**40% des requêtes HORS SLA!**
+
+### TEST 2 - OLLAMA DIRECT (sans backend):
+```
+Run 1: 72ms  ✓ EXCELLENT
+Run 2: 133ms ✓
+Run 3: 231ms MARGINAL
+```
+
+**PREUVE:** Ollama PEUT faire 72ms!
+**QUESTION:** Pourquoi backend ajoute +500ms sur Run 4?
+
+### TEST 3 - TTS:
+```
+Run 1: 3900ms, 32 bytes = {"detail":"Rate limit exceeded"} ❌
+Run 2: 109ms, 32 bytes = {"detail":"Rate limit exceeded"} ❌
+Run 3: 113ms, 12960 bytes = OK ✓
+```
+
+**2/3 TTS = RATE LIMITED!** TTS inutilisable en production.
+
+### TEST 4 - GPU:
 ```
 NVIDIA GeForce RTX 4090
 Utilisation: 0%  ❌❌❌
-VRAM utilisé: 3665 MiB / 24564 MiB
-VRAM libre: ~21GB
-Température: 26°C (idle)
+VRAM utilisé: 4540 MiB / 24564 MiB
+VRAM libre: ~20GB
 ```
 
-**21GB VRAM INUTILISÉS - LA RTX 4090 DORT!**
+**20GB VRAM INUTILISÉS PENDANT QUE LATENCE EXPLOSE!**
 
-### TEST 4 - WEBSOCKET:
+### TEST 5 - WEBSOCKET:
 ```json
-{"type":"error","message":"Rate limit exceeded"}
+{"type":"token","content":"Test recu! Mais parle-moi de toi!"}
+{"type":"end"}
 ```
 
-### TEST 5 - FRONTEND BUILD:
-```
-✅ Build SUCCESS
-```
+**WebSocket FONCTIONNE!** Amélioration majeure vs Sprint #61-63.
 
 ### TEST 6 - TESTS UNITAIRES:
 ```
-202 passed, 1 skipped in 43.36s ✅
+17 passed, 1 failed, 1 skipped in 11.94s
+
+FAILED: test_rate_limit_header
+  assert 199 < 60  ← rate_limit_remaining incorrect
+```
+
+### TEST 7 - FRONTEND BUILD:
+```
+✓ Build SUCCESS
 ```
 
 ---
 
-## ANALYSE - COLD START PROBLEM
+## PROBLÈMES CRITIQUES
 
-```
-Run 1: 424ms  ← COLD START (2x plus lent)
-Run 2-5: 134-244ms ← WARM
+### PROBLÈME 1: RATE LIMITER CASSÉ (BLOQUANT)
+```python
+# Test attend: rate_limit_remaining < 60
+# Reçoit: rate_limit_remaining = 199
+
+# TTS rate limited après 1 requête
+# Impact: TTS inutilisable, tests cassés
 ```
 
-**Le premier appel = TOUJOURS 2x plus lent!**
+**ACTION IMMÉDIATE:** Investiguer et fixer le rate limiter dans main.py
+
+### PROBLÈME 2: GPU À 0% PENDANT INFERENCE
+```
+Ollama TOURNE (PID visible)
+Ollama LOADED en mémoire (4540 MiB)
+MAIS: 0% GPU utilization pendant requêtes
+
+CAUSE PROBABLE:
+- Ollama compilé sans CUDA
+- Ou mauvaise config OLLAMA_GPU
+```
+
+### PROBLÈME 3: OVERHEAD BACKEND +500ms
+```
+Ollama direct: 72ms
+Via backend Run 4: 586ms
+Overhead: +514ms!
+
+Où partent ces 500ms?
+- Rate limiter check?
+- Memory/history lookup?
+- TTS generation intégrée?
+```
 
 ---
 
 ## COMPARAISON SPRINTS
 
-| Sprint | Score | E2E Latency | Status |
-|--------|-------|-------------|--------|
-| #61 | 2% | N/A (crash) | Backend DOWN |
-| #62 | 32% | 4200ms | Rate limited |
-| #63 | 56% | 245ms | Cold start |
+| Sprint | Score | E2E Avg | E2E Max | Variance | Issue Principal |
+|--------|-------|---------|---------|----------|-----------------|
+| #61 | 56% | 206ms | 367ms | 238ms | WebSocket down |
+| #62 | 32% | 4200ms | 4200ms | - | Rate limit 4200ms |
+| #63 | 56% | 245ms | 424ms | 290ms | Cold start |
+| **#64** | **48%** | **296ms** | **586ms** | **415ms** | Rate limiter + GPU |
+
+**RÉGRESSION vs #63!** Variance +125ms, Max +162ms
 
 ---
 
-## BLOCAGES RESTANTS
+## BLOCAGES À RÉSOUDRE
 
-| Issue | Sévérité | Action |
-|-------|----------|--------|
-| Latence > 200ms | HAUTE | Warmup + opt |
-| GPU 0% | CRITIQUE | LLM local |
-| WebSocket | HAUTE | Fix rate limit |
-| Cold start 424ms | HAUTE | Warmup |
+| # | Issue | Sévérité | Impact |
+|---|-------|----------|--------|
+| 1 | Rate limiter cassé | CRITIQUE | Tests fail, TTS bloqué |
+| 2 | GPU 0% | CRITIQUE | 20GB VRAM gaspillés |
+| 3 | Variance 415ms | HAUTE | UX inconsistante |
+| 4 | Backend overhead | HAUTE | +200-500ms mystère |
 
 ---
 
-## INSTRUCTIONS WORKER - SPRINT #64
+## INSTRUCTIONS WORKER - SPRINT #65
 
-### PRIORITÉ 1: WARMUP GROQ
-
-```python
-@app.on_event("startup")
-async def warmup_llm():
-    await groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": "hi"}],
-        max_tokens=1
-    )
-```
-
-### PRIORITÉ 2: GPU UTILISATION
+### PRIORITÉ 1: FIXER RATE LIMITER (BLOQUANT)
 
 ```bash
-# 21GB VRAM disponibles - UTILISE-LES!
-ollama serve &
-ollama pull llama3.2:3b
-# OU
-pip install vllm
-vllm serve meta-llama/Llama-3.1-8B-Instruct
+# Diagnostic
+grep -n "rate_limit\|RateLimiter" /home/dev/her/backend/main.py | head -30
+
+# Le test attend: remaining < 60
+# Le code retourne: 199
+
+# Chercher pourquoi la valeur est incorrecte
+# Probable: limite augmentée mais test pas mis à jour
+# OU: calcul remaining incorrect
 ```
 
-### PRIORITÉ 3: WEBSEARCH
+**FIXER OU AJUSTER TEST - NE PAS IGNORER!**
 
+### PRIORITÉ 2: ACTIVER GPU OLLAMA
+
+```bash
+# Vérifier CUDA
+ollama ps
+nvidia-smi -l 1  # pendant une requête Ollama
+
+# Test direct
+curl -s http://localhost:11434/api/generate \
+  -d '{"model":"phi3:mini","prompt":"hi"}' &
+nvidia-smi  # DOIT montrer GPU > 0%
+
+# Si toujours 0%:
+# 1. export OLLAMA_GPU_LAYERS=35
+# 2. systemctl restart ollama
+# 3. OU réinstaller: curl -fsSL https://ollama.com/install.sh | sh
 ```
-WebSearch: "reduce LLM cold start latency 2026"
-WebSearch: "vLLM vs Ollama benchmark RTX 4090"
+
+### PRIORITÉ 3: PROFILER BACKEND OVERHEAD
+
+```bash
+# Ajouter timing dans /chat:
+import time
+t0 = time.perf_counter()
+# ... après chaque étape
+print(f"rate_limit: {(time.perf_counter()-t0)*1000:.0f}ms")
+print(f"llm_call: {(time.perf_counter()-t0)*1000:.0f}ms")
+print(f"total: {(time.perf_counter()-t0)*1000:.0f}ms")
 ```
+
+### PRIORITÉ 4: WEBSEARCH (OBLIGATOIRE)
+
+```bash
+# Tu DOIS rechercher:
+WebSearch: "ollama cuda not using gpu ubuntu 2025"
+WebSearch: "fastapi rate limiter slowapi configuration"
+WebSearch: "reduce python api latency variance"
+```
+
+**SI PAS DE WEBSEARCH = BLOCAGE PROCHAIN SPRINT**
 
 ---
 
@@ -168,23 +244,35 @@ WebSearch: "vLLM vs Ollama benchmark RTX 4090"
 ```
 ╔══════════════════════════════════════════════════════════════════╗
 ║                                                                   ║
-║  SPRINT #63: AMÉLIORATION MAIS INSUFFISANT                       ║
+║  SPRINT #64: RÉGRESSION                                          ║
 ║                                                                   ║
-║  ✅ Plus de rate limiting 4200ms                                  ║
-║  ✅ TTS fonctionne                                                ║
-║  ✅ Tests 99.5%                                                   ║
+║  ✅ WebSocket fonctionne (amélioration!)                         ║
+║  ✅ Frontend build OK                                             ║
+║  ✅ Backend UP                                                    ║
 ║                                                                   ║
-║  ❌ Latence 245ms > 200ms target                                  ║
-║  ❌ Cold start 424ms                                              ║
-║  ❌ GPU 0% - 21GB VRAM gaspillés                                  ║
-║  ❌ WebSocket rate limited                                        ║
+║  ❌ Rate limiter CASSÉ (TTS 2/3 blocked, test FAILED)            ║
+║  ❌ GPU 0% - 20GB VRAM dormants!                                  ║
+║  ❌ Variance 415ms (586ms max!)                                   ║
+║  ❌ Latence 296ms > 200ms target                                  ║
 ║                                                                   ║
-║  SCORE: 28/50 (56%)                                              ║
+║  SCORE: 24/50 (48%) - RÉGRESSION -8% vs Sprint #63               ║
+║                                                                   ║
+║  ACCEPTATION: NON                                                 ║
 ║                                                                   ║
 ╚══════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-*Ralph Moderator - Sprint #63*
-*"245ms c'est proche mais c'est pas 200ms. GPU à 0% = crime contre la RTX 4090."*
+## EXIGENCES SPRINT #65
+
+1. **Rate limiter DOIT être fixé** - Tous tests PASS
+2. **GPU DOIT montrer >0%** pendant inference
+3. **Latence DOIT être <200ms** sur 4/5 runs minimum
+4. **Variance DOIT être <150ms**
+5. **WebSearch OBLIGATOIRE** sur GPU et rate limiter
+
+---
+
+*Ralph Moderator - Sprint #64*
+*"Rate limiter cassé = tests cassés = qualité inconnue. GPU 0% = RTX 4090 en mode paperweight. 586ms = INACCEPTABLE. RÉGRESSION."*
