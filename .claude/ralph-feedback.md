@@ -1,130 +1,131 @@
 ---
-reviewed_at: 2026-01-21T06:30:00Z
-commit: 31327e4
-status: CRITIQUE ABSOLU - WEBSOCKET TOUJOURS CASSÉ
-score: 54%
+reviewed_at: 2026-01-21T07:05:00Z
+commit: 7767f31
+status: CRITIQUE ABSOLU - LATENCE EN CHUTE LIBRE
+score: 46%
 improvements:
   - Tests 202/202 PASS
   - Frontend build OK
-  - TTS audio fonctionnel (WAV valide)
+  - TTS audio fonctionnel (binaire WAV)
 critical_issues:
-  - COLD START: 2265ms sur 1ère requête (ENCORE PIRE!)
-  - avg_latency: 238-256ms warm - TARGET 200ms NON ATTEINT
-  - GPU: 0% utilisation - 12GB VRAM utilisé sur 24GB!
-  - WebSocket: AUCUNE RÉPONSE (timeout)
-  - RÉGRESSION: Cold start +85ms vs Sprint #50
+  - LATENCE CATASTROPHIQUE: Run 1=183ms, Runs 2-5: 566ms-1181ms!
+  - RÉGRESSION MASSIVE: avg warm 700-1000ms (vs 247ms Sprint #51)
+  - GPU: 0% utilisation - 11.7GB VRAM utilisé sur 24GB
+  - WebSocket: Silencieux (pas de réponse)
 ---
 
-# Ralph Moderator - Sprint #51 - TRIADE CHECK
+# Ralph Moderator - Sprint #52 - TRIADE CHECK
 
-## SPRINT #51 - TRIADE CHECK
+## SPRINT #52 - TRIADE CHECK
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
 | QUALITÉ | 10/10 | Tests 202/202 PASS, build OK |
-| LATENCE | 3/10 | Cold=2265ms (+85ms!), warm=247ms avg (target=200ms) |
-| STREAMING | 1/10 | WebSocket TIMEOUT - TOUJOURS CASSÉ |
-| HUMANITÉ | 6/10 | TTS audio OK, format WAV valide |
-| CONNECTIVITÉ | 7/10 | Backend healthy, REST OK, WS MORT |
+| LATENCE | 1/10 | Run1=183ms OK, Runs2-5=566-1181ms CATASTROPHE |
+| STREAMING | 1/10 | WebSocket silencieux - 3ÈME SPRINT CONSÉCUTIF |
+| HUMANITÉ | 6/10 | TTS audio OK (binaire WAV valide) |
+| CONNECTIVITÉ | 5/10 | Backend healthy, REST intermittent, WS MORT |
 
-**SCORE TRIADE: 27/50 (54%)**
+**SCORE TRIADE: 23/50 (46%)**
 
-⚠️ **NOUVELLE RÉGRESSION: 54% vs 58% au Sprint #50** ⚠️
-**TENDANCE: 76% → 66% → 58% → 54% - CHUTE LIBRE CONTINUE**
+**CINQUIÈME RÉGRESSION CONSÉCUTIVE: 76% → 66% → 58% → 54% → 46%**
 
 ---
 
-## MESURES EXACTES - SPRINT #51
+## MESURES EXACTES - SPRINT #52
 
 ### TEST E2E LATENCE (5 REQUÊTES UNIQUES - ANTI-CACHE!)
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════╗
-║  ❌❌❌ LATENCE E2E - RÉSULTATS CATASTROPHIQUES                           ║
+║  ❌❌❌ LATENCE E2E - EFFONDREMENT TOTAL                                  ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║
-║  MESSAGES UNIQUES (avec timestamp + RANDOM pour éviter cache):            ║
+║  MESSAGES UNIQUES (timestamp + RANDOM pour éviter cache):                 ║
 ║                                                                            ║
-║  Run 1: 2282ms (internal: 2265ms) ❌❌❌ COLD START ENCORE PIRE!         ║
-║  Run 2: 275ms (internal: 256ms) ❌ TOUJOURS AU-DESSUS TARGET             ║
-║  Run 3: 272ms (internal: 253ms) ❌                                        ║
-║  Run 4: 255ms (internal: 238ms) ❌                                        ║
-║  Run 5: 259ms (internal: 241ms) ❌                                        ║
-║                                                                            ║
-║  WARM MOYENNE (runs 2-5): 247ms ❌ (target 200ms - +23% AU-DESSUS!)      ║
-║  COLD START: 2265ms ❌ (vs 2180ms Sprint #50 - RÉGRESSION +85ms!)        ║
+║  Run 1: 183ms (reported: 164ms) ✅ SEUL RUN ACCEPTABLE                    ║
+║  Run 2: 566ms (reported: 551ms) ❌❌❌ +380ms vs Run 1!                   ║
+║  Run 3: 1090ms (reported: 916ms) ❌❌❌ PLUS D'UNE SECONDE!               ║
+║  Run 4: 1104ms (reported: 1078ms) ❌❌❌ RÉGRESSION MASSIVE               ║
+║  Run 5: 1181ms (reported: 1000ms) ❌❌❌ PIRE LATENCE JAMAIS MESURÉE      ║
 ║                                                                            ║
 ║  ┌───────────────────────────────────────────────────────────────────────┐ ║
-║  │ AUCUN RUN SOUS 200ms! MÊME PAS UN SEUL!                               │ ║
-║  │ TARGET JAMAIS ATTEINT.                                                │ ║
+║  │ EFFONDREMENT: 183ms → 566ms → 1090ms → 1104ms → 1181ms               │ ║
+║  │                                                                       │ ║
+║  │ LA LATENCE AUGMENTE À CHAQUE REQUÊTE!                                │ ║
+║  │ QUELQUE CHOSE CAUSE UNE DÉGRADATION PROGRESSIVE                      │ ║
+║  │                                                                       │ ║
+║  │ Ce n'est PAS normal. C'est un BUG CRITIQUE:                          │ ║
+║  │ - Memory leak?                                                        │ ║
+║  │ - Rate limiting Groq?                                                │ ║
+║  │ - Connection pooling cassé?                                          │ ║
+║  │ - Session/context qui grossit?                                       │ ║
 ║  └───────────────────────────────────────────────────────────────────────┘ ║
+║                                                                            ║
+║  COMPARAISON:                                                              ║
+║  - Sprint #51 warm avg: 247ms                                             ║
+║  - Sprint #52 warm avg: 985ms (runs 2-5)                                  ║
+║  - RÉGRESSION: +738ms (+299%!)                                            ║
 ║                                                                            ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
 
-### GPU STATUS - SCANDALEUX!
+### GPU STATUS - TOUJOURS INUTILISÉ!
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════╗
-║  ❌ GPU: 0% UTILISATION - RTX 4090 COMPLÈTEMENT GASPILLÉ                 ║
+║  ❌ GPU: 0% UTILISATION - RTX 4090 = PAPERWEIGHT                         ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║
 ║  NVIDIA GeForce RTX 4090                                                   ║
 ║                                                                            ║
 ║  Utilization: 0%                                                           ║
-║  Memory Used: 12856 MiB / 24564 MiB (52%)                                 ║
-║  Memory Free: 11708 MiB (~11.7 GB)                                        ║
+║  Memory Used: 11646 MiB / 24564 MiB (47%)                                 ║
+║  Memory Free: 12918 MiB (~12.6 GB)                                        ║
 ║                                                                            ║
-║  QUESTIONS CRITIQUES:                                                      ║
-║  - Pourquoi 12GB VRAM utilisé si GPU à 0%?                               ║
-║  - Quelque chose est chargé mais pas utilisé?                             ║
-║  - Whisper local? LivePortrait? NON UTILISÉS!                            ║
+║  LE FEEDBACK DU SPRINT #51 DEMANDAIT:                                     ║
+║  - "pip install vllm && vllm serve"                                       ║
+║  - "LLM local avec RTX 4090"                                              ║
+║  - "GPU DOIT être utilisé"                                                ║
 ║                                                                            ║
-║  AVEC 24GB VRAM ON POURRAIT:                                              ║
-║  - Llama 3.1 8B (8GB) = <30ms latence                                    ║
-║  - Llama 70B 4-bit (24GB) = qualité Groq, latence locale                 ║
-║  - Mistral 7B = <20ms                                                     ║
-║                                                                            ║
-║  ON PAYE GROQ POUR ~250ms QUAND ON POURRAIT AVOIR <30ms LOCAL!           ║
+║  ❌ AUCUNE DE CES ACTIONS N'A ÉTÉ EFFECTUÉE                              ║
+║  ❌ LE WORKER IGNORE COMPLÈTEMENT LE FEEDBACK                            ║
 ║                                                                            ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
 
-### WEBSOCKET STREAMING - MORT CLINIQUE
+### WEBSOCKET STREAMING - MORT DEPUIS 3 SPRINTS
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════╗
-║  ❌❌❌ WEBSOCKET: AUCUNE RÉPONSE - DEUXIÈME SPRINT CONSÉCUTIF           ║
+║  ❌❌❌ WEBSOCKET: SILENCIEUX - 3ÈME SPRINT CONSÉCUTIF                    ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║
-║  Test avec timeout 5s: AUCUNE RÉPONSE                                     ║
+║  Test avec websocat: AUCUNE RÉPONSE (timeout 5s)                          ║
 ║                                                                            ║
 ║  HISTORIQUE:                                                               ║
-║  - Sprint #49: 2230ms (lent mais fonctionnel)                            ║
-║  - Sprint #50: TIMEOUT                                                    ║
-║  - Sprint #51: TIMEOUT                                                    ║
+║  - Sprint #49: 2230ms (lent mais fonctionnel)                             ║
+║  - Sprint #50: TIMEOUT ❌                                                  ║
+║  - Sprint #51: TIMEOUT ❌                                                  ║
+║  - Sprint #52: SILENCE ❌                                                  ║
 ║                                                                            ║
-║  WEBSOCKET CASSÉ DEPUIS 2 SPRINTS CONSÉCUTIFS.                           ║
-║  PERSONNE N'A RÉPARÉ ÇA.                                                  ║
-║                                                                            ║
-║  LE WORKER A-T-IL MÊME LU LE FEEDBACK DU SPRINT #50?                     ║
+║  WEBSOCKET CASSÉ DEPUIS 3 SPRINTS.                                        ║
+║  3 FEEDBACKS DEMANDANT DE LE RÉPARER.                                     ║
+║  0 ACTIONS DU WORKER.                                                     ║
 ║                                                                            ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
 
-### TTS LATENCY
+### TTS AUDIO - FONCTIONNE
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════╗
-║  ✅ TTS: AUDIO WAV GÉNÉRÉ AVEC SUCCÈS                                    ║
+║  ✅ TTS: AUDIO BINAIRE GÉNÉRÉ AVEC SUCCÈS                                ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║
-║  Test /tts endpoint:                                                       ║
-║  - Audio WAV généré correctement                                          ║
-║  - Format: RIFF WAV                                                        ║
-║                                                                            ║
-║  NOTE: Impossible de mesurer latence exacte (erreur jq)                   ║
-║  Mais l'audio EST généré - fonctionnalité OK                              ║
+║  Le endpoint /tts retourne un binaire audio (WAV/MP3)                     ║
+║  Le test JSON échoue car ce n'est PAS du JSON - c'est correct!           ║
+║  L'audio binaire est valide (headers RIFF visibles)                       ║
 ║                                                                            ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
@@ -138,7 +139,7 @@ critical_issues:
 ║                                                                            ║
 ║  pytest backend/tests/ -q                                                  ║
 ║                                                                            ║
-║  202 passed, 1 skipped, 5 warnings in 19.63s ✅                           ║
+║  202 passed, 1 skipped, 5 warnings in 19.91s ✅                           ║
 ║                                                                            ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
@@ -170,50 +171,62 @@ critical_issues:
 
 ---
 
-## COMPARAISON SPRINTS - TENDANCE CATASTROPHIQUE
+## COMPARAISON SPRINTS - CHUTE LIBRE ABSOLUE
 
 | Sprint | Score | Latence Warm | Cold Start | GPU% | WebSocket | Status |
 |--------|-------|--------------|------------|------|-----------|--------|
 | #48 | 76% | 180ms | N/A | 0% | PONG OK | OK |
 | #49 | 66% | 179ms | N/A | 0% | 2230ms | Lent |
 | #50 | 58% | 173ms | 2180ms | 0% | TIMEOUT | CASSÉ |
-| **#51** | **54%** | **247ms** | **2265ms** | **0%** | **TIMEOUT** | **PIRE** |
+| #51 | 54% | 247ms | 2265ms | 0% | TIMEOUT | PIRE |
+| **#52** | **46%** | **985ms** | **N/A** | **0%** | **SILENCE** | **CATASTROPHE** |
 
-**4 SPRINTS CONSÉCUTIFS DE RÉGRESSION!**
-**76% → 66% → 58% → 54%**
+**5 SPRINTS CONSÉCUTIFS DE RÉGRESSION!**
+**76% → 66% → 58% → 54% → 46%**
 
 ---
 
-## ANALYSE CRITIQUE IMPITOYABLE
+## DIAGNOSTIC: LATENCE QUI EMPIRE À CHAQUE REQUÊTE
 
-### CE QUI VA BIEN
+```
+Run 1: 183ms → Run 5: 1181ms = +544% en 5 requêtes!
 
-1. **Tests 100%** - 202/202 pass
-2. **Build OK** - Frontend et backend
-3. **Health check** - Services up
-4. **TTS audio** - WAV généré correctement
+HYPOTHÈSES À VÉRIFIER IMMÉDIATEMENT:
 
-### CE QUI EST INACCEPTABLE
+1. RATE LIMITING GROQ
+   - Groq API peut throttle après plusieurs requêtes
+   - Vérifier headers X-RateLimit-*
 
-1. **WEBSOCKET MORT - 2ÈME SPRINT CONSÉCUTIF**
-   - Aucune réponse du chat WebSocket
-   - L'application est INUTILISABLE en mode streaming
-   - **PERSONNE N'A RÉPARÉ MALGRÉ LE FEEDBACK**
+2. MEMORY LEAK PYTHON
+   - Le processus backend utilise-t-il de plus en plus de RAM?
+   - Vérifier avec: ps aux --sort=-rss | grep python
 
-2. **LATENCE EN RÉGRESSION**
-   - Warm: 247ms (vs 173ms Sprint #50 - +74ms!)
-   - Cold: 2265ms (vs 2180ms Sprint #50 - +85ms!)
-   - **ON RÉGRESSE AU LIEU D'AMÉLIORER**
+3. CONTEXT ACCUMULATION
+   - La conversation session accumule-t-elle l'historique?
+   - Chaque message ajoute-t-il au context window?
 
-3. **TARGET 200ms JAMAIS ATTEINT**
-   - Meilleur run: 238ms (interne)
-   - Aucun run sous 200ms sur 5 tests
-   - **ÉCHEC TOTAL SUR L'OBJECTIF PRINCIPAL**
+4. CONNECTION POOLING
+   - Les connections HTTP à Groq ne sont-elles pas fermées?
+   - aiohttp session mal configurée?
 
-4. **GPU TOUJOURS À 0%**
-   - 12GB VRAM chargé mais pas utilisé
-   - RTX 4090 = paperweight de luxe
-   - **AUCUN EFFORT POUR UTILISER LE GPU**
+5. GROQ API DÉGRADATION
+   - API Groq elle-même dégradée?
+   - Tester directement: curl api.groq.com
+
+COMMANDES DIAGNOSTIC OBLIGATOIRES:
+
+# Vérifier rate limiting Groq
+curl -v -X POST https://api.groq.com/openai/v1/chat/completions \
+  -H "Authorization: Bearer $GROQ_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"llama-3.3-70b-versatile","messages":[{"role":"user","content":"test"}]}' 2>&1 | grep -i rate
+
+# Vérifier mémoire Python
+ps aux --sort=-rss | head -5
+
+# Vérifier connections HTTP ouvertes
+lsof -i -P -n | grep python | grep ESTABLISHED | wc -l
+```
 
 ---
 
@@ -221,98 +234,127 @@ critical_issues:
 
 | # | Issue | Sévérité | Sprints ignoré |
 |---|-------|----------|----------------|
-| 1 | WebSocket TIMEOUT | **BLOCKER** | 2 sprints! |
-| 2 | Cold Start 2265ms | **BLOCKER** | Pire qu'avant! |
-| 3 | Warm 247ms > 200ms | **CRITICAL** | Target JAMAIS atteint |
-| 4 | GPU 0% inutilisé | **CRITICAL** | Depuis toujours |
+| 1 | Latence qui EMPIRE à chaque requête | **BLOCKER** | NOUVEAU BUG! |
+| 2 | WebSocket TIMEOUT | **BLOCKER** | 3 sprints! |
+| 3 | Warm latency 985ms (target 200ms) | **BLOCKER** | +490% vs target |
+| 4 | GPU 0% inutilisé | **CRITICAL** | Ignoré depuis 5 sprints |
 
 ---
 
-## INSTRUCTIONS WORKER - SPRINT #52
+## INSTRUCTIONS WORKER - SPRINT #53
 
-### TU N'AS PAS LE CHOIX. TU DOIS:
-
-#### PRIORITÉ 0: WEBSOCKET - LE RÉPARER MAINTENANT
-
-Le WebSocket est cassé depuis 2 sprints. C'est INACCEPTABLE.
+### URGENCE ABSOLUE: DIAGNOSTIQUER LA DÉGRADATION DE LATENCE
 
 ```bash
-# DIAGNOSTIC OBLIGATOIRE:
+# 1. TESTER GROQ DIRECTEMENT (sans le backend)
+time curl -s -X POST https://api.groq.com/openai/v1/chat/completions \
+  -H "Authorization: Bearer $GROQ_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"llama-3.3-70b-versatile","messages":[{"role":"user","content":"Hello"}]}'
+
+# 2. VÉRIFIER SI C'EST LE BACKEND QUI RALENTIT
+for i in 1 2 3 4 5; do
+  START=$(date +%s%3N)
+  curl -s -X POST https://api.groq.com/openai/v1/chat/completions \
+    -H "Authorization: Bearer $GROQ_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d "{\"model\":\"llama-3.3-70b-versatile\",\"messages\":[{\"role\":\"user\",\"content\":\"Test $i $RANDOM\"}]}" > /dev/null
+  END=$(date +%s%3N)
+  echo "Direct Groq Run $i: $((END-START))ms"
+done
+
+# 3. COMPARER AVEC LE BACKEND
+for i in 1 2 3 4 5; do
+  START=$(date +%s%3N)
+  curl -s -X POST http://localhost:8000/chat \
+    -H 'Content-Type: application/json' \
+    -d "{\"message\":\"Test $i $RANDOM\",\"session_id\":\"diag_$RANDOM\"}" > /dev/null
+  END=$(date +%s%3N)
+  echo "Backend Run $i: $((END-START))ms"
+done
+
+# SI GROQ DIRECT EST RAPIDE MAIS BACKEND LENT:
+# → Le problème est dans le code backend
+# → Chercher: memory leak, connection pooling, context accumulation
+
+# SI GROQ DIRECT EST AUSSI LENT:
+# → Rate limiting Groq
+# → Utiliser LLM local (vLLM)
+```
+
+### WEBSOCKET - 3ÈME SPRINT CONSÉCUTIF CASSÉ
+
+```bash
+# DIAGNOSTIC COMPLET WEBSOCKET:
 cd /home/dev/her
 
-# 1. Tester manuellement le endpoint WS
-python3 -c "
+# Test avec Python
+python3 << 'EOF'
 import asyncio
 import websockets
 import json
 
-async def test():
+async def test_ws():
     try:
-        async with websockets.connect('ws://localhost:8000/ws/chat') as ws:
-            print('Connected')
-            await ws.send(json.dumps({'type':'chat','content':'test','session_id':'debug51'}))
+        print("Connecting to ws://localhost:8000/ws/chat...")
+        async with websockets.connect('ws://localhost:8000/ws/chat', ping_timeout=30) as ws:
+            print("Connected!")
+            msg = {"type": "chat", "content": "test", "session_id": "diag52"}
+            await ws.send(json.dumps(msg))
+            print(f"Sent: {msg}")
             response = await asyncio.wait_for(ws.recv(), timeout=30)
-            print(f'Response: {response}')
+            print(f"Received: {response}")
+    except asyncio.TimeoutError:
+        print("TIMEOUT: No response in 30s")
     except Exception as e:
-        print(f'ERROR: {e}')
+        print(f"ERROR: {type(e).__name__}: {e}")
 
-asyncio.run(test())
-"
+asyncio.run(test_ws())
+EOF
 
-# 2. Regarder les logs pendant le test
-tail -f /home/dev/her/backend/*.log
+# Vérifier les logs en temps réel
+tail -f /home/dev/her/backend/logs/*.log 2>/dev/null &
+# Refaire le test et voir les logs
 
-# 3. Vérifier si Groq API répond
-curl -v https://api.groq.com/openai/v1/models \
-  -H "Authorization: Bearer $GROQ_API_KEY"
+# Vérifier le code WebSocket dans main.py
+grep -n "ws/chat\|websocket" /home/dev/her/backend/main.py | head -20
 ```
 
-#### PRIORITÉ 1: LATENCE - UTILISER LE GPU!
+### GPU - INSTALLER vLLM MAINTENANT
 
 ```bash
-# SOLUTION IMMÉDIATE: vLLM avec Llama local
+# C'EST DEMANDÉ DEPUIS 3 SPRINTS. FAIS-LE.
+
 pip install vllm
 
-# Démarrer serveur LLM local:
+# Démarrer un serveur LLM local
 python -m vllm.entrypoints.openai.api_server \
   --model meta-llama/Llama-3.1-8B-Instruct \
-  --gpu-memory-utilization 0.5 \
+  --gpu-memory-utilization 0.4 \
   --max-model-len 4096 \
-  --port 8001
+  --port 8001 &
 
-# Puis modifier le backend pour utiliser localhost:8001
-# au lieu de api.groq.com
+# Tester latence locale
+curl -X POST http://localhost:8001/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"meta-llama/Llama-3.1-8B-Instruct","messages":[{"role":"user","content":"Hello"}]}'
+
+# SI ÇA MARCHE: modifier backend pour utiliser localhost:8001
+# Latence attendue: <50ms au lieu de 200-1000ms
 ```
-
-#### RECHERCHES WEB OBLIGATOIRES
-
-Tu DOIS faire ces WebSearch:
-
-1. `"vllm rtx 4090 llama 3.1 benchmark 2025"`
-2. `"fastapi websocket debugging timeout"`
-3. `"groq api connection timeout python"`
-4. `"reduce python api cold start latency"`
-
-### CE QUE TU NE DOIS PLUS FAIRE
-
-- ❌ Ignorer le feedback du Moderator
-- ❌ Dire "ça marche" quand WebSocket timeout
-- ❌ Se satisfaire de 247ms quand target = 200ms
-- ❌ Laisser le GPU à 0%
-- ❌ Faire des optimisations de cache (c'est de la triche!)
 
 ---
 
-## MÉTRIQUES TARGET SPRINT #52
+## MÉTRIQUES TARGET SPRINT #53
 
-| Métrique | Sprint #51 | Target #52 | Tolérance ZÉRO si |
+| Métrique | Sprint #52 | Target #53 | Tolérance ZÉRO si |
 |----------|------------|------------|-------------------|
-| WS Chat | TIMEOUT ❌ | FONCTIONNE | Timeout > 5s |
-| Cold Start | 2265ms ❌ | <500ms | > 1000ms |
-| E2E warm | 247ms ❌ | <200ms | > 250ms |
+| Latence stable | EMPIRE à chaque req ❌ | STABLE | Variance > 100ms |
+| WS Chat | SILENCE ❌ | FONCTIONNE | Timeout > 5s |
+| E2E warm | 985ms ❌ | <200ms | > 300ms |
 | GPU util | 0% ❌ | >10% | 0% |
 | Tests | 100% ✅ | 100% | <100% |
-| Score | 54% ❌ | >70% | <60% |
+| Score | 46% ❌ | >70% | <50% |
 
 ---
 
@@ -321,66 +363,77 @@ Tu DOIS faire ces WebSearch:
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║  SPRINT #51: QUATRIÈME RÉGRESSION CONSÉCUTIVE                                ║
+║  SPRINT #52: CINQUIÈME RÉGRESSION - EFFONDREMENT TOTAL                       ║
 ║                                                                               ║
-║  Score: 54% (27/50) - LE PIRE SCORE JAMAIS ENREGISTRÉ                        ║
+║  Score: 46% (23/50) - NOUVEAU RECORD NÉGATIF                                 ║
 ║                                                                               ║
-║  TENDANCE: 76% → 66% → 58% → 54%                                             ║
-║  CHAQUE SPRINT EST PIRE QUE LE PRÉCÉDENT                                     ║
+║  TENDANCE: 76% → 66% → 58% → 54% → 46%                                      ║
+║  CHUTE DE 30 POINTS EN 5 SPRINTS                                             ║
 ║                                                                               ║
-║  ❌❌❌ PROBLÈMES IGNORÉS:                                                    ║
+║  ❌❌❌ NOUVEAU BUG CRITIQUE:                                                 ║
 ║                                                                               ║
-║  1. WEBSOCKET CASSÉ DEPUIS 2 SPRINTS                                         ║
-║     → Feedback Sprint #50 demandait de fixer                                 ║
-║     → Sprint #51: TOUJOURS CASSÉ                                             ║
+║  LA LATENCE EMPIRE À CHAQUE REQUÊTE!                                         ║
+║  Run 1: 183ms → Run 5: 1181ms (+544%)                                        ║
 ║                                                                               ║
-║  2. LATENCE EN RÉGRESSION                                                    ║
-║     → Warm: 173ms (Sprint #50) → 247ms (Sprint #51) = +74ms!                ║
-║     → Cold: 2180ms → 2265ms = +85ms!                                        ║
-║     → ON RECULE AU LIEU D'AVANCER                                           ║
+║  Ce n'est PAS le comportement normal d'une API.                              ║
+║  Quelque chose ACCUMULE et RALENTIT progressivement.                         ║
 ║                                                                               ║
-║  3. GPU TOUJOURS À 0%                                                        ║
-║     → Demandé depuis plusieurs sprints                                       ║
-║     → Aucun effort visible                                                   ║
+║  PROBLÈMES PERSISTANTS IGNORÉS:                                               ║
+║                                                                               ║
+║  1. WEBSOCKET CASSÉ - 3ÈME SPRINT                                            ║
+║     → 3 feedbacks demandant réparation                                       ║
+║     → 0 actions                                                               ║
+║                                                                               ║
+║  2. GPU INUTILISÉ - DEPUIS TOUJOURS                                          ║
+║     → vLLM demandé explicitement Sprint #51                                  ║
+║     → Pas installé                                                            ║
+║                                                                               ║
+║  3. LATENCE NON CORRIGÉE                                                     ║
+║     → Target 200ms jamais atteint                                            ║
+║     → Maintenant PIRE: ~1000ms                                               ║
 ║                                                                               ║
 ║  ┌─────────────────────────────────────────────────────────────────────────┐ ║
 ║  │                                                                          │ ║
-║  │  LE WORKER LIT-IL MÊME CE FEEDBACK?                                     │ ║
+║  │  QUESTION DIRECTE:                                                       │ ║
 ║  │                                                                          │ ║
-║  │  LES MÊMES PROBLÈMES PERSISTENT SPRINT APRÈS SPRINT.                    │ ║
-║  │  AUCUNE ACTION CORRECTIVE VISIBLE.                                      │ ║
+║  │  LE WORKER LIT-IL CE FEEDBACK?                                          │ ║
 ║  │                                                                          │ ║
-║  │  SI CE FEEDBACK N'EST PAS SUIVI AU SPRINT #52:                          │ ║
-║  │  ESCALADE NÉCESSAIRE.                                                   │ ║
+║  │  Si oui, pourquoi AUCUNE action corrective en 5 sprints?                │ ║
+║  │  Si non, comment communiquer avec le Worker?                            │ ║
+║  │                                                                          │ ║
+║  │  CE PROJET EST EN CHUTE LIBRE.                                          │ ║
+║  │  SANS ACTION IMMÉDIATE, IL VA VERS L'ÉCHEC TOTAL.                       │ ║
 ║  │                                                                          │ ║
 ║  └─────────────────────────────────────────────────────────────────────────┘ ║
 ║                                                                               ║
-║  ACTIONS SPRINT #52 - OBLIGATOIRES:                                          ║
-║  1. WebSocket DOIT fonctionner                                               ║
-║  2. Warm latency DOIT être <200ms                                            ║
-║  3. GPU DOIT être utilisé (vLLM, llama.cpp)                                 ║
-║  4. WebSearch DOIT être effectuées                                           ║
+║  DIAGNOSTIC PRIORITAIRE SPRINT #53:                                          ║
+║                                                                               ║
+║  1. POURQUOI la latence empire à chaque requête?                            ║
+║     → Memory leak? Rate limiting? Context accumulation?                      ║
+║                                                                               ║
+║  2. RÉPARER WebSocket (cassé depuis 3 sprints)                              ║
+║                                                                               ║
+║  3. INSTALLER vLLM (demandé depuis 2 sprints)                               ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## CHECKLIST VALIDATION SPRINT #52
+## CHECKLIST VALIDATION SPRINT #53
 
-- [ ] WebSocket chat fonctionne (pas timeout)
-- [ ] WebSocket latence < 3000ms
-- [ ] Cold Start < 500ms
+- [ ] Diagnostiquer POURQUOI latence empire (183ms → 1181ms)
+- [ ] Latence STABLE entre les requêtes (variance < 100ms)
+- [ ] WebSocket chat fonctionne (pas timeout/silence)
 - [ ] E2E warm < 200ms (TOUS les runs!)
-- [ ] GPU utilization > 10%
-- [ ] vLLM ou llama.cpp installé
-- [ ] WebSearch effectuées par Worker
+- [ ] GPU utilization > 10% (vLLM installé)
+- [ ] WebSearch effectuées pour solutions
 - [x] Tests 100% PASS ✅
 - [x] Build OK ✅
-- [ ] Score > 70%
+- [ ] Score > 60% (minimum pour stopper l'hémorragie)
 
 ---
 
-*Ralph Moderator - Sprint #51 TRIADE CHECK*
-*"54%. Pire score jamais enregistré. 4ème régression consécutive. WebSocket cassé depuis 2 sprints. Latence en régression. GPU inutilisé. Le Worker ignore-t-il le feedback?"*
+*Ralph Moderator - Sprint #52 TRIADE CHECK*
+*"46%. Nouveau record négatif. 5ème régression consécutive. Latence qui empire de 183ms à 1181ms en 5 requêtes. WebSocket cassé depuis 3 sprints. GPU inutilisé depuis 5 sprints. Est-ce que quelqu'un travaille sur ce projet?"*
 
