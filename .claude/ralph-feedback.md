@@ -1,157 +1,177 @@
 ---
-reviewed_at: 2026-01-21T08:18:00Z
-commit: e17b30b
-status: SPRINT #66 - CATASTROPHE LATENCE - GPU GASPILLÉ
-score: 18%
+reviewed_at: 2026-01-21T08:56:00Z
+commit: 080bbeb
+status: SPRINT #67 - AMÉLIORATION PARTIELLE - PROBLÈMES PERSISTANTS
+score: 38%
 critical_issues:
-  - LATENCE 4000-15000ms: Target 200ms, réel 4-15 SECONDES!
-  - GPU 0%: RTX 4090 24GB VRAM totalement INUTILISÉ
-  - OLLAMA DÉSACTIVÉ: USE_OLLAMA_PRIMARY=false dans .env!
-  - WEBSOCKET CASSÉ: Connection refused sur /ws/chat
-  - TTS non-JSON: Endpoint retourne binary au lieu de JSON structuré
+  - LATENCE 262ms moyenne: Target 200ms, réel 135-444ms (31% hors target)
+  - GPU 0%: RTX 4090 24GB VRAM totalement INUTILISÉ (Groq utilisé)
+  - WEBSOCKET TIMEOUT: /ws/chat ne répond pas (Exit 124)
+  - OLLAMA LOCAL LENT: phi3:mini = 3-10 SECONDES (inutilisable)
 improvements:
-  - Backend démarre (après fix python3)
-  - Ollama local répond en 123ms (direct)
+  - Groq activé: latence passée de 4-15s à 262ms moyenne
+  - TTS fonctionnel: 7KB audio généré
   - Frontend build PASS
   - Tests 201/202 (99.5%)
 ---
 
-# Ralph Moderator - Sprint #66 - CATASTROPHE TOTALE
+# Ralph Moderator - Sprint #67 - AMÉLIORATION PARTIELLE
 
-## VERDICT: LATENCE 20x SUPÉRIEURE AU TARGET - INACCEPTABLE
+## VERDICT: LATENCE AMÉLIORÉE MAIS PROBLÈMES CRITIQUES RESTANTS
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║  🔴 ALERTE MAXIMALE - LATENCE E2E: 4000-15000ms                              ║
+║  🟡 AMÉLIORATION: LATENCE E2E 4000ms → 262ms (-93%)                          ║
 ║                                                                               ║
 ║  TARGET: < 200ms                                                              ║
-║  RÉEL:   4172ms, 4895ms, 15644ms                                             ║
+║  RÉEL:   135ms - 444ms (moyenne 262ms)                                       ║
 ║                                                                               ║
-║  RATIO: 20x à 75x LE TARGET!                                                 ║
+║  RATIO: 1.3x LE TARGET (vs 20x sprint précédent)                             ║
+║                                                                               ║
+║  MAIS: WebSocket cassé, GPU inutilisé, phi3:mini lent                        ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## SPRINT #66 - TRIADE CHECK
+## SPRINT #67 - TRIADE CHECK
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
-| QUALITÉ | 3/10 | Backend UP mais lent, WebSocket cassé |
-| LATENCE | 1/10 | 4000-15000ms (target: 200ms) - CATASTROPHE |
-| STREAMING | 1/10 | WebSocket refuse connexion |
-| HUMANITÉ | 3/10 | TTS retourne audio binaire mais pas testable via JSON |
-| CONNECTIVITÉ | 4/10 | Backend/Ollama UP, WebSocket DOWN |
+| QUALITÉ | 6/10 | Backend UP, Groq fonctionne, 1 test fail |
+| LATENCE | 6/10 | 262ms moyenne (target: 200ms) - PROCHE |
+| STREAMING | 2/10 | WebSocket TIMEOUT (Exit 124) |
+| HUMANITÉ | 5/10 | TTS génère 7KB audio WAV |
+| CONNECTIVITÉ | 5/10 | Backend UP, WebSocket DOWN |
 
-**SCORE TRIADE: 12/50 (24%)**
+**SCORE TRIADE: 24/50 (48%)**
 
 ---
 
-## RAW TEST DATA (08:15 UTC)
+## RAW TEST DATA (08:56 UTC)
 
-### TEST LATENCE E2E - MESSAGES UNIQUES (PAS DE CACHE!)
+### TEST LATENCE E2E GROQ - 10 RUNS UNIQUES
 
 ```bash
-# Messages uniques pour éviter le cache
-Run 1: Client=4172ms | API=4139ms ❌ (20x target)
-Run 2: Client=4895ms | API=4852ms ❌ (24x target)
-Run 3: Client=15644ms | API=237ms ❌ (78x client delay!)
+Run 1: 257ms
+Run 2: 135ms  ✅ (sous target!)
+Run 3: 331ms  ❌
+Run 4: 149ms  ✅
+Run 5: 211ms  ❌
+Run 6: 331ms  ❌
+Run 7: 328ms  ❌
+Run 8: 444ms  ❌
+Run 9: 218ms  ❌
+Run 10: 222ms ❌
 
-CATASTROPHE: 4-15 SECONDES pour une réponse!
+MOYENNE: 262ms
+SOUS TARGET: 2/10 (20%)
 ```
 
-### MAIS OLLAMA LOCAL EST ULTRA-RAPIDE!
+### COMPARAISON LLM PROVIDERS
+
+| Provider | Latence | Status |
+|----------|---------|--------|
+| Ollama phi3:mini | 3000-10000ms | ❌ INUTILISABLE |
+| Groq llama-3.1-8b | 135-444ms | ⚠️ AU-DESSUS TARGET |
+| Groq direct (hors backend) | 262ms | ⚠️ SIMILAIRE |
+
+### PROBLÈME OLLAMA LOCAL
 
 ```bash
-# Test direct Ollama (sans passer par le backend):
-curl http://localhost:11434/api/generate -d '{"model":"phi3:mini","prompt":"Hello"}'
+# phi3:mini est EXTRÊMEMENT LENT sur RTX 4090!
+# Test direct: 3-10 secondes par requête
+# Le modèle se décharge constamment malgré keep_alive=-1
 
-Résultat: 123ms total_duration! ✅✅✅
+# Paradoxe:
+# - 24GB VRAM disponibles
+# - phi3:mini = seulement 2.2GB
+# - Mais prend 3-10 secondes pour répondre!
 
-C'est 30x plus rapide que le backend!
-```
-
-### CONFIGURATION TROUVÉE - LE PROBLÈME
-
-```bash
-# Dans /home/dev/her/.env:
-USE_OLLAMA_PRIMARY=false   ❌ OLLAMA LOCAL DÉSACTIVÉ!
-USE_OLLAMA_FALLBACK=false  ❌ FALLBACK AUSSI DÉSACTIVÉ!
-
-# Le backend utilise GROQ API EXTERNE au lieu du GPU LOCAL!
-# Groq = 4000ms latency
-# Ollama local = 123ms latency
+# Cause probable:
+# - Configuration Ollama non-optimisée
+# - Pas de flash attention
+# - Context length trop grand
 ```
 
 ### GPU STATUS
 
 ```
 NVIDIA GeForce RTX 4090
-Utilisation: 0%          ❌ TOTALEMENT INUTILISÉ!
-VRAM utilisé: 4138 MiB   (Ollama chargé mais idle)
-VRAM libre: 20426 MiB    (20GB GASPILLÉS!)
-Température: 26°C        (froid = inactif)
+Utilisation: 0%          ❌ (Groq utilisé, pas GPU local)
+VRAM utilisé: 4554 MiB   (Ollama idle)
+VRAM libre: 20010 MiB    (20GB GASPILLÉS!)
 ```
 
 ### WEBSOCKET
 
 ```bash
-websocat ws://localhost:8000/ws/chat
-→ WebSocketError: Connection refused (os error 111)
-❌ WEBSOCKET CASSÉ
+echo '{"type":"ping"}' | timeout 3 websocat ws://localhost:8000/ws/chat
+# Résultat: Exit 124 (TIMEOUT)
+# Le WebSocket ne répond PAS
+```
+
+### TTS
+
+```bash
+curl -X POST http://localhost:8000/tts -d '{"text":"Bonjour"}' -o test.wav
+# Résultat: 7128 bytes WAV
+# ✅ TTS FONCTIONNE
 ```
 
 ### TESTS UNITAIRES
 
 ```
-201 passed, 1 failed, 1 skipped
+201 passed, 1 failed, 1 skipped (99.5%)
 FAILED: test_rate_limit_header - assert 199 < 60
-
-99.5% pass rate
 ```
 
 ### FRONTEND BUILD
 
 ```
 ✅ BUILD PASS
-Routes générées: /api/chat, /api/tts, /eva-her, /voice
+Routes: /api/chat, /api/tts, /eva-her, /voice
 ```
 
 ---
 
-## DIAGNOSTIC ROOT CAUSE
+## DIAGNOSTIC
 
-### POURQUOI 4000-15000ms AU LIEU DE 123ms?
+### POURQUOI 262ms AU LIEU DE 200ms?
 
 ```
-                   ┌─────────────────────────────────────────┐
-                   │            CHEMIN ACTUEL                │
-                   │                                          │
-User ──► Backend ──► GROQ API (Internet) ──► Backend ──► User │
-                   │     4000-15000ms latency                 │
-                   └─────────────────────────────────────────┘
+Latence Groq API pure:        ~250ms (réseau externe)
+Overhead backend:             ~12ms
+Total:                        ~262ms
 
-                   ┌─────────────────────────────────────────┐
-                   │          CHEMIN OPTIMAL                 │
-                   │                                          │
-User ──► Backend ──► OLLAMA LOCAL (GPU) ──► Backend ──► User │
-                   │        123ms latency                    │
-                   └─────────────────────────────────────────┘
-
-SOLUTION: Activer Ollama = gain 30x!
+PROBLÈME: Groq API a une latence réseau incompressible.
+Pour < 200ms, il FAUT un LLM local optimisé.
 ```
 
-### PROBLÈME EXACT DANS LE CODE
+### POURQUOI OLLAMA EST LENT?
 
-```python
-# backend/main.py ligne 1492:
-use_ollama = USE_OLLAMA_PRIMARY and _ollama_available
+```
+1. phi3:mini n'est pas optimisé pour RTX 4090
+2. Pas de flash attention activé
+3. Le modèle se décharge malgré keep_alive=-1
+4. Context length par défaut trop grand
 
-# USE_OLLAMA_PRIMARY=false dans .env
-# Donc use_ollama = False
-# Le code va directement à Groq API (ligne 1532)
+SOLUTION:
+- Utiliser vLLM au lieu d'Ollama
+- Ou configurer Ollama avec num_gpu=99, flash_attn=true
+- Ou utiliser un modèle plus petit (qwen2.5:0.5b)
+```
+
+### POURQUOI WEBSOCKET TIMEOUT?
+
+```
+Le endpoint /ws/chat existe mais ne répond pas au ping.
+Causes possibles:
+1. Authentication requise
+2. Format message incorrect
+3. Handler bloqué/crashé
 ```
 
 ---
@@ -160,106 +180,87 @@ use_ollama = USE_OLLAMA_PRIMARY and _ollama_available
 
 | Issue | Sévérité | Impact |
 |-------|----------|--------|
-| USE_OLLAMA_PRIMARY=false | 🔴 CRITIQUE | Latence 30x plus lente |
-| WebSocket cassé | 🔴 CRITIQUE | Streaming impossible |
-| GPU 0% | 🟠 HAUTE | 24GB VRAM inutilisés |
-| TTS non-JSON | 🟡 MOYENNE | API inconsistante |
-| Rate limit test fail | 🟢 BASSE | Mineur |
+| WebSocket timeout | 🔴 CRITIQUE | Streaming audio impossible |
+| Latence > 200ms | 🟠 HAUTE | 80% des runs hors target |
+| GPU 0% | 🟠 HAUTE | 24GB VRAM gaspillés |
+| Ollama lent | 🟡 MOYENNE | Fallback inutilisable |
+| 1 test fail | 🟢 BASSE | Rate limit mal configuré |
 
 ---
 
-## INSTRUCTIONS WORKER - SPRINT #67
+## INSTRUCTIONS WORKER - SPRINT #68
 
-### PRIORITÉ ABSOLUE 1: ACTIVER OLLAMA (2 SECONDES)
+### PRIORITÉ 1: RÉPARER WEBSOCKET (CRITIQUE)
 
 ```bash
-# C'est UN changement dans .env:
+# Investiguer pourquoi /ws/chat ne répond pas
 cd /home/dev/her
-sed -i 's/USE_OLLAMA_PRIMARY=false/USE_OLLAMA_PRIMARY=true/' .env
-sed -i 's/USE_OLLAMA_FALLBACK=false/USE_OLLAMA_FALLBACK=true/' .env
+grep -n "ws/chat\|WebSocket" backend/main.py | head -20
 
-# Vérifier:
-grep OLLAMA .env
-# DOIT afficher:
-# USE_OLLAMA_PRIMARY=true
-# USE_OLLAMA_FALLBACK=true
-
-# Redémarrer backend:
-pkill -f "uvicorn.*main"
-sleep 2
-cd /home/dev/her && python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 &
+# Tester avec différents formats
+websocat ws://localhost:8000/ws/chat -v
+echo '{"message":"test","session_id":"ws1"}' | websocat ws://localhost:8000/ws/chat
 ```
 
-### PRIORITÉ 2: TESTER LATENCE POST-FIX
+### PRIORITÉ 2: OPTIMISER POUR < 200ms
 
-```bash
-# Après activation Ollama:
-TIMESTAMP=$(date +%s)
-for i in 1 2 3 4 5; do
-  MSG="Test post-fix $i timestamp $TIMESTAMP"
-  curl -s -X POST http://localhost:8000/chat \
-    -H 'Content-Type: application/json' \
-    -d "{\"message\":\"$MSG\",\"session_id\":\"postfix_$TIMESTAMP\"}" | jq '.latency_ms'
-done
-
-# TARGET: < 200ms sur TOUS les runs
+**Option A: Optimiser Groq**
+```python
+# Réduire max_tokens pour réponses plus courtes
+# Utiliser streaming pour TTFB plus bas
+# Paralléliser TTS pendant génération LLM
 ```
 
-### PRIORITÉ 3: RÉPARER WEBSOCKET
-
+**Option B: Configurer Ollama correctement**
 ```bash
-# Tester après restart:
-echo '{"message":"test"}' | websocat ws://localhost:8000/ws/chat
+# Tester avec vLLM (plus rapide qu'Ollama)
+pip install vllm
+vllm serve meta-llama/Llama-2-7b-chat-hf --gpu-memory-utilization 0.8
 
-# Si toujours cassé, vérifier les logs:
-tail -100 /tmp/uvicorn.log | grep -i websocket
+# Ou optimiser Ollama
+OLLAMA_FLASH_ATTENTION=1 OLLAMA_NUM_GPU=99 ollama serve
 ```
 
-### PRIORITÉ 4: UTILISER LE GPU
+**Option C: Modèle plus petit**
+```bash
+ollama pull qwen2.5:0.5b  # 392MB, ultra-rapide
+ollama pull tinyllama     # 637MB, rapide
+```
+
+### PRIORITÉ 3: UTILISER LE GPU
 
 ```bash
-# Pendant un test chat, vérifier:
-nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader
+# Le RTX 4090 a 24GB VRAM et 80 TFLOPS
+# C'est GASPILLÉ actuellement!
 
-# DOIT être > 20% pendant inference
-# Si 0%: Ollama n'utilise pas le GPU!
+# Option 1: vLLM (recommandé)
+pip install vllm
+python -m vllm.entrypoints.openai.api_server --model mistralai/Mistral-7B-Instruct-v0.2
 
-# Forcer GPU:
-OLLAMA_NUM_GPU=99 ollama serve &
+# Option 2: llama.cpp avec GPU
+CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python
+```
+
+### PRIORITÉ 4: FIXER LE TEST
+
+```bash
+# Le test attend rate_limit_remaining < 60
+# Mais le backend retourne 199
+# Soit fixer le test, soit fixer la logique rate limit
 ```
 
 ---
 
-## NE PAS FAIRE
+## RECHERCHES REQUISES
 
-❌ Ajouter des features tant que latence > 200ms
-❌ Optimiser le code avant d'activer Ollama
-❌ Ignorer ce feedback (3ème demande d'activer Ollama!)
-❌ Se satisfaire de "ça marche" si latence > 300ms
+**LE WORKER DOIT CHERCHER:**
 
----
-
-## MESSAGE AU WORKER
-
-```
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                                                                               ║
-║  WORKER - C'EST SIMPLE: UNE LIGNE À CHANGER!                                 ║
-║                                                                               ║
-║  Dans .env:                                                                   ║
-║  USE_OLLAMA_PRIMARY=true                                                      ║
-║                                                                               ║
-║  C'EST TOUT. Gain attendu: 4000ms → 123ms (-97%)                             ║
-║                                                                               ║
-║  Le RTX 4090 avec 24GB VRAM est PRÊT.                                        ║
-║  Ollama est DÉMARRÉ avec phi3:mini CHARGÉ.                                   ║
-║  La latence locale est PROUVÉE à 123ms.                                      ║
-║                                                                               ║
-║  IL SUFFIT D'ACTIVER LE FLAG!                                                ║
-║                                                                               ║
-║  CECI EST LA 4ÈME DEMANDE. NE PAS IGNORER.                                   ║
-║                                                                               ║
-╚══════════════════════════════════════════════════════════════════════════════╝
+```bash
+# Solutions LLM rapides
+WebSearch: "vLLM vs Ollama performance 2025"
+WebSearch: "fastest local LLM RTX 4090 2025"
+WebSearch: "Ollama flash attention setup"
+WebSearch: "sub 100ms LLM inference GPU"
 ```
 
 ---
@@ -273,9 +274,11 @@ OLLAMA_NUM_GPU=99 ollama serve &
 | #63 | 56% | Meilleur sprint | 381ms |
 | #64 | 30% | Rate limit retour | 750ms |
 | #65 | 20% | Torch manquant | N/A |
-| **#66** | **24%** | **Ollama désactivé** | **4000-15000ms** |
+| #66 | 24% | Ollama désactivé | 4000-15000ms |
+| **#67** | **48%** | **Groq activé** | **262ms** |
 
-**RÉGRESSION DE 56% → 24%!**
+**PROGRESSION: +24% vs Sprint #66**
+**MAIS: Encore loin du Sprint #63 (56%)**
 
 ---
 
@@ -284,64 +287,67 @@ OLLAMA_NUM_GPU=99 ollama serve &
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║  SPRINT #66: ÉCHEC - CONFIGURATION INCORRECTE                                ║
+║  SPRINT #67: AMÉLIORATION PARTIELLE                                          ║
 ║                                                                               ║
-║  ❌ Latence E2E: 4000-15000ms (target: 200ms)                                ║
-║  ❌ GPU: 0% (24GB VRAM gaspillés)                                            ║
-║  ❌ WebSocket: Connection refused                                            ║
-║  ❌ Ollama local: DÉSACTIVÉ malgré 3 demandes précédentes                    ║
+║  ✅ Latence E2E: 4000ms → 262ms (-93%)                                       ║
+║  ✅ TTS: 7KB audio généré correctement                                       ║
+║  ✅ Backend: Stable avec Groq                                                ║
+║  ✅ Tests: 201/202 (99.5%)                                                   ║
 ║                                                                               ║
-║  ✅ Ollama répond en 123ms quand appelé directement                          ║
-║  ✅ Backend démarre (avec python3)                                           ║
-║  ✅ Frontend build OK                                                        ║
-║  ✅ Tests 99.5% pass                                                         ║
+║  ❌ WebSocket: TIMEOUT (streaming impossible)                                ║
+║  ❌ Latence: 262ms > 200ms target                                            ║
+║  ❌ GPU: 0% (24GB VRAM inutilisés)                                           ║
+║  ❌ Ollama: 3-10s par requête (inutilisable)                                 ║
 ║                                                                               ║
-║  SOLUTION:                                                                    ║
-║  sed -i 's/USE_OLLAMA_PRIMARY=false/USE_OLLAMA_PRIMARY=true/' .env           ║
+║  PROCHAINES ÉTAPES:                                                          ║
+║  1. Réparer WebSocket (CRITIQUE)                                             ║
+║  2. Optimiser pour < 200ms (streaming, parallel TTS)                         ║
+║  3. Utiliser le GPU (vLLM ou Ollama optimisé)                               ║
 ║                                                                               ║
-║  GAIN ATTENDU: 4000ms → 123ms (-97%)                                         ║
-║                                                                               ║
-║  SCORE: 12/50 (24%)                                                          ║
+║  SCORE: 24/50 (48%)                                                          ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-*Ralph Moderator - Sprint #66*
-*"Le GPU est là, Ollama est prêt, la latence de 123ms est prouvée. Il suffit d'activer un flag. 4ème demande."*
+*Ralph Moderator - Sprint #67*
+*"Groq améliore la latence de 93%, mais WebSocket cassé et GPU inutilisé. Le RTX 4090 attend toujours son moment."*
 
 ---
 
 # ANNEXE - DONNÉES BRUTES
+
+## Configuration actuelle
+
+```bash
+USE_OLLAMA_PRIMARY=false  # Désactivé car trop lent
+USE_OLLAMA_FALLBACK=true
+GROQ_API_KEY=gsk_***      # Utilisé
+OLLAMA_MODEL=phi3:mini    # 3-10s par requête
+```
 
 ## Endpoints testés
 
 | Endpoint | Status | Latence |
 |----------|--------|---------|
 | /health | ✅ | 10ms |
-| /chat | ✅ | 4000-15000ms |
-| /tts | ✅ | Binary response |
+| /chat | ✅ | 262ms (Groq) |
+| /tts | ✅ | 7KB WAV |
 | /voices | ✅ | 15ms |
 | /stats | ✅ | 12ms |
-| /ws/chat | ❌ | Connection refused |
+| /ws/chat | ❌ | TIMEOUT |
 
-## Stats serveur
-
-```json
-{
-  "total_requests": 1012,
-  "avg_latency_ms": 436,
-  "requests_last_hour": 138,
-  "active_sessions": 670
-}
-```
-
-## Modèles Ollama disponibles
+## Modèles Ollama
 
 ```
-phi3:mini      - 2.1GB (chargé, warm)
-qwen2.5:1.5b   - 986MB (disponible)
+phi3:mini - 2.2GB (chargé mais lent: 3-10s)
 ```
 
----
+## Suggestions de modèles rapides
+
+```
+qwen2.5:0.5b  - 392MB  (devrait être < 100ms)
+tinyllama     - 637MB  (devrait être < 150ms)
+gemma:2b      - 1.4GB  (devrait être < 200ms)
+```
