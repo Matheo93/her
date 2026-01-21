@@ -1,14 +1,14 @@
 """
-Ollama Keepalive Service
+Ollama Keepalive Service - ULTRA-AGGRESSIVE
 
-Prevents model unloading by sending periodic warmup requests.
+Prevents model unloading by sending frequent warmup requests.
 Ensures Ollama model stays in VRAM for instant inference.
 
 Key features:
-- Aggressive keepalive every 5 seconds (Ollama deactivates model after ~10s)
-- Measures and reports actual inference latency
-- Auto-recovery if Ollama becomes unavailable
-- Initial burst warmup to ensure model is GPU-hot
+- ULTRA-AGGRESSIVE keepalive every 3 seconds (Ollama can deactivate GPU weights even faster)
+- Real inference requests (not just ping) to keep compute units warm
+- Auto-recovery with burst warmup if latency spikes
+- Continuous monitoring of response times
 """
 
 import asyncio
@@ -19,9 +19,10 @@ import httpx
 # Configuration
 OLLAMA_URL = "http://127.0.0.1:11434"
 OLLAMA_MODEL = "phi3:mini"
-KEEPALIVE_INTERVAL = 5  # seconds - CRITICAL: Ollama deactivates after ~10s, so 5s keeps it warm
-KEEP_ALIVE_VALUE = 86400  # 24h in seconds - -1 doesn't work reliably in Ollama
-WARMUP_BURST_COUNT = 3  # Initial burst of requests to ensure model is fully GPU-active
+KEEPALIVE_INTERVAL = 3  # seconds - ultra-aggressive to prevent cold GPU
+KEEP_ALIVE_VALUE = -1  # Infinite - tell Ollama to never unload model
+WARMUP_BURST_COUNT = 5  # More burst requests to ensure model is fully GPU-active
+LATENCY_THRESHOLD_MS = 150  # If latency exceeds this, trigger re-warmup (indicates cold GPU)
 
 # State
 _keepalive_task: Optional[asyncio.Task] = None
@@ -30,8 +31,11 @@ _last_latency: float = 0
 _is_warm: bool = False
 
 
-async def _warmup_once() -> tuple[bool, float]:
-    """Send a single warmup request to Ollama.
+async def _warmup_once(heavy: bool = False) -> tuple[bool, float]:
+    """Send a warmup request to Ollama.
+
+    Args:
+        heavy: If True, do more tokens to exercise GPU compute units more thoroughly
 
     Returns:
         Tuple of (success, latency_ms)
@@ -41,18 +45,26 @@ async def _warmup_once() -> tuple[bool, float]:
     if _http_client is None:
         _http_client = httpx.AsyncClient(timeout=30.0)
 
+    # Use different prompts to prevent Ollama from optimizing away repeated requests
+    prompts = ["hi", "hello", "bonjour", "hey", "coucou"]
+    prompt = prompts[int(time.time()) % len(prompts)]
+
+    # Heavy mode: more tokens to keep GPU compute warm
+    num_predict = 10 if heavy else 3
+
     try:
         start = time.time()
         resp = await _http_client.post(
             f"{OLLAMA_URL}/api/chat",
             json={
                 "model": OLLAMA_MODEL,
-                "messages": [{"role": "user", "content": "ping"}],
+                "messages": [{"role": "user", "content": prompt}],
                 "stream": False,
                 "keep_alive": KEEP_ALIVE_VALUE,
                 "options": {
-                    "num_predict": 3,
+                    "num_predict": num_predict,
                     "num_ctx": 128,
+                    "num_gpu": 99,  # Force all layers on GPU
                 }
             }
         )
@@ -65,13 +77,14 @@ async def _warmup_once() -> tuple[bool, float]:
             eval_duration = data.get("eval_duration", 0) / 1_000_000
 
             # Model is "warm" if load_duration is minimal (< 100ms)
-            _is_warm = load_duration < 100
+            # AND total latency is under threshold
+            was_warm = _is_warm
+            _is_warm = load_duration < 100 and latency < LATENCY_THRESHOLD_MS
 
-            if not _is_warm:
-                print(f"🔥 Ollama cold start: load={load_duration:.0f}ms, eval={eval_duration:.0f}ms")
-            else:
-                # Only log occasionally to reduce noise
-                pass
+            if not _is_warm and latency >= LATENCY_THRESHOLD_MS:
+                print(f"⚠️ Ollama latency spike: {latency:.0f}ms (threshold: {LATENCY_THRESHOLD_MS}ms)")
+            elif not was_warm and _is_warm:
+                print(f"✅ Ollama now warm: {latency:.0f}ms")
 
             return True, latency
         else:
@@ -87,48 +100,63 @@ async def _warmup_once() -> tuple[bool, float]:
 async def _warmup_burst() -> bool:
     """Do an initial burst of warmup requests to ensure model is fully GPU-active.
 
+    Uses heavy warmup (more tokens) to thoroughly exercise GPU compute units.
+
     Returns:
         True if warmup succeeded
     """
     print(f"🚀 Starting warmup burst ({WARMUP_BURST_COUNT} requests)...")
 
     for i in range(WARMUP_BURST_COUNT):
-        success, latency = await _warmup_once()
+        # Use heavy warmup for first few, then lighter ones
+        heavy = i < 3
+        success, latency = await _warmup_once(heavy=heavy)
         if success:
-            print(f"   Burst {i+1}/{WARMUP_BURST_COUNT}: {latency:.0f}ms")
+            print(f"   Burst {i+1}/{WARMUP_BURST_COUNT}: {latency:.0f}ms {'(heavy)' if heavy else ''}")
         else:
             print(f"   Burst {i+1}/{WARMUP_BURST_COUNT}: FAILED")
             return False
         # Small delay between burst requests
         if i < WARMUP_BURST_COUNT - 1:
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.05)  # Faster burst
 
     print(f"✅ Warmup burst complete - model should be GPU-hot")
     return True
 
 
 async def _keepalive_loop():
-    """Background loop that keeps Ollama model warm."""
+    """Background loop that keeps Ollama model warm.
+
+    Features:
+    - Aggressive 3s interval
+    - Automatic re-warmup on latency spikes
+    - Heavy warmup every 10th request to keep GPU compute active
+    """
     global _is_warm
 
     consecutive_failures = 0
     max_failures = 3
-    log_counter = 0
+    request_count = 0
 
     # Initial burst warmup to ensure model is fully active
     await _warmup_burst()
 
     while True:
         try:
-            success, latency = await _warmup_once()
+            request_count += 1
+
+            # Every 10th keepalive, do a heavier warmup to keep GPU compute units active
+            heavy = (request_count % 10 == 0)
+            success, latency = await _warmup_once(heavy=heavy)
 
             if success:
                 consecutive_failures = 0
-                log_counter += 1
-                if not _is_warm:
-                    print(f"🔥 Ollama warmed up: {latency:.0f}ms")
-                    _is_warm = True
-                elif log_counter % 12 == 0:  # Log every ~60s (12 x 5s) to reduce noise
+
+                # Check for latency spike (indicates GPU went cold)
+                if latency >= LATENCY_THRESHOLD_MS:
+                    print(f"⚠️ Latency spike detected ({latency:.0f}ms), triggering re-warmup...")
+                    await _warmup_burst()
+                elif request_count % 20 == 0:  # Log every ~60s (20 x 3s)
                     print(f"🔄 Keepalive OK: {latency:.0f}ms (model warm)")
             else:
                 consecutive_failures += 1

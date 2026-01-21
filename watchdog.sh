@@ -14,7 +14,7 @@ start_backend() {
     nohup python3 main.py > /tmp/backend.log 2>&1 &
     BACKEND_PID=$!
     echo "[$(date)] Backend started PID: $BACKEND_PID"
-    sleep 20  # Wait for initialization
+    sleep 30  # Wait for initialization (models load slowly)
 }
 
 check_backend() {
@@ -62,8 +62,9 @@ while true; do
     restart_if_needed
     check_ralph_loop
 
-    # Check disk usage
-    DISK_USED_GB=$(df / | tail -1 | awk '{print $3}' | sed 's/G//')
+    # Check disk usage (df outputs in 1K blocks)
+    DISK_USED_KB=$(df / | tail -1 | awk '{print $3}')
+    DISK_USED_GB=$((DISK_USED_KB / 1024 / 1024))
     DISK_USAGE=$(df / | tail -1 | awk '{print $5}' | tr -d '%')
 
     # ALERT if > 38GB used
