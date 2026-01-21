@@ -4,6 +4,7 @@
     "puppeteer": "^24.35.0"
   },
   "dependencies": {
-    "mcp-server-memory": "^1.0.3"
+    "mcp-server-memory": "^1.0.3",
+    "wscat": "^6.1.0"
   }
 }

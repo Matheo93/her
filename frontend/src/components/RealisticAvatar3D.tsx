@@ -902,7 +902,7 @@ export function RealisticAvatar3D({
       />
 
       <Canvas
-        camera={{ position: [0, 0.1, 2], fov: 45 }}
+        camera={{ position: [0, 0, 2.5], fov: 35 }}
         gl={{ antialias: true, alpha: true }}
         style={{ background: "transparent" }}
       >
