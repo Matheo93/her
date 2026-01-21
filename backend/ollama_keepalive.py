@@ -5,9 +5,10 @@ Prevents model unloading by sending periodic warmup requests.
 Ensures Ollama model stays in VRAM for instant inference.
 
 Key features:
-- Background keepalive every 30 seconds
+- Aggressive keepalive every 5 seconds (Ollama deactivates model after ~10s)
 - Measures and reports actual inference latency
 - Auto-recovery if Ollama becomes unavailable
+- Initial burst warmup to ensure model is GPU-hot
 """
 
 import asyncio
@@ -18,8 +19,9 @@ import httpx
 # Configuration
 OLLAMA_URL = "http://127.0.0.1:11434"
 OLLAMA_MODEL = "phi3:mini"
-KEEPALIVE_INTERVAL = 10  # seconds between keepalive pings (reduced from 30 for reliability)
-KEEP_ALIVE_VALUE = -1  # -1 = keep indefinitely
+KEEPALIVE_INTERVAL = 5  # seconds - CRITICAL: Ollama deactivates after ~10s, so 5s keeps it warm
+KEEP_ALIVE_VALUE = 86400  # 24h in seconds - -1 doesn't work reliably in Ollama
+WARMUP_BURST_COUNT = 3  # Initial burst of requests to ensure model is fully GPU-active
 
 # State
 _keepalive_task: Optional[asyncio.Task] = None
@@ -82,12 +84,39 @@ async def _warmup_once() -> tuple[bool, float]:
         return False, 0
 
 
+async def _warmup_burst() -> bool:
+    """Do an initial burst of warmup requests to ensure model is fully GPU-active.
+
+    Returns:
+        True if warmup succeeded
+    """
+    print(f"🚀 Starting warmup burst ({WARMUP_BURST_COUNT} requests)...")
+
+    for i in range(WARMUP_BURST_COUNT):
+        success, latency = await _warmup_once()
+        if success:
+            print(f"   Burst {i+1}/{WARMUP_BURST_COUNT}: {latency:.0f}ms")
+        else:
+            print(f"   Burst {i+1}/{WARMUP_BURST_COUNT}: FAILED")
+            return False
+        # Small delay between burst requests
+        if i < WARMUP_BURST_COUNT - 1:
+            await asyncio.sleep(0.1)
+
+    print(f"✅ Warmup burst complete - model should be GPU-hot")
+    return True
+
+
 async def _keepalive_loop():
     """Background loop that keeps Ollama model warm."""
     global _is_warm
 
     consecutive_failures = 0
     max_failures = 3
+    log_counter = 0
+
+    # Initial burst warmup to ensure model is fully active
+    await _warmup_burst()
 
     while True:
         try:
@@ -95,17 +124,19 @@ async def _keepalive_loop():
 
             if success:
                 consecutive_failures = 0
+                log_counter += 1
                 if not _is_warm:
                     print(f"🔥 Ollama warmed up: {latency:.0f}ms")
                     _is_warm = True
-                else:
-                    # Log keepalive success periodically for debugging
+                elif log_counter % 12 == 0:  # Log every ~60s (12 x 5s) to reduce noise
                     print(f"🔄 Keepalive OK: {latency:.0f}ms (model warm)")
             else:
                 consecutive_failures += 1
                 _is_warm = False
                 if consecutive_failures >= max_failures:
-                    print(f"❌ Ollama unavailable after {max_failures} attempts")
+                    print(f"❌ Ollama unavailable after {max_failures} attempts, retrying burst...")
+                    await _warmup_burst()
+                    consecutive_failures = 0
 
             await asyncio.sleep(KEEPALIVE_INTERVAL)
 

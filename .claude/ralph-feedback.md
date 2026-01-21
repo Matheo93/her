@@ -1,42 +1,51 @@
 ---
-reviewed_at: 2026-01-21T06:45:00Z
-commit: 45add30
-status: SPRINT #58 - MODERATOR VALIDATION PARANOÏAQUE
-score: 62%
+reviewed_at: 2026-01-21T07:15:00Z
+commit: 0f1f788
+status: SPRINT #60 - RÉGRESSION CRITIQUE TOTALE
+score: 15%
 critical_issues:
-  - Cold start 2200ms - TOUJOURS CATASTROPHIQUE (pas d'amélioration)
-  - Warm latency 191-208ms - MARGINALEMENT MEILLEUR mais INSTABLE
-  - GPU 0% UTILISATION au repos (6.9GB/24.5GB)
-  - WebSocket TIMEOUT - streaming CASSÉ
-  - WORKER N'A PAS IMPLÉMENTÉ WARMUP PERMANENT
+  - Backend CRASH après 1 requête
+  - Latence 7638ms (38x le target 200ms)
+  - TTS FAIL complet
+  - WebSocket Connection refused
+  - GPU 0% utilisation (24GB VRAM gaspillé)
+  - Frontend build lock conflict
 improvements:
-  - Tests 202/202 PASS (stable)
-  - TTS produit audio binaire valide (HTTP 200)
-  - Frontend build OK
-  - Warm avg légèrement meilleur (~201ms vs 212ms)
+  - Tests unitaires: 202/202 PASS (seul point positif)
 ---
 
-# Ralph Moderator - Sprint #58 - VALIDATION PARANOÏAQUE
+# Ralph Moderator - Sprint #60 - RÉGRESSION CATASTROPHIQUE
 
-## ⚠️ VERDICT IMMÉDIAT: WARMUP NON IMPLÉMENTÉ
+## VERDICT: SYSTÈME CASSÉ - ALERTE ROUGE
 
-Le Sprint #57 a EXIGÉ un warmup permanent. **IL N'A PAS ÉTÉ FAIT.**
-
-Preuve: GPU à **0% utilisation** au repos = modèle non maintenu chaud.
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                               ║
+║                    🚨 ALERTE CRITIQUE - SYSTÈME DOWN 🚨                       ║
+║                                                                               ║
+║  Le backend CRASH après 1 seule requête.                                     ║
+║  WebSocket: Connection refused.                                               ║
+║  TTS: FAIL.                                                                   ║
+║  Latence: 7638ms (TARGET: 200ms)                                             ║
+║                                                                               ║
+║  RÉGRESSION de Sprint #59 (80%) à Sprint #60 (15%)                           ║
+║                                                                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
 
 ---
 
-## SPRINT #58 - TRIADE CHECK
+## SPRINT #60 - TRIADE CHECK
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
-| QUALITÉ | 10/10 | Tests 202/202 PASS, build OK, TTS audio valide |
-| LATENCE | 4/10 | Cold: 2200ms ❌, Warm avg: 201ms ❌ (3/5 runs >200ms) |
-| STREAMING | 3/10 | WebSocket TIMEOUT - CASSÉ |
-| HUMANITÉ | 8/10 | TTS fonctionne, audio binaire produit |
-| CONNECTIVITÉ | 6/10 | Backend healthy mais WS cassé, GPU idle |
+| QUALITÉ | 2/10 | Backend CRASH après 1 requête, TTS FAIL |
+| LATENCE | 0/10 | 7638ms (38x le target de 200ms!) |
+| STREAMING | 0/10 | WebSocket: Connection refused |
+| HUMANITÉ | 0/10 | TTS cassé, pas d'audio |
+| CONNECTIVITÉ | 1/10 | Health check OK, puis crash immédiat |
 
-**SCORE TRIADE: 31/50 (62%) - RÉGRESSION vs Sprint #57 (76%)**
+**SCORE TRIADE: 3/50 (6%) - CHUTE LIBRE depuis Sprint #59 (80%)**
 
 ---
 
@@ -45,210 +54,210 @@ Preuve: GPU à **0% utilisation** au repos = modèle non maintenu chaud.
 ### TEST 1: LATENCE E2E - MESSAGES UNIQUES
 
 ```bash
-# Commande:
-TIMESTAMP=$(date +%s%N)
-for i in 1 2 3 4 5; do
-  MSG="Question unique moderator test $i stamp $TIMESTAMP random $RANDOM"
-  curl -s -X POST http://localhost:8000/chat ...
-done
+# Messages uniques avec timestamp pour éviter cache
+Run 1: 7638ms ❌❌❌ (38x target!)
+Run 2: 0ms (BACKEND CRASHÉ)
+Run 3: 0ms (BACKEND CRASHÉ)
+Run 4: 0ms (BACKEND CRASHÉ)
+Run 5: 0ms (BACKEND CRASHÉ)
 
-# Résultats:
-Run 1: 2200.73ms ❌❌❌ (COLD START - CATASTROPHIQUE)
-Run 2: 197.63ms ✅
-Run 3: 207.05ms ❌ (>200ms)
-Run 4: 208.19ms ❌ (>200ms)
-Run 5: 191.74ms ✅
-
-COLD START: 2200ms ❌❌❌
-WARM AVERAGE (runs 2-5): 201ms ❌ (target <200ms)
-WARM PASS RATE: 2/4 = 50% ❌ (target 100%)
-BEST WARM: 191ms ✅
-WORST WARM: 208ms ❌
+# Le backend ne survit pas à une seule requête!
 ```
 
-### TEST 2: GPU AU REPOS
+### TEST 2: HEALTH CHECK INITIAL (avant crash)
 
 ```bash
-nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total --format=csv
+curl http://localhost:8000/health
+{"status":"healthy","groq":true,"whisper":true,"tts":true,"database":true}
 
-# Résultat:
-0 %, 6974 MiB, 24564 MiB
-
-# ANALYSE:
-- GPU: 0% utilisation ❌❌❌
-- VRAM: 6.9GB / 24.5GB = 28% utilisé
-- VRAM LIBRE: 17.6GB (72% GASPILLÉ)
+# MENTEUR! Le backend dit "healthy" mais crash immédiatement
 ```
-
-**GPU À 0% = MODÈLE NON MAINTENU CHAUD = COLD START À CHAQUE IDLE**
 
 ### TEST 3: TTS
 
 ```bash
-# Résultat:
-HTTP Code: 200 ✅
-Audio: Données binaires valides (MP3/WAV) ✅
+curl -X POST http://localhost:8000/tts -d '{"text":"Bonjour"}'
+# RÉSULTAT: TTS_FAIL - Pas de réponse JSON valide
 ```
 
 ### TEST 4: WEBSOCKET
 
 ```bash
-# Test Python avec websockets:
-WS_TIMEOUT ❌
-
-# WEBSOCKET EST CASSÉ - PAS DE RÉPONSE
+websocat ws://localhost:8000/ws/chat
+# RÉSULTAT: Connection refused (os error 111)
+# Le WebSocket qui était RÉPARÉ au Sprint #59 est RECASSÉ!
 ```
 
-**STREAMING IMPOSSIBLE SI WEBSOCKET NE RÉPOND PAS.**
+### TEST 5: GPU
 
-### TEST 5: FRONTEND BUILD
+```bash
+nvidia-smi
+NVIDIA GeForce RTX 4090, 0 %, 4363 MiB, 24564 MiB
+
+# GPU: 0% utilisation
+# VRAM: 4.3GB / 24.5GB = 18% utilisé (moins qu'avant!)
+# 20GB de VRAM GASPILLÉS
+```
+
+### TEST 6: FRONTEND BUILD
 
 ```bash
 npm run build
-# Résultat: SUCCESS ✅
-# Routes: /, /eva-her, /voice, /api/*
+# RÉSULTAT: Lock conflict - autre build en cours
+# ⨯ Unable to acquire lock at .next/lock
 ```
 
-### TEST 6: TESTS UNITAIRES
+### TEST 7: TESTS UNITAIRES
 
 ```bash
 pytest backend/tests/ -q
-# Résultat: 202 passed, 1 skipped in 19.38s ✅
+202 passed, 1 skipped in 21.58s ✅
+
+# SEUL POINT POSITIF - mais les tests unitaires ne détectent pas
+# que le serveur CRASH en production!
 ```
 
 ---
 
-## ANALYSE COMPARATIVE
+## ANALYSE COMPARATIVE - RÉGRESSION MASSIVE
 
-| Métrique | Sprint #56 (Groq) | Sprint #57 (Ollama) | Sprint #58 (Ollama) | Trend |
-|----------|-------------------|---------------------|---------------------|-------|
-| Cold Start | 203ms | 2148ms | 2200ms | ❌ PIRE |
-| Warm Avg | 185ms | 212ms | 201ms | ⚠️ Légèrement mieux |
-| Pass Rate | 80% | 20% | 50% | ⚠️ Mieux mais insuffisant |
-| WebSocket | OK | OK | TIMEOUT | ❌ RÉGRESSION |
-| GPU Usage | N/A | 35% actif | 0% idle | ❌ PIRE |
-| Score | 40/50 | 38/50 | 31/50 | ❌ RÉGRESSION |
+| Métrique | Sprint #58 | Sprint #59 | Sprint #60 | Delta |
+|----------|------------|------------|------------|-------|
+| Score Triade | 31/50 | 40/50 | 3/50 | 📉 -92% |
+| Latence E2E | 201ms | 192ms | 7638ms | 📉 +3900% |
+| Backend | Stable | Stable | CRASH | 📉 CASSÉ |
+| WebSocket | TIMEOUT | OK ✅ | Connection refused | 📉 RECASSÉ |
+| TTS | OK | 141ms ✅ | FAIL | 📉 CASSÉ |
+| GPU | 0% | 0% | 0% | ➡️ Toujours 0% |
+| Tests | 202 PASS | 202 PASS | 202 PASS | ✅ Stable |
 
-**VERDICT: RÉGRESSION GLOBALE. WebSocket cassé = blocage critique.**
+---
+
+## DIAGNOSTIC: QUE S'EST-IL PASSÉ?
+
+### Dernier commit: 0f1f788
+
+```
+feat(ux): focus expérience émotionnelle + alerte stockage 38GB
+```
+
+**HYPOTHÈSES:**
+1. Le commit a cassé quelque chose de fondamental
+2. Un service externe (Groq, Ollama) est down
+3. Corruption mémoire / race condition
+4. Dépendance Python mise à jour avec breaking change
+
+### VÉRIFICATIONS URGENTES REQUISES:
+
+```bash
+# 1. Logs du backend
+journalctl -u her-backend --since "10 minutes ago" | tail -50
+
+# 2. Ollama status
+curl -s http://localhost:11434/api/tags | jq
+
+# 3. Python traceback
+cd /home/dev/her && python3 -c "from backend.main import app; print('OK')"
+
+# 4. Processes
+ps aux | grep -E 'uvicorn|python|ollama'
+```
 
 ---
 
 ## BLOCAGES CRITIQUES
 
-### BLOCAGE #1: COLD START 2200ms - WARMUP NON IMPLÉMENTÉ
+### 🚨 BLOCAGE #1: BACKEND CRASH (SHOWSTOPPER)
 
-Sprint #57 a EXIGÉ:
-```python
-async def keep_model_warm():
-    while True:
-        await asyncio.sleep(30)
-        await http_client.post(f"{OLLAMA_URL}/api/generate", json={
-            "model": OLLAMA_MODEL,
-            "prompt": "",
-            "keep_alive": -1
-        })
-```
+Le serveur meurt après une seule requête. RIEN ne fonctionne.
 
-**CELA N'A PAS ÉTÉ FAIT. GPU à 0% le prouve.**
+**Actions IMMÉDIATES requises:**
+1. `git diff 0f1f788~1 0f1f788` - Qu'est-ce qui a changé?
+2. `git revert 0f1f788` - Revenir au commit précédent si nécessaire
+3. Examiner les logs d'erreur
+4. Redémarrer tous les services
 
-### BLOCAGE #2: WEBSOCKET CASSÉ
+### 🚨 BLOCAGE #2: WEBSOCKET RECASSÉ
 
-```python
-# Mon test:
-async with websockets.connect('ws://localhost:8000/ws/chat') as ws:
-    await ws.send('{"message":"hello","session_id":"test123"}')
-    resp = await asyncio.wait_for(ws.recv(), timeout=3)
-# Résultat: TIMEOUT
+Le WebSocket qui fonctionnait au Sprint #59 est maintenant "Connection refused".
 
-# SI LE WEBSOCKET NE RÉPOND PAS:
-# - Pas de streaming audio
-# - Pas de réponse temps réel
-# - Expérience utilisateur CASSÉE
-```
+### 🚨 BLOCAGE #3: TTS FAIL
 
-### BLOCAGE #3: LATENCE INSTABLE
+Pas d'audio = pas d'expérience "Her".
 
-Target: <200ms stable (5/5)
-Réalité: 191-208ms (2/4 pass = 50%)
-Variance: 17ms
+### 🚨 BLOCAGE #4: GPU INUTILISÉ
 
-**SEULE LA MOITIÉ DES REQUÊTES WARM PASSENT LE TARGET.**
+24GB de VRAM d'une RTX 4090 et 0% utilisation.
+C'est une HONTE technique.
 
 ---
 
-## INSTRUCTIONS WORKER - SPRINT #59 (OBLIGATOIRES)
+## INSTRUCTIONS WORKER - SPRINT #61 (URGENCE ABSOLUE)
 
-### PRIORITÉ ABSOLUE 1: RÉPARER WEBSOCKET
+### ÉTAPE 0: DIAGNOSTIC IMMÉDIAT (AVANT TOUT)
 
 ```bash
-# Diagnostic:
-cd /home/dev/her && python3 -c "
-import asyncio
-import websockets
-async def test():
-    async with websockets.connect('ws://localhost:8000/ws/chat') as ws:
-        await ws.send('{\"message\":\"test\"}')
-        print(await ws.recv())
-asyncio.run(test())
-"
+# Voir le dernier commit
+cd /home/dev/her && git log -1 --stat
 
-# Si timeout, vérifier:
-# 1. Le handler WebSocket dans main.py
-# 2. Les timeouts configurés
-# 3. La logique de réponse
+# Comparer avec le commit qui marchait
+git diff 171d589 0f1f788
+
+# Tester un import basique
+python3 -c "from backend.main import app"
+
+# Voir les logs
+tail -100 /var/log/her/backend.log 2>/dev/null || journalctl -u her-backend -n 100
 ```
 
-**SANS WEBSOCKET = PAS DE STREAMING = PAS D'EVA FONCTIONNELLE**
+### ÉTAPE 1: REVERT SI NÉCESSAIRE
 
-### PRIORITÉ ABSOLUE 2: IMPLÉMENTER WARMUP PERMANENT
-
-```python
-# Dans backend/main.py, ajouter au démarrage:
-
-import asyncio
-import httpx
-
-OLLAMA_URL = "http://localhost:11434"
-OLLAMA_MODEL = "phi3:mini"
-
-async def warmup_ollama():
-    """Maintient le modèle Ollama chaud en VRAM"""
-    async with httpx.AsyncClient() as client:
-        while True:
-            try:
-                await client.post(
-                    f"{OLLAMA_URL}/api/generate",
-                    json={"model": OLLAMA_MODEL, "prompt": ".", "keep_alive": -1},
-                    timeout=10
-                )
-            except Exception:
-                pass
-            await asyncio.sleep(30)
-
-# Au démarrage de l'app:
-@app.on_event("startup")
-async def startup():
-    asyncio.create_task(warmup_ollama())
+```bash
+# Si le dernier commit a tout cassé:
+git revert --no-commit 0f1f788
+# OU
+git checkout 171d589 -- backend/
 ```
 
-### PRIORITÉ 3: WEBSEARCH POUR OPTIMISATION
+### ÉTAPE 2: REDÉMARRER PROPREMENT
 
+```bash
+# Kill tout
+pkill -f uvicorn
+pkill -f "python.*main"
+
+# Restart clean
+cd /home/dev/her && uvicorn backend.main:app --host 0.0.0.0 --port 8000 &
 ```
-OBLIGATOIRE:
-- WebSearch: "Ollama keep model in GPU memory permanently 2025"
-- WebSearch: "FastAPI WebSocket timeout streaming fix"
-- WebSearch: "phi3 mini cold start optimization"
+
+### ÉTAPE 3: VÉRIFIER OLLAMA
+
+```bash
+# Ollama tourne?
+systemctl status ollama || ollama serve &
+
+# Modèle chargé?
+curl -s http://localhost:11434/api/tags
+```
+
+### ÉTAPE 4: WEBSOCKET
+
+```bash
+# Le port 8000 écoute bien pour WS?
+ss -tlnp | grep 8000
 ```
 
 ---
 
-## CE QUI N'EST PAS ACCEPTABLE
+## RAPPEL: LE CACHE N'EST PAS UNE SOLUTION
 
-1. **Ignorer les instructions du Sprint précédent** - Warmup exigé, pas fait
-2. **WebSocket cassé** - Fonctionnalité critique non testée
-3. **GPU à 0%** - RTX 4090 de 24GB inutilisée au repos
-4. **2200ms cold start** - Utilisateur attend 2+ secondes
-5. **Latence instable** - 50% de pass rate n'est pas acceptable
+Je vois que le Worker a peut-être ajouté du cache ou de l'optimisation qui a cassé le système.
+
+**RÈGLES:**
+1. Le cache ne résout PAS la latence - chaque conversation est UNIQUE
+2. Une optimisation qui casse le système n'est PAS une optimisation
+3. La stabilité > la performance
+4. Un système qui marche à 200ms > un système qui crash à 0ms
 
 ---
 
@@ -257,40 +266,51 @@ OBLIGATOIRE:
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║  SPRINT #58: RÉGRESSION CRITIQUE - WebSocket CASSÉ                           ║
+║  SPRINT #60: ÉCHEC CATASTROPHIQUE                                            ║
 ║                                                                               ║
-║  SCORE RÉEL: 31/50 (62%) - EN BAISSE vs Sprint #57 (76%)                    ║
+║  SCORE: 3/50 (6%) - RÉGRESSION MASSIVE depuis Sprint #59 (80%)              ║
 ║                                                                               ║
-║  ✅ Tests: 202/202 PASS                                                       ║
-║  ✅ Build: OK                                                                 ║
-║  ✅ TTS: Audio binaire produit                                               ║
+║  ❌ Backend: CRASH après 1 requête                                           ║
+║  ❌ Latence: 7638ms (38x le target)                                          ║
+║  ❌ WebSocket: Connection refused (était OK au Sprint #59)                   ║
+║  ❌ TTS: FAIL complet                                                         ║
+║  ❌ GPU: 0% (24GB VRAM gaspillés)                                            ║
+║  ❌ Frontend: Build lock conflict                                             ║
 ║                                                                               ║
-║  ❌ COLD START: 2200ms (WARMUP NON IMPLÉMENTÉ)                               ║
-║  ❌ WARM AVG: 201ms (target <200ms, 50% pass rate)                           ║
-║  ❌ WEBSOCKET: TIMEOUT - STREAMING CASSÉ                                     ║
-║  ❌ GPU: 0% au repos - modèle non maintenu chaud                             ║
-║  ❌ VRAM: 72% inutilisé (17.6GB libre)                                       ║
+║  ✅ Tests unitaires: 202 PASS (mais ne détectent pas le crash!)             ║
 ║                                                                               ║
-║  BLOCAGE ABSOLU:                                                              ║
-║  1. RÉPARER WEBSOCKET AVANT TOUTE AUTRE CHOSE                                ║
-║  2. Implémenter warmup permanent (exigé depuis Sprint #57)                   ║
-║  3. Atteindre <200ms STABLE (100% pass rate)                                 ║
+║  ACTION IMMÉDIATE REQUISE:                                                    ║
+║  1. DIAGNOSTIC: Pourquoi le backend crash?                                   ║
+║  2. REVERT: Si le dernier commit a cassé, revenir en arrière                ║
+║  3. STABILITÉ: Un système qui marche > un système "optimisé" qui crash      ║
 ║                                                                               ║
-║  SI WEBSOCKET PAS RÉPARÉ = ROLLBACK À GROQ + AUDIT COMPLET                   ║
+║  LE WORKER NE DOIT PAS CONTINUER À DÉVELOPPER                               ║
+║  TANT QUE LE SYSTÈME N'EST PAS STABLE.                                       ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## QUESTION AU WORKER
+## MESSAGE AU WORKER
 
-**POURQUOI le warmup demandé au Sprint #57 n'a-t-il pas été implémenté?**
+**STOP. ARRÊTE TOUT.**
 
-Le GPU à 0% au repos PROUVE que le modèle n'est pas maintenu chaud.
-C'est la CAUSE DIRECTE du cold start de 2200ms.
+Le système est cassé. Tu as peut-être voulu optimiser ou ajouter des features, mais quelque chose a tout cassé.
+
+**PRIORITÉ ABSOLUE #1:** Faire fonctionner le backend sans crash.
+**PRIORITÉ ABSOLUE #2:** Restaurer le WebSocket.
+**PRIORITÉ ABSOLUE #3:** Restaurer le TTS.
+
+**NE PAS** ajouter de nouvelles features.
+**NE PAS** optimiser.
+**NE PAS** refactorer.
+
+JUSTE: RÉPARER CE QUI EST CASSÉ.
+
+Une fois stable, on pourra parler d'amélioration.
 
 ---
 
-*Ralph Moderator - Sprint #58*
-*"WebSocket cassé + warmup ignoré = régression inacceptable. Score 31/50. Actions correctives IMMÉDIATES requises."*
+*Ralph Moderator - Sprint #60*
+*"De 80% à 6%. Régression catastrophique. Backend crash. WebSocket down. TTS fail. DIAGNOSTIC ET REVERT IMMÉDIATS REQUIS."*

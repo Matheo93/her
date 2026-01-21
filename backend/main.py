@@ -114,7 +114,7 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "phi3:mini")  # Ultra-fast local model (~100ms warm on RTX 4090)
 USE_OLLAMA_FALLBACK = os.getenv("USE_OLLAMA_FALLBACK", "true").lower() == "true"
 USE_OLLAMA_PRIMARY = os.getenv("USE_OLLAMA_PRIMARY", "true").lower() == "true"  # Use local GPU first
-OLLAMA_KEEP_ALIVE = -1  # Keep model loaded indefinitely for instant inference
+OLLAMA_KEEP_ALIVE = 86400  # 24h in seconds - -1 doesn't work reliably in Ollama
 
 # Models by provider
 CEREBRAS_MODEL = "llama3.1-8b"  # ~50ms TTFT (fastest)
@@ -1206,8 +1206,9 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(proactive_scheduler())
 
     # Start Ollama keepalive (prevents model unloading from VRAM)
+    # CRITICAL: Ollama deactivates model after ~10s, so 5s interval keeps it GPU-hot
     if _ollama_available and (USE_OLLAMA_PRIMARY or USE_OLLAMA_FALLBACK):
-        start_keepalive(OLLAMA_URL, OLLAMA_MODEL, interval=10)  # 10s interval to prevent cold starts
+        start_keepalive(OLLAMA_URL, OLLAMA_MODEL, interval=5)  # 5s interval - aggressive to prevent cold starts
 
     print(f"🎙️  EVA-VOICE ready at http://localhost:8000")
     print(f"⚡ Mode: {QUALITY_MODE} | Rate limit: {RATE_LIMIT_REQUESTS}/min")
