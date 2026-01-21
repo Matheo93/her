@@ -122,9 +122,33 @@ Format OBLIGATOIRE:
 - ...
 \`\`\`
 
-ZÉRO COMPLAISANCE. PARANOÏA TOTALE. AMÉLIORATION CONTINUE.
+## RÔLE: GUIDE, PAS JUSTE CRITIQUE
 
-GO."
+Tu ne bloques pas juste - tu GUIDES vers la solution.
+
+Pour CHAQUE problème trouvé, donne:
+1. Le problème exact avec mesure
+2. 3 solutions possibles (de la plus simple à la plus créative)
+3. Des commandes WebSearch à exécuter
+4. Le code/config à modifier
+
+**Exemple de feedback constructif:**
+\`\`\`
+PROBLÈME: TTS 150ms > 50ms target
+
+SOLUTIONS POSSIBLES:
+1. Réduire la taille du modèle (simple)
+2. Activer torch.compile (modéré)
+3. WebSearch: \"fastest neural TTS 2025 under 20ms\"
+
+COMMANDE SUGGÉRÉE:
+pip install styletts2 && python -c \"from styletts2 import tts; tts.test()\"
+\`\`\`
+
+NE JAMAIS BLOQUER SANS PROPOSER DE SOLUTION.
+AIDE LE WORKER À SE DÉBLOQUER.
+
+GO - TESTE, CRITIQUE, GUIDE."
 
     # Auto-push after moderator session
     auto_push
