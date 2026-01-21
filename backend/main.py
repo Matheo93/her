@@ -1054,17 +1054,19 @@ async def lifespan(app: FastAPI):
         from faster_whisper import WhisperModel
         import torch
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        compute = "float16" if device == "cuda" else "int8"
-        # distil-large-v3: 2x faster than large-v3 with same quality
+        # int8_float16: fastest on GPU with minimal quality loss
+        compute = "int8_float16" if device == "cuda" else "int8"
+        # base: ultra-fast, acceptable French quality
         # Target: <200ms STT latency
-        whisper_model_name = "distil-large-v3" if device == "cuda" else "tiny"
+        whisper_model_name = "base" if device == "cuda" else "tiny"
         whisper_model = WhisperModel(
             whisper_model_name,
             device=device,
             compute_type=compute,
-            num_workers=4  # Parallel processing
+            num_workers=4,  # Parallel processing
+            cpu_threads=8   # More threads for decoding
         )
-        print(f"✅ Whisper STT loaded ({whisper_model_name} on {device.upper()}, float16)")
+        print(f"✅ Whisper STT loaded ({whisper_model_name} on {device.upper()}, {compute})")
     except ImportError:
         print("⚠️  Whisper not installed - STT via browser only")
 
@@ -1200,25 +1202,29 @@ def clear_conversation(session_id: str):
 # ============================================
 
 async def transcribe_audio(audio_bytes: bytes) -> str:
-    """Transcrit audio en texte avec Whisper"""
+    """Transcrit audio en texte avec Whisper - ultra-optimized"""
     if not whisper_model:
         return "[STT non disponible - utilisez le navigateur]"
 
-    with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as f:
+    # Use .wav suffix for WAV files (faster processing)
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
         f.write(audio_bytes)
         temp_path = f.name
 
     try:
-        # ULTRA-FAST settings: beam_size=1, no VAD for speed
-        segments, info = whisper_model.transcribe(
+        # ULTRA-FAST settings for <200ms latency
+        segments, _ = whisper_model.transcribe(
             temp_path,
             language="fr",
-            beam_size=1,           # Fastest (was 5)
-            vad_filter=False,      # Skip VAD for speed
-            word_timestamps=False, # Don't need word-level
-            condition_on_previous_text=False,  # Faster
+            beam_size=1,                        # Greedy decoding (fastest)
+            vad_filter=False,                   # No VAD overhead
+            word_timestamps=False,              # No word-level timestamps
+            condition_on_previous_text=False,   # No context dependency
+            without_timestamps=True,            # Faster without timestamps
+            initial_prompt="Conversation en français.",  # Hint for French
         )
-        text = " ".join([s.text for s in segments])
+        # Consume generator immediately
+        text = " ".join(s.text for s in segments)
         return text.strip()
     except Exception as e:
         print(f"STT Error: {e}")
