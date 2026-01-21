@@ -959,19 +959,26 @@ async def warmup_connections():
 
     print("🔥 Warming up connections...")
 
-    try:
-        # Warm-up Groq avec une requête minimale
-        start = time.time()
-        response = await groq_client.chat.completions.create(
-            model=GROQ_MODEL_FAST,
-            messages=[{"role": "user", "content": "hi"}],
-            max_tokens=1,
-            temperature=0,
-        )
-        warmup_time = (time.time() - start) * 1000
-        print(f"   Groq warm-up: {warmup_time:.0f}ms")
-    except Exception as e:
-        print(f"   Groq warm-up failed: {e}")
+    # Warm-up Groq avec 3 requêtes pour stabiliser la connexion HTTP
+    # La 1ère établit TLS, la 2ème/3ème confirment la stabilité
+    warmup_latencies = []
+    for i in range(3):
+        try:
+            start = time.time()
+            await groq_client.chat.completions.create(
+                model=GROQ_MODEL_FAST,
+                messages=[{"role": "user", "content": f"hi{i}"}],
+                max_tokens=1,
+                temperature=0,
+            )
+            latency = (time.time() - start) * 1000
+            warmup_latencies.append(latency)
+        except Exception as e:
+            print(f"   Groq warm-up {i+1}/3 failed: {e}")
+
+    if warmup_latencies:
+        avg = sum(warmup_latencies) / len(warmup_latencies)
+        print(f"   Groq warm-up: {warmup_latencies} ms (avg: {avg:.0f}ms)")
 
     # Pré-générer TTS pour les réponses humaines communes
     if tts_available:

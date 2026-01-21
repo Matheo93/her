@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/eva-gate.py"
+            "command": "python3 /home/dev/her/.claude/hooks/eva-gate.py"
           }
         ]
       }
