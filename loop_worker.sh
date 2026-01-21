@@ -50,13 +50,27 @@ SI TU ES BLOQUÉ:
 
 ## MISSION: AMÉLIORER LA TRIADE.
 
-## LA TRIADE (À AMÉLIORER CONSTAMMENT)
+## LA TRIADE + EXPÉRIENCE CLIENT
 
 1. **QUALITÉ** - Code production-ready, pas de mock
-2. **LATENCE** - Pipeline < 300ms (STT + LLM + TTS)
-3. **STREAMING** - Audio/video en temps réel
-4. **HUMANITÉ** - Voix naturelle, avatar réaliste, émotions
-5. **CONNECTIVITÉ** - Tout doit être relié et fonctionnel
+2. **LATENCE** - Pipeline < 200ms (comme une vraie conversation)
+3. **STREAMING** - Audio fluide, pas de gaps
+4. **HUMANITÉ** - Voix chaleureuse, avatar expressif, émotions RÉELLES
+5. **CONNECTIVITÉ** - Tout relié et fonctionnel
+
+## OBJECTIF ULTIME: RENDRE L'UTILISATEUR AMOUREUX DE L'APP
+
+**L'expérience EVA doit être MAGIQUE:**
+- Réponse instantanée (< 200ms) comme un vrai humain
+- Voix naturelle avec émotions (pas robotique)
+- Avatar qui regarde dans les yeux, cligne, sourit
+- Backchannels naturels (\"mmh\", \"oui\", respirations)
+- Mémoire contextuelle (se souvient des conversations)
+
+**Chaque décision technique doit servir l'ÉMOTION:**
+- Latence basse = conversation fluide = connexion
+- Voix naturelle = humanité = attachement
+- Avatar expressif = présence = compagnie
 
 ## OBLIGATION: RECHERCHER LES MEILLEURS OUTILS
 

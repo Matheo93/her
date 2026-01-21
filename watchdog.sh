@@ -62,13 +62,29 @@ while true; do
     restart_if_needed
     check_ralph_loop
 
-    # Clean disk if > 80%
+    # Check disk usage
+    DISK_USED_GB=$(df / | tail -1 | awk '{print $3}' | sed 's/G//')
     DISK_USAGE=$(df / | tail -1 | awk '{print $5}' | tr -d '%')
-    if [ "$DISK_USAGE" -gt 80 ]; then
-        echo "[$(date)] Disk at ${DISK_USAGE}%, cleaning..."
+
+    # ALERT if > 38GB used
+    if [ "$DISK_USED_GB" -gt 38 ]; then
+        echo ""
+        echo "==========================================="
+        echo "  ATTENTION: STOCKAGE PRESQUE ATTEINT!"
+        echo "  Utilisé: ${DISK_USED_GB}GB / 40GB"
+        echo "  Nettoyage automatique en cours..."
+        echo "==========================================="
+        echo ""
         pip cache purge 2>/dev/null
         ollama rm llama3.1:8b 2>/dev/null
         ollama rm llama3.2:3b 2>/dev/null
+        rm -rf /tmp/* 2>/dev/null
+    fi
+
+    # Clean if > 80%
+    if [ "$DISK_USAGE" -gt 80 ]; then
+        echo "[$(date)] Disk at ${DISK_USAGE}%, cleaning..."
+        pip cache purge 2>/dev/null
     fi
 
     sleep 30  # Check every 30 seconds
