@@ -2136,7 +2136,34 @@ async def chat_expressive(request: Request, data: dict, _: str = Depends(verify_
                 "animations": [{"type": "thinking", "intensity": 0.6, "duration": 0.5}]
             }) + "\n"
 
-        # 2. Stream LLM + TTS with full expression
+        # 2. Check response cache for greetings (bypass LLM for common phrases)
+        cached_response = response_cache.get_cached_response(message)
+        if cached_response:
+            # Fast path: use cached response, no LLM call needed
+            emotion = detect_emotion(cached_response)
+            audio_chunk = await async_ultra_fast_tts(cached_response)
+            if not audio_chunk:
+                audio_chunk = await async_fast_tts(cached_response)
+            if audio_chunk:
+                cache_time = (time.time() - total_start) * 1000
+                print(f"⚡ CACHED RESPONSE: {cache_time:.0f}ms (no LLM)")
+                yield json.dumps({
+                    "type": "speech",
+                    "audio_base64": base64.b64encode(audio_chunk).decode(),
+                    "text": cached_response,
+                    "emotion": emotion.name,
+                    "intensity": emotion.intensity,
+                    "animations": get_expression_data(cached_response)["animations"],
+                    "cached": True
+                }) + "\n"
+                yield json.dumps({
+                    "type": "done",
+                    "total_ms": round(cache_time),
+                    "cached": True
+                }) + "\n"
+                return  # Early exit for cached responses
+
+        # 3. Stream LLM + TTS with full expression
         sentence_buffer = ""
         full_response = ""
 
