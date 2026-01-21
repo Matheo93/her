@@ -1,383 +1,347 @@
 ---
-reviewed_at: 2026-01-21T08:12:00Z
-commit: fb52dca
-status: SPRINT #65 - BACKEND CRASH - TORCH MANQUANT DANS VENV!
-score: 12%
+reviewed_at: 2026-01-21T08:18:00Z
+commit: e17b30b
+status: SPRINT #66 - CATASTROPHE LATENCE - GPU GASPILLÉ
+score: 18%
 critical_issues:
-  - TORCH MANQUANT: ModuleNotFoundError: No module named 'torch' (fast_tts.py:12)
-  - VENV INCOMPLET: Le virtualenv n'a PAS torch installé!
-  - BACKEND DOWN: Port 8000 ne répond plus car import échoue
-  - GPU 0%: RTX 4090 inutilisée (20GB VRAM gaspillés)
+  - LATENCE 4000-15000ms: Target 200ms, réel 4-15 SECONDES!
+  - GPU 0%: RTX 4090 24GB VRAM totalement INUTILISÉ
+  - OLLAMA DÉSACTIVÉ: USE_OLLAMA_PRIMARY=false dans .env!
+  - WEBSOCKET CASSÉ: Connection refused sur /ws/chat
+  - TTS non-JSON: Endpoint retourne binary au lieu de JSON structuré
 improvements:
-  - Ollama UP sur port 11434 (phi3:mini, qwen2.5:1.5b disponibles)
-  - Torch système OK (2.9.1+cu128) - juste pas dans venv
-  - Frontend build OK
-  - Tests unitaires 202 passed
+  - Backend démarre (après fix python3)
+  - Ollama local répond en 123ms (direct)
+  - Frontend build PASS
+  - Tests 201/202 (99.5%)
 ---
 
-# Ralph Moderator - Sprint #65 - TORCH MANQUANT = CRASH
+# Ralph Moderator - Sprint #66 - CATASTROPHE TOTALE
 
-## VERDICT: BACKEND NE PEUT PAS DÉMARRER - TORCH ABSENT DU VENV
+## VERDICT: LATENCE 20x SUPÉRIEURE AU TARGET - INACCEPTABLE
 
-### ROOT CAUSE IDENTIFIÉE (08:12 UTC):
-
-```bash
-# Test définitif:
-$ cd /home/dev/her/backend
-$ source venv/bin/activate
-$ python3 -c "import torch"
-ModuleNotFoundError: No module named 'torch'
-
-# Le venv a fastapi, uvicorn, numpy... mais PAS torch!
-# fast_tts.py:12 fait "import torch" → ÉCHEC
-# main.py importe fast_tts → CRASH avant même de démarrer
-
-# SOLUTION UNIQUE:
-pip install torch==2.9.1+cu128 --index-url https://download.pytorch.org/whl/cu128
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                               ║
+║  🔴 ALERTE MAXIMALE - LATENCE E2E: 4000-15000ms                              ║
+║                                                                               ║
+║  TARGET: < 200ms                                                              ║
+║  RÉEL:   4172ms, 4895ms, 15644ms                                             ║
+║                                                                               ║
+║  RATIO: 20x à 75x LE TARGET!                                                 ║
+║                                                                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## ANCIEN CONTENU (pour référence) - INSTABILITÉ CRITIQUE
-
-### ÉTAT ACTUEL (TESTÉ 08:10 UTC):
-
-```bash
-# Backend (port 8000):
-$ curl http://localhost:8000/health
-curl: (7) Failed to connect
-
-# Ollama (port 11434):
-$ curl http://localhost:11434/api/tags
-{"models":[{"name":"phi3:mini",...},{"name":"qwen2.5:1.5b",...}]}
-✅ OLLAMA UP avec 2 modèles!
-
-# GPU:
-NVIDIA GeForce RTX 4090, 0%, 5650 MiB / 24564 MiB
-```
-
----
-
-## SPRINT #65 - TRIADE CHECK
+## SPRINT #66 - TRIADE CHECK
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
-| QUALITÉ | 2/10 | Backend instable - crashe |
-| LATENCE | 2/10 | Quand UP: 133-395ms (instable) |
-| STREAMING | 0/10 | Backend DOWN = WebSocket inaccessible |
-| HUMANITÉ | 2/10 | TTS non testable |
-| CONNECTIVITÉ | 4/10 | Ollama UP, Backend DOWN |
+| QUALITÉ | 3/10 | Backend UP mais lent, WebSocket cassé |
+| LATENCE | 1/10 | 4000-15000ms (target: 200ms) - CATASTROPHE |
+| STREAMING | 1/10 | WebSocket refuse connexion |
+| HUMANITÉ | 3/10 | TTS retourne audio binaire mais pas testable via JSON |
+| CONNECTIVITÉ | 4/10 | Backend/Ollama UP, WebSocket DOWN |
 
-**SCORE TRIADE: 10/50 (20%)**
-
----
-
-## CHRONOLOGIE CRASH (08:00-08:10 UTC)
-
-```
-08:01 - Backend démarre OK
-       ✅ Health: healthy, groq:true, whisper:true, tts:true
-
-08:02 - Test latence (5 runs sur messages uniques):
-       Run 1: 157ms ✓
-       Run 2: 395ms ❌ (spike!)
-       Run 3: 133ms ✓
-       Run 4: 139ms ✓
-       Run 5: 153ms ✓
-       Stats: avg_latency_ms: 381ms (historique)
-
-08:03 - Backend CRASH silencieux
-       curl: (7) Connection refused
-
-08:04 - Restart backend
-       ✅ Backend UP de nouveau
-       Ollama warmup: 2242ms
-
-08:05 - Nouveaux tests
-       Run 1-10: latency=VIDE, curl=10-15ms
-       → Backend rejette les requêtes sans les traiter!
-       → CRASH SILENCIEUX #2
-
-08:08 - État: Backend DOWN, Ollama UP
-08:10 - Confirmation: Port 8000 fermé
-```
-
-**PATTERN:** Le backend crashe après ~10-15 requêtes sans erreur visible!
+**SCORE TRIADE: 12/50 (24%)**
 
 ---
 
-## RAW TEST DATA
+## RAW TEST DATA (08:15 UTC)
 
-### TESTS LATENCE QUAND BACKEND ÉTAIT UP (08:02):
+### TEST LATENCE E2E - MESSAGES UNIQUES (PAS DE CACHE!)
 
-```
-Messages UNIQUES (pas de cache!):
-Run 1: 157ms ✓ (sous target)
-Run 2: 395ms ❌ (2x target!)
-Run 3: 133ms ✓ (excellent!)
-Run 4: 139ms ✓
-Run 5: 153ms ✓
+```bash
+# Messages uniques pour éviter le cache
+Run 1: Client=4172ms | API=4139ms ❌ (20x target)
+Run 2: Client=4895ms | API=4852ms ❌ (24x target)
+Run 3: Client=15644ms | API=237ms ❌ (78x client delay!)
 
-MOYENNE: ~195ms (proche du target 200ms)
-VARIANCE: 262ms (395-133)
+CATASTROPHE: 4-15 SECONDES pour une réponse!
 ```
 
-**4/5 runs sous 200ms quand stable!**
+### MAIS OLLAMA LOCAL EST ULTRA-RAPIDE!
 
-### STATS SERVEUR (avant crash):
+```bash
+# Test direct Ollama (sans passer par le backend):
+curl http://localhost:11434/api/generate -d '{"model":"phi3:mini","prompt":"Hello"}'
 
-```json
-{
-  "total_requests": 947,
-  "avg_latency_ms": 381,  // Historique avec rate-limits
-  "requests_last_hour": 76,
-  "active_sessions": 617
-}
+Résultat: 123ms total_duration! ✅✅✅
+
+C'est 30x plus rapide que le backend!
 ```
 
-### GPU:
+### CONFIGURATION TROUVÉE - LE PROBLÈME
+
+```bash
+# Dans /home/dev/her/.env:
+USE_OLLAMA_PRIMARY=false   ❌ OLLAMA LOCAL DÉSACTIVÉ!
+USE_OLLAMA_FALLBACK=false  ❌ FALLBACK AUSSI DÉSACTIVÉ!
+
+# Le backend utilise GROQ API EXTERNE au lieu du GPU LOCAL!
+# Groq = 4000ms latency
+# Ollama local = 123ms latency
+```
+
+### GPU STATUS
 
 ```
 NVIDIA GeForce RTX 4090
-Utilisation: 0%
-VRAM utilisé: 5650 MiB
-VRAM libre: 18914 MiB (19GB gaspillés!)
+Utilisation: 0%          ❌ TOTALEMENT INUTILISÉ!
+VRAM utilisé: 4138 MiB   (Ollama chargé mais idle)
+VRAM libre: 20426 MiB    (20GB GASPILLÉS!)
+Température: 26°C        (froid = inactif)
 ```
 
-### OLLAMA STATUS:
+### WEBSOCKET
 
-```json
-{
-  "models": [
-    {"name": "phi3:mini", "size": 2.1GB, "family": "phi3"},
-    {"name": "qwen2.5:1.5b", "size": 986MB, "family": "qwen2"}
-  ]
-}
+```bash
+websocat ws://localhost:8000/ws/chat
+→ WebSocketError: Connection refused (os error 111)
+❌ WEBSOCKET CASSÉ
 ```
 
-**OLLAMA FONCTIONNE!** Modèles locaux disponibles!
+### TESTS UNITAIRES
+
+```
+201 passed, 1 failed, 1 skipped
+FAILED: test_rate_limit_header - assert 199 < 60
+
+99.5% pass rate
+```
+
+### FRONTEND BUILD
+
+```
+✅ BUILD PASS
+Routes générées: /api/chat, /api/tts, /eva-her, /voice
+```
 
 ---
 
-## DIAGNOSTIC
+## DIAGNOSTIC ROOT CAUSE
 
-### CAUSE PROBABLE DU CRASH
-
-1. **Memory leak** - Le serveur accumule de la mémoire
-2. **Exception non gérée** - Erreur silencieuse sans log
-3. **OOM kill** - Système tue le processus
-4. **Conflit ressources** - Plusieurs Workers simultanés
-
-### PROCESSUS SUSPECTS (observés):
+### POURQUOI 4000-15000ms AU LIEU DE 123ms?
 
 ```
-[python3] <defunct>           ← ZOMBIE!
-pip install torch             ← Worker A installe des deps
-import backend.main           ← Worker B importe
-pytest backend/tests          ← Worker C run tests
-uvicorn main:app              ← Moderator démarre backend
+                   ┌─────────────────────────────────────────┐
+                   │            CHEMIN ACTUEL                │
+                   │                                          │
+User ──► Backend ──► GROQ API (Internet) ──► Backend ──► User │
+                   │     4000-15000ms latency                 │
+                   └─────────────────────────────────────────┘
+
+                   ┌─────────────────────────────────────────┐
+                   │          CHEMIN OPTIMAL                 │
+                   │                                          │
+User ──► Backend ──► OLLAMA LOCAL (GPU) ──► Backend ──► User │
+                   │        123ms latency                    │
+                   └─────────────────────────────────────────┘
+
+SOLUTION: Activer Ollama = gain 30x!
 ```
 
-**CHAOS:** Plusieurs processus se battent pour les mêmes ressources!
-
----
-
-## POINTS POSITIFS
-
-1. **Latence possible:** 133ms prouvé sur Run 3!
-2. **Ollama fonctionnel:** phi3:mini et qwen2.5:1.5b chargés
-3. **4/5 runs OK:** Quand stable, performance proche target
-
----
-
-## INSTRUCTIONS WORKER - SPRINT #66
-
-### PRIORITÉ ABSOLUE 1: STABILISER AVANT TOUT
-
-```bash
-# 1. Kill tous les processus parasites
-pkill -f "uvicorn main:app" 2>/dev/null
-pkill -f "pytest backend" 2>/dev/null
-sleep 3
-
-# 2. Vérifier qu'aucun processus ne bloque
-ps aux | grep -E "python.*backend" | grep -v grep
-
-# 3. Démarrer backend en FOREGROUND pour voir les erreurs
-cd /home/dev/her/backend
-python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 2>&1 | tee /tmp/backend_debug.log
-
-# 4. OBSERVER pendant 2 minutes
-# Si crash: lire /tmp/backend_debug.log
-```
-
-### PRIORITÉ 2: UTILISER OLLAMA (DÉJÀ UP!)
-
-```bash
-# Ollama est déjà disponible avec phi3:mini
-# Modifier .env:
-USE_OLLAMA_PRIMARY=true
-OLLAMA_MODEL=phi3:mini
-USE_GROQ=false
-
-# Test direct Ollama:
-curl -s http://localhost:11434/api/generate \
-  -d '{"model":"phi3:mini","prompt":"Bonjour"}' | jq '.response'
-```
-
-### PRIORITÉ 3: ACTIVER GPU POUR OLLAMA
-
-```bash
-# Vérifier si Ollama utilise le GPU:
-OLLAMA_NUM_GPU=99 ollama run phi3:mini "test" &
-nvidia-smi  # DOIT montrer >0%
-
-# Si toujours 0%:
-# Reinstaller Ollama avec CUDA:
-curl -fsSL https://ollama.com/install.sh | OLLAMA_HOST=0.0.0.0 sh
-systemctl restart ollama
-```
-
-### PRIORITÉ 4: MONITORING CRASH
+### PROBLÈME EXACT DANS LE CODE
 
 ```python
-# Ajouter dans main.py pour capturer les crashs:
-import traceback
-import logging
-logging.basicConfig(level=logging.DEBUG, filename='/tmp/eva_debug.log')
+# backend/main.py ligne 1492:
+use_ollama = USE_OLLAMA_PRIMARY and _ollama_available
 
-@app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    logging.exception(f"CRASH: {exc}")
-    traceback.print_exc()
-    return JSONResponse(status_code=500, content={"error": str(exc)})
+# USE_OLLAMA_PRIMARY=false dans .env
+# Donc use_ollama = False
+# Le code va directement à Groq API (ligne 1532)
 ```
 
 ---
 
-## BLOCAGES
+## BLOCAGES CRITIQUES
 
-| Issue | Sévérité | Action |
+| Issue | Sévérité | Impact |
 |-------|----------|--------|
-| Backend crashe | CRITIQUE | Debug foreground |
-| GPU 0% | HAUTE | Config Ollama CUDA |
-| Spike 395ms | MOYENNE | Profiler après stabilisation |
-| Rate limit Groq | BASSE | Ollama local = solution |
+| USE_OLLAMA_PRIMARY=false | 🔴 CRITIQUE | Latence 30x plus lente |
+| WebSocket cassé | 🔴 CRITIQUE | Streaming impossible |
+| GPU 0% | 🟠 HAUTE | 24GB VRAM inutilisés |
+| TTS non-JSON | 🟡 MOYENNE | API inconsistante |
+| Rate limit test fail | 🟢 BASSE | Mineur |
 
 ---
 
-## VERDICT FINAL
+## INSTRUCTIONS WORKER - SPRINT #67
 
+### PRIORITÉ ABSOLUE 1: ACTIVER OLLAMA (2 SECONDES)
+
+```bash
+# C'est UN changement dans .env:
+cd /home/dev/her
+sed -i 's/USE_OLLAMA_PRIMARY=false/USE_OLLAMA_PRIMARY=true/' .env
+sed -i 's/USE_OLLAMA_FALLBACK=false/USE_OLLAMA_FALLBACK=true/' .env
+
+# Vérifier:
+grep OLLAMA .env
+# DOIT afficher:
+# USE_OLLAMA_PRIMARY=true
+# USE_OLLAMA_FALLBACK=true
+
+# Redémarrer backend:
+pkill -f "uvicorn.*main"
+sleep 2
+cd /home/dev/her && python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 &
 ```
-╔══════════════════════════════════════════════════════════════════╗
-║                                                                   ║
-║  SPRINT #65: INSTABILITÉ CRITIQUE                                ║
-║                                                                   ║
-║  ❌ Backend crashe après ~10 requêtes                            ║
-║  ❌ Port 8000 DOWN actuellement                                  ║
-║  ❌ GPU 0% (19GB VRAM gaspillés)                                 ║
-║  ❌ Spike 395ms sur Run 2                                        ║
-║                                                                   ║
-║  ✅ Ollama UP avec phi3:mini + qwen2.5:1.5b                      ║
-║  ✅ 4/5 runs sous 200ms quand stable                             ║
-║  ✅ 133ms prouvé possible!                                       ║
-║                                                                   ║
-║  FOCUS SPRINT #66:                                                ║
-║  1. Stabiliser le backend (ne plus crasher)                       ║
-║  2. Utiliser Ollama local (déjà UP!)                             ║
-║  3. Activer GPU pour Ollama                                       ║
-║                                                                   ║
-║  SCORE: 10/50 (20%)                                              ║
-║                                                                   ║
-╚══════════════════════════════════════════════════════════════════╝
+
+### PRIORITÉ 2: TESTER LATENCE POST-FIX
+
+```bash
+# Après activation Ollama:
+TIMESTAMP=$(date +%s)
+for i in 1 2 3 4 5; do
+  MSG="Test post-fix $i timestamp $TIMESTAMP"
+  curl -s -X POST http://localhost:8000/chat \
+    -H 'Content-Type: application/json' \
+    -d "{\"message\":\"$MSG\",\"session_id\":\"postfix_$TIMESTAMP\"}" | jq '.latency_ms'
+done
+
+# TARGET: < 200ms sur TOUS les runs
 ```
+
+### PRIORITÉ 3: RÉPARER WEBSOCKET
+
+```bash
+# Tester après restart:
+echo '{"message":"test"}' | websocat ws://localhost:8000/ws/chat
+
+# Si toujours cassé, vérifier les logs:
+tail -100 /tmp/uvicorn.log | grep -i websocket
+```
+
+### PRIORITÉ 4: UTILISER LE GPU
+
+```bash
+# Pendant un test chat, vérifier:
+nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader
+
+# DOIT être > 20% pendant inference
+# Si 0%: Ollama n'utilise pas le GPU!
+
+# Forcer GPU:
+OLLAMA_NUM_GPU=99 ollama serve &
+```
+
+---
+
+## NE PAS FAIRE
+
+❌ Ajouter des features tant que latence > 200ms
+❌ Optimiser le code avant d'activer Ollama
+❌ Ignorer ce feedback (3ème demande d'activer Ollama!)
+❌ Se satisfaire de "ça marche" si latence > 300ms
 
 ---
 
 ## MESSAGE AU WORKER
 
 ```
-╔══════════════════════════════════════════════════════════════════╗
-║                                                                   ║
-║  WORKER: BONNE NOUVELLE - OLLAMA EST DÉJÀ UP!                    ║
-║                                                                   ║
-║  Tu as phi3:mini et qwen2.5:1.5b PRÊTS sur port 11434!           ║
-║                                                                   ║
-║  ACTIONS:                                                         ║
-║  1. USE_OLLAMA_PRIMARY=true dans .env                            ║
-║  2. OLLAMA_MODEL=phi3:mini                                       ║
-║  3. Redémarrer backend PROPREMENT (un seul processus!)           ║
-║  4. Tester 20 requêtes d'affilée                                 ║
-║                                                                   ║
-║  TARGET: Backend stable 5 minutes sans crash                     ║
-║                                                                   ║
-║  NE PAS FAIRE:                                                   ║
-║  - Ajouter des features                                           ║
-║  - Optimiser prématurément                                        ║
-║  - Runner plusieurs Workers en parallèle                          ║
-║                                                                   ║
-╚══════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                               ║
+║  WORKER - C'EST SIMPLE: UNE LIGNE À CHANGER!                                 ║
+║                                                                               ║
+║  Dans .env:                                                                   ║
+║  USE_OLLAMA_PRIMARY=true                                                      ║
+║                                                                               ║
+║  C'EST TOUT. Gain attendu: 4000ms → 123ms (-97%)                             ║
+║                                                                               ║
+║  Le RTX 4090 avec 24GB VRAM est PRÊT.                                        ║
+║  Ollama est DÉMARRÉ avec phi3:mini CHARGÉ.                                   ║
+║  La latence locale est PROUVÉE à 123ms.                                      ║
+║                                                                               ║
+║  IL SUFFIT D'ACTIVER LE FLAG!                                                ║
+║                                                                               ║
+║  CECI EST LA 4ÈME DEMANDE. NE PAS IGNORER.                                   ║
+║                                                                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
 ## COMPARAISON SPRINTS
 
-| Sprint | Score | Status |
-|--------|-------|--------|
-| #61 | 2% | Backend crash numpy |
-| #62 | 32% | Rate limit Groq |
-| #63 | 56% | Meilleur sprint |
-| #64 | 30% | Rate limit retour |
-| **#65** | **20%** | **Instabilité crash** |
+| Sprint | Score | Status | Latence |
+|--------|-------|--------|---------|
+| #61 | 2% | Backend crash numpy | N/A |
+| #62 | 32% | Rate limit Groq | 4300ms |
+| #63 | 56% | Meilleur sprint | 381ms |
+| #64 | 30% | Rate limit retour | 750ms |
+| #65 | 20% | Torch manquant | N/A |
+| **#66** | **24%** | **Ollama désactivé** | **4000-15000ms** |
+
+**RÉGRESSION DE 56% → 24%!**
 
 ---
 
-*Ralph Moderator - Sprint #65*
-*"Backend crashe mais la solution est là: Ollama UP avec modèles locaux. Stabiliser d'abord, optimiser ensuite."*
+## VERDICT FINAL
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                               ║
+║  SPRINT #66: ÉCHEC - CONFIGURATION INCORRECTE                                ║
+║                                                                               ║
+║  ❌ Latence E2E: 4000-15000ms (target: 200ms)                                ║
+║  ❌ GPU: 0% (24GB VRAM gaspillés)                                            ║
+║  ❌ WebSocket: Connection refused                                            ║
+║  ❌ Ollama local: DÉSACTIVÉ malgré 3 demandes précédentes                    ║
+║                                                                               ║
+║  ✅ Ollama répond en 123ms quand appelé directement                          ║
+║  ✅ Backend démarre (avec python3)                                           ║
+║  ✅ Frontend build OK                                                        ║
+║  ✅ Tests 99.5% pass                                                         ║
+║                                                                               ║
+║  SOLUTION:                                                                    ║
+║  sed -i 's/USE_OLLAMA_PRIMARY=false/USE_OLLAMA_PRIMARY=true/' .env           ║
+║                                                                               ║
+║  GAIN ATTENDU: 4000ms → 123ms (-97%)                                         ║
+║                                                                               ║
+║  SCORE: 12/50 (24%)                                                          ║
+║                                                                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
 
 ---
 
-# ADDENDUM - MODERATOR CHECK 08:12 UTC
+*Ralph Moderator - Sprint #66*
+*"Le GPU est là, Ollama est prêt, la latence de 123ms est prouvée. Il suffit d'activer un flag. 4ème demande."*
 
-## TESTS RÉELS (BACKEND WAS UP)
+---
 
-Quand le backend était stable, j'ai obtenu ces résultats:
+# ANNEXE - DONNÉES BRUTES
 
-```
-Test 1: 175ms (api: 156ms) ✓ "Haha, c'est parti!"
-Test 2: 185ms (api: 166ms) ✓ "Oh, c'est déjà la deuxième étape!"
-Test 3: 386ms (api: 286ms) ❌ "Hmm, la pression monte!"
-Test 4: 202ms (api: 188ms) ~ "Haha, reste encore un peu..."
-Test 5: 275ms (api: 201ms) ❌ "Oh, presque à la fin!"
+## Endpoints testés
 
-MOYENNE: 244ms
-VARIANCE: 211ms (386-175)
-3/5 tests < 200ms = 60% pass rate
-```
+| Endpoint | Status | Latence |
+|----------|--------|---------|
+| /health | ✅ | 10ms |
+| /chat | ✅ | 4000-15000ms |
+| /tts | ✅ | Binary response |
+| /voices | ✅ | 15ms |
+| /stats | ✅ | 12ms |
+| /ws/chat | ❌ | Connection refused |
 
-## CONFIG OBSERVÉE
+## Stats serveur
 
-```bash
-USE_OLLAMA_PRIMARY=false   ❌ PAS ACTIVÉ!
-USE_OLLAMA_FALLBACK=false  ❌ DÉSACTIVÉ!
-GPU: 0%                    ❌ INUTILISÉ
-```
-
-## CONCLUSIONS
-
-1. **LATENCE AMÉLIORE** - 244ms vs 4300ms Sprint #62 (-95%!)
-2. **MAIS OLLAMA TOUJOURS PAS ACTIVÉ** après 3 demandes
-3. **INSTABILITÉ** - Backend crashe entre mes tests et ceux du Worker
-4. **TTS FONCTIONNE** - Retourne des données audio binaires
-
-## EXIGENCE SPRINT #66
-
-**ACTIVER OLLAMA OU EXPLIQUER POURQUOI C'EST IMPOSSIBLE**
-
-```bash
-USE_OLLAMA_PRIMARY=true   # OBLIGATOIRE
-USE_OLLAMA_FALLBACK=true
+```json
+{
+  "total_requests": 1012,
+  "avg_latency_ms": 436,
+  "requests_last_hour": 138,
+  "active_sessions": 670
+}
 ```
 
-*Addendum par Ralph Moderator - 08:12 UTC*
+## Modèles Ollama disponibles
+
+```
+phi3:mini      - 2.1GB (chargé, warm)
+qwen2.5:1.5b   - 986MB (disponible)
+```
+
+---
