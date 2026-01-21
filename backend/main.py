@@ -1071,12 +1071,20 @@ async def lifespan(app: FastAPI):
         print("⚠️  Whisper not installed - STT via browser only")
 
     # TTS - GPU Piper (fastest, ~30-100ms) or fallback options
+    fast_tts_initialized = False
     if USE_FAST_TTS:
         if init_gpu_tts():
             print("✅ GPU TTS ready (Piper VITS ~30-100ms)")
-            # Pre-generate filler audio for instant TTFA
+            fast_tts_initialized = True
+        elif init_fast_tts():
+            print("✅ MMS-TTS ready (GPU - ~70ms latency)")
+            fast_tts_initialized = True
+        else:
+            print("⚠️  Fast TTS failed, will use Edge-TTS")
+
+        # Initialize filler/backchannel audio if any fast TTS is available
+        if fast_tts_initialized:
             _init_filler_audio()
-            # Pre-generate backchannel audio for HER presence
             _init_backchannel_audio()
             # Initialize expression system (breathing sounds, emotions)
             if init_expression_system():
@@ -1084,11 +1092,6 @@ async def lifespan(app: FastAPI):
             # Initialize micro-expressions (blinks, gaze, etc.)
             if init_micro_expressions():
                 print("✅ Micro-expressions ready (blink, gaze, smile, breath)")
-
-        elif init_fast_tts():
-            print("✅ MMS-TTS ready (GPU - ~140ms latency)")
-        else:
-            print("⚠️  Fast TTS failed, will use Edge-TTS")
 
     try:
         import edge_tts
@@ -1901,7 +1904,10 @@ def _init_filler_audio():
 
     fillers = ["Hmm", "Alors", "Euh", "Mmh", "Oh"]
     for filler in fillers:
+        # Try ultra_fast_tts first, fall back to fast_tts (MMS-GPU)
         audio = ultra_fast_tts(filler)
+        if not audio:
+            audio = fast_tts(filler)
         if audio:
             _filler_audio_cache[filler] = audio
     print(f"⚡ Filler audio ready: {list(_filler_audio_cache.keys())}")
@@ -1934,7 +1940,10 @@ def _init_backchannel_audio():
     for category, sounds in backchannels.items():
         _backchannel_audio_cache[category] = {}
         for sound in sounds:
+            # Try ultra_fast_tts first, fall back to fast_tts (MMS-GPU)
             audio = ultra_fast_tts(sound)
+            if not audio:
+                audio = fast_tts(sound)
             if audio:
                 _backchannel_audio_cache[category][sound] = audio
 
@@ -2150,8 +2159,10 @@ async def chat_expressive(request: Request, data: dict, _: str = Depends(verify_
                     text_micro = get_text_expressions(sentence)
                     frame_micro = get_micro_expression_frame()
 
-                    # Generate TTS
+                    # Generate TTS (try ultra_fast, fall back to fast_tts)
                     audio_chunk = await async_ultra_fast_tts(sentence)
+                    if not audio_chunk:
+                        audio_chunk = await async_fast_tts(sentence)
                     if audio_chunk:
                         yield json.dumps({
                             "type": "speech",
@@ -2182,6 +2193,8 @@ async def chat_expressive(request: Request, data: dict, _: str = Depends(verify_
         if sentence_buffer.strip():
             sentence = sentence_buffer.strip()
             audio_chunk = await async_ultra_fast_tts(sentence)
+            if not audio_chunk:
+                audio_chunk = await async_fast_tts(sentence)
             if audio_chunk:
                 emotion = detect_emotion(sentence)
                 yield json.dumps({
