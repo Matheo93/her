@@ -1055,12 +1055,16 @@ async def lifespan(app: FastAPI):
         import torch
         device = "cuda" if torch.cuda.is_available() else "cpu"
         compute = "float16" if device == "cuda" else "int8"
-        # Use large-v3 model on GPU for best accuracy (1.5B params, ~3GB VRAM)
-        # RTX 4090 has 24GB VRAM - plenty of headroom for large-v3
-        # tiny=39M, base=74M, small=244M, medium=769M, large-v3=1.5B
-        whisper_model_name = "large-v3" if device == "cuda" else "tiny"
-        whisper_model = WhisperModel(whisper_model_name, device=device, compute_type=compute)
-        print(f"✅ Whisper STT loaded ({whisper_model_name} on {device.upper()})")
+        # distil-large-v3: 2x faster than large-v3 with same quality
+        # Target: <200ms STT latency
+        whisper_model_name = "distil-large-v3" if device == "cuda" else "tiny"
+        whisper_model = WhisperModel(
+            whisper_model_name,
+            device=device,
+            compute_type=compute,
+            num_workers=4  # Parallel processing
+        )
+        print(f"✅ Whisper STT loaded ({whisper_model_name} on {device.upper()}, float16)")
     except ImportError:
         print("⚠️  Whisper not installed - STT via browser only")
 
@@ -2029,13 +2033,8 @@ async def chat_stream(request: Request, data: dict, _: str = Depends(verify_api_
                     emotion = detect_emotion(sentence)
                     print(f"🎭 Emotion: {emotion.name} ({emotion.intensity:.1f})")
 
-                    # Generate TTS (try fast backends first, fallback to Edge-TTS)
-                    audio_chunk = await async_ultra_fast_tts(sentence)
-                    if not audio_chunk:
-                        audio_chunk = await async_fast_tts(sentence)
-                    if not audio_chunk:
-                        # Final fallback: Edge-TTS (always works)
-                        audio_chunk = await text_to_speech(sentence)
+                    # Generate TTS - VITS GPU only (~70ms, no slow Edge-TTS)
+                    audio_chunk = await async_fast_tts(sentence)
                     if audio_chunk:
                         yield audio_chunk
 
@@ -2048,13 +2047,9 @@ async def chat_stream(request: Request, data: dict, _: str = Depends(verify_api_
 
                 sentence_buffer = ""
 
-        # Remaining text
+        # Remaining text - VITS GPU only
         if sentence_buffer.strip():
-            audio_chunk = await async_ultra_fast_tts(sentence_buffer.strip())
-            if not audio_chunk:
-                audio_chunk = await async_fast_tts(sentence_buffer.strip())
-            if not audio_chunk:
-                audio_chunk = await text_to_speech(sentence_buffer.strip())
+            audio_chunk = await async_fast_tts(sentence_buffer.strip())
             if audio_chunk:
                 yield audio_chunk
 
@@ -4185,12 +4180,8 @@ async def ws_her(ws: WebSocket):
                         if sentence and not is_interrupted:
                             emotion = detect_emotion(sentence)
 
-                            # Generate emotional TTS (with Edge-TTS fallback)
-                            audio_chunk = await async_emotional_tts(sentence, emotion.name)
-                            if not audio_chunk:
-                                audio_chunk = await async_ultra_fast_tts(sentence)
-                            if not audio_chunk:
-                                audio_chunk = await text_to_speech(sentence)
+                            # Generate TTS - VITS GPU only (~70ms, fast)
+                            audio_chunk = await async_fast_tts(sentence)
 
                             if audio_chunk and not is_interrupted:
                                 await safe_ws_send(ws, {

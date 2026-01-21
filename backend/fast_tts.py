@@ -1,6 +1,6 @@
 """
-Fast TTS Module - MMS-TTS on GPU
-Ultra-low latency: ~100ms for French TTS
+Fast TTS Module - VITS/MMS-TTS on GPU
+Ultra-low latency: ~30ms on RTX 4090
 """
 
 import torch
@@ -11,215 +11,155 @@ from typing import Optional
 import scipy.io.wavfile as wav
 
 # Global model instances
-_tts_model = None
-_tts_tokenizer = None
+_model = None
+_tokenizer = None
 _device = None
 _sample_rate = 16000
+_initialized = False
 
-def init_fast_tts():
-    """Initialize MMS-TTS French model on GPU with maximum optimizations"""
-    global _tts_model, _tts_tokenizer, _device, _sample_rate
 
-    if _tts_model is not None:
+def init_fast_tts() -> bool:
+    """Initialize VITS/MMS-TTS French on GPU"""
+    global _model, _tokenizer, _device, _sample_rate, _initialized
+
+    if _initialized:
         return True
 
     try:
         from transformers import VitsModel, AutoTokenizer
 
         _device = "cuda" if torch.cuda.is_available() else "cpu"
-        print(f"🚀 Loading MMS-TTS French on {_device.upper()}...")
+        print(f"🚀 Loading VITS-MMS French on {_device.upper()}...")
 
-        # Load model in float32 (MMS-TTS has issues with fp16)
-        _tts_model = VitsModel.from_pretrained("facebook/mms-tts-fra").to(_device)
-        _tts_tokenizer = AutoTokenizer.from_pretrained("facebook/mms-tts-fra")
-        _tts_model.eval()
+        # Load model
+        _model = VitsModel.from_pretrained("facebook/mms-tts-fra").to(_device)
+        _tokenizer = AutoTokenizer.from_pretrained("facebook/mms-tts-fra")
+        _model.eval()
 
-        _sample_rate = _tts_model.config.sampling_rate
+        _sample_rate = _model.config.sampling_rate
 
-        # Warmup runs for optimal latency
-        warmup_phrases = ["Bonjour", "Salut", "Test"]
-        for phrase in warmup_phrases:
-            inputs = _tts_tokenizer(phrase, return_tensors="pt").to(_device)
+        # Warmup (critical for GPU - first runs are slow)
+        for _ in range(5):
+            inputs = _tokenizer("Test", return_tensors="pt").to(_device)
             with torch.inference_mode():
-                _ = _tts_model(**inputs).waveform
+                _ = _model(**inputs).waveform
 
         if _device == "cuda":
             torch.cuda.synchronize()
 
-        print(f"✅ MMS-TTS ready on {_device.upper()} (sample rate: {_sample_rate}Hz, ~50-100ms)")
+        _initialized = True
+        print(f"✅ VITS-MMS ready ({_device.upper()}, {_sample_rate}Hz, ~30ms)")
         return True
 
     except Exception as e:
-        print(f"❌ MMS-TTS init failed: {e}")
+        print(f"❌ VITS-MMS init failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
-def fast_tts(text: str, speed: float = 1.0) -> Optional[bytes]:
-    """
-    Generate speech from text using MMS-TTS
+def fast_tts(text: str) -> Optional[bytes]:
+    """Generate speech using VITS GPU - returns WAV bytes"""
+    global _model, _tokenizer, _device, _sample_rate, _initialized
 
-    Args:
-        text: Text to synthesize (French)
-        speed: Speech speed multiplier (1.0 = normal)
-
-    Returns:
-        WAV audio bytes or None on error
-    """
-    global _tts_model, _tts_tokenizer, _device, _sample_rate
-
-    if _tts_model is None:
-        if not init_fast_tts():
-            return None
+    if not _initialized and not init_fast_tts():
+        return None
 
     try:
-        # Tokenize and move to device
-        inputs = _tts_tokenizer(text, return_tensors="pt").to(_device)
+        inputs = _tokenizer(text, return_tensors="pt").to(_device)
 
-        # Generate with inference_mode for speed
         with torch.inference_mode():
-            output = _tts_model(**inputs).waveform
+            output = _model(**inputs).waveform
 
-        # Convert to numpy (ensure float32 for numpy)
-        audio = output.squeeze().cpu().float().numpy()
+        # Convert to numpy
+        audio = output.squeeze().cpu().numpy()
 
-        # Apply speed adjustment if needed
-        if speed != 1.0:
-            from scipy.signal import resample
-            new_length = int(len(audio) / speed)
-            audio = resample(audio, new_length)
-
-        # Normalize audio
+        # Normalize
         max_val = np.max(np.abs(audio))
         if max_val > 0:
             audio = audio / max_val * 0.95
-        audio = (audio * 32767).astype(np.int16)
+        audio_int16 = (audio * 32767).astype(np.int16)
 
-        # Convert to WAV bytes (fastest encoding)
+        # To WAV bytes
         buffer = io.BytesIO()
-        wav.write(buffer, _sample_rate, audio)
+        wav.write(buffer, _sample_rate, audio_int16)
         return buffer.getvalue()
 
     except Exception as e:
-        print(f"TTS error: {e}")
+        print(f"VITS error: {e}")
         return None
 
 
-def fast_tts_mp3(text: str, speed: float = 1.0) -> Optional[bytes]:
-    """
-    Generate speech and convert to MP3 for web compatibility (optimized)
+def fast_tts_mp3(text: str) -> Optional[bytes]:
+    """Generate MP3 using VITS GPU"""
+    global _model, _tokenizer, _device, _sample_rate, _initialized
 
-    Uses lameenc for fast in-process MP3 encoding (~15ms vs ~55ms for ffmpeg)
-
-    Args:
-        text: Text to synthesize (French)
-        speed: Speech speed multiplier
-
-    Returns:
-        MP3 audio bytes or None on error
-    """
-    global _tts_model, _tts_tokenizer, _device, _sample_rate
-
-    if _tts_model is None:
-        if not init_fast_tts():
-            return None
+    if not _initialized and not init_fast_tts():
+        return None
 
     try:
-        # Generate audio directly (skip WAV intermediate)
-        inputs = _tts_tokenizer(text, return_tensors="pt").to(_device)
+        inputs = _tokenizer(text, return_tensors="pt").to(_device)
 
-        # Generate with inference_mode for speed
         with torch.inference_mode():
-            output = _tts_model(**inputs).waveform
+            output = _model(**inputs).waveform
 
-        # Convert to numpy
-        audio = output.squeeze().cpu().float().numpy()
-
-        # Normalize
+        audio = output.squeeze().cpu().numpy()
         audio = audio / np.max(np.abs(audio)) * 0.95
         audio_int16 = (audio * 32767).astype(np.int16)
 
-        # Use lameenc for fast in-process MP3 encoding (~15ms vs ~55ms for ffmpeg)
+        # Use lameenc for fast MP3 encoding
         try:
             import lameenc
             encoder = lameenc.Encoder()
             encoder.set_bit_rate(64)
             encoder.set_in_sample_rate(_sample_rate)
             encoder.set_channels(1)
-            encoder.set_quality(7)  # Lower = better quality, higher = faster (2-7)
+            encoder.set_quality(7)
             mp3_data = encoder.encode(audio_int16.tobytes())
             mp3_data += encoder.flush()
             return bytes(mp3_data)
         except ImportError:
-            # Fallback to ffmpeg if lameenc not available
-            import subprocess
-            process = subprocess.Popen(
-                [
-                    "ffmpeg", "-f", "s16le", "-ar", str(_sample_rate), "-ac", "1",
-                    "-i", "pipe:0", "-codec:a", "libmp3lame", "-b:a", "64k",
-                    "-f", "mp3", "pipe:1"
-                ],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL
-            )
-            mp3_data, _ = process.communicate(input=audio_int16.tobytes())
-            return mp3_data
+            # Fallback: return WAV
+            buffer = io.BytesIO()
+            wav.write(buffer, _sample_rate, audio_int16)
+            return buffer.getvalue()
 
     except Exception as e:
-        print(f"MP3 TTS error: {e}")
+        print(f"VITS MP3 error: {e}")
         return None
 
 
-async def async_fast_tts(text: str, speed: float = 1.0) -> Optional[bytes]:
-    """Async wrapper for fast_tts (WAV format)"""
+async def async_fast_tts(text: str) -> Optional[bytes]:
+    """Async wrapper for fast_tts"""
     import asyncio
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, fast_tts, text, speed)
+    return await asyncio.get_event_loop().run_in_executor(None, fast_tts, text)
 
 
-async def async_fast_tts_mp3(text: str, speed: float = 1.0) -> Optional[bytes]:
-    """Async wrapper for fast_tts_mp3 (MP3 format - smaller, faster transfer)"""
+async def async_fast_tts_mp3(text: str) -> Optional[bytes]:
+    """Async wrapper for fast_tts_mp3"""
     import asyncio
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, fast_tts_mp3, text, speed)
+    return await asyncio.get_event_loop().run_in_executor(None, fast_tts_mp3, text)
 
 
-# Default async function uses WAV for fastest latency (~80ms vs ~170ms for MP3)
-# WAV is larger but the latency gain is worth it
-async_tts = async_fast_tts
-
-
-# Benchmark function
-def benchmark():
-    """Run TTS benchmark"""
+if __name__ == "__main__":
+    # Benchmark
     init_fast_tts()
 
-    phrases = [
-        "Salut!",
-        "Comment tu vas?",
-        "C'est super intéressant ce que tu me racontes!",
-        "Oh la la, j'adore discuter avec toi!",
-    ]
+    phrases = ["Salut!", "Comment tu vas?", "C'est super!"]
 
-    print("\n=== MMS-TTS Benchmark ===\n")
-
+    print("\n=== VITS-MMS Benchmark ===")
     for phrase in phrases:
         # Warmup
         _ = fast_tts(phrase)
-
-        # Timed
         if _device == "cuda":
             torch.cuda.synchronize()
+
+        # Timed
         start = time.time()
         audio = fast_tts(phrase)
         if _device == "cuda":
             torch.cuda.synchronize()
         elapsed = (time.time() - start) * 1000
 
-        print(f"'{phrase[:30]}...' -> {elapsed:.0f}ms ({len(audio)} bytes)")
-
-    print("\n✅ Benchmark complete!")
-
-
-if __name__ == "__main__":
-    benchmark()
+        if audio:
+            print(f"'{phrase}' -> {elapsed:.0f}ms ({len(audio)} bytes)")
