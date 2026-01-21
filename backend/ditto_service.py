@@ -15,6 +15,7 @@ import tempfile  # noqa: E402
 from typing import Optional  # noqa: E402
 
 import numpy as np  # noqa: E402
+from contextlib import asynccontextmanager  # noqa: E402
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import JSONResponse, StreamingResponse  # noqa: E402
@@ -23,7 +24,18 @@ import uvicorn  # noqa: E402
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Ditto Talking Head Service")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan handler for startup/shutdown"""
+    logger.info("Starting Ditto service...")
+    if not initialize_ditto():
+        logger.warning("Ditto SDK not initialized - will retry on first request")
+    yield
+    logger.info("Ditto service shutting down...")
+
+
+app = FastAPI(title="Ditto Talking Head Service", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -60,13 +72,6 @@ def initialize_ditto():
         import traceback
         traceback.print_exc()
         return False
-
-@app.on_event("startup")
-async def startup():
-    """Initialize SDK on startup"""
-    logger.info("Starting Ditto service...")
-    if not initialize_ditto():
-        logger.warning("Ditto SDK not initialized - will retry on first request")
 
 @app.get("/health")
 async def health():

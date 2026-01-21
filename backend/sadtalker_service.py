@@ -14,12 +14,23 @@ import time
 
 import cv2
 import torch
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 import uvicorn
 
-app = FastAPI(title="SadTalker Lip-Sync Service")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan handler for startup/shutdown"""
+    print("Starting SadTalker service...")
+    initialize_sadtalker()
+    yield
+    print("SadTalker service shutting down...")
+
+
+app = FastAPI(title="SadTalker Lip-Sync Service", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -56,11 +67,6 @@ def initialize_sadtalker():
         import traceback
         traceback.print_exc()
         return False
-
-@app.on_event("startup")
-async def startup():
-    print("Starting SadTalker service...")
-    initialize_sadtalker()
 
 @app.get("/health")
 async def health():

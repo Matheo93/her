@@ -26,6 +26,7 @@ from typing import Optional, List, Tuple
 from dataclasses import dataclass, field
 
 # FastAPI
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -77,7 +78,21 @@ print(f"""
 # GLOBAL STATE
 # ============================================================================
 
-app = FastAPI(title="Streaming Lip-Sync v2")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan handler for startup/shutdown"""
+    load_models()
+    # Pre-load Eva
+    try:
+        load_avatar("eva")
+    except Exception as e:
+        print(f"Warning: Could not pre-load Eva: {e}")
+    yield
+    print("Streaming Lip-Sync service shutting down...")
+
+
+app = FastAPI(title="Streaming Lip-Sync v2", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -375,16 +390,6 @@ class StreamingProcessor:
 # ============================================================================
 # WEBSOCKET API
 # ============================================================================
-
-@app.on_event("startup")
-async def startup():
-    load_models()
-    # Pre-load Eva
-    try:
-        load_avatar("eva")
-    except Exception as e:
-        print(f"Warning: Could not pre-load Eva: {e}")
-
 
 @app.get("/health")
 async def health():

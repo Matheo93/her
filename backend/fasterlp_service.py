@@ -18,6 +18,7 @@ from typing import Optional
 
 import cv2
 import numpy as np
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -26,7 +27,19 @@ import uvicorn
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="FasterLivePortrait Service")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan handler for startup/shutdown"""
+    logger.info("Starting FasterLivePortrait service...")
+    if not initialize_pipeline():
+        logger.warning("FasterLivePortrait pipeline not initialized - will retry on first request")
+    initialize_joyvasa()
+    yield
+    logger.info("FasterLivePortrait service shutting down...")
+
+
+app = FastAPI(title="FasterLivePortrait Service", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -122,14 +135,6 @@ def initialize_joyvasa():
         import traceback
         traceback.print_exc()
         return False
-
-@app.on_event("startup")
-async def startup():
-    """Initialize pipelines on startup"""
-    logger.info("Starting FasterLivePortrait service...")
-    if not initialize_pipeline():
-        logger.warning("FasterLivePortrait pipeline not initialized - will retry on first request")
-    initialize_joyvasa()
 
 @app.get("/health")
 async def health():

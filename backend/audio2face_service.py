@@ -21,6 +21,7 @@ import asyncio
 import torch
 import torch.nn as nn
 from typing import Dict, Optional
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -28,7 +29,32 @@ import uvicorn
 # Audio processing
 import librosa
 
-app = FastAPI(title="Audio2Face Lip-Sync Service")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan handler for startup/shutdown"""
+    global face_warper, audio_processor
+
+    print("Loading Audio2Face service...")
+
+    source_path = "/workspace/eva-gpu/frontend/public/avatars/eva_nobg.png"
+
+    try:
+        face_warper = FaceWarper(source_path)
+        audio_processor = AudioProcessor()
+        print("Audio2Face service ready!")
+    except Exception as e:
+        print(f"Failed to initialize: {e}")
+        import traceback
+        traceback.print_exc()
+
+    yield  # Server running
+
+    # Cleanup on shutdown (if needed)
+    print("Audio2Face service shutting down...")
+
+
+app = FastAPI(title="Audio2Face Lip-Sync Service", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -467,24 +493,6 @@ audio_processor: Optional[AudioProcessor] = None
 # =============================================================================
 # API ENDPOINTS
 # =============================================================================
-
-@app.on_event("startup")
-async def startup():
-    global face_warper, audio_processor
-
-    print("Loading Audio2Face service...")
-
-    source_path = "/workspace/eva-gpu/frontend/public/avatars/eva_nobg.png"
-
-    try:
-        face_warper = FaceWarper(source_path)
-        audio_processor = AudioProcessor()
-        print("Audio2Face service ready!")
-    except Exception as e:
-        print(f"Failed to initialize: {e}")
-        import traceback
-        traceback.print_exc()
-
 
 @app.get("/health")
 async def health():
