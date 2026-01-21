@@ -108,7 +108,7 @@ except ImportError:
 CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")  # Fast + quality local model (~150ms warm)
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "phi3:mini")  # Ultra-fast local model (~100ms warm on RTX 4090)
 USE_OLLAMA_FALLBACK = os.getenv("USE_OLLAMA_FALLBACK", "true").lower() == "true"
 USE_OLLAMA_PRIMARY = os.getenv("USE_OLLAMA_PRIMARY", "true").lower() == "true"  # Use local GPU first
 OLLAMA_KEEP_ALIVE = -1  # Keep model loaded indefinitely for instant inference
