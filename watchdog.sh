@@ -45,7 +45,7 @@ restart_if_needed() {
 }
 
 # Also restart Ralph Loop if tmux dies
-check_ralph_loop() {
+#check_ralph_loop() {
     if ! tmux ls 2>/dev/null | grep -q "ralph-dual"; then
         echo "[$(date)] Ralph Loop tmux dead! Restarting..."
         cd /workspace/music-music-ai-training-api
@@ -60,7 +60,7 @@ echo "[$(date)] Watchdog started. Monitoring backend + Ralph Loop..."
 
 while true; do
     restart_if_needed
-    check_ralph_loop
+    #check_ralph_loop
 
     # Check disk usage (df outputs in 1K blocks)
     DISK_USED_KB=$(df / | tail -1 | awk '{print $3}')

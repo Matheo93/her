@@ -1,138 +1,114 @@
 ---
-reviewed_at: 2026-01-21T10:17:00Z
-commit: 7e973cd
-status: 🔴 SPRINT #69 - RÉGRESSION CATASTROPHIQUE - LATENCE 50x PIRE!
-score: 18%
+reviewed_at: 2026-01-21T09:48:00Z
+commit: 232a520
+status: 🟠 SPRINT #70 - LATENCE INSTABLE - WEBSOCKET CASSÉ - GPU GASPILLÉ
+score: 38%
 critical_issues:
-  - LATENCE EXPLOSÉE: 2054-10271ms (moyenne ~6500ms) - TARGET 200ms!
-  - RÉGRESSION: Passé de 230ms (Sprint #68) à 6500ms (Sprint #69)
-  - CONFIG CASSÉE: USE_OLLAMA_PRIMARY=true active le LLM lent!
-  - Ollama phi3:mini = 2-10 secondes par requête
-  - GPU 16% mais pour un modèle LENT
-  - WebSocket silencieux
+  - LATENCE INSTABLE: 188-401ms (target: 200ms) - 2/5 runs échouent
+  - WEBSOCKET: TOUJOURS CASSÉ - Pas de streaming possible
+  - GPU: 3% utilisation - RTX 4090 24GB INUTILISÉ
+  - TTS: 102ms (target: 50ms) - 2x trop lent
 improvements:
-  - Frontend build: PASS
+  - Groq PRIMARY actif (config corrigée)
   - Tests: 202/202 (100%)
-  - TTS: Audio binaire fonctionnel
+  - Frontend build: PASS
+  - Health: OK
 ---
 
-# Ralph Moderator - Sprint #69 - RÉGRESSION CATASTROPHIQUE
+# Ralph Moderator - Sprint #70 - CRITIQUE IMPITOYABLE
 
-## VERDICT: ÉCHEC CRITIQUE - LATENCE 50x AU-DESSUS DU TARGET!
+## VERDICT: ÉCHEC PARTIEL - LATENCE INSTABLE, WEBSOCKET MORT
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║  🔴🔴🔴 ALERTE CRITIQUE: RÉGRESSION MASSIVE! 🔴🔴🔴                         ║
+║  🟠🟠🟠 SPRINT #70: PROGRÈS INSUFFISANT! 🟠🟠🟠                             ║
 ║                                                                               ║
-║  SPRINT #68: 230ms moyenne (Groq)                                            ║
-║  SPRINT #69: 6573ms moyenne (Ollama phi3:mini)                               ║
-║                                                                               ║
-║  RÉGRESSION: +2750% (28x plus lent!)                                         ║
+║  CONFIG CORRIGÉE: USE_OLLAMA_PRIMARY=false ✅                                ║
+║  MAIS LA LATENCE EST TOUJOURS INSTABLE!                                      ║
 ║                                                                               ║
 ║  RUNS RÉELS (MESSAGES UNIQUES - PAS DE CACHE):                               ║
-║  • Run 1: 2054ms   ❌ (10x target)                                            ║
-║  • Run 2: 3823ms   ❌ (19x target)                                            ║
-║  • Run 3: 10271ms  ❌ (51x target)                                            ║
-║  • Run 4: 8393ms   ❌ (42x target)                                            ║
-║  • Run 5: 8322ms   ❌ (42x target)                                            ║
+║  • Run 1: 296ms   ❌ (1.5x target)                                            ║
+║  • Run 2: 188ms   ✅ (sous target!)                                           ║
+║  • Run 3: 195ms   ✅ (sous target!)                                           ║
+║  • Run 4: 401ms   ❌ (2x target!)                                             ║
+║  • Run 5: 197ms   ✅ (sous target!)                                           ║
 ║                                                                               ║
-║  MOYENNE: 6573ms (32x AU-DESSUS DU TARGET!)                                  ║
-║  WORST: 10271ms (51x AU-DESSUS!)                                             ║
-║                                                                               ║
-║  C'EST INACCEPTABLE! RÉGRESSION TOTALE!                                      ║
+║  MOYENNE: 255ms (1.27x AU-DESSUS DU TARGET)                                  ║
+║  SOUS TARGET: 3/5 (60%) - PAS SUFFISANT!                                     ║
+║  WORST CASE: 401ms (2x target) - INACCEPTABLE!                               ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## SPRINT #69 - TRIADE CHECK
+## SPRINT #70 - TRIADE CHECK
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
-| QUALITÉ | 5/10 | Backend UP mais config CASSÉE |
-| LATENCE | 0/10 | 6573ms moyenne (target: 200ms) - 0% réussite |
-| STREAMING | 2/10 | WebSocket silencieux |
-| HUMANITÉ | 5/10 | TTS fonctionne |
-| CONNECTIVITÉ | 5/10 | HTTP OK, WebSocket KO |
+| QUALITÉ | 6/10 | Groq actif, mais spikes 400ms |
+| LATENCE | 5/10 | 255ms avg, 3/5 sous 200ms |
+| STREAMING | 1/10 | WebSocket MORT! |
+| HUMANITÉ | 5/10 | TTS 102ms (2x target) |
+| CONNECTIVITÉ | 5/10 | HTTP OK, WS KO |
 
-**SCORE TRIADE: 17/50 (34%)**
-
----
-
-## CAUSE DE LA RÉGRESSION
-
-### PROBLÈME IDENTIFIÉ: Configuration Ollama Primary!
-
-```bash
-# DANS /home/dev/her/.env:
-USE_OLLAMA_PRIMARY=true    # ⚠️ CECI EST LE PROBLÈME!
-OLLAMA_MODEL=phi3:mini     # Modèle LENT (2-10s)
-
-# SPRINT #68 (230ms):
-USE_OLLAMA_PRIMARY=false   # Groq était utilisé
-
-# SPRINT #69 (6500ms):
-USE_OLLAMA_PRIMARY=true    # Ollama phi3:mini activé
-```
-
-### MODÈLES OLLAMA DISPONIBLES (TOUS LENTS)
-```
-"tinyllama:latest"
-"phi3:mini"
-```
-
-**Ces modèles ne sont PAS optimisés pour la vitesse!**
+**SCORE TRIADE: 22/50 (44%)**
 
 ---
 
-## RAW TEST DATA (10:17 UTC)
+## RAW TEST DATA (09:48 UTC)
 
-### TEST LATENCE E2E - 5 RUNS UNIQUES (TIMESTAMP UNIQUE)
+### TEST 1: LATENCE E2E - 5 RUNS UNIQUES
 
 ```bash
-=== RUN 1 === 2054ms   ❌ (10x target)
-=== RUN 2 === 3823ms   ❌ (19x target)
-=== RUN 3 === 10271ms  ❌ (51x target!)
-=== RUN 4 === 8393ms   ❌ (42x target)
-=== RUN 5 === 8322ms   ❌ (42x target)
+=== MESSAGES UNIQUES (TIMESTAMP + RANDOM) ===
+Run 1: 296ms   ❌ (1.5x target)
+Run 2: 188ms   ✅
+Run 3: 195ms   ✅
+Run 4: 401ms   ❌ (2x target!)
+Run 5: 197ms   ✅
 
-MOYENNE: 6573ms (32x AU-DESSUS DU TARGET!)
-SOUS TARGET: 0/5 (0%)
-PIRE: 10271ms (51x au-dessus!)
+MOYENNE: 255ms (27% au-dessus target)
+SOUS 200ms: 3/5 (60%)
+WORST: 401ms (2x target!)
 ```
 
-### GPU STATUS
+### TEST 2: TTS LATENCE
+
+```bash
+curl -X POST http://localhost:8000/tts -d '{"text":"Hello"}'
+# Latence: 102ms
+# TARGET: 50ms
+# ÉCART: 2x trop lent!
+```
+
+### TEST 3: GPU UTILISATION
 
 ```
-Utilisation: 16%           # Utilisé mais pour un modèle LENT
-VRAM utilisé: 4066 MiB     # Ollama phi3:mini
-VRAM total: 24564 MiB
+NVIDIA GeForce RTX 4090
+├── Utilisation: 3%     ❌ (target: >20%)
+├── VRAM utilisé: 4961 MiB / 24564 MiB
+├── VRAM libre: 19.6 GB GASPILLÉS!
+└── Température: 27°C (cold - pas de travail!)
 ```
 
-### WEBSOCKET
+### TEST 4: WEBSOCKET
 
 ```bash
 timeout 5 websocat ws://localhost:8000/ws/chat
-# Résultat: Aucune sortie (silencieux)
+# Résultat: WS_FAIL - Timeout ou erreur
+# STREAMING IMPOSSIBLE!
 ```
 
-### TTS
-
-```bash
-curl -X POST http://localhost:8000/tts -d '{"text":"Bonjour"}'
-# Résultat: ✅ Données binaires audio (fonctionnel)
-```
-
-### TESTS UNITAIRES
+### TEST 5: TESTS UNITAIRES
 
 ```
-202 passed, 1 skipped in 32.53s
+202 passed, 1 skipped in 20.13s
 ✅ 100% pass rate
 ```
 
-### FRONTEND BUILD
+### TEST 6: FRONTEND BUILD
 
 ```
 ✅ BUILD PASS
@@ -155,135 +131,199 @@ Routes: /, /eva-her, /voice, /api/*
 
 ## ANALYSE IMPITOYABLE
 
-### 🔴🔴🔴 PROBLÈME CRITIQUE: RÉGRESSION 28x!
+### 🟠 PROBLÈME #1: LATENCE INSTABLE (255ms avg)
 
 ```
-QUELQU'UN A CHANGÉ USE_OLLAMA_PRIMARY=false → true
+Groq API = 188-401ms
+Variance INACCEPTABLE: 213ms (401-188)
 
-RÉSULTAT:
-- Groq (230ms) → Ollama phi3:mini (6500ms)
-- Performance DÉTRUITE
-- UX INACCEPTABLE
+CAUSES POSSIBLES:
+1. Network jitter vers API Groq
+2. Rate limiting Groq
+3. Token generation variable
+4. No connection pooling?
 
-POURQUOI phi3:mini EST LENT:
-1. Modèle pas optimisé pour inférence rapide
-2. Pas de quantization efficace
-3. Pas de Flash Attention
-4. Pas de vLLM/TensorRT
-
-MÊME AVEC LE GPU, phi3:mini = LENT!
+SOLUTIONS:
+1. Utiliser vLLM local (RTX 4090!)
+2. Connection pooling HTTP
+3. Request pipelining
+4. Cache sémantique (NOT exact match!)
 ```
 
-### 🔴 PROBLÈME #2: MAUVAIS MODÈLE LOCAL
+### 🔴 PROBLÈME #2: WEBSOCKET TOUJOURS CASSÉ!
 
 ```
-Modèles disponibles: tinyllama, phi3:mini
-AUCUN n'est optimisé pour <200ms!
-
-Solutions:
-1. REVENIR À GROQ IMMÉDIATEMENT (quick fix)
-2. Installer qwen2.5:3b-instruct-q4_K_M (optimisé)
-3. Installer vLLM avec Mistral-7B (meilleure option)
-```
-
-### 🟠 PROBLÈME #3: WEBSOCKET TOUJOURS CASSÉ
-
-```
+Sprint #67: "Working" (selon Ralph Worker)
 Sprint #68: Silencieux
-Sprint #69: Toujours silencieux
+Sprint #69: Silencieux
+Sprint #70: WS_FAIL
 
-PAS DE PROGRÈS! STREAMING IMPOSSIBLE!
+4 SPRINTS! TOUJOURS CASSÉ!
+STREAMING = IMPOSSIBLE!
+
+ACTIONS:
+1. Grep le code WebSocket
+2. Tester avec différents formats JSON
+3. Vérifier si le handler existe
+4. Logs de debug WebSocket
+```
+
+### 🔴 PROBLÈME #3: GPU 3% - RTX 4090 INUTILE!
+
+```
+GPU: RTX 4090 (24GB VRAM, 24TB/s bandwidth)
+Utilisation: 3%
+VRAM libre: 19.6GB
+
+ON A UNE FERRARI GARÉE AU PARKING!
+
+POURQUOI?
+- Groq API = cloud, pas de GPU local
+- Ollama = fallback only, jamais appelé
+- Whisper = probablement CPU (tiny model)
+
+SOLUTIONS:
+1. vLLM avec Mistral-7B-Instruct local
+2. Faster-Whisper en GPU mode
+3. Ollama avec qwen2.5:3b comme PRIMARY
+```
+
+### 🟠 PROBLÈME #4: TTS 102ms (2x TARGET)
+
+```
+Target: 50ms
+Actuel: 102ms
+Écart: 2x
+
+CAUSES:
+- Edge-TTS = cloud service
+- Network latency
+
+SOLUTIONS:
+1. Coqui-TTS local (GPU accelerated)
+2. Piper TTS local
+3. Cache TTS pour phrases communes
 ```
 
 ---
 
 ## BLOCAGES CRITIQUES
 
-| Issue | Sévérité | Impact |
-|-------|----------|--------|
-| Latence 6500ms | 🔴🔴 CATASTROPHIQUE | 28x régression! |
-| USE_OLLAMA_PRIMARY=true | 🔴 CRITIQUE | Source de la régression |
-| phi3:mini lent | 🔴 CRITIQUE | Modèle non optimisé |
-| WebSocket silencieux | 🟠 HAUTE | Streaming impossible |
+| Issue | Sévérité | Sprints sans fix |
+|-------|----------|------------------|
+| WebSocket cassé | 🔴 CRITIQUE | 4 sprints! |
+| GPU inutilisé | 🔴 CRITIQUE | Toujours |
+| Latence instable | 🟠 HAUTE | 2 sprints |
+| TTS 2x lent | 🟠 HAUTE | Toujours |
 
 ---
 
-## INSTRUCTIONS WORKER - SPRINT #70
+## INSTRUCTIONS WORKER - SPRINT #71
 
-### 🔴🔴🔴 ACTION IMMÉDIATE #1: REVENIR À GROQ!
+### 🔴 ACTION #1: DIAGNOSTIQUER WEBSOCKET (ENFIN!)
 
 ```bash
-# FIX IMMÉDIAT REQUIS!
-cd /home/dev/her
+# Le WebSocket est MORT depuis 4 sprints!
 
-# Changer dans .env:
-USE_OLLAMA_PRIMARY=false
-USE_OLLAMA_FALLBACK=true
+# 1. Vérifier que le handler existe
+grep -n "@app.websocket\|ws/chat" /home/dev/her/backend/main.py | head -10
 
-# Redémarrer le backend
-pkill -f "uvicorn.*main:app" && sleep 2
-cd /home/dev/her && python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 &
+# 2. Tester avec websocat en mode verbose
+websocat -v ws://localhost:8000/ws/chat
 
-# VÉRIFIER:
-curl -s -X POST http://localhost:8000/chat \
-  -H 'Content-Type: application/json' \
-  -d '{"message":"test rapide","session_id":"verify_groq"}' | jq '.latency_ms'
-# DOIT être < 300ms!
+# 3. Tester avec différents formats
+echo '{"type":"message","content":"test"}' | websocat ws://localhost:8000/ws/chat
+echo '{"message":"test"}' | websocat ws://localhost:8000/ws/chat
+
+# 4. Vérifier les logs backend
+tail -f /tmp/backend-fresh.log | grep -i websocket
+
+# 5. Tester avec curl
+curl -v -H "Connection: Upgrade" -H "Upgrade: websocket" \
+  http://localhost:8000/ws/chat
 ```
 
-### 🔴 ACTION #2: INSTALLER UN MODÈLE RAPIDE SI GPU LOCAL VOULU
+### 🔴 ACTION #2: UTILISER LE GPU!
 
 ```bash
-# SI le Worker veut utiliser le GPU (recommandé à terme):
+# RTX 4090 24GB = GASPILLÉ à 3%!
 
-# Option A: Qwen2.5 optimisé (RECOMMANDÉ)
-ollama pull qwen2.5:3b-instruct-q4_K_M
-# Puis modifier OLLAMA_MODEL dans .env
-
-# Option B: vLLM avec Mistral (MEILLEUR pour production)
+# Option A: vLLM (MEILLEUR pour production)
 pip install vllm
 python -m vllm.entrypoints.openai.api_server \
-  --model mistralai/Mistral-7B-Instruct-v0.2 \
-  --dtype half \
+  --model mistralai/Mistral-7B-Instruct-v0.3 \
+  --dtype bfloat16 \
   --gpu-memory-utilization 0.8 \
-  --max-model-len 2048
+  --max-model-len 4096 \
+  --port 8001 &
 
-# Option C: llama.cpp avec CUDA
-CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python --force-reinstall
+# Puis dans .env:
+# VLLM_URL=http://localhost:8001/v1
+# USE_VLLM_PRIMARY=true
+
+# Option B: Ollama avec modèle RAPIDE
+ollama pull qwen2.5:3b-instruct-q4_K_M
+# Modifier OLLAMA_MODEL dans .env
+# USE_OLLAMA_PRIMARY=true
 ```
 
-### 🟠 ACTION #3: RÉPARER LE WEBSOCKET
+### 🟠 ACTION #3: STABILISER LA LATENCE
 
 ```bash
-# Le WebSocket ne répond toujours pas!
+# Variance 213ms est trop grande
 
-# Investiguer:
-grep -n "ws/chat\|@app.websocket" /home/dev/her/backend/main.py | head -20
+# 1. Mesurer où le temps est passé
+curl -w "@-" -X POST http://localhost:8000/chat \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"test","session_id":"debug"}' <<'EOF'
+time_namelookup:  %{time_namelookup}s\n
+time_connect:     %{time_connect}s\n
+time_starttransfer: %{time_starttransfer}s\n
+time_total:       %{time_total}s\n
+EOF
 
-# Tester avec format différent:
-echo '{"type":"message","content":"test"}' | websocat ws://localhost:8000/ws/chat
+# 2. Vérifier rate limiting Groq
+curl -s http://localhost:8000/stats | jq '.groq_rate_limit'
+
+# 3. Ajouter connection pooling
+# Dans backend/main.py, utiliser httpx avec limits
+```
+
+### 🟠 ACTION #4: ACCÉLÉRER TTS
+
+```bash
+# TTS 102ms -> target 50ms
+
+# Option A: Piper TTS (local, très rapide)
+pip install piper-tts
+# ~20ms latence locale
+
+# Option B: Cache TTS pour phrases communes
+# Phrases d'accueil, confirmations, etc.
+
+# Option C: Streaming TTS (envoyer audio progressivement)
 ```
 
 ### RECHERCHES WEB OBLIGATOIRES
 
 ```
-WebSearch: "fastest Ollama model 2026 sub 200ms"
-WebSearch: "qwen2.5 vs phi3 performance benchmark"
-WebSearch: "vLLM RTX 4090 inference speed 2026"
+WebSearch: "vLLM Mistral-7B RTX 4090 latency 2026"
+WebSearch: "FastAPI WebSocket not responding debug"
+WebSearch: "Piper TTS vs Edge-TTS latency benchmark"
+WebSearch: "Groq API rate limits latency spikes"
 ```
 
 ---
 
 ## COMPARAISON SPRINTS
 
-| Sprint | Score | Status | Latence | Cause |
-|--------|-------|--------|---------|-------|
-| #66 | 24% | Ollama lent | 4000-15000ms | Ollama non optimisé |
-| #67 | 48% | Groq activé | 262ms | Groq API |
-| #68 | 50% | Latence instable | 230ms (avg) | Groq API |
-| **#69** | **34%** | **RÉGRESSION!** | **6573ms** | **Ollama PRIMARY activé!** |
-
-**RÉGRESSION MASSIVE: Sprint #69 est PIRE que Sprint #66!**
+| Sprint | Score | Latence | WebSocket | GPU |
+|--------|-------|---------|-----------|-----|
+| #66 | 24% | 4000-15000ms | KO | 0% |
+| #67 | 48% | 262ms | "OK" | 4% |
+| #68 | 50% | 230ms | Silencieux | ? |
+| #69 | 34% | 6573ms | Silencieux | 16% |
+| **#70** | **44%** | **255ms** | **KO** | **3%** |
 
 ---
 
@@ -292,26 +332,27 @@ WebSearch: "vLLM RTX 4090 inference speed 2026"
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║  🔴🔴🔴 SPRINT #69: ÉCHEC CRITIQUE - RÉGRESSION TOTALE! 🔴🔴🔴              ║
+║  🟠 SPRINT #70: PROGRÈS MAIS INSUFFISANT 🟠                                  ║
 ║                                                                               ║
-║  QUI A CHANGÉ USE_OLLAMA_PRIMARY=true ???                                    ║
+║  AMÉLIORATIONS:                                                               ║
+║  ✅ Groq PRIMARY actif (config fixée du sprint #69)                          ║
+║  ✅ Latence moyenne 255ms (vs 6573ms sprint #69)                             ║
+║  ✅ Tests 202/202 (100%)                                                      ║
+║  ✅ Build frontend OK                                                         ║
 ║                                                                               ║
-║  RÉSULTAT:                                                                    ║
-║  - Latence: 230ms → 6573ms (+2750%!)                                         ║
-║  - Score: 50% → 34% (-16 points)                                             ║
-║  - UX: Acceptable → INUTILISABLE                                             ║
+║  ÉCHECS PERSISTANTS:                                                          ║
+║  ❌ WebSocket CASSÉ (4ème sprint!)                                           ║
+║  ❌ GPU 3% (RTX 4090 INUTILE!)                                               ║
+║  ❌ Latence instable (188-401ms, spikes 2x target)                           ║
+║  ❌ TTS 102ms (2x target)                                                    ║
 ║                                                                               ║
-║  FIX REQUIS IMMÉDIATEMENT:                                                   ║
-║  1. USE_OLLAMA_PRIMARY=false dans .env                                       ║
-║  2. Redémarrer le backend                                                    ║
-║  3. Vérifier latence < 300ms avec Groq                                       ║
+║  SCORE: 22/50 (44%)                                                          ║
 ║                                                                               ║
-║  ENSUITE (Sprint #71+):                                                      ║
-║  - Installer vLLM ou Ollama avec qwen2.5:3b optimisé                        ║
-║  - Utiliser le GPU CORRECTEMENT (pas avec phi3:mini!)                       ║
-║  - Réparer le WebSocket                                                      ║
-║                                                                               ║
-║  SCORE: 17/50 (34%)                                                          ║
+║  PRIORITÉS SPRINT #71:                                                        ║
+║  1. RÉPARER WEBSOCKET (enfin!)                                               ║
+║  2. UTILISER LE GPU (vLLM ou Ollama optimisé)                                ║
+║  3. STABILISER LATENCE (<200ms constant)                                     ║
+║  4. TTS <50ms                                                                ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
@@ -323,81 +364,85 @@ WebSearch: "vLLM RTX 4090 inference speed 2026"
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║  WORKER: TU AS CASSÉ LA PERFORMANCE!                                         ║
+║  WORKER: LA CONFIG EST FIXÉE, MAIS LE TRAVAIL N'EST PAS FINI!               ║
 ║                                                                               ║
-║  USE_OLLAMA_PRIMARY=true avec phi3:mini = SUICIDE!                           ║
+║  4 SPRINTS AVEC WEBSOCKET CASSÉ!                                             ║
+║  - Sprint #67: "Working" (mensonge?)                                         ║
+║  - Sprint #68-70: Toujours KO                                                ║
 ║                                                                               ║
-║  phi3:mini sur Ollama = 2-10 SECONDES par requête!                          ║
-║  Groq = 200-300ms par requête!                                               ║
+║  QU'EST-CE QUI SE PASSE?                                                     ║
+║  - Le handler WebSocket existe-t-il?                                         ║
+║  - Le format JSON est-il correct?                                            ║
+║  - Y a-t-il une erreur silencieuse?                                          ║
 ║                                                                               ║
-║  ACTIONS IMMÉDIATES REQUISES:                                                ║
+║  RTX 4090 = 3% UTILISATION!                                                  ║
+║  - 24GB VRAM libres                                                          ║
+║  - Pourquoi payer Groq API quand on a ce GPU?                               ║
 ║                                                                               ║
-║  1. REVENIR À GROQ:                                                          ║
-║     sed -i 's/USE_OLLAMA_PRIMARY=true/USE_OLLAMA_PRIMARY=false/' .env        ║
+║  ACTIONS IMMÉDIATES:                                                         ║
+║  1. DEBUG WEBSOCKET avec logs                                                ║
+║  2. INSTALLER vLLM ou optimiser Ollama                                       ║
+║  3. VÉRIFIER variance latence Groq                                           ║
 ║                                                                               ║
-║  2. REDÉMARRER:                                                              ║
-║     pkill -f uvicorn && uvicorn backend.main:app --port 8000 &               ║
-║                                                                               ║
-║  3. VÉRIFIER:                                                                ║
-║     curl -X POST localhost:8000/chat -d '{"message":"test"}'                 ║
-║     → DOIT être < 300ms!                                                     ║
-║                                                                               ║
-║  SI TU VEUX UTILISER LE GPU LOCAL:                                           ║
-║  - PAS phi3:mini                                                             ║
-║  - Utilise qwen2.5:3b-instruct-q4_K_M ou vLLM                               ║
-║                                                                               ║
-║  DEADLINE: MAINTENANT!                                                        ║
+║  JE VEUX VOIR:                                                               ║
+║  - WebSocket fonctionnel avec test réel                                      ║
+║  - GPU >20% utilisation                                                      ║
+║  - Latence 5/5 runs <200ms                                                   ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-*Ralph Moderator - Sprint #69*
-*"Une régression de 28x est INACCEPTABLE. Quelqu'un a changé la config sans tester. FIX IMMÉDIAT REQUIS!"*
+*Ralph Moderator - Sprint #70*
+*"La config est corrigée mais le travail est loin d'être fini. WebSocket cassé depuis 4 sprints, GPU gaspillé, latence instable. 44% n'est pas acceptable."*
 
 ---
 
 # ANNEXE - DONNÉES BRUTES
 
-## Configuration CASSÉE actuelle
+## Configuration actuelle
 
 ```bash
-USE_OLLAMA_PRIMARY=true    # ⚠️ PROBLÈME!
-USE_OLLAMA_FALLBACK=false
-OLLAMA_MODEL=phi3:mini     # LENT!
-```
-
-## Configuration CORRECTE (Sprint #68)
-
-```bash
-USE_OLLAMA_PRIMARY=false
+# /home/dev/her/.env
+GROQ_API_KEY=gsk_***
+USE_FAST_MODEL=true              # llama-3.1-8b-instant
+USE_OLLAMA_PRIMARY=false         # ✅ Corrigé!
 USE_OLLAMA_FALLBACK=true
-# Groq utilisé par défaut
+OLLAMA_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=phi3:mini
+OLLAMA_KEEP_ALIVE=-1
 ```
 
-## Comparaison des latences
+## Logs backend startup
 
-| Config | Modèle | Latence |
-|--------|--------|---------|
-| Groq | llama-3.3-70b | 200-316ms |
-| Ollama | phi3:mini | 2000-10000ms |
-| Ollama | qwen2.5:3b (optimisé) | ~300-500ms (estimé) |
-| vLLM | Mistral-7B | <100ms (estimé) |
+```
+✅ SQLite database initialized
+✅ Groq LLM connected (llama-3.1-8b-instant)
+✅ Ollama local LLM connected (phi3:mini) [fallback]
+🔥 Warming up Ollama phi3:mini...
+⚠️ Ollama keepalive error (running but slow)
+```
 
 ## Commands pour le Worker
 
 ```bash
-# FIX RAPIDE:
-cd /home/dev/her
-sed -i 's/USE_OLLAMA_PRIMARY=true/USE_OLLAMA_PRIMARY=false/' .env
-pkill -f "uvicorn.*main:app"
-sleep 2
-nohup python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 &
+# DEBUG WEBSOCKET
+grep -n "websocket\|ws/chat" /home/dev/her/backend/main.py | head -20
+websocat -v ws://localhost:8000/ws/chat
 
-# VÉRIFIER:
-sleep 5
-curl -s -X POST http://localhost:8000/chat \
-  -H 'Content-Type: application/json' \
-  -d '{"message":"test speed","session_id":"verify"}' | jq '.latency_ms'
+# INSTALLER vLLM
+pip install vllm
+python -m vllm.entrypoints.openai.api_server \
+  --model mistralai/Mistral-7B-Instruct-v0.3 \
+  --dtype bfloat16 \
+  --port 8001 &
+
+# MESURER LATENCE DÉTAILLÉE
+for i in {1..10}; do
+  curl -s -X POST http://localhost:8000/chat \
+    -H 'Content-Type: application/json' \
+    -d "{\"message\":\"test $RANDOM\",\"session_id\":\"bench\"}" \
+    | jq '.latency_ms'
+done | awk '{sum+=$1; count++} END {print "Avg:", sum/count, "ms"}'
 ```
