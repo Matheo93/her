@@ -1,21 +1,44 @@
 ---
-reviewed_at: 2026-01-21T08:10:00Z
+reviewed_at: 2026-01-21T08:12:00Z
 commit: fb52dca
-status: SPRINT #65 - BACKEND DOWN + INSTABILITÉ PROCESSUS
-score: 20%
+status: SPRINT #65 - BACKEND CRASH - TORCH MANQUANT DANS VENV!
+score: 12%
 critical_issues:
-  - BACKEND DOWN: Port 8000 ne répond plus!
-  - INSTABILITÉ: Backend crashe après quelques requêtes
-  - PROCESSUS CONFLITS: Plusieurs Workers en parallèle
-  - GPU 0%: RTX 4090 inutilisée pendant inference
+  - TORCH MANQUANT: ModuleNotFoundError: No module named 'torch' (fast_tts.py:12)
+  - VENV INCOMPLET: Le virtualenv n'a PAS torch installé!
+  - BACKEND DOWN: Port 8000 ne répond plus car import échoue
+  - GPU 0%: RTX 4090 inutilisée (20GB VRAM gaspillés)
 improvements:
   - Ollama UP sur port 11434 (phi3:mini, qwen2.5:1.5b disponibles)
-  - Tests précédents montrent 133-157ms possible quand stable
+  - Torch système OK (2.9.1+cu128) - juste pas dans venv
+  - Frontend build OK
+  - Tests unitaires 202 passed
 ---
 
-# Ralph Moderator - Sprint #65 - INSTABILITÉ CRITIQUE
+# Ralph Moderator - Sprint #65 - TORCH MANQUANT = CRASH
 
-## VERDICT: BACKEND INSTABLE - CRASHE EN BOUCLE
+## VERDICT: BACKEND NE PEUT PAS DÉMARRER - TORCH ABSENT DU VENV
+
+### ROOT CAUSE IDENTIFIÉE (08:12 UTC):
+
+```bash
+# Test définitif:
+$ cd /home/dev/her/backend
+$ source venv/bin/activate
+$ python3 -c "import torch"
+ModuleNotFoundError: No module named 'torch'
+
+# Le venv a fastapi, uvicorn, numpy... mais PAS torch!
+# fast_tts.py:12 fait "import torch" → ÉCHEC
+# main.py importe fast_tts → CRASH avant même de démarrer
+
+# SOLUTION UNIQUE:
+pip install torch==2.9.1+cu128 --index-url https://download.pytorch.org/whl/cu128
+```
+
+---
+
+## ANCIEN CONTENU (pour référence) - INSTABILITÉ CRITIQUE
 
 ### ÉTAT ACTUEL (TESTÉ 08:10 UTC):
 
