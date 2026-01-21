@@ -8,6 +8,9 @@ import { HER_COLORS, HER_SPRINGS } from "@/styles/her-theme";
 import { usePersistentMemory } from "@/hooks/usePersistentMemory";
 import { useEmotionalWarmth } from "@/hooks/useEmotionalWarmth";
 import { useVoiceWarmth } from "@/hooks/useVoiceWarmth";
+import { useHerStatus } from "@/hooks/useHerStatus";
+import { useBackendMemory } from "@/hooks/useBackendMemory";
+import { useBackchannel, shouldTriggerBackchannel } from "@/hooks/useBackchannel";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const VISEME_URL = process.env.NEXT_PUBLIC_VISEME_URL || "http://localhost:8003";
@@ -91,6 +94,30 @@ export default function EvaHerPage() {
     } : undefined,
     enabled: true,
   });
+
+  // SPRINT 26: HER Backend Status - Monitor system health
+  const herStatus = useHerStatus({
+    pollInterval: 30000,
+    enablePolling: isConnected,
+  });
+
+  // SPRINT 26: Backend Memory - Sync with server-side memory
+  const backendMemory = useBackendMemory({
+    userId: "eva_her_user",
+    autoFetch: isConnected,
+  });
+
+  // SPRINT 26: Backchannel - Natural reactions during conversation
+  const backchannel = useBackchannel({
+    withAudio: true,
+    onBackchannel: (sound, type) => {
+      // Backchannel played - could update UI or log
+      console.debug(`[Backchannel] ${type}: ${sound}`);
+    },
+  });
+
+  // Ref to track last backchannel time for throttling
+  const lastBackchannelTimeRef = useRef<number | null>(null);
 
   // JARVIS Feature: Bio-data for presence feeling
   const [bioData, setBioData] = useState<BioData>({
@@ -456,6 +483,23 @@ export default function EvaHerPage() {
     }
   }, []);
 
+  // SPRINT 26: Trigger backchannels during emotional moments
+  useEffect(() => {
+    if (!isConnected || isListening || isSpeaking) return;
+
+    // Check if we should trigger a backchannel based on emotional context
+    const shouldTrigger = shouldTriggerBackchannel(
+      evaEmotion,
+      lastBackchannelTimeRef.current,
+      5000 // minimum 5s between backchannels
+    );
+
+    if (shouldTrigger) {
+      backchannel.triggerBackchannel(evaEmotion);
+      lastBackchannelTimeRef.current = Date.now();
+    }
+  }, [evaEmotion, isConnected, isListening, isSpeaking, backchannel]);
+
   // Send text message
   const sendMessage = (text: string) => {
     if (!text.trim() || !wsRef.current) return;
@@ -540,6 +584,75 @@ export default function EvaHerPage() {
                   transition={{ duration: 0.5 }}
                 />
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* SPRINT 26: HER System Status - Top right */}
+      <div className="absolute top-6 right-6 flex flex-col items-end gap-2">
+        <AnimatePresence>
+          {herStatus.isConnected && (
+            <motion.div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+              style={{ backgroundColor: `${HER_COLORS.cream}90` }}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 0.8, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+            >
+              {/* Health indicator dot */}
+              <motion.div
+                className="w-2 h-2 rounded-full"
+                style={{
+                  backgroundColor: herStatus.healthScore > 0.7
+                    ? "#4ade80" // green
+                    : herStatus.healthScore > 0.4
+                      ? "#fbbf24" // yellow
+                      : "#f87171", // red
+                }}
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
+              <span
+                className="text-xs font-light"
+                style={{ color: HER_COLORS.earth, opacity: 0.7 }}
+              >
+                HER {Math.round(herStatus.healthScore * 100)}%
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Backend memory indicator */}
+        <AnimatePresence>
+          {backendMemory.memories.length > 0 && (
+            <motion.div
+              className="flex items-center gap-1.5 px-2 py-1 rounded-full"
+              style={{ backgroundColor: `${HER_COLORS.cream}70` }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 0.6, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+            >
+              <svg
+                className="w-3 h-3"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke={HER_COLORS.earth}
+                strokeWidth={1.5}
+                style={{ opacity: 0.5 }}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                />
+              </svg>
+              <span
+                className="text-xs font-light"
+                style={{ color: HER_COLORS.earth, opacity: 0.5 }}
+              >
+                {backendMemory.memories.length}
+              </span>
             </motion.div>
           )}
         </AnimatePresence>
