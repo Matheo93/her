@@ -3227,7 +3227,12 @@ async def get_stats(_: str = Depends(verify_api_key)):
 
 @app.websocket("/ws/chat")
 async def ws_chat(ws: WebSocket):
-    """WebSocket pour chat texte streaming"""
+    """WebSocket pour chat texte streaming
+
+    Supports both JSON and plain text messages:
+    - JSON: {"type": "message", "content": "hello"}
+    - Plain text: "hello" (auto-converted to message type)
+    """
     await ws.accept()
     session_id = f"ws_{id(ws)}"
     client_id = ws.client.host if ws.client else "unknown"
@@ -3235,7 +3240,16 @@ async def ws_chat(ws: WebSocket):
 
     try:
         while True:
-            data = await ws.receive_json()
+            # Support both JSON and plain text messages
+            raw = await ws.receive_text()
+            try:
+                data = json_loads(raw)
+                if isinstance(data, str):
+                    # Plain text sent as JSON string
+                    data = {"type": "message", "content": data}
+            except Exception:
+                # Plain text message - treat as message content
+                data = {"type": "message", "content": raw.strip()}
 
             # Rate limiting for WebSocket
             if not rate_limiter.is_allowed(client_id, limit=30, window=60):
