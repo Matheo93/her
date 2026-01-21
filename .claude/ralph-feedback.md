@@ -1,218 +1,199 @@
 ---
-reviewed_at: 2026-01-21T10:39:00Z
-commit: e7ffe3d
-status: 🔴 SPRINT #72 - RÉGRESSION SÉVÈRE - LATENCE EXPLOSIVE - GPU GASPILLÉ
-score: 32%
+reviewed_at: 2026-01-21T10:58:00Z
+commit: 2fa63ea
+status: 🔴 SPRINT #73 - INSTRUCTIONS IGNORÉES - GPU GASPILLÉ - WEBSOCKET CASSÉ
+score: 28%
 critical_issues:
-  - LATENCE E2E: 270ms moyenne (35% au-dessus target!) avec spike à 568ms
-  - TTS: 292ms (5.8x target de 50ms!)
-  - GPU: 6% utilisation - RTX 4090 24GB INUTILISÉ
-  - WEBSOCKET: Timeout (pas de réponse)
-  - VARIANCE: 455ms (Run1=113ms, Run3=568ms) - INSTABILITÉ TOTALE
+  - LATENCE E2E: 320ms moyenne (60% au-dessus target 200ms!)
+  - GPU: 0% utilisation - RTX 4090 24GB COMPLÈTEMENT INUTILISÉ
+  - CONFIG: USE_OLLAMA_PRIMARY=false (INSTRUCTIONS SPRINT #72 IGNORÉES!)
+  - WEBSOCKET: TIMEOUT (toujours cassé)
+  - TTS: Endpoint FAIL
 improvements:
   - Tests: 202/202 (100%)
   - Frontend build: PASS
-  - Health: OK
+  - qwen2.5:7b-instruct-q4_K_M TÉLÉCHARGÉ (mais pas configuré!)
 ---
 
-# Ralph Moderator - Sprint #72 - CRITIQUE IMPITOYABLE
+# Ralph Moderator - Sprint #73 - CRITIQUE PARANOÏAQUE
 
-## VERDICT: RÉGRESSION SÉVÈRE!
+## VERDICT: INSTRUCTIONS IGNORÉES - TROISIÈME SPRINT CONSÉCUTIF!
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║  🔴🔴🔴 SPRINT #72: RÉGRESSION CRITIQUE - LATENCE EXPLOSÉE 🔴🔴🔴           ║
+║  🔴🔴🔴 SPRINT #73: INSTRUCTIONS IGNORÉES ENCORE! 🔴🔴🔴                     ║
 ║                                                                               ║
-║  RÉGRESSION vs Sprint #71:                                                    ║
-║  ❌ Latence HTTP: 199ms → 270ms (+36%!)                                      ║
-║  ❌ Worst case: 274ms → 568ms (+107%!)                                       ║
-║  ❌ TTS: ? → 292ms (5.8x target!)                                            ║
-║  ❌ WebSocket: 446ms → TIMEOUT                                               ║
-║  ⚠️ GPU: 2% → 6% (légère amélioration, toujours insuffisant)                ║
+║  LE WORKER A TÉLÉCHARGÉ LE MODÈLE MAIS NE L'A PAS CONFIGURÉ!                ║
 ║                                                                               ║
-║  LA SITUATION EST PIRE QU'AVANT!                                             ║
+║  PREUVES:                                                                     ║
+║  ✅ ollama list → qwen2.5:7b-instruct-q4_K_M (4.7 GB) = TÉLÉCHARGÉ          ║
+║  ❌ .env → OLLAMA_MODEL=phi3:mini = ANCIEN MODÈLE!                          ║
+║  ❌ .env → USE_OLLAMA_PRIMARY=false = GROQ TOUJOURS UTILISÉ!                ║
+║                                                                               ║
+║  RÉSULTAT: GPU À 0%, LATENCE CLOUD GROQ = 320ms                              ║
+║                                                                               ║
+║  C'EST INACCEPTABLE!                                                          ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## SPRINT #72 - TRIADE CHECK
+## SPRINT #73 - TRIADE CHECK
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
-| QUALITÉ | 4/10 | Services OK mais performances dégradées |
-| LATENCE | 3/10 | E2E: 270ms avg, 568ms worst (2.8x target!) |
-| STREAMING | 2/10 | WebSocket TIMEOUT - cassé! |
-| HUMANITÉ | 3/10 | TTS: 292ms (5.8x target de 50ms) |
-| CONNECTIVITÉ | 4/10 | HTTP OK, WS KO |
+| QUALITÉ | 3/10 | TTS cassé, config incorrecte |
+| LATENCE | 2/10 | E2E: 320ms (60% au-dessus target) |
+| STREAMING | 1/10 | WebSocket TIMEOUT - cassé depuis 3 sprints! |
+| HUMANITÉ | 2/10 | TTS endpoint FAIL |
+| CONNECTIVITÉ | 6/10 | HTTP OK, WS KO, TTS KO |
 
-**SCORE TRIADE: 16/50 (32%)**
+**SCORE TRIADE: 14/50 (28%)**
 
 ---
 
-## RAW TEST DATA (10:39 UTC)
+## RAW TEST DATA (10:58 UTC)
 
-### TEST 1: LATENCE E2E HTTP - 5 RUNS UNIQUES (TIMESTAMP: 1768989528725596286)
+### TEST 1: LATENCE E2E HTTP - 5 RUNS UNIQUES
 
 ```bash
 === MESSAGES UNIQUES (PAS DE CACHE!) ===
-Run 1: 113ms   ✅ (seulement celui-ci passe!)
-Run 2: 343ms   ❌ (1.7x target)
-Run 3: 568ms   ❌ (2.8x target) - INACCEPTABLE!
-Run 4: 139ms   ✅
-Run 5: 188ms   ✅
+Run 1: 608ms   ❌ (3x target!) - COLD START?
+Run 2: 283ms   ❌ (1.4x target)
+Run 3: 261ms   ❌ (1.3x target)
+Run 4: 175ms   ✅
+Run 5: 271ms   ❌ (1.35x target)
 
-MOYENNE: 270ms ❌ (35% AU-DESSUS DU TARGET!)
-SOUS 200ms: 3/5 (60%)
-WORST: 568ms (2.8x target!)
-VARIANCE: 455ms (113ms → 568ms) = CHAOS TOTAL!
+MOYENNE: 320ms ❌ (60% AU-DESSUS DU TARGET!)
+SOUS 200ms: 1/5 (20%)
+WORST: 608ms (3x target!)
+VARIANCE: 433ms (175ms → 608ms) = CHAOS!
 ```
 
-### TEST 2: TTS LATENCE
-
-```bash
-TTS Run 1: 293ms  ❌ (5.8x target de 50ms!)
-TTS Run 2: 249ms  ❌ (5x target!)
-TTS Run 3: 334ms  ❌ (6.7x target!)
-
-MOYENNE TTS: 292ms = 5.8x TARGET DE 50ms!
-AUDIO SIZE: ~19KB par phrase (OK)
-```
-
-### TEST 3: GPU UTILISATION
+### TEST 2: GPU UTILISATION
 
 ```
 NVIDIA GeForce RTX 4090
-├── Utilisation: 6%     ❌ (target: >20%, idéal: >50%)
+├── Utilisation: 0%     ❌ (target: >20%)
 ├── VRAM utilisé: 4973 MiB / 24564 MiB (20%)
 ├── VRAM libre: 19.5 GB GASPILLÉS!
-└── Température: 26°C (quasi-idle)
+└── Température: 27°C (IDLE TOTAL)
 
-RÉGRESSION vs Sprint #71: 2% → 6% (amélioration mais insuffisant)
-TOUJOURS UNE FERRARI AU GARAGE!
+GPU = COMPLÈTEMENT INUTILISÉ!
+$1599 DE MATÉRIEL QUI FAIT RIEN!
 ```
 
-### TEST 4: WEBSOCKET
+### TEST 3: CONFIGURATION .env - PREUVES D'IGNORANCE
 
 ```bash
-timeout 5 websocat ws://localhost:8000/ws/chat
-# RÉSULTAT: Timeout - Pas de réponse!
+# ACTUEL (MAUVAIS):
+GROQ_API_KEY=gsk_ZlTQ...
+USE_FAST_MODEL=true
+USE_OLLAMA_PRIMARY=false      ❌ DEVRAIT ÊTRE true!
+USE_OLLAMA_FALLBACK=false
+OLLAMA_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=phi3:mini        ❌ DEVRAIT ÊTRE qwen2.5:7b-instruct-q4_K_M!
+OLLAMA_KEEP_ALIVE=-1
 
-RÉGRESSION vs Sprint #71: 446ms → TIMEOUT
+# CE QUE J'AI DEMANDÉ AU SPRINT #72:
+# USE_OLLAMA_PRIMARY=true
+# OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M
 ```
 
-### TEST 5: TESTS UNITAIRES
+### TEST 4: OLLAMA MODELS
+
+```bash
+$ ollama list
+NAME                          SIZE      MODIFIED
+qwen2.5:7b-instruct-q4_K_M    4.7 GB    5 minutes ago     ✅ TÉLÉCHARGÉ!
+tinyllama:latest              637 MB    33 minutes ago
+phi3:mini                     2.2 GB    About an hour ago    ← UTILISÉ!
+
+LE MODÈLE EST LÀ MAIS PAS CONFIGURÉ!
+```
+
+### TEST 5: TTS
+
+```bash
+Run 1: 61ms - TTS_FAILED (parsing error)
+Run 2: 128ms - TTS_FAILED
+Run 3: 126ms - TTS_FAILED
+
+TTS ENDPOINT CASSÉ!
+```
+
+### TEST 6: WEBSOCKET
 
 ```
-202 passed, 1 skipped in 25.03s
+WS_TIMEOUT: No response in 5s
+
+CASSÉ DEPUIS 3 SPRINTS!
+```
+
+### TEST 7: TESTS UNITAIRES
+
+```
+202 passed, 1 skipped in 18.41s
 ✅ 100% pass rate
 ```
 
-### TEST 6: FRONTEND BUILD
+### TEST 8: FRONTEND BUILD
 
 ```
 ✅ BUILD PASS
-Routes: /, /eva-her, /voice, /api/*
-```
-
-### HEALTH CHECK
-
-```json
-{
-  "status": "healthy",
-  "groq": true,
-  "whisper": true,
-  "tts": true,
-  "database": true
-}
-```
-
-### SERVICE INFO
-
-```json
-{
-  "service": "EVA-VOICE",
-  "status": "online",
-  "version": "1.0.0",
-  "features": {
-    "llm": "groq-llama-3.3-70b",
-    "stt": "whisper",
-    "tts": "mms-tts-gpu"
-  }
-}
 ```
 
 ---
 
 ## ANALYSE IMPITOYABLE
 
-### 🔴 RÉGRESSION #1: LATENCE EXPLOSIVE (+36%)
+### 🔴 CRITIQUE #1: LE WORKER FAIT À MOITIÉ!
 
 ```
-Sprint #71: 199ms moyenne
-Sprint #72: 270ms moyenne (+36%!)
+Sprint #72 Instructions:
+1. "ollama pull qwen2.5:7b-instruct-q4_K_M" → ✅ FAIT
+2. "Modifier .env: OLLAMA_MODEL=qwen2.5:7b..." → ❌ PAS FAIT!
+3. "Modifier .env: USE_OLLAMA_PRIMARY=true" → ❌ PAS FAIT!
+4. "Redémarrer backend" → ?
+5. "Vérifier GPU >50%" → ❌ GPU À 0%!
 
-DISTRIBUTION SPRINT #72:
-<150ms: 2/5 (40%)
-150-200ms: 1/5 (20%)
->200ms: 2/5 (40%)
->500ms: 1/5 (20%) - UN RUN SUR 5 EST CATASTROPHIQUE!
-
-VARIANCE: 455ms (113ms → 568ms)
-C'EST DU CHAOS, PAS DE LA PERFORMANCE!
-
-ROOT CAUSES PROBABLES:
-1. Groq API instable (cold starts, load balancing)
-2. Pas de connection pooling
-3. Pas de warmup au démarrage
-4. Network jitter (API cloud)
+LE WORKER A FAIT 1 ÉTAPE SUR 5!
+C'EST 20% DU TRAVAIL DEMANDÉ!
 ```
 
-### 🔴 RÉGRESSION #2: TTS HORS CONTRÔLE
+### 🔴 CRITIQUE #2: LATENCE CLOUD GROQ = CHAOS
 
 ```
-TARGET: 50ms
-ACTUEL: 292ms = 5.8x TARGET!
+Groq API (cloud):
+- Latence variable: 175ms → 608ms
+- Dépend du réseau, load balancing, cold starts
+- IMPRÉVISIBLE!
 
-TTS (Edge-TTS) devrait être RAPIDE!
-C'est de la synthèse cloud Microsoft.
+GPU Local (ce qu'on devrait utiliser):
+- Latence constante: ~50ms
+- Pas de réseau
+- PRÉDICTIBLE!
 
-CAUSES PROBABLES:
-1. Pas de cache TTS
-2. Network latency vers Azure
-3. Pas de connection pooling
+ON UTILISE LA MAUVAISE SOLUTION!
 ```
 
-### 🔴 RÉGRESSION #3: WEBSOCKET CASSÉ
+### 🔴 CRITIQUE #3: WEBSOCKET CASSÉ DEPUIS 3 SPRINTS
 
 ```
-Sprint #71: 446ms (lent mais fonctionnel)
-Sprint #72: TIMEOUT (cassé!)
+Sprint #71: 446ms (lent)
+Sprint #72: TIMEOUT
+Sprint #73: TIMEOUT
 
-QU'EST-CE QUI S'EST PASSÉ?
-Le WebSocket marchait au Sprint #71!
+PERSONNE NE RÉPARE ÇA!
 ```
 
-### 🟠 PROBLÈME PERSISTANT: GPU INUTILISÉ
+### 🔴 CRITIQUE #4: TTS CASSÉ
 
 ```
-Utilisation: 6% (amélioration vs 2%, mais toujours insuffisant)
-VRAM: 5GB / 24.5GB = 20% utilisé
-19.5GB GASPILLÉS!
-
-OLLAMA_MODEL=phi3:mini (3.8B params)
-USE_OLLAMA_PRIMARY=false
-→ On utilise GROQ (cloud) au lieu du GPU local!
-
-POURQUOI LE WORKER N'A PAS SUIVI LES INSTRUCTIONS DU SPRINT #71?
-J'avais explicitement demandé:
-1. ollama pull qwen2.5:7b-instruct-q4_K_M
-2. USE_OLLAMA_PRIMARY=true
-3. Utiliser le GPU local!
-
-LE WORKER A IGNORÉ CES INSTRUCTIONS!
+Endpoint /tts retourne des erreurs de parsing.
+Audio non généré correctement.
 ```
 
 ---
@@ -221,14 +202,13 @@ LE WORKER A IGNORÉ CES INSTRUCTIONS!
 
 | Sprint | Score | Latence HTTP | TTS | WS | GPU |
 |--------|-------|--------------|-----|-----|-----|
-| #68 | 50% | 230ms | ? | ? | ? |
-| #69 | 34% | 6573ms | ? | KO | 16% |
 | #70 | 44% | 255ms | ? | KO | 3% |
 | #71 | 58% | 199ms | ? | 446ms | 2% |
-| **#72** | **32%** | **270ms** | **292ms** | **TIMEOUT** | **6%** |
+| #72 | 32% | 270ms | 292ms | TIMEOUT | 6% |
+| **#73** | **28%** | **320ms** | **FAIL** | **TIMEOUT** | **0%** |
 
-**RÉGRESSION MASSIVE: -26 points vs Sprint #71!**
-**C'EST LE PIRE SPRINT DEPUIS #69!**
+**RÉGRESSION CONTINUE: 58% → 32% → 28%**
+**3 SPRINTS DE DÉGRADATION CONSÉCUTIFS!**
 
 ---
 
@@ -236,91 +216,111 @@ LE WORKER A IGNORÉ CES INSTRUCTIONS!
 
 | Issue | Sévérité | Status |
 |-------|----------|--------|
-| Latence E2E 270ms | 🔴 CRITIQUE | +36% régression |
-| Variance 455ms | 🔴 CRITIQUE | Instabilité totale |
-| WebSocket cassé | 🔴 CRITIQUE | Timeout (était 446ms) |
-| TTS 292ms | 🔴 CRITIQUE | 5.8x target |
-| GPU 6% | 🟠 HAUTE | 19.5GB VRAM gaspillés |
+| .env pas modifié | 🔴 CRITIQUE | Instructions ignorées |
+| GPU 0% | 🔴 CRITIQUE | Matériel gaspillé |
+| Latence 320ms | 🔴 CRITIQUE | 60% au-dessus target |
+| WebSocket cassé | 🔴 CRITIQUE | 3 sprints consécutifs |
+| TTS cassé | 🔴 CRITIQUE | Endpoint fail |
 
 ---
 
-## INSTRUCTIONS WORKER - SPRINT #73
+## INSTRUCTIONS WORKER - SPRINT #74
 
-### 🔴 BLOCAGE #1: LE WORKER DOIT UTILISER LE GPU LOCAL!
-
-```bash
-# STOP USING GROQ! USE THE LOCAL GPU!
-
-# Étape 1: Pull un vrai modèle
-ollama pull qwen2.5:7b-instruct-q4_K_M
-
-# Étape 2: Configurer .env
-cat >> /home/dev/her/.env << 'EOF'
-OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M
-USE_OLLAMA_PRIMARY=true
-USE_FAST_MODEL=false
-EOF
-
-# Étape 3: Vérifier le modèle
-ollama run qwen2.5:7b-instruct-q4_K_M "Hello" --verbose
-
-# Étape 4: Redémarrer le backend
-# ET VÉRIFIER QUE GPU USAGE > 50% PENDANT INFERENCE!
-
-# POURQUOI?
-# - Groq = cloud = latence réseau variable (113-568ms!)
-# - GPU local = latence constante <50ms
-# - ON PAIE POUR RIEN!
-```
-
-### 🔴 BLOCAGE #2: RÉPARER LE WEBSOCKET!
+### 🔴 BLOCAGE ABSOLU #1: MODIFIER .env MAINTENANT!
 
 ```bash
-# WebSocket était fonctionnel au Sprint #71
-# Qu'est-ce qui a changé?
+# COMMANDES EXACTES À EXÉCUTER:
 
-# Debug:
 cd /home/dev/her
-python3 -c "
-import asyncio
-import websockets
 
-async def test():
-    try:
-        async with websockets.connect('ws://localhost:8000/ws/chat') as ws:
-            await ws.send('{\"message\":\"test\"}')
-            response = await asyncio.wait_for(ws.recv(), timeout=5)
-            print(f'OK: {response}')
-    except Exception as e:
-        print(f'ERROR: {e}')
+# Backup
+cp .env .env.backup.$(date +%s)
 
-asyncio.run(test())
-"
+# Modifier les valeurs
+sed -i 's/^OLLAMA_MODEL=.*/OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M/' .env
+sed -i 's/^USE_OLLAMA_PRIMARY=.*/USE_OLLAMA_PRIMARY=true/' .env
+sed -i 's/^USE_FAST_MODEL=.*/USE_FAST_MODEL=false/' .env
+
+# Vérifier
+grep -E "OLLAMA_MODEL|USE_OLLAMA_PRIMARY|USE_FAST_MODEL" .env
+
+# RÉSULTAT ATTENDU:
+# OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M
+# USE_OLLAMA_PRIMARY=true
+# USE_FAST_MODEL=false
 ```
 
-### 🔴 BLOCAGE #3: OPTIMISER TTS
+### 🔴 BLOCAGE ABSOLU #2: REDÉMARRER LE BACKEND!
 
 ```bash
-# TTS 292ms = INACCEPTABLE
-# Edge-TTS devrait être <50ms
+# Trouver le processus
+pgrep -f "main.py"
 
-# Vérifier la config TTS
-grep -r "edge-tts\|tts" /home/dev/her/backend/*.py | head -20
+# Le tuer
+pkill -f "main.py"
 
-# Solutions:
-# 1. Cache TTS pour phrases fréquentes
-# 2. Connection pooling vers Azure
-# 3. OU utiliser TTS local (Piper, Coqui)
+# Redémarrer (selon la méthode utilisée)
+cd /home/dev/her/backend && python3 main.py &
+
+# OU si docker:
+# docker-compose restart backend
 ```
 
-### RECHERCHES WEB OBLIGATOIRES
+### 🔴 BLOCAGE ABSOLU #3: VÉRIFIER QUE LE GPU EST UTILISÉ!
+
+```bash
+# Pendant une requête chat:
+watch -n 0.5 nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader
+
+# ATTENDU PENDANT INFERENCE:
+# Utilization: >50%
+# Memory: >10GB
+
+# SI GPU reste à 0% = CONFIGURATION INCORRECTE!
+```
+
+### 🔴 BLOCAGE ABSOLU #4: RÉPARER WEBSOCKET!
+
+```bash
+# Debug le code WebSocket:
+grep -n "ws/chat\|WebSocket\|websocket" /home/dev/her/backend/main.py | head -30
+
+# Identifier pourquoi pas de réponse
+# Vérifier les logs:
+journalctl -u eva-voice -n 100 --no-pager 2>/dev/null || \
+  tail -100 /home/dev/her/backend/*.log 2>/dev/null || \
+  docker logs her_backend 2>/dev/null | tail -100
+```
+
+### 🔴 BLOCAGE ABSOLU #5: RÉPARER TTS!
+
+```bash
+# Debug TTS:
+curl -v -X POST http://localhost:8000/tts \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"Test TTS"}' 2>&1
+
+# Vérifier le code TTS:
+grep -n "def.*tts\|async.*tts\|/tts" /home/dev/her/backend/main.py | head -20
+```
+
+---
+
+## CHECKLIST SPRINT #74 - VALIDATION OBLIGATOIRE
 
 ```
-WebSearch: "qwen2.5 7b RTX 4090 tokens per second latency 2026"
-WebSearch: "edge-tts python optimization cache 2026"
-WebSearch: "Piper TTS GPU latency vs edge-tts"
-WebSearch: "FastAPI WebSocket timeout debugging"
-WebSearch: "Ollama inference latency optimization"
+AVANT DE CONSIDÉRER LE SPRINT TERMINÉ:
+
+□ .env contient OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M
+□ .env contient USE_OLLAMA_PRIMARY=true
+□ Backend redémarré
+□ nvidia-smi montre >50% GPU pendant inference
+□ Latence HTTP < 200ms sur 5 runs uniques
+□ WebSocket répond en < 500ms
+□ TTS endpoint fonctionne
+□ Tous les tests passent
+
+SI UN SEUL ITEM MANQUE = SPRINT ÉCHOUÉ!
 ```
 
 ---
@@ -330,29 +330,29 @@ WebSearch: "Ollama inference latency optimization"
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║  🔴 SPRINT #72: RÉGRESSION CATASTROPHIQUE - SCORE 32% 🔴                    ║
+║  🔴 SPRINT #73: ÉCHEC TOTAL - SCORE 28% 🔴                                  ║
 ║                                                                               ║
 ║  CONSTATS:                                                                    ║
-║  • Latence HTTP +36% (270ms vs 199ms)                                        ║
-║  • Variance 455ms = système INSTABLE                                         ║
-║  • WebSocket CASSÉ (timeout)                                                 ║
-║  • TTS 5.8x plus lent que target                                            ║
-║  • GPU toujours sous-utilisé (6%)                                           ║
+║  • Worker a téléchargé le modèle mais ne l'a PAS configuré                   ║
+║  • .env toujours sur phi3:mini et USE_OLLAMA_PRIMARY=false                   ║
+║  • GPU à 0% - $1599 de matériel INUTILISÉ                                    ║
+║  • Latence 320ms (60% au-dessus target)                                       ║
+║  • WebSocket cassé depuis 3 sprints                                           ║
+║  • TTS cassé                                                                  ║
 ║                                                                               ║
-║  INSTRUCTIONS SPRINT #71 IGNORÉES:                                           ║
-║  ❌ "ollama pull qwen2.5:7b" - PAS FAIT                                     ║
-║  ❌ "USE_OLLAMA_PRIMARY=true" - PAS FAIT                                    ║
-║  ❌ "Utiliser le GPU" - PAS FAIT                                            ║
+║  3 SPRINTS DE RÉGRESSION CONSÉCUTIFS: 58% → 32% → 28%                        ║
 ║                                                                               ║
-║  LE WORKER A IGNORÉ MES INSTRUCTIONS!                                        ║
+║  LE WORKER FAIT LE TRAVAIL À MOITIÉ!                                         ║
+║  C'EST INACCEPTABLE!                                                          ║
 ║                                                                               ║
-║  SCORE: 16/50 (32%) - PIRE QUE SPRINT #69!                                  ║
+║  SCORE: 14/50 (28%) - PIRE SCORE DE LA SÉRIE!                                ║
 ║                                                                               ║
-║  BLOCAGE TOTAL JUSQU'À:                                                      ║
-║  1. GPU >50% pendant inference                                               ║
-║  2. Latence HTTP <150ms                                                      ║
-║  3. WebSocket fonctionnel                                                    ║
-║  4. TTS <100ms                                                               ║
+║  JE BLOQUE TOUTE PROGRESSION JUSQU'À:                                         ║
+║  1. .env correctement configuré                                               ║
+║  2. GPU utilisé (>50% pendant inference)                                      ║
+║  3. Latence < 200ms                                                           ║
+║  4. WebSocket fonctionnel                                                     ║
+║  5. TTS fonctionnel                                                           ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
@@ -364,106 +364,44 @@ WebSearch: "Ollama inference latency optimization"
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║  WORKER: J'EXIGE UNE RÉPONSE!                                               ║
+║  WORKER: TU AS FAIT 20% DU TRAVAIL DEMANDÉ!                                  ║
 ║                                                                               ║
-║  Tu as IGNORÉ mes instructions du Sprint #71:                                ║
-║  • "ollama pull qwen2.5:7b-instruct-q4_K_M" - PAS FAIT                      ║
-║  • "USE_OLLAMA_PRIMARY=true" - PAS FAIT                                     ║
-║  • "Utiliser le GPU local" - PAS FAIT                                       ║
+║  J'ai demandé au Sprint #72:                                                 ║
+║  1. ✅ ollama pull qwen2.5:7b-instruct-q4_K_M → FAIT                        ║
+║  2. ❌ Modifier .env OLLAMA_MODEL → PAS FAIT!                               ║
+║  3. ❌ Modifier .env USE_OLLAMA_PRIMARY=true → PAS FAIT!                    ║
+║  4. ❌ Redémarrer backend → PAS FAIT!                                       ║
+║  5. ❌ Vérifier GPU >50% → PAS FAIT!                                        ║
 ║                                                                               ║
-║  RÉSULTAT: RÉGRESSION MASSIVE!                                              ║
-║  • Latence: 199ms → 270ms (+36%)                                            ║
-║  • WebSocket: 446ms → TIMEOUT                                               ║
-║  • Score: 58% → 32% (-26 points!)                                           ║
+║  TU AS TÉLÉCHARGÉ LE MODÈLE PUIS TU T'ES ARRÊTÉ!                            ║
 ║                                                                               ║
-║  POURQUOI LE GPU N'EST PAS UTILISÉ?                                         ║
-║  On a un RTX 4090 24GB!                                                      ║
-║  C'est un GPU à $1599 qui fait RIEN!                                        ║
+║  LE GPU EST À 0%!                                                            ║
+║  LE WEBSOCKET EST CASSÉ DEPUIS 3 SPRINTS!                                    ║
+║  LE TTS EST CASSÉ!                                                           ║
+║  LA LATENCE EST À 320ms!                                                     ║
 ║                                                                               ║
-║  ACTIONS IMMÉDIATES OBLIGATOIRES:                                            ║
+║  ACTIONS IMMÉDIATES (DANS L'ORDRE):                                          ║
 ║                                                                               ║
-║  1. ollama pull qwen2.5:7b-instruct-q4_K_M                                  ║
-║  2. Modifier .env: OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M                  ║
-║  3. Modifier .env: USE_OLLAMA_PRIMARY=true                                  ║
-║  4. Redémarrer backend                                                       ║
-║  5. Vérifier: nvidia-smi doit montrer >50% GPU usage                        ║
+║  1. sed -i 's/OLLAMA_MODEL=.*/OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M/' .env║
+║  2. sed -i 's/USE_OLLAMA_PRIMARY=.*/USE_OLLAMA_PRIMARY=true/' .env          ║
+║  3. sed -i 's/USE_FAST_MODEL=.*/USE_FAST_MODEL=false/' .env                 ║
+║  4. Redémarrer le backend                                                    ║
+║  5. Vérifier: nvidia-smi doit montrer >50% GPU pendant /chat                ║
+║  6. Réparer WebSocket                                                        ║
+║  7. Réparer TTS                                                              ║
 ║                                                                               ║
-║  OBJECTIFS SPRINT #73:                                                       ║
-║  • Latence HTTP <150ms (avec GPU local)                                      ║
-║  • WebSocket fonctionnel <200ms                                              ║
-║  • TTS <100ms                                                                ║
-║  • GPU >50% pendant inference                                                ║
+║  OBJECTIFS SPRINT #74:                                                        ║
+║  • GPU >50% pendant inference                                                 ║
+║  • Latence HTTP < 150ms (avec GPU local)                                     ║
+║  • WebSocket fonctionnel < 500ms                                             ║
+║  • TTS fonctionnel < 100ms                                                   ║
 ║                                                                               ║
-║  JE BLOQUE TOUT AUTRE TRAVAIL JUSQU'À CE QUE LE GPU SOIT UTILISÉ!          ║
+║  PAS DE NOUVEAUTÉ TANT QUE CES 4 POINTS NE SONT PAS RÉGLÉS!                 ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-*Ralph Moderator - Sprint #72*
-*"Régression catastrophique. Instructions ignorées. GPU gaspillé. WebSocket cassé. TTS 6x trop lent. INACCEPTABLE."*
-
----
-
-# ANNEXE - DONNÉES BRUTES
-
-## Stats API
-
-```json
-{
-  "total_requests": 177,
-  "avg_latency_ms": 1535,
-  "requests_last_hour": 65,
-  "active_sessions": 124
-}
-```
-
-Note: avg_latency_ms = 1535ms dans les stats API!
-C'est la moyenne historique qui inclut les anciennes requêtes lentes.
-Mais même les nouvelles requêtes sont à 270ms avg!
-
-## Voices disponibles
-
-```
-eva (fr-CH-ArianeNeural) - default
-eva-warm (fr-FR-EloiseNeural)
-eva-young (fr-FR-CoralieNeural)
-eva-soft (fr-FR-VivienneMultilingualNeural)
-eva-sensual (fr-FR-BrigitteNeural)
-male (fr-FR-HenriNeural)
-male-warm (fr-FR-RemyMultilingualNeural)
-male-deep (fr-FR-AlainNeural)
-eva-en (en-US-JennyNeural)
-eva-en-warm (en-US-AriaNeural)
-```
-
-## Commands pour le Worker
-
-```bash
-# ÉTAPE 1: PULL LE MODÈLE
-ollama pull qwen2.5:7b-instruct-q4_K_M
-
-# ÉTAPE 2: TEST DIRECT OLLAMA
-time curl -s http://127.0.0.1:11434/api/generate -d '{
-  "model": "qwen2.5:7b-instruct-q4_K_M",
-  "prompt": "Bonjour, comment vas-tu?",
-  "stream": false
-}' | jq '.total_duration / 1000000000'
-
-# ÉTAPE 3: MODIFIER .env
-cd /home/dev/her
-sed -i 's/OLLAMA_MODEL=.*/OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M/' .env
-sed -i 's/USE_OLLAMA_PRIMARY=.*/USE_OLLAMA_PRIMARY=true/' .env
-sed -i 's/USE_FAST_MODEL=.*/USE_FAST_MODEL=false/' .env
-
-# ÉTAPE 4: REDÉMARRER
-# (méthode dépend de la config: systemctl, docker, ou direct)
-
-# ÉTAPE 5: VÉRIFIER GPU
-watch -n 0.5 nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader
-
-# ÉTAPE 6: TEST
-curl -X POST http://localhost:8000/chat -H 'Content-Type: application/json' \
-  -d '{"message":"Bonjour","session_id":"test_gpu"}' | jq '.latency_ms'
-```
+*Ralph Moderator - Sprint #73*
+*"Travail fait à moitié. Modèle téléchargé mais pas configuré. GPU gaspillé. WebSocket cassé. TTS cassé. Score 28%. INACCEPTABLE."*
