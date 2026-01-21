@@ -1571,15 +1571,31 @@ async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True, spee
 
     except Exception as e:
         print(f"LLM Error ({provider if 'provider' in dir() else 'unknown'}): {e}")
-        # Fallback chain: Ollama failed -> try Groq
+        # Fallback chain based on what failed
         if use_ollama and groq_client:
+            # Ollama primary failed -> try Groq
             print("⚠️ Ollama failed, falling back to Groq...")
             async for token in stream_llm_groq_fallback(messages, max_tok, start_time):
                 yield token
         elif use_cerebras and groq_client:
+            # Cerebras failed -> try Groq
             print("⚠️ Cerebras failed, falling back to Groq...")
             async for token in stream_llm_groq_fallback(messages, max_tok, start_time):
                 yield token
+        elif USE_OLLAMA_FALLBACK and _ollama_available:
+            # Groq failed -> try Ollama as fallback
+            print("⚠️ Groq failed, falling back to Ollama...")
+            fallback_start = time.time()
+            try:
+                async for token in stream_ollama(messages, max_tok):
+                    if fallback_start > 0:
+                        ttft = (time.time() - fallback_start) * 1000
+                        print(f"⚡ TTFT (ollama fallback): {ttft:.0f}ms")
+                        fallback_start = 0
+                    yield token
+            except Exception as fallback_err:
+                print(f"⚠️ Ollama fallback also failed: {fallback_err}")
+                yield f"Désolée, j'ai eu un petit souci. Tu peux répéter ?"
         else:
             yield f"Désolée, j'ai eu un petit souci. Tu peux répéter ?"
 

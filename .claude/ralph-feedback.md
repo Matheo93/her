@@ -1,260 +1,182 @@
 ---
-reviewed_at: 2026-01-21T08:21:00Z
+reviewed_at: 2026-01-21T08:02:30Z
 commit: fb52dca
-status: SPRINT #62 - LATENCE CATASTROPHIQUE + GPU GASPILLÉ
-score: 25%
+status: SPRINT #61 - GROQ ACTIF MAIS VARIANCE LATENCE
+score: 56%
 critical_issues:
-  - E2E Latency 4200ms (21x le target de 200ms!)
-  - GPU 0% utilisation (5374 MiB / 24564 MiB = 19GB GASPILLÉS)
-  - TTS endpoint retourne VIDE
-  - WebSocket rate-limited
-  - Stats: avg_latency_ms = 385ms (presque 2x target)
+  - VARIANCE LATENCE: 129-367ms (367ms = 1.8x target!)
+  - WebSocket TIMEOUT après 5s
+  - GPU 22% seulement (3.6GB/24GB VRAM)
 improvements:
-  - Backend UP (health OK)
-  - Tests passent: 202 passed, 1 skipped
+  - Groq primaire (USE_OLLAMA_PRIMARY=false)
+  - Latence moyenne 206ms (vs 4446ms Ollama!)
+  - Backend UP et stable
+  - TTS produit audio binaire
+  - Tests 145+ PASS avant timeout
 ---
 
-# Ralph Moderator - Sprint #62 - LATENCE CATASTROPHIQUE
+# Ralph Moderator - Sprint #61 - GROQ RÉACTIVÉ
 
-## VERDICT: BACKEND UP MAIS PERFORMANCE INACCEPTABLE
+## VERDICT: AMÉLIORATION MAJEURE MAIS INSTABILITÉ
 
-Le backend répond mais la LATENCE EST 21x LE TARGET!
+### ÉTAT ACTUEL (TESTÉ 08:01 UTC):
+
+```bash
+# Backend UP et répond:
+curl http://localhost:8000/chat -> latency_ms: 176ms
+```
+
+**GROQ EST MAINTENANT PRIMAIRE!**
 
 ---
 
-## SPRINT #62 - TRIADE CHECK
+## SPRINT #61 - TRIADE CHECK
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
-| QUALITÉ | 6/10 | Tests: 202 passed, backend UP |
-| LATENCE | 1/10 | E2E: 4200ms (target <200ms) = **21x TROP LENT** |
-| STREAMING | 2/10 | WebSocket rate-limited |
-| HUMANITÉ | 2/10 | TTS retourne VIDE |
-| CONNECTIVITÉ | 5/10 | Health OK, frontend lock |
+| QUALITÉ | 7/10 | Tests 145+ PASS, timeout sur reste |
+| LATENCE | 5/10 | **206ms moyenne** mais 367ms pic! |
+| STREAMING | 2/10 | WebSocket TIMEOUT |
+| HUMANITÉ | 6/10 | TTS produit audio binaire |
+| CONNECTIVITÉ | 8/10 | Backend UP, Groq connecté |
 
-**SCORE TRIADE: 16/50 (32%) - INACCEPTABLE**
-
----
-
-## RAW TEST DATA - IMPITOYABLE
-
-### TEST LATENCE E2E (MESSAGES UNIQUES - PAS DE CACHE!)
-
-```
-Test 1: 123ms  ✓ (premier hit, pas de cache Groq)
-Test 2: 155ms  ✓
-Test 3: 4270ms ❌❌❌ (RATE LIMITED!)
-Test 4: 4227ms ❌❌❌
-Test 5: 4251ms ❌❌❌
-```
-
-**MOYENNE: ~2600ms - 13x LE TARGET!**
-
-Le système se fait RATE LIMIT par Groq après 2 requêtes!
-C'est pas juste lent, c'est INUTILISABLE en production.
-
-### STATS SERVEUR:
-```json
-{
-  "total_requests": 914,
-  "avg_latency_ms": 385,   // ❌ 2x target
-  "requests_last_hour": 43,
-  "active_sessions": 588
-}
-```
-
-### GPU - RTX 4090 = 24GB VRAM GASPILLÉ:
-```
-NVIDIA GeForce RTX 4090, 0 %, 5374 MiB, 24564 MiB
-                         ^^
-                         ZÉRO POURCENT!
-```
-
-**19GB VRAM LIBRES ET ON UTILISE GROQ QUI RATE LIMIT!**
-
-### TTS:
-```json
-{
-  "has_audio": false,
-  "format": null,
-  "audio_length": 0
-}
-```
-**TTS NE GÉNÈRE PAS D'AUDIO!**
-
-### WebSocket:
-```
-{"type":"error","message":"Rate limit exceeded"}
-```
-**RATE LIMITED!**
-
-### Frontend:
-```
-⨯ Unable to acquire lock at .next/lock
-```
-
-### Tests Backend:
-```
-202 passed, 1 skipped in 44.45s ✓
-```
+**SCORE TRIADE: 28/50 (56%) - AMÉLIORATION +34% vs Sprint #60 (22%)**
 
 ---
 
-## DIAGNOSTIC - CAUSES RACINES
+## RAW TEST DATA (RÉEL - 08:01:59 UTC)
 
-### 1. GROQ RATE LIMITING (CRITIQUE)
-Le free tier Groq a des limites strictes.
-Après 2 requêtes, on attend 4+ secondes.
+### LATENCE E2E (MESSAGES UNIQUES - PAS DE CACHE):
+```
+Test 1: 176ms "Question unique numero 1 timestamp 1768982419..."
+Test 2: 129ms EXCELLENT
+Test 3: 130ms EXCELLENT
+Test 4: 227ms (13% over target)
+Test 5: 367ms (83% over target!)
 
-**SOLUTION: LLM LOCAL sur RTX 4090!**
+Moyenne: 206ms (3% over target)
+Min: 129ms
+Max: 367ms
+Variance: 238ms (ÉNORME!)
+```
 
-### 2. GPU NON UTILISÉ (CRITIQUE)
-24GB VRAM disponibles, 0% utilisation.
-On paie pour du cloud quand on a un monstre local!
+### VERDICT LATENCE:
+```
+3/5 tests sous 200ms (60%)
+1/5 tests 200-250ms (20%)
+1/5 tests >250ms (20%)
+```
 
-**SOLUTION:**
+**PROBLÈME:** Variance 238ms inacceptable. UX inconsistante.
+
+### GPU UTILISATION:
+```
+NVIDIA GeForce RTX 4090, 22 %, 3665 MiB / 24564 MiB, 26°C
+```
+**20GB VRAM INUTILISÉ!** (3.6GB/24GB = 15%)
+
+### WEBSOCKET:
+```
+timeout 5 websocat ws://localhost:8000/ws/chat
+Result: WS_FAIL ou timeout
+```
+**CRITIQUE:** WebSocket non fonctionnel!
+
+### CONFIGURATION VÉRIFIÉE:
 ```bash
-# Option 1: vLLM (recommandé)
-pip install vllm
-vllm serve --model=meta-llama/Llama-3.2-3B-Instruct --gpu-memory-utilization=0.8
-
-# Option 2: llama.cpp avec GGUF
-# Peut run Llama 3.3 70B Q4 avec 24GB!
-
-# Option 3: Ollama (déjà installé?)
-ollama serve &
-ollama run llama3.2
-```
-
-### 3. TTS VIDE
-L'endpoint /tts ne retourne pas d'audio.
-Peut-être un bug avec piper-tts GPU?
-
----
-
-## INSTRUCTIONS WORKER - SPRINT #63
-
-### BLOCAGE #1 - ARRÊTER DE DÉPENDRE DE GROQ (PRIORITÉ CRITIQUE)
-
-**Le rate limiting Groq rend le système INUTILISABLE!**
-
-Actions OBLIGATOIRES:
-
-```bash
-# 1. Vérifier si Ollama est installé
-which ollama && ollama list
-
-# 2. Si non, installer Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-
-# 3. Télécharger un modèle rapide
-ollama pull llama3.2:3b  # Petit et rapide pour tests
-# OU
-ollama pull llama3.1:8b  # Meilleur qualité
-
-# 4. Modifier le backend pour utiliser Ollama
-# Dans .env:
-USE_OLLAMA_PRIMARY=true
-OLLAMA_MODEL=llama3.2:3b
-```
-
-### BLOCAGE #2 - WEBSEARCH OBLIGATOIRE
-
-**Le Worker DOIT rechercher des alternatives!**
-
-```
-WebSearch: "fastest open source LLM 2026"
-WebSearch: "vLLM vs Ollama latency benchmark"
-WebSearch: "RTX 4090 LLM inference speed"
-WebSearch: "Groq alternatives self-hosted"
-```
-
-### BLOCAGE #3 - TTS CASSÉ
-
-```bash
-# Debug TTS
-cd /home/dev/her/backend
-python3 -c "from eva_emotional_tts import *; print('TTS imports OK')"
-
-# Test direct
-curl -v -X POST http://localhost:8000/tts \
-  -H 'Content-Type: application/json' \
-  -d '{"text":"Test", "voice":"eva"}'
-```
-
-### BLOCAGE #4 - FRONTEND LOCK
-
-```bash
-rm -f /workspace/music-music-ai-training-api/frontend/.next/lock
-cd /workspace/music-music-ai-training-api/frontend && npm run build
-```
-
----
-
-## TARGETS vs RÉALITÉ
-
-| Métrique | Target | Actuel | Gap | Status |
-|----------|--------|--------|-----|--------|
-| E2E Latency | <200ms | 4200ms | 21x | 🔴 BLOQUANT |
-| Avg Latency | <200ms | 385ms | 1.9x | 🔴 FAIL |
-| TTS | <50ms | N/A | - | 🔴 CASSÉ |
-| GPU Usage | >20% | 0% | - | 🔴 GASPILLÉ |
-| WebSocket | OK | Rate limit | - | 🟠 FAIL |
-| Tests | 100% | 99.5% | - | 🟢 OK |
-| Build | PASS | Lock | - | 🟠 |
-
----
-
-## VERDICT FINAL
-
-```
-╔══════════════════════════════════════════════════════════════════╗
-║                                                                   ║
-║  SPRINT #62: LATENCE CATASTROPHIQUE                              ║
-║                                                                   ║
-║  PROBLÈME MAJEUR: Groq rate limiting après 2 requêtes            ║
-║  RÉSULTAT: 4200ms latence = INUTILISABLE                         ║
-║                                                                   ║
-║  RESSOURCES GASPILLÉES:                                          ║
-║  - RTX 4090 à 0% utilisation                                     ║
-║  - 19GB VRAM libres                                              ║
-║                                                                   ║
-║  SOLUTION OBLIGATOIRE:                                           ║
-║  1. Installer Ollama/vLLM LOCAL                                  ║
-║  2. Arrêter de dépendre de Groq gratuit                          ║
-║  3. Utiliser le GPU qu'on PAIE!                                  ║
-║                                                                   ║
-║  SCORE: 16/50 (32%)                                              ║
-║                                                                   ║
-╚══════════════════════════════════════════════════════════════════╝
+GROQ_API_KEY=gsk_ZlTQv... (présent)
+USE_OLLAMA_PRIMARY=false (CORRIGÉ depuis Sprint #60!)
+USE_OLLAMA_FALLBACK=true
 ```
 
 ---
 
 ## COMPARAISON SPRINTS
 
-| Sprint | Score | Status |
-|--------|-------|--------|
-| #61 | 1/50 (2%) | Backend CRASH |
-| #62 | 16/50 (32%) | Backend UP, Latence 21x |
+| Sprint | Latence Avg | Latence Max | Provider | Score |
+|--------|-------------|-------------|----------|-------|
+| #59 | ~200ms | ~250ms | Groq | 80% |
+| #60 | 4446ms | 4446ms | Ollama | 22% |
+| **#61** | **206ms** | **367ms** | Groq | **56%** |
 
-**AMÉLIORATION: +30% mais reste INACCEPTABLE**
-
-Le backend ne crash plus mais la PERFORMANCE est CATASTROPHIQUE.
-
----
-
-## EXIGENCES SPRINT #63
-
-1. **LLM LOCAL FONCTIONNEL** - Ollama ou vLLM avec GPU
-2. **E2E < 500ms** - On accepte temporairement 500ms pendant migration
-3. **TTS FONCTIONNE** - Audio réel retourné
-4. **WebSocket OK** - Pas de rate limit
-5. **WebSearch FAIT** - Preuve de recherche d'alternatives
-
-**SI CES 5 POINTS NE SONT PAS ADRESSÉS = BLOCAGE SPRINT #64**
+**GROQ RÉACTIVÉ = LATENCE /21 !** (4446ms -> 206ms)
 
 ---
 
-*Ralph Moderator - Sprint #62*
-*"Groq rate limite = mort du système. LLM local = seule solution. GPU à 0% = insulte à la RTX 4090."*
+## BLOCAGES CRITIQUES
+
+### BLOCAGE 1: VARIANCE LATENCE (HAUTE)
+- Min 129ms, Max 367ms = 2.8x variance
+- Causes possibles: Groq cold start, network jitter
+- **ACTION:** Profiler 20 requêtes pour identifier pattern
+
+### BLOCAGE 2: WEBSOCKET CASSÉ (CRITIQUE)
+- Timeout après 5 secondes
+- Impact: Streaming audio impossible
+- **ACTION:** Debug endpoint WebSocket dans main.py
+
+### BLOCAGE 3: GPU SOUS-UTILISÉ (MOYENNE)
+- 22% charge, 3.6GB/24GB VRAM
+- **ACTION:** Soit stopper Ollama, soit l'utiliser pour TTS local
+
+---
+
+## INSTRUCTIONS WORKER - SPRINT #62
+
+### PRIORITÉ 1: DEBUG WEBSOCKET (CRITIQUE)
+```bash
+# Vérifier que l'endpoint existe
+grep -n "ws/chat\|WebSocket" /home/dev/her/backend/main.py | head -20
+
+# Tester avec curl upgrade
+curl -v -H "Connection: Upgrade" -H "Upgrade: websocket" \
+  http://localhost:8000/ws/chat 2>&1 | head -30
+```
+
+### PRIORITÉ 2: STABILISER LATENCE
+```bash
+# Test de stress: 10 requêtes uniques
+for i in {1..10}; do
+  TS=$(date +%s%N)
+  curl -s -X POST http://localhost:8000/chat \
+    -H 'Content-Type: application/json' \
+    -d "{\"message\":\"stress test $i $TS\",\"session_id\":\"stress_$TS\"}" \
+    | jq '.latency_ms'
+done
+# SI variance > 100ms: investiguer Groq rate limits
+```
+
+### PRIORITÉ 3: EXPLOITER GPU OU LE LIBÉRER
+```bash
+# Option A: Arrêter Ollama (libère VRAM)
+# Option B: TTS local GPU (Coqui XTTS)
+```
+
+---
+
+## VERDICT FINAL
+
+```
+SPRINT #61: AMÉLIORATION SIGNIFICATIVE
+
+Groq primaire = 206ms (vs Ollama 4446ms)
+Backend stable et répond
+TTS fonctionnel
+
+MAIS:
+Variance latence 129-367ms (INSTABLE)
+WebSocket TIMEOUT (CRITIQUE)
+GPU 22% (sous-utilisé)
+
+FOCUS SPRINT #62:
+1. RÉPARER WEBSOCKET (priorité absolue)
+2. Réduire variance latence (<100ms spread)
+3. Décider: GPU pour TTS ou arrêter Ollama
+
+SCORE: 28/50 (56%) - +34% vs Sprint #60
+```
+
+---
+
+*Ralph Moderator - Sprint #61*
+*"Groq activé = victoire. WebSocket cassé = bloqueur. 367ms pic = inacceptable."*
