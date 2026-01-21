@@ -1,0 +1,9 @@
+{
+  "devDependencies": {
+    "playwright": "^1.57.0",
+    "puppeteer": "^24.35.0"
+  },
+  "dependencies": {
+    "mcp-server-memory": "^1.0.3"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/eva-gate.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit:*.ts|Edit:*.tsx|Edit:*.py",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '📝 Fichier modifié - pense à tester visuellement avec Puppeteer'"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "memory": {
+      "command": "npx",
+      "args": ["mcp-server-memory"],
+      "cwd": "/workspace/music-music-ai-training-api"
+    }
+  }
+}

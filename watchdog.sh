@@ -67,25 +67,41 @@ while true; do
     DISK_USED_GB=$((DISK_USED_KB / 1024 / 1024))
     DISK_USAGE=$(df / | tail -1 | awk '{print $5}' | tr -d '%')
 
-    # ALERT if > 38GB used
+    # ALERT LEVELS:
+    # 30GB (73%) = Warning
+    # 33GB (80%) = Cleanup
+    # 36GB (88%) = Aggressive cleanup
+    # 38GB (93%) = CRITICAL
+
     if [ "$DISK_USED_GB" -gt 38 ]; then
         echo ""
         echo "==========================================="
-        echo "  ATTENTION: STOCKAGE PRESQUE ATTEINT!"
-        echo "  Utilisé: ${DISK_USED_GB}GB / 40GB"
-        echo "  Nettoyage automatique en cours..."
+        echo "  🚨 CRITIQUE: STOCKAGE PRESQUE PLEIN!"
+        echo "  Utilisé: ${DISK_USED_GB}GB / 41GB"
+        echo "  NETTOYAGE AGRESSIF EN COURS..."
         echo "==========================================="
         echo ""
+        # Aggressive cleanup
         pip cache purge 2>/dev/null
+        rm -rf ~/.cache/huggingface/hub/* 2>/dev/null
+        rm -rf ~/.cache/pip/* 2>/dev/null
         ollama rm llama3.1:8b 2>/dev/null
         ollama rm llama3.2:3b 2>/dev/null
-        # Don't delete /tmp/* - it removes logs and breaks things
-    fi
+        ollama rm codellama 2>/dev/null
+        rm -rf /tmp/gradio* /tmp/tmp* 2>/dev/null
 
-    # Clean if > 80%
-    if [ "$DISK_USAGE" -gt 80 ]; then
-        echo "[$(date)] Disk at ${DISK_USAGE}%, cleaning..."
+    elif [ "$DISK_USED_GB" -gt 36 ]; then
+        echo "[$(date)] ⚠️ ALERTE: Disque à ${DISK_USED_GB}GB - Nettoyage..."
         pip cache purge 2>/dev/null
+        ollama rm llama3.1:8b 2>/dev/null
+        rm -rf ~/.cache/pip/* 2>/dev/null
+
+    elif [ "$DISK_USED_GB" -gt 33 ]; then
+        echo "[$(date)] Disque à ${DISK_USED_GB}GB - Nettoyage léger..."
+        pip cache purge 2>/dev/null
+
+    elif [ "$DISK_USED_GB" -gt 30 ]; then
+        echo "[$(date)] Note: Disque à ${DISK_USED_GB}GB"
     fi
 
     sleep 30  # Check every 30 seconds
