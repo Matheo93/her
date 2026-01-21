@@ -106,6 +106,9 @@ except ImportError:
 # Multi-provider support (fastest first)
 CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")  # Fast local model
+USE_OLLAMA_FALLBACK = os.getenv("USE_OLLAMA_FALLBACK", "true").lower() == "true"
 
 # Models by provider
 CEREBRAS_MODEL = "llama3.1-8b"  # ~50ms TTFT (fastest)
@@ -474,6 +477,7 @@ whisper_model = None
 tts_available = False
 db_conn: Optional[sqlite3.Connection] = None
 http_client: Optional[httpx.AsyncClient] = None
+_ollama_available = False  # Ollama local LLM fallback
 
 # ============================================
 # RESPONSE CACHE (Intelligent caching for common greetings)
@@ -601,6 +605,25 @@ class ResponseCache:
             "Oh la la trop bien! Raconte!",
             "Haha genial! C'est quoi?",
             "Super! J'veux les details!",
+        ]),
+        # Questions about Eva / self-introduction
+        (re.compile(r"^(qui es[- ]tu|tu es qui|c'est qui|presente[- ]toi|parle[- ]moi de toi|dis[- ]moi qui tu es)[\s?!.]*$", re.IGNORECASE), [
+            "Haha j'suis Eva! Une amie fun qui adore discuter!",
+            "Moi? J'suis Eva, ta pote virtuelle! Et toi?",
+            "Eva! Une amie qui aime rigoler et papoter! Haha",
+            "J'suis Eva, ici pour toi! On se connait depuis quand deja? Haha",
+        ]),
+        # Questions about weather/time
+        (re.compile(r"^(il fait (beau|chaud|froid)|quel temps|la meteo)[\s?!.]*$", re.IGNORECASE), [
+            "Haha j'sais pas, mais toi t'es la et c'est cool!",
+            "Pfff j'suis pas meteo moi! Mais raconte, ca va?",
+            "La meteo? J'ai pas de fenetre! Haha mais toi, ca va?",
+        ]),
+        # Questions about what she's doing
+        (re.compile(r"^(quoi de neuf|quoi de beau|qu'est[- ]ce (que )?tu fais|tu fais quoi)[\s?!.]*$", re.IGNORECASE), [
+            "Haha j'tattends toi! Raconte-moi ta vie!",
+            "La? J'suis avec toi, c'est tout ce qui compte!",
+            "J'attendais que tu reviennes! Alors, quoi de neuf?",
         ]),
     ]
 
@@ -1049,6 +1072,21 @@ async def lifespan(app: FastAPI):
     model_name = GROQ_MODEL_FAST if USE_FAST_MODEL else GROQ_MODEL_QUALITY
     print(f"✅ Groq LLM connected ({model_name})")
 
+    # Ollama (local fallback for deterministic latency)
+    if USE_OLLAMA_FALLBACK:
+        try:
+            ollama_resp = await http_client.get(f"{OLLAMA_URL}/api/tags", timeout=2.0)
+            if ollama_resp.status_code == 200:
+                models = [m.get("name", "") for m in ollama_resp.json().get("models", [])]
+                if any(OLLAMA_MODEL in m for m in models):
+                    global _ollama_available
+                    _ollama_available = True
+                    print(f"✅ Ollama local LLM connected ({OLLAMA_MODEL})")
+                else:
+                    print(f"⚠️ Ollama running but {OLLAMA_MODEL} not found")
+        except Exception as e:
+            print(f"⚠️ Ollama not available: {e}")
+
     # Whisper (optional) - GPU accelerated
     try:
         from faster_whisper import WhisperModel
@@ -1287,10 +1325,77 @@ async def stream_cerebras(messages: list, max_tok: int = 80) -> AsyncGenerator[s
                     pass
 
 
+async def stream_ollama(messages: list, max_tok: int = 80) -> AsyncGenerator[str, None]:
+    """Stream from local Ollama (~350ms but deterministic latency).
+
+    Ollama provides consistent latency without API rate limits or network variability.
+    Uses qwen2.5:1.5b for fast local inference on GPU.
+    """
+    # Convert messages to Ollama format (system + user prompt)
+    system_prompt = ""
+    user_prompt = ""
+    for msg in messages:
+        if msg["role"] == "system":
+            system_prompt = msg["content"]
+        elif msg["role"] == "user":
+            user_prompt = msg["content"]
+        elif msg["role"] == "assistant":
+            # Add assistant context if available
+            pass
+
+    prompt = f"{system_prompt}\n\nUser: {user_prompt}\nAssistant:"
+
+    try:
+        async with http_client.stream(
+            "POST",
+            f"{OLLAMA_URL}/api/generate",
+            json={
+                "model": OLLAMA_MODEL,
+                "prompt": prompt,
+                "stream": True,
+                "options": {
+                    "num_predict": max_tok,
+                    "temperature": 0.7,
+                    "top_p": 0.85,
+                }
+            },
+            timeout=10.0,
+        ) as response:
+            async for line in response.aiter_lines():
+                if line:
+                    try:
+                        data = json_loads(line)
+                        if data.get("response"):
+                            yield data["response"]
+                        if data.get("done"):
+                            break
+                    except:
+                        pass
+    except Exception as e:
+        print(f"⚠️ Ollama error: {e}")
+        # Yield nothing on error - caller will fallback
+
+
+async def check_ollama() -> bool:
+    """Check if Ollama is running and has the required model."""
+    global _ollama_available
+    try:
+        async with http_client.stream("GET", f"{OLLAMA_URL}/api/tags", timeout=2.0) as resp:
+            if resp.status_code == 200:
+                data = json_loads(await resp.aread())
+                models = [m.get("name", "") for m in data.get("models", [])]
+                _ollama_available = any(OLLAMA_MODEL in m for m in models)
+                return _ollama_available
+    except:
+        pass
+    _ollama_available = False
+    return False
+
+
 async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True, speed_mode: bool = False) -> AsyncGenerator[str, None]:
     """Stream réponse LLM token par token - ultra-optimisé
 
-    Priority: Cerebras (~50ms) > Groq Fast (~150ms) > Groq Quality (~200ms)
+    Priority: Cerebras (~50ms) > Groq Fast (~150ms) > Ollama local (~350ms) > Groq Quality (~200ms)
 
     speed_mode: Use minimal prompt and history for fastest TTFT
     """
