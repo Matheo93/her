@@ -1,16 +1,19 @@
 """
-Ultra-Fast TTS Module - GPU Piper VITS Backend
-Target latency: ~30-60ms
+Ultra-Fast TTS Module - GPU TTS Backends
+Target latency: ~30-70ms
 
-Uses gpu_tts (ONNX Runtime) as primary backend.
-Falls back to sherpa_onnx if available.
+Priority order:
+1. gpu_tts (ONNX Runtime with Piper model) - ~30-50ms
+2. fast_tts (MMS-TTS on PyTorch CUDA) - ~50-70ms
+3. sherpa_onnx (if available) - ~30-60ms
 """
 
 import time
 from typing import Optional
 
 # Global state
-_backend = None  # "gpu" | "sherpa" | None
+_backend = None  # "gpu" | "mms" | "sherpa" | None
+_init_attempted = False  # Prevent spam messages on repeated init failures
 
 def _init_gpu_backend() -> bool:
     """Try to initialize GPU TTS backend"""
@@ -19,6 +22,17 @@ def _init_gpu_backend() -> bool:
         return init_gpu_tts()
     except Exception as e:
         print(f"GPU backend unavailable: {e}")
+        return False
+
+
+def _init_mms_backend() -> bool:
+    """Try to initialize MMS-TTS (PyTorch CUDA) backend"""
+    try:
+        from fast_tts import init_fast_tts, _initialized
+        if _initialized:
+            return True
+        return init_fast_tts()
+    except Exception:
         return False
 
 
@@ -53,33 +67,43 @@ def _init_sherpa_backend() -> bool:
             _ = _sherpa_tts.generate("Bonjour")
 
         return True
-    except Exception as e:
-        print(f"Sherpa backend unavailable: {e}")
+    except Exception:
         return False
 
 
 def init_ultra_fast_tts() -> bool:
     """Initialize the fastest available TTS backend"""
-    global _backend
+    global _backend, _init_attempted
 
     if _backend is not None:
         return True
 
+    # Avoid spam messages on repeated init attempts
+    if _init_attempted:
+        return False
+
+    _init_attempted = True
     print("🚀 Loading Ultra-Fast TTS...")
 
     # Try GPU backend first (ONNX Runtime with Piper model)
     if _init_gpu_backend():
         _backend = "gpu"
-        print("✅ Ultra-Fast TTS ready (GPU backend, ~50-70ms)")
+        print("✅ Ultra-Fast TTS ready (GPU Piper, ~30-50ms)")
+        return True
+
+    # Fallback to MMS-TTS (PyTorch CUDA)
+    if _init_mms_backend():
+        _backend = "mms"
+        print("✅ Ultra-Fast TTS ready (MMS-TTS GPU, ~50-70ms)")
         return True
 
     # Fallback to Sherpa-ONNX
     if _init_sherpa_backend():
         _backend = "sherpa"
-        print("✅ Ultra-Fast TTS ready (Sherpa backend, ~30-60ms)")
+        print("✅ Ultra-Fast TTS ready (Sherpa, ~30-60ms)")
         return True
 
-    print("❌ No TTS backend available")
+    print("⚠️  Ultra-Fast TTS unavailable, will use fallback")
     return False
 
 
@@ -104,6 +128,10 @@ def ultra_fast_tts(text: str, speed: float = 1.0) -> Optional[bytes]:
         if _backend == "gpu":
             from gpu_tts import gpu_tts
             return gpu_tts(text)
+
+        elif _backend == "mms":
+            from fast_tts import fast_tts
+            return fast_tts(text)
 
         elif _backend == "sherpa":
             import numpy as np
