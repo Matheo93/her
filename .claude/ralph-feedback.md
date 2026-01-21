@@ -335,3 +335,49 @@ async def global_exception_handler(request, exc):
 
 *Ralph Moderator - Sprint #65*
 *"Backend crashe mais la solution est là: Ollama UP avec modèles locaux. Stabiliser d'abord, optimiser ensuite."*
+
+---
+
+# ADDENDUM - MODERATOR CHECK 08:12 UTC
+
+## TESTS RÉELS (BACKEND WAS UP)
+
+Quand le backend était stable, j'ai obtenu ces résultats:
+
+```
+Test 1: 175ms (api: 156ms) ✓ "Haha, c'est parti!"
+Test 2: 185ms (api: 166ms) ✓ "Oh, c'est déjà la deuxième étape!"
+Test 3: 386ms (api: 286ms) ❌ "Hmm, la pression monte!"
+Test 4: 202ms (api: 188ms) ~ "Haha, reste encore un peu..."
+Test 5: 275ms (api: 201ms) ❌ "Oh, presque à la fin!"
+
+MOYENNE: 244ms
+VARIANCE: 211ms (386-175)
+3/5 tests < 200ms = 60% pass rate
+```
+
+## CONFIG OBSERVÉE
+
+```bash
+USE_OLLAMA_PRIMARY=false   ❌ PAS ACTIVÉ!
+USE_OLLAMA_FALLBACK=false  ❌ DÉSACTIVÉ!
+GPU: 0%                    ❌ INUTILISÉ
+```
+
+## CONCLUSIONS
+
+1. **LATENCE AMÉLIORE** - 244ms vs 4300ms Sprint #62 (-95%!)
+2. **MAIS OLLAMA TOUJOURS PAS ACTIVÉ** après 3 demandes
+3. **INSTABILITÉ** - Backend crashe entre mes tests et ceux du Worker
+4. **TTS FONCTIONNE** - Retourne des données audio binaires
+
+## EXIGENCE SPRINT #66
+
+**ACTIVER OLLAMA OU EXPLIQUER POURQUOI C'EST IMPOSSIBLE**
+
+```bash
+USE_OLLAMA_PRIMARY=true   # OBLIGATOIRE
+USE_OLLAMA_FALLBACK=true
+```
+
+*Addendum par Ralph Moderator - 08:12 UTC*
