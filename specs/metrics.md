@@ -13,27 +13,42 @@
 
 ## Mesures Actuelles
 
-### Diagnostic 2026-01-21
+### Diagnostic 2026-01-21 (Sprint 85)
 
 | Métrique | Mesuré | Objectif | Status |
 |----------|--------|----------|--------|
-| E2E Total (warm) | 186ms | < 200ms | ✅ PASS |
-| E2E Total (cold) | 1942ms | < 500ms | ❌ FAIL |
-| LLM (warm) | 197-230ms | < 150ms | ⚠️ PROCHE |
-| TTS | 30ms | < 100ms | ✅ PASS |
-| Cold Start | 1942ms | < 500ms | ❌ FAIL |
+| E2E Total (warm) | 154-182ms | < 200ms | ✅ PASS |
+| E2E Total (cold) | 1547ms | < 500ms | ❌ FAIL |
+| LLM (warm) | 202-205ms | < 150ms | ⚠️ PROCHE |
+| TTS | 28ms | < 100ms | ✅ PASS |
+| Cold Start | 1547ms | < 500ms | ❌ FAIL |
+| Session chaude | 16ms | N/A | ✅ EXCELLENT |
 
-**Score Global: 93%**
+**Score Global: 91%**
 
-#### Détails
+#### Infrastructure
 - Backend: ✅ healthy (groq, whisper, tts, database)
 - Frontend: ✅ actif
-- GPU: ✅ RTX 4090 (3.9GB/24.5GB)
+- GPU: ✅ RTX 4090 (4GB/24.5GB)
 - Disque: ⚠️ 80%
 - Watchdog: ⚠️ Non actif
+- Ollama: ✅ 3 modèles disponibles
+
+#### Tests Émotionnels
+- Tristesse: ⚠️ Confusion identité ("Oh, Eva, je t'aime")
+- Joie: ❌ Réponse null
+- Anxiété: ❌ "Haha" inapproprié
+
+#### UX Validation
+- Desktop: ✅ Design cohérent
+- Mobile: ✅ Responsive OK
+- Input: ✅ Fonctionnel
+- Avatar: ⚠️ Cercle statique (pas de visage humain)
 
 #### Points d'amélioration identifiés
-1. Cold start trop élevé (1942ms vs 500ms objectif)
-2. Réponses commencent par "Haha" - inapproprié pour émotions négatives
-3. Avatar statique (pas d'animation)
-4. Pas de watchdog actif
+1. Cold start trop élevé (1547ms vs 500ms objectif)
+2. Réponses "Haha" inappropriées pour émotions négatives
+3. Avatar = cercle dégradé (pas de visage humain animé)
+4. Confusion identité dans les réponses (Eva parle d'elle à la 3e personne)
+5. Réponse null sur test joie
+6. Pas de watchdog actif

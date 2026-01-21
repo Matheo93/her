@@ -1031,4 +1031,121 @@ La géométrie 3D avait les éléments du visage (yeux à z=0.35, nez à z=0.45)
 4. Badge "3 Issues" Next.js dev
 
 ---
-*Updated by RALPH - 2026-01-21 19:25*
+
+## SPRINT #85 - DIAGNOSTIC COMPLET - 2026-01-21 19:41
+
+### Phase -1: Outils CLI ✅
+| Outil | Version | Status |
+|-------|---------|--------|
+| Python | 3.12.3 | ✅ |
+| curl | 8.5.0 | ✅ |
+| npm | 11.6.2 | ✅ |
+| jq | 1.7 | ✅ |
+| GPU | RTX 4090 4GB/24GB | ✅ |
+| Puppeteer | OK | ✅ |
+| Disque | 80% | ⚠️ Limite |
+
+### Phase 0: Setup ✅
+- Hook eva-gate.py: ✅
+- settings.json: ✅
+- Structure dossiers: ✅
+
+### Phase 1: Diagnostic ✅
+| Service | Port | Status |
+|---------|------|--------|
+| Backend | 8000 | ✅ Healthy (Groq, Whisper, TTS, DB) |
+| Frontend | 3000 | ✅ Next.js 15 |
+| Ollama | 11434 | ✅ 3 models (qwen2.5:7b, tinyllama, phi3:mini) |
+| GPU | - | ✅ 4GB/24GB utilisé |
+
+**Latences E2E (5 requêtes):**
+- 256ms, 238ms, 171ms, 165ms, 154ms
+- **Moyenne: ~197ms** ✅ (target 200ms)
+- **Warm moyenne (2-5): ~182ms** ✅
+
+### Phase 2: Composants Isolés ✅
+| Composant | Latence | Target | Status |
+|-----------|---------|--------|--------|
+| LLM | 325ms, 348ms, 205ms, 207ms, 202ms | <200ms | ⚠️ Moyenne ~257ms (warm: 205ms) |
+| TTS | 28ms | <100ms | ✅ Excellent |
+
+### Phase 3: Golden Test E2E ⚠️
+| Test | Latence | Response | Status |
+|------|---------|----------|--------|
+| Cold | 1547ms | OK | ❌ Cold start élevé |
+| Warm | 16ms | OK | ✅ Excellent |
+
+### Phase 4: Tests Émotionnels ⚠️
+| Émotion | Réponse | Qualité |
+|---------|---------|---------|
+| Tristesse | "Oh, Eva, je t'aime, et tu n'es jamais vraiment seul" | ⚠️ 5/10 Confusion identité |
+| Joie | null | ❌ Pas de réponse |
+| Anxiété | "Haha, ne pense pas à la pire chose" | ❌ "Haha" inapproprié |
+
+### Phase 5: Fiabilité ⚠️
+| Critère | Status | Détails |
+|---------|--------|---------|
+| Watchdog | ⚠️ | Non actif |
+| Backend Health | ✅ | groq, whisper, tts, database OK |
+| Disque | ⚠️ | 80% (8.4GB libre) |
+
+### Phase 6: UX ✅
+| Critère | Status |
+|---------|--------|
+| Avatar visible | ✅ Orbe dégradé corail (style Her) |
+| Design propre | ✅ Tons beiges/corail |
+| Responsive mobile | ✅ |
+| Micro visible | ✅ |
+| Input fonctionnel | ✅ (texte "Bonjour Eva!" visible) |
+
+### Screenshots Validés ✅
+| Screenshot | Contenu | Status |
+|------------|---------|--------|
+| eva-t0.png | Orbe, "Salut je suis Eva" | ✅ |
+| eva-t3.png | Orbe (fichiers différents - micro animation) | ✅ |
+| eva-mobile.png | Mobile responsive 375x812 | ✅ |
+| eva-typing.png | Desktop avec texte input | ✅ |
+
+### SCORE SPRINT #85
+
+| Aspect | Score | Notes |
+|--------|-------|-------|
+| Infrastructure | 10/10 | Tous services UP, GPU healthy |
+| Latence E2E | 9/10 | ~182ms warm (excellent) |
+| Latence LLM | 8/10 | ~205ms warm |
+| Latence TTS | 10/10 | 28ms - excellent |
+| Cold Start | 4/10 | 1547ms (objectif 500ms) |
+| Empathie | 4/10 | Confusion identité, "Haha" inapproprié |
+| Avatar | 9/10 | Orbe stylisé (pas visage humain) |
+| UX Desktop | 10/10 | Design épuré Her-style |
+| UX Mobile | 10/10 | Responsive parfait |
+| Fiabilité | 6/10 | Watchdog absent |
+
+**SCORE TOTAL: 80/100 (80%)**
+
+### Comparaison Sprints
+| Sprint | Score | E2E warm | LLM warm | TTS | Avatar | Empathie |
+|--------|-------|----------|----------|-----|--------|----------|
+| #83 | 93% | ~259ms | ~204ms | 24ms | SVG Humain | ✅ |
+| #84 | 93% | ~186ms | ~197-230ms | 30ms | SVG Humain | ⚠️ "Haha" |
+| **#85** | **80%** | **~182ms** | **~205ms** | **28ms** | **Orbe** | **❌ Régression** |
+
+### Problèmes Critiques Identifiés
+
+1. **Cold start élevé:** 1547ms vs 500ms objectif
+2. **Régression empathie:**
+   - Confusion identité ("Oh, Eva, je t'aime")
+   - "Haha" sur anxiété
+   - Réponse null sur joie
+3. **Watchdog non actif**
+4. **Avatar:** Orbe statique (pas de visage humain animé)
+
+### Actions Recommandées
+
+1. Investiguer régression empathie dans prompts
+2. Optimiser cold start (warmup au démarrage)
+3. Démarrer watchdog
+4. Évaluer si avatar orbe est intentionnel vs SVG humain
+
+---
+*Updated by RALPH - 2026-01-21 19:41*
