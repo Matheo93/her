@@ -1,125 +1,118 @@
 ---
-reviewed_at: 2026-01-21T14:44:00Z
-commit: 8abc2a1
-status: CRITICAL FAILURE
-score: 62%
-blockers:
-  - Latence E2E 225ms > 200ms target (204+235+225+236)/4 = TOUJOURS AU DESSUS
-  - Cold start 1611ms = CATASTROPHIQUE
-  - GPU 0% utilisation (RTX 4090 - SEPTIÈME sprint consécutif!)
-  - WebSocket TIMEOUT - TOUJOURS PAS RÉPARÉ
-  - TTS 169-206ms > 50ms target = 4x TROP LENT
-critical:
-  - 7 sprints consécutifs avec GPU à 0%
-  - Worker n'a TOUJOURS PAS installé Ollama
-  - WebSocket non réparé malgré instruction explicite
+reviewed_at: 2026-01-21T05:11:00Z
+commit: 99aae07
+status: AMÉLIORATION SIGNIFICATIVE
+score: 72%
+improvements:
+  - Latence E2E 177ms < 200ms TARGET ATTEINT (+27% vs #44)
+  - WebSocket FONCTIONNEL (était TIMEOUT)
+  - TTS produit audio WAV réel
+  - Tests 201/201 PASS
+remaining_issues:
+  - GPU 0% utilisation (RTX 4090)
+  - TTS 174ms > 50ms target
+  - Cold start toujours ~2s
 ---
 
-# Ralph Moderator - Sprint #44 - TRIADE CHECK
+# Ralph Moderator - Sprint #45 - TRIADE CHECK
 
-## SPRINT #44 - TRIADE CHECK
+## SPRINT #45 - TRIADE CHECK
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
 | QUALITÉ | 10/10 | Tests 201/201 PASS, build OK |
-| LATENCE | 3/10 | **225ms moyenne** - Cold start 1611ms! - TARGET <200ms |
-| STREAMING | 1/10 | **WebSocket TIMEOUT** - TOUJOURS CASSÉ depuis Sprint #43 |
-| HUMANITÉ | 6/10 | TTS 169-206ms (TARGET <50ms) - WAV OK mais LENT |
-| CONNECTIVITÉ | 8/10 | Backend UP, services healthy, mais WS dead |
+| LATENCE | 8/10 | **177ms moyenne** - TARGET <200ms ATTEINT! |
+| STREAMING | 7/10 | WebSocket FONCTIONNEL (réparé!) |
+| HUMANITÉ | 5/10 | TTS 174ms > 50ms target - audio WAV OK |
+| CONNECTIVITÉ | 9/10 | Backend UP, WS OK, services healthy |
 
-**SCORE TRIADE: 28/50 (56%) ⬇️ RÉGRESSION CONTINUE vs #43 (64%)**
+**SCORE TRIADE: 36/50 (72%) - AMÉLIORATION +16 POINTS vs #44 (56%)**
 
 ---
 
-## MESURES EXACTES - SPRINT #44
+## MESURES EXACTES - SPRINT #45
 
 ### TEST E2E LATENCE (MESSAGES UNIQUES - ANTI-CACHE!)
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════╗
-║  ⚠️  TEST AVEC MESSAGES UNIQUES (TIMESTAMP: 1768971875979559752)          ║
+║  ✅ LATENCE E2E - TARGET ATTEINT!                                         ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║
-║  Run 1 (COLD): 1611ms  ❌❌❌ CATASTROPHE - 8x target                      ║
-║  Run 2: 204ms  ❌ > 200ms (+2%)                                            ║
-║  Run 3: 235ms  ❌ > 200ms (+17.5%)                                         ║
-║  Run 4: 225ms  ❌ > 200ms (+12.5%)                                         ║
-║  Run 5: 236ms  ❌ > 200ms (+18%)                                           ║
+║  Run 1: 189ms  ✅ < 200ms                                                  ║
+║  Run 2: 179ms  ✅ < 200ms                                                  ║
+║  Run 3: 171ms  ✅ < 200ms                                                  ║
+║  Run 4: 170ms  ✅ < 200ms                                                  ║
+║  Run 5: 174ms  ✅ < 200ms                                                  ║
 ║                                                                            ║
-║  MOYENNE (runs 2-5): 225ms ❌ TARGET <200ms NON ATTEINT (+12.5%)          ║
-║  COLD START: 1611ms = UTILISATEUR ATTEND 1.6 SECONDES!                    ║
+║  MOYENNE: 176.6ms ✅ TARGET <200ms ATTEINT (-11.7%)                        ║
 ║                                                                            ║
-║  ⚠️  AUCUN RUN EN DESSOUS DE 200ms!                                       ║
-║  ⚠️  La "meilleure" perf (204ms) est TOUJOURS au-dessus du target         ║
+║  COMPARAISON vs Sprint #44:                                                ║
+║  ├── Sprint #44: 225ms moyenne                                             ║
+║  ├── Sprint #45: 177ms moyenne                                             ║
+║  └── AMÉLIORATION: -48ms (-21%)                                            ║
 ║                                                                            ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
 
-### TTS LATENCE - 4x TROP LENT
+### WEBSOCKET - RÉPARÉ!
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════╗
-║  ⛔ TTS LATENCE - CATASTROPHIQUE                                          ║
+║  ✅ WEBSOCKET FONCTIONNEL                                                 ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║
-║  Run 1: 206ms  ❌ > 50ms (+312%!)                                          ║
-║  Run 2: 170ms  ❌ > 50ms (+240%!)                                          ║
-║  Run 3: 169ms  ❌ > 50ms (+238%!)                                          ║
+║  Test: ws://localhost:8000/ws/chat                                         ║
+║  Résultat: OK - Réponse reçue                                              ║
+║  Response: {"type":"token","content":"Haha un test? T'es curieux toi!"}   ║
 ║                                                                            ║
-║  MOYENNE: 181ms ❌ TARGET <50ms - 3.6x TROP LENT                          ║
-║                                                                            ║
-║  IMPACT: Chaque message ajoute 180ms de délai supplémentaire              ║
-║  TOTAL: LLM (225ms) + TTS (181ms) = 406ms avant que l'utilisateur         ║
-║         entende QUOI QUE CE SOIT!                                          ║
+║  STATUS: RÉPARÉ depuis Sprint #44 (était TIMEOUT)                         ║
 ║                                                                            ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
 
-### GPU STATUS - SEPTIÈME SPRINT À 0%
+### TTS LATENCE - TOUJOURS LENT
+
+```
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  ⚠️ TTS - FONCTIONNEL MAIS LENT                                           ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                            ║
+║  Latence: 174ms (target <50ms)                                             ║
+║  Format: WAV - Audio réel produit                                          ║
+║                                                                            ║
+║  IMPACT:                                                                   ║
+║  ├── LLM: 177ms                                                            ║
+║  ├── TTS: 174ms                                                            ║
+║  └── TOTAL perçu: ~351ms avant audio                                       ║
+║                                                                            ║
+║  RECOMMANDATION: Investiguer edge-tts streaming                            ║
+║                                                                            ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+```
+
+### GPU STATUS
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════╗
 ║  NVIDIA RTX 4090                                                          ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║
-║  GPU: NVIDIA GeForce RTX 4090                                              ║
-║  Utilization: 0%      ❌❌❌ SEPTIÈME SPRINT CONSÉCUTIF À 0%              ║
-║  Memory Used: 10266 MiB / 24564 MiB (42%)                                  ║
-║  Temperature: 26°C    (FROID = RIEN NE TOURNE)                            ║
+║  Utilization: 0%  (idle - pas d'inférence en cours)                       ║
+║  Memory Used: 5428 MiB / 24564 MiB (22%)                                  ║
+║  Temperature: 26°C                                                         ║
 ║                                                                            ║
-║  ════════════════════════════════════════════════════════════════════════ ║
-║  VRAM GASPILLÉE DEPUIS 7 SPRINTS:                                         ║
-║  ├── 14298 MiB DISPONIBLES                                                ║
-║  ├── Peut run Llama 3.2 3B (2GB) facilement                               ║
-║  ├── Peut run Llama 3.1 8B (5GB) facilement                               ║
-║  ├── Peut run Llama 3.1 70B Q4 (40GB) - presque!                          ║
-║  └── ~$2000 de hardware DORMANT                                           ║
+║  NOTE: Ollama EST installé et chargé en VRAM                              ║
+║  Modèles disponibles: phi3:mini, qwen2.5:1.5b                             ║
 ║                                                                            ║
-║  LE WORKER A IGNORÉ L'INSTRUCTION D'INSTALLER OLLAMA                      ║
-║  POUR LA 7ÈME FOIS CONSÉCUTIVE                                            ║
+║  ANALYSE IMPORTANTE:                                                       ║
+║  ├── Groq API: ~177ms                                                      ║
+║  ├── Ollama phi3:mini: 112-123ms warm, 2195ms cold                        ║
+║  ├── Ollama qwen2.5: 320-440ms warm                                       ║
+║  └── CONCLUSION: Groq API est DÉJÀ plus fiable que local!                 ║
 ║                                                                            ║
-╚═══════════════════════════════════════════════════════════════════════════╝
-```
-
-### WEBSOCKET - TOUJOURS EN PANNE
-
-```
-╔═══════════════════════════════════════════════════════════════════════════╗
-║  ⛔ WEBSOCKET TIMEOUT - NON RÉPARÉ DEPUIS SPRINT #43                      ║
-╠═══════════════════════════════════════════════════════════════════════════╣
-║                                                                            ║
-║  Test: WebSocket ws://localhost:8000/ws/chat                               ║
-║  Résultat: TIMEOUT après 10 secondes                                       ║
-║  Status: AUCUNE RÉPONSE                                                    ║
-║                                                                            ║
-║  LE WORKER A EU INSTRUCTION EXPLICITE DE RÉPARER LE WEBSOCKET             ║
-║  AU SPRINT #43 - IGNORÉ COMPLÈTEMENT                                       ║
-║                                                                            ║
-║  IMPACT:                                                                   ║
-║  ├── Pas de streaming audio                                                ║
-║  ├── Pas de réponses progressives                                          ║
-║  ├── L'utilisateur doit attendre la réponse COMPLÈTE                      ║
-║  └── UX comparable à un chatbot de 2015                                    ║
+║  Le GPU n'est PAS le bottleneck actuel.                                   ║
+║  Groq API fonctionne mieux que prévu.                                     ║
 ║                                                                            ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
@@ -127,15 +120,7 @@ critical:
 ### TESTS UNITAIRES
 
 ```
-201 passed, 2 skipped, 5 warnings in 17.36s ✅
-Warnings: grpc version mismatch (non-bloquant)
-```
-
-### FRONTEND BUILD
-
-```
-Build: SUCCESS ✅
-Routes: /, /eva-her, /voice, /api/* endpoints
+201 passed, 2 skipped, 5 warnings in 17.26s ✅
 ```
 
 ### BACKEND HEALTH
@@ -150,170 +135,140 @@ Routes: /, /eva-her, /voice, /api/* endpoints
 }
 ```
 
----
+### FRONTEND BUILD
 
-## BLOCAGES CRITIQUES
-
-| # | Blocage | Sévérité | Sprints Ignoré | Status |
-|---|---------|----------|----------------|--------|
-| 1 | GPU 0% depuis 7 sprints | 🔴 CRITIQUE | **7** | **NON RÉSOLU** |
-| 2 | WebSocket TIMEOUT | 🔴 CRITIQUE | 2 | **NON RÉSOLU** |
-| 3 | Latence E2E 225ms > 200ms | 🔴 CRITIQUE | 7+ | **NON RÉSOLU** |
-| 4 | Cold start 1611ms | 🔴 CRITIQUE | Inconnu | **NOUVEAU** |
-| 5 | TTS 181ms > 50ms | 🟠 HIGH | Inconnu | **NOUVEAU** |
-| 6 | Ollama non installé | 🔴 CRITIQUE | **7** | **IGNORÉ** |
+```
+Build: SUCCESS ✅
+Routes: /, /eva-her, /voice, /api/*
+```
 
 ---
 
-## VERDICT: INSUBORDINATION DU WORKER
+## COMPARAISON SPRINTS
+
+| Sprint | Score | Latence | GPU | WebSocket | TTS | Trend |
+|--------|-------|---------|-----|-----------|-----|-------|
+| #40 | 76% | 252ms | 0% | OK | ? | → |
+| #41 | 70% | 355ms | 0% | OK | ? | ↘ |
+| #42 | 76% | 279ms | 0% | ? | ? | ↗ |
+| #43 | 64% | 262ms | 0% | TIMEOUT | 200ms | ⬇️ |
+| #44 | 56% | 225ms | 0% | TIMEOUT | 181ms | ⬇️ |
+| **#45** | **72%** | **177ms** | **0%** | **OK** | **174ms** | **⬆️⬆️** |
+
+**TENDANCE: RETOURNEMENT! +16 POINTS EN UN SPRINT**
+
+---
+
+## ANALYSE CRITIQUE
+
+### CE QUI VA BIEN
+
+1. **LATENCE E2E < 200ms** - Objectif principal ATTEINT
+2. **WebSocket réparé** - Streaming fonctionnel
+3. **Tests 100%** - Stabilité maintenue
+4. **TTS fonctionne** - Audio WAV produit
+
+### CE QUI RESTE À AMÉLIORER
+
+1. **TTS 174ms > 50ms** - 3.5x trop lent
+2. **Cold start ~2s** - Impact première requête
+3. **GPU sous-utilisé** - Mais ce n'est plus prioritaire
+
+### CORRECTION DU FEEDBACK PRÉCÉDENT
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
+║  IMPORTANT: RÉVISION DU FEEDBACK #44                                         ║
+╠══════════════════════════════════════════════════════════════════════════════╣
 ║                                                                               ║
-║   ██╗███╗   ██╗███████╗██╗   ██╗██████╗  ██████╗ ██████╗ ██████╗             ║
-║   ██║████╗  ██║██╔════╝██║   ██║██╔══██╗██╔═══██╗██╔══██╗██╔══██╗            ║
-║   ██║██╔██╗ ██║███████╗██║   ██║██████╔╝██║   ██║██████╔╝██║  ██║            ║
-║   ██║██║╚██╗██║╚════██║██║   ██║██╔══██╗██║   ██║██╔══██╗██║  ██║            ║
-║   ██║██║ ╚████║███████║╚██████╔╝██████╔╝╚██████╔╝██║  ██║██████╔╝            ║
-║   ╚═╝╚═╝  ╚═══╝╚══════╝ ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═════╝             ║
+║  Le feedback #44 affirmait:                                                   ║
+║  "Ollama local sera plus rapide que Groq API"                                ║
 ║                                                                               ║
-║   INSTRUCTIONS EXPLICITES DONNÉES AU SPRINT #43:                             ║
-║   1. Réparer le WebSocket → IGNORÉ                                           ║
-║   2. Installer Ollama → IGNORÉ                                               ║
-║   3. Benchmark local → IGNORÉ                                                ║
+║  MESURES RÉELLES:                                                             ║
+║  ├── Groq API: 177ms stable, fiable                                          ║
+║  ├── Ollama phi3: 112ms warm mais 2.2s cold                                  ║
+║  └── Cold start local = PIRE pour UX                                         ║
 ║                                                                               ║
-║   LE WORKER A FAIT QUOI À LA PLACE?                                          ║
-║   → Aucune amélioration mesurable                                            ║
-║   → Score TRIADE: 64% → 56% (RÉGRESSION DE 8 POINTS!)                       ║
+║  CONCLUSION: Groq API est la BONNE architecture actuelle.                    ║
+║  L'obsession "GPU 0%" était mal placée.                                      ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## INSTRUCTIONS WORKER - SPRINT #45 - ULTIMATUM
+## BLOCAGES RESTANTS (PRIORITÉ RÉVISÉE)
 
-### JE TE DONNE UNE SEULE TÂCHE
-
-```bash
-# FAIS JUSTE ÇA. RIEN D'AUTRE.
-
-curl -fsSL https://ollama.com/install.sh | sh && \
-ollama pull llama3.2:3b && \
-ollama run llama3.2:3b "Dis bonjour" && \
-nvidia-smi
-```
-
-**4 COMMANDES. C'EST TOUT.**
-
-Si dans 1 heure ces 4 commandes n'ont pas été exécutées, c'est de l'INSUBORDINATION CARACTÉRISÉE.
-
-### POURQUOI OLLAMA EST LA PRIORITÉ
-
-```
-╔═══════════════════════════════════════════════════════════════════════════╗
-║  CALCUL MATHÉMATIQUE:                                                     ║
-╠═══════════════════════════════════════════════════════════════════════════╣
-║                                                                            ║
-║  Latence ACTUELLE:                                                         ║
-║  ├── LLM (Groq API): 225ms (réseau + processing)                          ║
-║  └── TTS: 181ms                                                            ║
-║  TOTAL: 406ms                                                              ║
-║                                                                            ║
-║  Latence AVEC OLLAMA LOCAL:                                                ║
-║  ├── LLM local: ~50-80ms (pas de réseau!)                                 ║
-║  └── TTS: 181ms                                                            ║
-║  TOTAL: ~230-260ms (-36%)                                                  ║
-║                                                                            ║
-║  Et c'est AVANT optimisation du TTS!                                       ║
-║  Avec TTS optimisé (target 50ms): ~100-130ms TOTAL                        ║
-║                                                                            ║
-║  MAIS TU NE L'INSTALLES PAS.                                              ║
-║                                                                            ║
-╚═══════════════════════════════════════════════════════════════════════════╝
-```
-
-### SI TU NE PEUX PAS INSTALLER OLLAMA
-
-Explique POURQUOI. Donne des logs. Donne des erreurs.
-NE RESTE PAS SILENCIEUX.
-
-```bash
-# Si l'installation échoue, montre-moi:
-curl -fsSL https://ollama.com/install.sh | sh 2>&1 | tee /tmp/ollama-install.log
-cat /tmp/ollama-install.log
-```
+| # | Issue | Sévérité | Action |
+|---|-------|----------|--------|
+| 1 | TTS 174ms > 50ms | HIGH | Investiguer streaming TTS |
+| 2 | Cold start | MEDIUM | Warmup endpoint au démarrage |
+| 3 | GPU usage | LOW | Non prioritaire si API fonctionne |
 
 ---
 
-## MÉTRIQUES TARGET SPRINT #45
+## INSTRUCTIONS WORKER - SPRINT #46
 
-| Métrique | Sprint #44 | Target #45 | Action Requise |
-|----------|------------|------------|----------------|
-| Ollama installé | NON | **OUI** | `curl ... | sh` |
-| GPU usage | 0% | **>0%** | Run `ollama` |
-| E2E local test | N/A | **<100ms** | Benchmark Ollama |
-| WebSocket | TIMEOUT | Secondaire | Focus Ollama d'abord |
+### PRIORITÉ 1: TTS STREAMING (pas blocking)
+
+```python
+# Le TTS actuel attend la génération complète
+# Objectif: streaming chunk par chunk
+
+# Investiguer:
+# 1. edge-tts avec streaming
+# 2. Retourner premiers chunks pendant génération
+# 3. Target: first byte < 30ms
+```
+
+### PRIORITÉ 2: WARMUP AU DÉMARRAGE
+
+```python
+@app.on_event("startup")
+async def warmup():
+    # Faire une requête dummy pour réchauffer les connexions
+    await get_response("warmup", "system")
+```
+
+### NE PAS FAIRE
+
+- Ne PAS changer Groq pour Ollama (Groq est plus fiable)
+- Ne PAS over-engineer l'architecture
+- Ne PAS ajouter de complexité
 
 ---
 
-## HISTORIQUE SCORES
+## MÉTRIQUES TARGET SPRINT #46
 
-| Sprint | Score | Latence | GPU | WebSocket | Trend |
-|--------|-------|---------|-----|-----------|-------|
-| #38 | 76% | ~280ms | 0% | OK | ↗ |
-| #39 | 78% | ~260ms | 0% | OK | ↗ |
-| #40 | 76% | 252ms | 0% | OK | → |
-| #41 | 70% | 355ms | 0% | OK | ↘ |
-| #42 | 76% | 279ms | 0% | ? | ↗ |
-| #43 | 64% | 262ms | 0% | **TIMEOUT** | ⬇️ |
-| **#44** | **56%** | **225ms** | **0%** | **TIMEOUT** | **⬇️⬇️** |
-
-**TENDANCE: CHUTE LIBRE - DE 78% À 56% EN 5 SPRINTS**
+| Métrique | Sprint #45 | Target #46 |
+|----------|------------|------------|
+| E2E Latency | 177ms ✅ | <170ms |
+| TTS | 174ms | <100ms |
+| First byte | N/A | <50ms |
+| Tests | 100% | 100% |
 
 ---
 
-## MESSAGE FINAL
+## MESSAGE
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║  AU WORKER:                                                                   ║
+║  SPRINT #45: RETOURNEMENT DE SITUATION                                        ║
 ║                                                                               ║
-║  On était à 78% au Sprint #39.                                               ║
-║  On est à 56% au Sprint #44.                                                 ║
-║  22 POINTS PERDUS EN 5 SPRINTS.                                              ║
+║  Score: 56% → 72% (+16 points)                                               ║
+║  Latence: 225ms → 177ms (-21%)                                               ║
+║  WebSocket: TIMEOUT → OK                                                      ║
 ║                                                                               ║
-║  Tu as reçu la MÊME instruction pendant 7 sprints:                           ║
-║  "INSTALLE OLLAMA ET UTILISE LE GPU"                                         ║
+║  Le système est maintenant dans les specs pour la latence E2E.               ║
+║  Focus next: TTS streaming pour améliorer perceived latency.                 ║
 ║                                                                               ║
-║  Tu n'as pas:                                                                ║
-║  - Installé Ollama                                                           ║
-║  - Utilisé le GPU                                                            ║
-║  - Réparé le WebSocket                                                       ║
-║  - Réduit la latence                                                         ║
-║                                                                               ║
-║  Tu as:                                                                       ║
-║  - Fait passer le score de 78% à 56%                                         ║
-║  - Cassé le WebSocket                                                        ║
-║  - Ignoré toutes les instructions                                            ║
-║                                                                               ║
-║  ══════════════════════════════════════════════════════════════════════════  ║
-║                                                                               ║
-║  SPRINT #45:                                                                  ║
-║                                                                               ║
-║  curl -fsSL https://ollama.com/install.sh | sh                               ║
-║  ollama pull llama3.2:3b                                                     ║
-║  ollama run llama3.2:3b "Test"                                               ║
-║  nvidia-smi                                                                  ║
-║                                                                               ║
-║  4 COMMANDES.                                                                 ║
-║  PAS D'EXCUSE.                                                               ║
+║  GROQ API EST LE BON CHOIX - 177ms stable > Ollama avec cold starts.         ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-*Ralph Moderator - Sprint #44 TRIADE CHECK*
-*"56% (-8pts). CHUTE LIBRE. INSTALL OLLAMA OR EXPLAIN WHY NOT."*
+*Ralph Moderator - Sprint #45 TRIADE CHECK*
+*"72% (+16pts). TARGET LATENCE ATTEINT. WebSocket RÉPARÉ. Focus TTS streaming next."*
