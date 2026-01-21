@@ -1,153 +1,122 @@
 ---
-reviewed_at: 2026-01-21T05:30:00Z
-commit: c435ee6
-status: SYSTÈME STABLE - LATENCE TARGET ATTEINT
-score: 80%
+reviewed_at: 2026-01-21T05:29:00Z
+commit: 31e0f00
+status: ATTENTION - RÉGRESSIONS OBSERVÉES
+score: 76%
 improvements:
-  - Latence E2E 178ms moyenne - TARGET <200ms ATTEINT
-  - TTS 145-170ms - SOUS 200ms
+  - WebSocket PONG fonctionnel (vs timeout précédent)
   - Tests 202/202 PASS
   - Frontend build OK
 critical_issues:
-  - GPU 0% utilisation pendant idle (mais TTS GPU loaded)
-  - WebSocket timeout/error observé
-  - HER endpoint 3185ms (inclut génération audio)
+  - TTS 134-138ms > 50ms TARGET (presque 3x)
+  - GPU 0% utilisation - RTX 4090 DORMANT
+  - avg_latency 320ms dans /stats (moyenne réelle > target)
 ---
 
-# Ralph Moderator - Sprint #47 - TRIADE CHECK
+# Ralph Moderator - Sprint #48 - TRIADE CHECK
 
-## SPRINT #47 - TRIADE CHECK
+## SPRINT #48 - TRIADE CHECK
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
 | QUALITÉ | 10/10 | Tests 202/202 PASS, build OK |
-| LATENCE | 9/10 | **178ms moyenne** - TARGET <200ms ATTEINT |
-| STREAMING | 6/10 | WebSocket timeout observé, besoin investigation |
-| HUMANITÉ | 7/10 | TTS 145-170ms fonctionnel, GPU TTS chargé |
-| CONNECTIVITÉ | 8/10 | Backend stable, /chat OK, /her/chat lent (3.2s avec audio) |
+| LATENCE | 7/10 | E2E 169-198ms OK mais avg_latency=320ms dans stats! |
+| STREAMING | 7/10 | WebSocket PONG OK (amélioration vs timeout) |
+| HUMANITÉ | 6/10 | TTS 134-138ms - loin du target 50ms |
+| CONNECTIVITÉ | 8/10 | Backend healthy, tous services up |
 
-**SCORE TRIADE: 40/50 (80%)**
+**SCORE TRIADE: 38/50 (76%)**
 
 ---
 
-## MESURES EXACTES - SPRINT #47
+## MESURES EXACTES - SPRINT #48
 
-### TEST E2E LATENCE (10 REQUÊTES UNIQUES - ANTI-CACHE!)
+### TEST E2E LATENCE (5 REQUÊTES UNIQUES - ANTI-CACHE!)
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════╗
-║  ✅ LATENCE E2E - TARGET MAINTENU                                         ║
+║  ✅ LATENCE E2E - TARGET ATTEINT (sur tests uniques)                     ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║
-║  MESSAGES UNIQUES (sessions différentes pour éviter cache context):       ║
+║  MESSAGES UNIQUES (avec timestamp + random hex):                          ║
 ║                                                                            ║
-║  Run 1: 183ms                                                              ║
-║  Run 2: 177ms                                                              ║
-║  Run 3: 181ms                                                              ║
-║  Run 4: 182ms                                                              ║
-║  Run 5: 180ms                                                              ║
-║  Run 6: 179ms                                                              ║
-║  Run 7: 171ms                                                              ║
-║  Run 8: 180ms                                                              ║
-║  Run 9: 180ms                                                              ║
-║  Run 10: 174ms                                                             ║
+║  Test 1: 198ms                                                             ║
+║  Test 2: 181ms                                                             ║
+║  Test 3: 179ms                                                             ║
+║  Test 4: 169ms                                                             ║
+║  Test 5: 175ms                                                             ║
 ║                                                                            ║
-║  MOYENNE: 178ms ✅ TARGET <200ms ATTEINT                                   ║
+║  MOYENNE: 180ms ✅ (TARGET <200ms ATTEINT)                                ║
 ║                                                                            ║
-║  LLM: Ollama phi3:mini (local) - ~165ms warm                              ║
-║  Cold start première requête: ~2200ms (context init)                      ║
+║  ⚠️ MAIS: /stats montre avg_latency_ms: 320                               ║
+║     582 requêtes totales avec moyenne 320ms                               ║
+║     = Le système est MOINS performant en conditions réelles               ║
 ║                                                                            ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
 
-### GPU STATUS
+### GPU STATUS - CRITIQUE!
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════╗
-║  ⚠️ GPU: MODÈLES CHARGÉS MAIS UTILISATION FAIBLE                         ║
+║  ❌ GPU: DORMANT - RTX 4090 SOUS-UTILISÉ                                 ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║
 ║  NVIDIA GeForce RTX 4090                                                   ║
 ║                                                                            ║
-║  Utilization: 0% (idle, inférences trop courtes pour mesure)             ║
-║  Memory Used: 3903 MiB / 24564 MiB (16%)                                 ║
-║  Temperature: 28°C                                                        ║
+║  Utilization: 0%                                                           ║
+║  Memory Used: 3903 MiB / 24564 MiB (16%)                                  ║
+║  Temperature: 26°C (idle)                                                  ║
 ║                                                                            ║
-║  MODÈLES CHARGÉS:                                                         ║
-║  ├── VITS-MMS French (CUDA) - TTS                                        ║
-║  ├── Piper VITS (CUDA) - Ultra-Fast TTS                                  ║
-║  ├── Whisper tiny (CUDA, int8_float16) - STT                             ║
-║  └── Ollama phi3:mini - LLM local                                        ║
+║  20,661 MiB VRAM LIBRE = ~20GB INUTILISÉS                                 ║
 ║                                                                            ║
-║  NOTE: 0% utilization car inférences < 200ms                              ║
-║  Le GPU est utilisé mais nvidia-smi échantillonne trop lentement         ║
+║  CETTE VRAM POURRAIT SERVIR À:                                            ║
+║  - LLM local plus puissant (Llama 3.1 8B, 13B)                           ║
+║  - TTS neural de meilleure qualité                                        ║
+║  - Batch processing pour throughput                                       ║
 ║                                                                            ║
-║  VRAM DISPONIBLE: ~20GB pour optimisations futures                        ║
+║  RTX 4090 = 1TB/s bandwidth - ON N'EN UTILISE RIEN!                       ║
 ║                                                                            ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
 
-### TTS - FONCTIONNEL
+### TTS LATENCY - PROBLÈME MAJEUR
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════╗
-║  ✅ TTS FONCTIONNEL                                                       ║
+║  ⚠️ TTS: 134-138ms - TARGET 50ms NON ATTEINT                             ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║
-║  /tts endpoint:                                                            ║
-║  ├── Run 1: 145ms | 46,636 bytes audio                                   ║
-║  ├── Run 2: 163ms | 50,732 bytes audio                                   ║
-║  ├── Run 3: 170ms | 49,708 bytes audio                                   ║
-║  └── MOYENNE: 159ms (target <50ms = 3x trop lent)                        ║
+║  Tests /tts isolés:                                                        ║
+║  ├── Run 1: 138ms                                                         ║
+║  ├── Run 2: 137ms                                                         ║
+║  └── Run 3: 134ms                                                         ║
 ║                                                                            ║
-║  MOTEUR: VITS-MMS French sur CUDA                                         ║
-║  Sample rate: 16000Hz                                                     ║
-║  Format: audio/mpeg                                                       ║
+║  MOYENNE: 136ms (2.7x le target de 50ms!)                                 ║
 ║                                                                            ║
-║  PROGRÈS vs Sprint #46: 154ms → 159ms (stable)                           ║
+║  Audio généré: ✅ (WAV valide, ~6KB pour "Hello")                         ║
+║  Format: audio/mpeg                                                        ║
+║  Sample rate: 16000Hz                                                      ║
+║                                                                            ║
+║  PROBLÈME: TTS bloque le pipeline pendant 136ms                           ║
+║  SOLUTION: TTS streaming avec TTFA < 30ms                                 ║
 ║                                                                            ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
 
-### WEBSOCKET
+### WEBSOCKET - AMÉLIORATION!
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════╗
-║  ⚠️ WEBSOCKET - TIMEOUT OBSERVÉ                                          ║
+║  ✅ WEBSOCKET FONCTIONNEL (vs TIMEOUT au Sprint #47)                     ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║
-║  Test: websocat ws://localhost:8000/ws/chat                               ║
-║  Résultat: Timeout après 5 secondes                                       ║
+║  Test: echo '{"type":"ping"}' | websocat ws://localhost:8000/ws/chat     ║
+║  Résultat: {"type":"pong"} ✅                                             ║
 ║                                                                            ║
-║  ANALYSE:                                                                  ║
-║  ├── Connection établie                                                   ║
-║  ├── Pas de réponse au message test                                      ║
-║  └── Timeout après inactivité                                            ║
+║  AMÉLIORATION vs Sprint #47 qui avait TIMEOUT!                            ║
 ║                                                                            ║
-║  ACTION REQUISE: Investiguer pourquoi WS ne répond pas                   ║
-║                                                                            ║
-╚═══════════════════════════════════════════════════════════════════════════╝
-```
-
-### HER ENDPOINT (CHAT + AUDIO)
-
-```
-╔═══════════════════════════════════════════════════════════════════════════╗
-║  ✅ /her/chat FONCTIONNEL (MAIS LENT)                                     ║
-╠═══════════════════════════════════════════════════════════════════════════╣
-║                                                                            ║
-║  Endpoint: POST /her/chat                                                  ║
-║  Latence: 3185ms                                                          ║
-║  Taille réponse: 626KB (inclut audio base64)                             ║
-║                                                                            ║
-║  DÉCOMPOSITION ESTIMÉE:                                                   ║
-║  ├── LLM: ~180ms                                                         ║
-║  ├── TTS: ~160ms                                                         ║
-║  ├── Memory/Context: ~200ms                                              ║
-║  ├── Audio encoding: ~2500ms ⚠️                                          ║
-║  └── TOTAL: ~3100ms                                                       ║
-║                                                                            ║
-║  BOTTLENECK: Encodage audio base64 (2.5s pour 626KB)                     ║
+║  TODO: Tester conversation réelle via WebSocket                           ║
 ║                                                                            ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
@@ -161,7 +130,7 @@ critical_issues:
 ║                                                                            ║
 ║  pytest backend/tests/ -v                                                  ║
 ║                                                                            ║
-║  202 passed, 1 skipped, 5 warnings in 18.54s ✅                          ║
+║  202 passed, 1 skipped, 5 warnings in 20.15s ✅                           ║
 ║                                                                            ║
 ║  Warnings: grpcio version mismatch (non-critique)                         ║
 ║                                                                            ║
@@ -187,40 +156,56 @@ Routes: /, /eva-her, /voice, /api/chat, /api/tts, /api/ditto
 }
 ```
 
+### SERVICE STATS - ATTENTION!
+
+```json
+{
+  "total_requests": 582,
+  "avg_latency_ms": 320,    // ⚠️ MOYENNE RÉELLE 320ms > 200ms TARGET!
+  "requests_last_hour": 244,
+  "active_sessions": 381
+}
+```
+
 ---
 
 ## COMPARAISON SPRINTS
 
-| Sprint | Score | Latence | GPU% | WebSocket | TTS | Trend |
-|--------|-------|---------|------|-----------|-----|-------|
-| #44 | 56% | 225ms | 0% | TIMEOUT | 181ms | ⬇️ |
-| #45 | 72% | 177ms | 0% | OK | 174ms | ⬆️ |
-| #46 BIS | 78% | 173ms | 42% | OK | 154ms | ⬆️ |
-| **#47** | **80%** | **178ms** | **0%\*** | **TIMEOUT** | **159ms** | **➡️** |
+| Sprint | Score | Latence Test | avg_latency | GPU% | WebSocket | TTS |
+|--------|-------|--------------|-------------|------|-----------|-----|
+| #46 BIS | 78% | 173ms | N/A | 42% | OK | 154ms |
+| #47 | 80% | 178ms | N/A | 0%* | TIMEOUT | 159ms |
+| **#48** | **76%** | **180ms** | **320ms!** | **0%** | **PONG OK** | **136ms** |
 
-\* GPU 0% est une mesure artéfact - modèles chargés mais inférences trop courtes
-
-**TENDANCE: STABLE - TARGET MAINTENU**
+**TENDANCE: RÉGRESSION SUR SCORE, MAIS WebSocket RÉPARÉ**
 
 ---
 
 ## ANALYSE CRITIQUE IMPITOYABLE
 
-### CE QUI FONCTIONNE
+### CE QUI VA BIEN
 
-1. **LATENCE E2E 178ms < 200ms** - TARGET ATTEINT ✅
-2. **TTS FONCTIONNEL** - Audio généré correctement
-3. **TESTS 100%** - Stabilité du code
-4. **LLM LOCAL** - Ollama phi3:mini opérationnel
-5. **BUILD** - Frontend et backend OK
+1. **WebSocket réparé** - Répond PONG (vs timeout avant)
+2. **Tests 100%** - Stabilité code maintenue
+3. **Build OK** - Frontend et backend
+4. **Health check** - Tous services up
+5. **TTS amélioration** - 136ms vs 159ms (petit gain)
 
-### CE QUI NE VA PAS
+### CE QUI NE VA PAS - CRITIQUE
 
-1. **WEBSOCKET TIMEOUT** - Ne répond pas aux messages
-2. **HER ENDPOINT LENT** - 3185ms (devrait être <500ms)
-3. **TTS 159ms > 50ms TARGET** - Encore 3x trop lent
-4. **COLD START ~2.2s** - Première requête lente
-5. **main.py 4622 LIGNES** - Monstre à refactorer
+1. **avg_latency 320ms dans /stats** - La VRAIE moyenne utilisateurs est 320ms, pas 180ms!
+   - Nos tests isolés donnent 180ms
+   - Les 582 requêtes réelles donnent 320ms
+   - = IL Y A UN PROBLÈME EN CONDITIONS RÉELLES
+
+2. **GPU 0% - 20GB VRAM DORMANT** - RTX 4090 pas exploité
+   - On pourrait faire BEAUCOUP mieux avec cette puissance
+
+3. **TTS 136ms vs 50ms target** - Encore 2.7x trop lent
+   - Pas de streaming
+   - Pas de TTFA < 30ms
+
+4. **Score en baisse** - 76% vs 80% sprint précédent
 
 ---
 
@@ -228,82 +213,83 @@ Routes: /, /eva-her, /voice, /api/chat, /api/tts, /api/ditto
 
 | # | Issue | Sévérité | Action Requise |
 |---|-------|----------|----------------|
-| 1 | WebSocket timeout | **CRITICAL** | Investiguer /ws/chat handler |
-| 2 | /her/chat 3185ms | **HIGH** | Streaming audio au lieu de base64 complet |
-| 3 | TTS 159ms > 50ms | **HIGH** | Implémenter TTS streaming (TTFA < 30ms) |
-| 4 | Cold start 2.2s | **MEDIUM** | Warmup plus agressif au démarrage |
-| 5 | main.py 4622 lignes | **LOW** | Refactoring progressif |
+| 1 | avg_latency 320ms (real) | **CRITICAL** | Investiguer pourquoi moyenne réelle >> tests |
+| 2 | GPU 0% - 20GB inutilisés | **CRITICAL** | Exploiter RTX 4090 pour TTS/LLM |
+| 3 | TTS 136ms > 50ms | **HIGH** | Implémenter TTS streaming TTFA < 30ms |
+| 4 | Pas de LLM local puissant | **HIGH** | 20GB VRAM = Llama 3.1 8B/13B possible |
 
 ---
 
-## INSTRUCTIONS WORKER - SPRINT #48
+## INSTRUCTIONS WORKER - SPRINT #49
 
-### PRIORITÉ 1: RÉPARER WEBSOCKET (CRITICAL)
+### PRIORITÉ 1: INVESTIGUER avg_latency 320ms (CRITICAL)
 
-Le WebSocket ne répond pas. C'est critique pour l'UX temps réel.
+**POURQUOI 320ms en réel vs 180ms en tests?**
 
 ```bash
 # DIAGNOSTIC REQUIS
-# 1. Vérifier le handler /ws/chat
-# 2. Tester avec différents formats de message
-# 3. Ajouter logs dans le handler WS
+# 1. Ajouter logs timing détaillés dans /chat
+# 2. Identifier où sont les 140ms perdus
+# 3. Possible causes:
+#    - Cold starts fréquents
+#    - Context/memory loading
+#    - Requêtes complexes vs simples
+#    - Concurrence
 ```
 
-### PRIORITÉ 2: OPTIMISER /her/chat
+### PRIORITÉ 2: EXPLOITER RTX 4090 (CRITICAL)
 
-3185ms est INACCEPTABLE pour une conversation fluide.
+**20GB VRAM DORMANT = GASPILLAGE INACCEPTABLE**
 
-```python
-# SOLUTION: Streaming audio chunks
-# Au lieu de générer tout l'audio puis encoder en base64,
-# streamer les chunks audio au fur et à mesure
-
-async def her_chat_streaming(message: str) -> AsyncGenerator:
-    # 1. Générer réponse LLM (streaming)
-    response_text = ""
-    async for token in llm_stream(message):
-        response_text += token
-        yield {"type": "text", "content": token}
-
-    # 2. Streamer l'audio chunk par chunk
-    async for audio_chunk in tts_stream(response_text):
-        yield {"type": "audio", "data": audio_chunk}  # Pas de base64!
+```bash
+# ACTIONS CONCRÈTES:
+# 1. Tester Llama 3.1 8B local (meilleur que phi3:mini)
+ollama pull llama3.1:8b
+# 2. Charger TTS sur GPU proprement
+# 3. Batch processing si applicable
 ```
 
-### PRIORITÉ 3: TTS STREAMING (TTFA < 30ms)
+### PRIORITÉ 3: TTS STREAMING (HIGH)
 
 ```python
-# Time To First Audio doit être < 30ms
-# L'utilisateur doit entendre quelque chose IMMÉDIATEMENT
+# IMPLÉMENTER Time To First Audio < 30ms
+# L'utilisateur doit entendre IMMÉDIATEMENT
 
-async def tts_stream(text: str) -> AsyncGenerator[bytes, None]:
-    # Découper le texte en phrases
-    sentences = split_sentences(text)
-
+async def tts_stream_sentences(text: str):
+    sentences = split_into_sentences(text)
     for sentence in sentences:
-        # Générer et envoyer IMMÉDIATEMENT chaque phrase
-        audio_chunk = await tts_synthesize(sentence)
-        yield audio_chunk  # Envoi instantané
+        audio = await generate_tts(sentence)
+        yield audio  # Envoi immédiat, pas attendre tout le texte
 ```
+
+### RECHERCHES OBLIGATOIRES
+
+Le Worker DOIT faire ces WebSearch:
+
+1. "vllm vs ollama performance RTX 4090 2025"
+2. "fastest TTS streaming python 2025"
+3. "reduce LLM latency local inference"
+4. "piper TTS CUDA optimization"
 
 ### NE PAS FAIRE
 
-- ❌ Ne pas toucher à la latence LLM (178ms est bon)
-- ❌ Ne pas remplacer Ollama (fonctionne bien)
-- ❌ Ne pas ajouter de complexité inutile
-- ❌ Ne pas refactorer main.py maintenant (priorité basse)
+- ❌ Se satisfaire de 180ms en tests quand réel = 320ms
+- ❌ Ignorer le GPU dormant
+- ❌ Ajouter du cache (cache = fausse solution)
+- ❌ Refactorer main.py (pas prioritaire)
 
 ---
 
-## MÉTRIQUES TARGET SPRINT #48
+## MÉTRIQUES TARGET SPRINT #49
 
-| Métrique | Sprint #47 | Target #48 |
+| Métrique | Sprint #48 | Target #49 |
 |----------|------------|------------|
-| E2E Latency | 178ms ✅ | <180ms maintenu |
-| WebSocket | TIMEOUT ❌ | FONCTIONNEL |
-| /her/chat | 3185ms | <1000ms |
-| TTS TTFA | N/A | <50ms |
-| TTS complet | 159ms | <100ms |
+| avg_latency (real) | 320ms ❌ | <200ms |
+| E2E test | 180ms ✅ | <180ms maintenu |
+| GPU utilization | 0% ❌ | >10% |
+| TTS | 136ms | <80ms |
+| TTS TTFA | N/A | <30ms |
+| WebSocket | OK ✅ | OK maintenu |
 | Tests | 100% ✅ | 100% |
 
 ---
@@ -313,39 +299,42 @@ async def tts_stream(text: str) -> AsyncGenerator[bytes, None]:
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║  SPRINT #47: SYSTÈME STABLE - LATENCE OK - PROBLÈMES RÉSIDUELS              ║
+║  SPRINT #48: ATTENTION - RÉGRESSIONS DÉTECTÉES                               ║
 ║                                                                               ║
-║  Score: 80% (40/50)                                                          ║
-║  Latence E2E: 178ms ✅ TARGET <200ms ATTEINT                                 ║
-║  TTS: 159ms (fonctionnel mais lent)                                          ║
-║  Tests: 202/202 PASS ✅                                                       ║
+║  Score: 76% (38/50) - BAISSE vs 80%                                          ║
 ║                                                                               ║
-║  PROBLÈMES CRITIQUES À RÉSOUDRE:                                             ║
-║  1. WebSocket TIMEOUT - conversation temps réel cassée                       ║
-║  2. /her/chat 3185ms - trop lent pour UX fluide                             ║
-║  3. TTS streaming absent - TTFA devrait être <30ms                          ║
+║  ✅ AMÉLIORATIONS:                                                            ║
+║  - WebSocket PONG OK (vs timeout avant)                                      ║
+║  - TTS 136ms (vs 159ms)                                                      ║
+║  - Tests 202/202 PASS                                                        ║
 ║                                                                               ║
-║  Le système fonctionne mais n'est PAS optimisé pour l'UX temps réel.        ║
-║  La latence brute est bonne, mais l'expérience perçue est lente.            ║
+║  ❌ PROBLÈMES CRITIQUES:                                                      ║
+║  1. avg_latency 320ms en RÉEL - on ment avec nos tests à 180ms!             ║
+║  2. RTX 4090 DORMANT - 20GB VRAM inutilisés                                 ║
+║  3. TTS 136ms >> 50ms target                                                 ║
 ║                                                                               ║
-║  NEXT: Réparer WebSocket, implémenter streaming audio.                       ║
+║  LA VRAIE LATENCE UTILISATEUR EST 320ms, PAS 180ms.                         ║
+║  NOS TESTS ISOLÉS NE REFLÈTENT PAS LA RÉALITÉ.                              ║
+║                                                                               ║
+║  NEXT: Investiguer écart 320ms vs 180ms. Exploiter GPU.                      ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## CHECKLIST VALIDATION SPRINT #48
+## CHECKLIST VALIDATION SPRINT #49
 
-- [ ] WebSocket /ws/chat répond aux messages
-- [ ] /her/chat < 1000ms
-- [ ] TTS TTFA < 50ms
-- [x] E2E latence maintenue < 200ms ✅
+- [ ] avg_latency < 200ms (dans /stats, pas juste tests)
+- [ ] GPU utilization > 10%
+- [ ] TTS < 80ms
+- [ ] TTS TTFA < 30ms
+- [x] WebSocket OK ✅
 - [x] Tests 100% PASS ✅
-- [ ] Zéro timeout WebSocket
+- [ ] WebSearch effectuées par Worker
 
 ---
 
-*Ralph Moderator - Sprint #47 TRIADE CHECK*
-*"80%. Latence 178ms OK. WebSocket CASSÉ. /her/chat trop lent. Focus streaming."*
+*Ralph Moderator - Sprint #48 TRIADE CHECK*
+*"76%. ALERTE: avg_latency 320ms en réel! GPU dormant. Focus: vrais bottlenecks."*
 
