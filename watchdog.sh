@@ -2,16 +2,17 @@
 # Watchdog: Auto-restart backend + monitoring
 # Run this in background: nohup bash watchdog.sh > /tmp/watchdog.log 2>&1 &
 
-cd /workspace/music-music-ai-training-api
+cd /home/dev/her
 
 BACKEND_PID=""
 RESTART_COUNT=0
 MAX_RESTARTS=100
+LOG_FILE="/home/dev/her/logs/watchdog.log"
 
 start_backend() {
     echo "[$(date)] Starting backend..."
-    cd /workspace/music-music-ai-training-api/backend
-    nohup python3 main.py > /tmp/backend.log 2>&1 &
+    cd /home/dev/her
+    nohup python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 > /home/dev/her/backend.log 2>&1 &
     BACKEND_PID=$!
     echo "[$(date)] Backend started PID: $BACKEND_PID"
     sleep 30  # Wait for initialization (models load slowly)
@@ -32,7 +33,7 @@ restart_if_needed() {
         echo "[$(date)] Backend unhealthy or down! Restarting... (count: $RESTART_COUNT)"
 
         # Kill any existing backend processes
-        pkill -f "python3 main.py" 2>/dev/null
+        pkill -f "uvicorn backend.main:app" 2>/dev/null
         sleep 2
 
         start_backend
@@ -44,23 +45,19 @@ restart_if_needed() {
     fi
 }
 
-# Also restart Ralph Loop if tmux dies
-#check_ralph_loop() {
-#DISABLED:     if ! tmux ls 2>/dev/null | grep -q "ralph-dual"; then
-        echo "[$(date)] Ralph Loop tmux dead! Restarting..."
-        cd /workspace/music-music-ai-training-api
-#DISABLED:         bash ./start_ralph_dual.sh 2>&1
-    fi
-}
+# Removed Ralph Loop check - not needed
 
-# Initial start
-start_backend
+# Initial check - only start if not already running
+if ! check_backend; then
+    start_backend
+else
+    echo "[$(date)] Backend already running and healthy"
+fi
 
 echo "[$(date)] Watchdog started. Monitoring backend + Ralph Loop..."
 
 while true; do
     restart_if_needed
-    #check_ralph_loop
 
     # Check disk usage (df outputs in 1K blocks)
     DISK_USED_KB=$(df / | tail -1 | awk '{print $3}')
