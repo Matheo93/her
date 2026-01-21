@@ -1,162 +1,140 @@
 ---
-sprint: 25
-started_at: 2026-01-20T22:59:00Z
-status: complete
+sprint: 26
+started_at: 2026-01-21T00:00:00Z
+status: in_progress
 commits:
-  - 469ed21: "refactor(frontend): remove generic pages (-7730 lines)"
-  - 1964b3a: "feat(eva): integrate memory + warmth, upgrade Whisper large-v3"
-  - 45c6f6d: "feat(main-page): add persistent memory"
-  - 53a0e78: "docs(sprint): complete sprint report"
-  - a77e289: "feat(eva-her): add voice warmth modulation"
-  - e5b19e4: "feat(eva-her): add shared moments tracking"
-  - 797eee6: "fix(eva-her): voiceWarmth params in WebSocket"
+  - 8a7b5c5: "feat(her): connect HER backend endpoints to frontend"
 ---
 
-# Sprint #25 - Feature Integration & GPU Optimization
+# Sprint #26 - Connect HER Backend to Frontend
 
-**Objectif**: Connecter toutes les features (memory + voice + avatar) et optimiser GPU.
+**Objectif**: Connecter les endpoints HER backend au frontend eva-her/page.tsx.
 
 ---
 
-## Accomplishments
+## Features Implemented
 
-### 1. Whisper Upgrade: medium → large-v3
+### 1. useHerStatus Hook
 
-```python
-# BEFORE
-whisper_model_name = "medium" if device == "cuda" else "tiny"
+Monitors HER backend system health via `/her/status`:
 
-# AFTER
-whisper_model_name = "large-v3" if device == "cuda" else "tiny"
+```typescript
+const herStatus = useHerStatus({
+  pollInterval: 30000,
+  enablePolling: isConnected,
+});
+
+// Returns:
+// - isConnected: boolean
+// - healthScore: number (0-1)
+// - subsystems: HerSubsystemStatus[]
+// - refresh: () => Promise<void>
 ```
 
-- RTX 4090: 24GB VRAM, large-v3 uses ~3GB
-- Better STT accuracy for French
-- GPU still has 21GB headroom
+**UI Component**: Top-right status indicator showing system health percentage.
 
-### 2. Memory Integration (All 3 Pages)
+### 2. useBackendMemory Hook
 
-| Page | usePersistentMemory | useEmotionalWarmth |
-|------|--------------------|--------------------|
-| `/` | ✅ | - |
-| `/eva-her` | ✅ | ✅ |
-| `/voice` | ✅ | ✅ |
+Syncs with server-side memory via `/her/memory/{user_id}`:
 
-### 3. Personalized Welcome Messages
+```typescript
+const backendMemory = useBackendMemory({
+  userId: "eva_her_user",
+  autoFetch: isConnected,
+});
 
-Based on `persistentMemory.reunionType`:
+// Returns:
+// - memories: MemoryItem[]
+// - contextSummary: string | null
+// - emotionalBaseline: { dominantEmotion, stability }
+// - fetchMemories: (query?) => Promise<void>
+```
 
-| Absence | Message |
-|---------|---------|
-| New user | "Salut, je suis Eva" |
-| Returning | "Rebonjour" |
-| Short (<1h) | "Te revoilà..." |
-| Medium (1-7 days) | "Je pensais à toi" |
-| Long (7-30 days) | "Tu m'as manqué..." |
-| Very long (>30 days) | "Tu es revenu... enfin" |
+**UI Component**: Memory count indicator showing backend memories.
 
-### 4. Warmth Persistence
+### 3. useBackchannel Hook
 
-- Warmth syncs to localStorage every 30 seconds
-- Decay algorithm preserves 30-100% based on absence
-- Connection metrics tracked (sessions, time, shared moments)
+Natural reactions during conversation via `/her/backchannel`:
+
+```typescript
+const backchannel = useBackchannel({
+  withAudio: true,
+  onBackchannel: (sound, type) => { ... },
+});
+
+// Returns:
+// - triggerBackchannel: (emotion?) => Promise<BackchannelResponse>
+// - isPlaying: boolean
+// - currentSound: string | null
+```
+
+**Behavior**: Automatically triggers during emotional moments with throttling.
 
 ---
 
-## Latency Results
-
-| Query Type | Latency | Target |
-|------------|---------|--------|
-| Simple | 229-286ms | <300ms ✅ |
-| Complex | 313-424ms | <500ms ✅ |
-| Cached | <50ms | <50ms ✅ |
-
----
-
-## Test Results
+## Architecture Update
 
 ```
-================= 201 passed, 2 skipped, 15 warnings in 19.88s =================
-```
-
----
-
-## GPU Status
-
-```
-RTX 4090: 2094 MiB / 24564 MiB (8.5% used)
-- Whisper large-v3: ~3GB
-- TTS (MMS-TTS): ~500MB
-- Headroom: ~21GB available
-```
-
----
-
-## Commits
-
-1. **469ed21** - refactor(frontend): remove generic pages, keep HER-compliant only
-   - Deleted 19 pages (-7730 lines)
-   - Score: 47% → 97%
-
-2. **1964b3a** - feat(eva): integrate memory + warmth, upgrade Whisper to large-v3
-   - Backend: Whisper medium → large-v3
-   - Frontend: Memory + Warmth hooks in eva-her
-
-3. **45c6f6d** - feat(main-page): add persistent memory for personalized welcome
-   - All 3 pages now share memory
-
----
-
-## Architecture Now
-
-```
-EVA Experience Stack:
+EVA Experience Stack (Sprint 26):
 ┌─────────────────────────────────────────┐
 │           FRONTEND (Next.js)            │
 ├─────────────────────────────────────────┤
-│  /              → Main chat + Memory    │
-│  /eva-her       → 3D Avatar + Memory    │
-│  /voice         → Voice + Memory        │
+│  eva-her/page.tsx                       │
+│  ├─ useHerStatus      → /her/status     │
+│  ├─ useBackendMemory  → /her/memory     │
+│  └─ useBackchannel    → /her/backchannel│
 ├─────────────────────────────────────────┤
 │         HOOKS (Shared State)            │
 ├─────────────────────────────────────────┤
 │  usePersistentMemory → localStorage     │
 │  useEmotionalWarmth  → Connection depth │
 │  useVoiceWarmth      → Voice prosody    │
+│  useHerStatus        → Backend health   │
+│  useBackendMemory    → Server memory    │
+│  useBackchannel      → Natural reactions│
 └─────────────────────────────────────────┘
           ↓ WebSocket/REST ↓
 ┌─────────────────────────────────────────┐
 │           BACKEND (FastAPI)             │
 ├─────────────────────────────────────────┤
-│  Groq LLM      → ~250ms latency        │
-│  Whisper STT   → large-v3 on GPU       │
-│  MMS-TTS       → ~22ms on GPU          │
-│  Response Cache → <50ms for common     │
+│  /her/status         → System health    │
+│  /her/memory/{id}    → Memory context   │
+│  /her/backchannel    → Reactions + audio│
+│  /her/proactive/{id} → Proactive care   │
 └─────────────────────────────────────────┘
 ```
 
 ---
 
-## What's Connected Now
+## Files Changed
 
-1. **Memory** → Persists across sessions (localStorage)
-2. **Warmth** → Grows with connection duration
-3. **Avatar** → 3D procedural (Three.js)
-4. **Voice** → TTS with emotional prosody
-5. **Welcome** → Personalized based on reunion type
+| File | Change |
+|------|--------|
+| `frontend/src/hooks/useHerStatus.ts` | **NEW** - Status monitoring hook |
+| `frontend/src/hooks/useBackendMemory.ts` | **NEW** - Memory sync hook |
+| `frontend/src/hooks/useBackchannel.ts` | **NEW** - Backchannel hook |
+| `frontend/src/app/eva-her/page.tsx` | Integrated all 3 hooks + UI |
 
-**EVA now remembers you, warms up to you, and greets you personally.**
+---
+
+## Commits
+
+1. **8a7b5c5** - feat(her): connect HER backend endpoints to frontend
+   - Added 3 new hooks for backend communication
+   - Integrated hooks into eva-her page
+   - Added status display components
+   - Added backchannel auto-triggering
 
 ---
 
 ## Next Steps
 
-1. Add shared moments tracking (emotional peaks)
-2. Backend memory sync (cross-device)
-3. Voice warmth modulation based on emotional state
-4. Relationship milestones ("C'est notre 10ème conversation")
+1. Add memory sync bidirectional (frontend → backend)
+2. Add proactive message endpoint integration
+3. Add relationship milestones tracking
+4. Test with real backend HER systems
 
 ---
 
-*Ralph Worker Sprint #25 - FEATURE INTEGRATION*
-*"EVA doesn't just know you. She REMEMBERS you."*
+*Ralph Worker Sprint #26 - HER BACKEND INTEGRATION*
+*"EVA's brain is now connected to her heart."*
