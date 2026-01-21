@@ -92,6 +92,9 @@ except ImportError as e:
 from groq import AsyncGroq
 import httpx
 
+# Ollama keepalive service (prevents model unloading)
+from ollama_keepalive import start_keepalive, stop_keepalive, is_warm, ensure_warm
+
 # Try to use uvloop for faster async (20-30% speedup)
 try:
     import uvloop
@@ -875,7 +878,7 @@ def init_db():
     print("✅ SQLite database initialized")
 
 def save_conversation(session_id: str, messages: list):
-    """Save conversation to database"""
+    """Save conversation to database (sync version)"""
     if db_conn:
         try:
             db_conn.execute(
@@ -885,6 +888,11 @@ def save_conversation(session_id: str, messages: list):
             db_conn.commit()
         except Exception as e:
             print(f"DB save error: {e}")
+
+
+async def async_save_conversation(session_id: str, messages: list):
+    """Save conversation to database (async - non-blocking)"""
+    await asyncio.to_thread(save_conversation, session_id, messages)
 
 def load_conversation(session_id: str) -> list:
     """Load conversation from database"""
@@ -1197,6 +1205,10 @@ async def lifespan(app: FastAPI):
     if HER_AVAILABLE:
         asyncio.create_task(proactive_scheduler())
 
+    # Start Ollama keepalive (prevents model unloading from VRAM)
+    if _ollama_available and (USE_OLLAMA_PRIMARY or USE_OLLAMA_FALLBACK):
+        start_keepalive(OLLAMA_URL, OLLAMA_MODEL, interval=10)  # 10s interval to prevent cold starts
+
     print(f"🎙️  EVA-VOICE ready at http://localhost:8000")
     print(f"⚡ Mode: {QUALITY_MODE} | Rate limit: {RATE_LIMIT_REQUESTS}/min")
     print(f"🔐 Auth: {'DEV MODE' if os.getenv('EVA_DEV_MODE', 'true').lower() == 'true' else 'ENABLED'}")
@@ -1205,6 +1217,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # Cleanup
+    stop_keepalive()  # Stop Ollama keepalive
     if http_client:
         await http_client.aclose()
     if cerebras_client:
@@ -1253,14 +1266,25 @@ def get_messages(session_id: str) -> list:
             conversations[session_id] = [{"role": "system", "content": EVA_SYSTEM_PROMPT}]
     return conversations[session_id]
 
-def add_message(session_id: str, role: str, content: str):
+def add_message(session_id: str, role: str, content: str, save_async: bool = True):
+    """Add a message to the conversation.
+
+    Args:
+        session_id: Session identifier
+        role: Message role (user/assistant/system)
+        content: Message content
+        save_async: If True, save to DB asynchronously (non-blocking)
+    """
     msgs = get_messages(session_id)
     msgs.append({"role": role, "content": content})
     # Keep last 20 messages + system prompt
     if len(msgs) > 21:
         conversations[session_id] = [msgs[0]] + msgs[-20:]
-    # Save to database
-    save_conversation(session_id, conversations[session_id])
+    # Save to database (async to not block response)
+    if save_async:
+        asyncio.create_task(async_save_conversation(session_id, conversations[session_id]))
+    else:
+        save_conversation(session_id, conversations[session_id])
 
 def clear_conversation(session_id: str):
     if session_id in conversations:
@@ -1357,17 +1381,21 @@ async def stream_cerebras(messages: list, max_tok: int = 80) -> AsyncGenerator[s
 
 
 async def stream_ollama(messages: list, max_tok: int = 80) -> AsyncGenerator[str, None]:
-    """Stream from local Ollama llama3.1:8b (~100ms TTFT on RTX 4090).
+    """Stream from local Ollama phi3:mini (~50-100ms TTFT on RTX 4090).
 
     Ollama local provides ultra-low latency without API rate limits.
-    Uses llama3.1:8b for quality + speed balance.
+    Uses phi3:mini for optimal speed/quality balance.
 
     OPTIMIZATIONS:
     - keep_alive=-1: Model stays in VRAM indefinitely (no reload overhead)
     - api/chat: Native chat format (no prompt conversion)
     - num_ctx=1024: Reasonable context without slowdown
+    - ensure_warm(): Guarantees model is loaded before inference
     """
     try:
+        # Ensure model is warm (no-op if already warm, ~50ms if cold)
+        if not is_warm():
+            await ensure_warm()
         async with http_client.stream(
             "POST",
             f"{OLLAMA_URL}/api/chat",
@@ -1378,13 +1406,14 @@ async def stream_ollama(messages: list, max_tok: int = 80) -> AsyncGenerator[str
                 "keep_alive": OLLAMA_KEEP_ALIVE,  # Keep model loaded!
                 "options": {
                     "num_predict": max_tok,
-                    "num_ctx": 1024,  # Reasonable context for conversation
+                    "num_ctx": 512,  # Reduced context for faster inference
                     "temperature": 0.7,
                     "top_p": 0.85,
                     "num_gpu": 99,  # Use all GPU layers
+                    "mirostat": 0,  # Disable mirostat for speed
                 }
             },
-            timeout=10.0,
+            timeout=8.0,  # Reduced timeout for faster failure detection
         ) as response:
             async for line in response.aiter_lines():
                 if line:
@@ -1451,7 +1480,7 @@ async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True, spee
             messages[0]["content"] = get_system_prompt()
 
         if QUALITY_MODE == "fast":
-            max_tok = 25  # Ultra-short for fastest latency (<200ms)
+            max_tok = 20  # Ultra-short for fastest latency (<200ms)
         elif QUALITY_MODE == "quality":
             max_tok = 150
         else:  # balanced
