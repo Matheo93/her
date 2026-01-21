@@ -27,37 +27,26 @@ def init_fast_tts():
         from transformers import VitsModel, AutoTokenizer
 
         _device = "cuda" if torch.cuda.is_available() else "cpu"
-        print(f"🚀 Loading MMS-TTS French on {_device.upper()} (OPTIMIZED)...")
+        print(f"🚀 Loading MMS-TTS French on {_device.upper()}...")
 
-        # Load model with fp16 for faster inference
-        _tts_model = VitsModel.from_pretrained(
-            "facebook/mms-tts-fra",
-            torch_dtype=torch.float16 if _device == "cuda" else torch.float32
-        ).to(_device)
+        # Load model in float32 (MMS-TTS has issues with fp16)
+        _tts_model = VitsModel.from_pretrained("facebook/mms-tts-fra").to(_device)
         _tts_tokenizer = AutoTokenizer.from_pretrained("facebook/mms-tts-fra")
         _tts_model.eval()
 
-        # Note: torch.compile with reduce-overhead can cause CUDA graph issues
-        # Use regular inference which is still fast on GPU (~100-200ms)
-
         _sample_rate = _tts_model.config.sampling_rate
 
-        # Extended warmup for optimal latency (~40-100ms after warmup)
-        warmup_phrases = ["Bonjour", "Salut comment vas tu", "C'est super"]
+        # Warmup runs for optimal latency
+        warmup_phrases = ["Bonjour", "Salut", "Test"]
         for phrase in warmup_phrases:
             inputs = _tts_tokenizer(phrase, return_tensors="pt").to(_device)
-            for _ in range(3):
-                with torch.no_grad():
-                    if _device == "cuda":
-                        with torch.amp.autocast("cuda"):
-                            _ = _tts_model(**inputs).waveform
-                    else:
-                        _ = _tts_model(**inputs).waveform
+            with torch.inference_mode():
+                _ = _tts_model(**inputs).waveform
 
         if _device == "cuda":
             torch.cuda.synchronize()
 
-        print(f"✅ MMS-TTS ready (sample rate: {_sample_rate}Hz, fp16={_device=='cuda'}, ~50-100ms)")
+        print(f"✅ MMS-TTS ready on {_device.upper()} (sample rate: {_sample_rate}Hz, ~50-100ms)")
         return True
 
     except Exception as e:
@@ -83,16 +72,12 @@ def fast_tts(text: str, speed: float = 1.0) -> Optional[bytes]:
             return None
 
     try:
-        # Tokenize
+        # Tokenize and move to device
         inputs = _tts_tokenizer(text, return_tensors="pt").to(_device)
 
-        # Generate with inference_mode + autocast for maximum speed
+        # Generate with inference_mode for speed
         with torch.inference_mode():
-            if _device == "cuda":
-                with torch.amp.autocast("cuda"):
-                    output = _tts_model(**inputs).waveform
-            else:
-                output = _tts_model(**inputs).waveform
+            output = _tts_model(**inputs).waveform
 
         # Convert to numpy (ensure float32 for numpy)
         audio = output.squeeze().cpu().float().numpy()
@@ -142,13 +127,9 @@ def fast_tts_mp3(text: str, speed: float = 1.0) -> Optional[bytes]:
         # Generate audio directly (skip WAV intermediate)
         inputs = _tts_tokenizer(text, return_tensors="pt").to(_device)
 
-        # Generate with inference_mode + autocast for maximum speed
+        # Generate with inference_mode for speed
         with torch.inference_mode():
-            if _device == "cuda":
-                with torch.amp.autocast("cuda"):
-                    output = _tts_model(**inputs).waveform
-            else:
-                output = _tts_model(**inputs).waveform
+            output = _tts_model(**inputs).waveform
 
         # Convert to numpy
         audio = output.squeeze().cpu().float().numpy()
