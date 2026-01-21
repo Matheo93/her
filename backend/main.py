@@ -1206,9 +1206,9 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(proactive_scheduler())
 
     # Start Ollama keepalive (prevents model unloading from VRAM)
-    # ULTRA-AGGRESSIVE: 3s interval with latency spike detection and auto-rewarmup
+    # HYPER-AGGRESSIVE: 1s interval - GPU weights deactivate VERY fast on this setup
     if _ollama_available and (USE_OLLAMA_PRIMARY or USE_OLLAMA_FALLBACK):
-        start_keepalive(OLLAMA_URL, OLLAMA_MODEL, interval=3)  # 3s interval - ultra-aggressive keepalive
+        start_keepalive(OLLAMA_URL, OLLAMA_MODEL, interval=1)  # 1s interval - HYPER-aggressive keepalive
 
     print(f"🎙️  EVA-VOICE ready at http://localhost:8000")
     print(f"⚡ Mode: {QUALITY_MODE} | Rate limit: {RATE_LIMIT_REQUESTS}/min")

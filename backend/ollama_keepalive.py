@@ -19,7 +19,7 @@ import httpx
 # Configuration
 OLLAMA_URL = "http://127.0.0.1:11434"
 OLLAMA_MODEL = "phi3:mini"
-KEEPALIVE_INTERVAL = 3  # seconds - ultra-aggressive to prevent cold GPU
+KEEPALIVE_INTERVAL = 0.5  # seconds - EXTREME: GPU weights deactivate in <1s on this setup
 KEEP_ALIVE_VALUE = -1  # Infinite - tell Ollama to never unload model
 WARMUP_BURST_COUNT = 5  # More burst requests to ensure model is fully GPU-active
 LATENCY_THRESHOLD_MS = 150  # If latency exceeds this, trigger re-warmup (indicates cold GPU)
