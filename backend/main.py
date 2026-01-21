@@ -108,9 +108,10 @@ except ImportError:
 CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "phi3:mini")  # Ultra-fast local model (~100ms)
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")  # Fast + quality local model (~150ms warm)
 USE_OLLAMA_FALLBACK = os.getenv("USE_OLLAMA_FALLBACK", "true").lower() == "true"
 USE_OLLAMA_PRIMARY = os.getenv("USE_OLLAMA_PRIMARY", "true").lower() == "true"  # Use local GPU first
+OLLAMA_KEEP_ALIVE = -1  # Keep model loaded indefinitely for instant inference
 
 # Models by provider
 CEREBRAS_MODEL = "llama3.1-8b"  # ~50ms TTFT (fastest)
@@ -1095,6 +1096,23 @@ async def lifespan(app: FastAPI):
                     _ollama_available = True
                     mode = "PRIMARY" if USE_OLLAMA_PRIMARY else "fallback"
                     print(f"✅ Ollama local LLM connected ({OLLAMA_MODEL}) [{mode}]")
+
+                    # WARMUP: Pre-load model into GPU VRAM for instant inference
+                    print(f"🔥 Warming up Ollama {OLLAMA_MODEL}...")
+                    warmup_start = time.time()
+                    warmup_resp = await http_client.post(
+                        f"{OLLAMA_URL}/api/chat",
+                        json={
+                            "model": OLLAMA_MODEL,
+                            "messages": [{"role": "user", "content": "Hi"}],
+                            "stream": False,
+                            "keep_alive": OLLAMA_KEEP_ALIVE,
+                            "options": {"num_predict": 5}
+                        },
+                        timeout=60.0  # First load can be slow
+                    )
+                    warmup_time = (time.time() - warmup_start) * 1000
+                    print(f"⚡ Ollama warmup complete: {warmup_time:.0f}ms (model in VRAM)")
                 else:
                     print(f"⚠️ Ollama running but {OLLAMA_MODEL} not found. Available: {models[:3]}")
         except Exception as e:
@@ -1339,37 +1357,31 @@ async def stream_cerebras(messages: list, max_tok: int = 80) -> AsyncGenerator[s
 
 
 async def stream_ollama(messages: list, max_tok: int = 80) -> AsyncGenerator[str, None]:
-    """Stream from local Ollama phi3:mini (~100ms TTFT on RTX 4090).
+    """Stream from local Ollama llama3.1:8b (~100ms TTFT on RTX 4090).
 
     Ollama local provides ultra-low latency without API rate limits.
-    Uses phi3:mini for fastest possible inference (85-155ms warm).
+    Uses llama3.1:8b for quality + speed balance.
+
+    OPTIMIZATIONS:
+    - keep_alive=-1: Model stays in VRAM indefinitely (no reload overhead)
+    - api/chat: Native chat format (no prompt conversion)
+    - num_ctx=1024: Reasonable context without slowdown
     """
-    # Convert messages to Ollama format (system + user prompt)
-    system_prompt = ""
-    user_prompt = ""
-    for msg in messages:
-        if msg["role"] == "system":
-            system_prompt = msg["content"]
-        elif msg["role"] == "user":
-            user_prompt = msg["content"]
-        elif msg["role"] == "assistant":
-            pass
-
-    prompt = f"{system_prompt}\n\nUser: {user_prompt}\nAssistant:"
-
     try:
         async with http_client.stream(
             "POST",
-            f"{OLLAMA_URL}/api/generate",
+            f"{OLLAMA_URL}/api/chat",
             json={
                 "model": OLLAMA_MODEL,
-                "prompt": prompt,
+                "messages": messages,
                 "stream": True,
+                "keep_alive": OLLAMA_KEEP_ALIVE,  # Keep model loaded!
                 "options": {
                     "num_predict": max_tok,
-                    "num_ctx": 512,  # Short context for speed
+                    "num_ctx": 1024,  # Reasonable context for conversation
                     "temperature": 0.7,
                     "top_p": 0.85,
+                    "num_gpu": 99,  # Use all GPU layers
                 }
             },
             timeout=10.0,
@@ -1378,8 +1390,8 @@ async def stream_ollama(messages: list, max_tok: int = 80) -> AsyncGenerator[str
                 if line:
                     try:
                         data = json_loads(line)
-                        if data.get("response"):
-                            yield data["response"]
+                        if data.get("message", {}).get("content"):
+                            yield data["message"]["content"]
                         if data.get("done"):
                             break
                     except:
