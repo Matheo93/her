@@ -2029,10 +2029,13 @@ async def chat_stream(request: Request, data: dict, _: str = Depends(verify_api_
                     emotion = detect_emotion(sentence)
                     print(f"🎭 Emotion: {emotion.name} ({emotion.intensity:.1f})")
 
-                    # Generate TTS
+                    # Generate TTS (try fast backends first, fallback to Edge-TTS)
                     audio_chunk = await async_ultra_fast_tts(sentence)
                     if not audio_chunk:
                         audio_chunk = await async_fast_tts(sentence)
+                    if not audio_chunk:
+                        # Final fallback: Edge-TTS (always works)
+                        audio_chunk = await text_to_speech(sentence)
                     if audio_chunk:
                         yield audio_chunk
 
@@ -2050,6 +2053,8 @@ async def chat_stream(request: Request, data: dict, _: str = Depends(verify_api_
             audio_chunk = await async_ultra_fast_tts(sentence_buffer.strip())
             if not audio_chunk:
                 audio_chunk = await async_fast_tts(sentence_buffer.strip())
+            if not audio_chunk:
+                audio_chunk = await text_to_speech(sentence_buffer.strip())
             if audio_chunk:
                 yield audio_chunk
 
@@ -2058,7 +2063,7 @@ async def chat_stream(request: Request, data: dict, _: str = Depends(verify_api_
 
     return StreamingResponse(
         generate_audio_stream(),
-        media_type="audio/wav",
+        media_type="audio/mpeg",  # Edge-TTS returns MP3
         headers={"X-Session-ID": session_id}
     )
 
@@ -4180,10 +4185,12 @@ async def ws_her(ws: WebSocket):
                         if sentence and not is_interrupted:
                             emotion = detect_emotion(sentence)
 
-                            # Generate emotional TTS
+                            # Generate emotional TTS (with Edge-TTS fallback)
                             audio_chunk = await async_emotional_tts(sentence, emotion.name)
                             if not audio_chunk:
                                 audio_chunk = await async_ultra_fast_tts(sentence)
+                            if not audio_chunk:
+                                audio_chunk = await text_to_speech(sentence)
 
                             if audio_chunk and not is_interrupted:
                                 await safe_ws_send(ws, {
