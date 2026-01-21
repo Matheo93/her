@@ -350,7 +350,9 @@ function RealisticHead({
     const headSwayY = Math.sin(microMovementPhase.current * 0.5) * 0.008 + idleShift;
     const headSwayZ = Math.sin(microMovementPhase.current * 0.4) * 0.005;
 
-    headRef.current.rotation.x = headSwayX + smoothedExpression.current.headTilt;
+    // Base rotation offset to face camera (negative X tilts head back to show face)
+    const baseFaceOffset = -0.5; // ~29 degrees - natural face-forward position
+    headRef.current.rotation.x = baseFaceOffset + headSwayX + smoothedExpression.current.headTilt;
     headRef.current.rotation.y = headSwayY;
     headRef.current.rotation.z = headSwayZ;
 
