@@ -1838,16 +1838,17 @@ async def text_to_speech_streaming(
     Uses MMS-TTS GPU streaming (TTFB ~50ms) when USE_FAST_TTS=true,
     falls back to Edge-TTS streaming otherwise.
     """
-    # Apply natural breathing and hesitations
-    processed_text = make_natural(text) if add_breathing else text
-
     # ========== FAST GPU STREAMING (MMS-TTS ~50ms TTFB) ==========
+    # Note: Skip make_natural for GPU streaming as it can break chunking
     if USE_FAST_TTS:
         from fast_tts import _initialized as mms_ready
         if mms_ready:
-            async for chunk in stream_tts_gpu(processed_text):
+            async for chunk in stream_tts_gpu(text):  # Use original text
                 yield chunk
             return
+
+    # Apply natural breathing and hesitations (only for Edge-TTS)
+    processed_text = make_natural(text) if add_breathing else text
 
     # ========== EDGE-TTS STREAMING (slower but more voices) ==========
     if not tts_available:

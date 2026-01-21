@@ -21,13 +21,14 @@ import numpy as np
 WAV_HEADER_SIZE = 44
 
 
-def split_into_chunks(text: str, max_chunk_words: int = 8) -> list[str]:
-    """Split text into small speakable chunks for fast TTFA.
+def split_into_chunks(text: str, max_chunk_words: int = 8, first_chunk_words: int = 3) -> list[str]:
+    """Split text into small speakable chunks for ultra-fast TTFA.
 
     Strategy:
-    1. First split by sentence endings (. ! ?)
-    2. If sentence is long, split by commas or conjunctions
-    3. Keep chunks ~8 words max for fast synthesis
+    1. First chunk is VERY short (2-3 words) for instant audio feedback
+    2. Split by sentence endings (. ! ?)
+    3. If sentence is long, split by commas or conjunctions
+    4. Keep subsequent chunks ~8 words max
     """
     if not text:
         return []
@@ -40,6 +41,8 @@ def split_into_chunks(text: str, max_chunk_words: int = 8) -> list[str]:
     sentences = re.split(sentence_pattern, text)
 
     chunks = []
+    is_first_chunk = True
+
     for sentence in sentences:
         sentence = sentence.strip()
         if not sentence:
@@ -47,8 +50,28 @@ def split_into_chunks(text: str, max_chunk_words: int = 8) -> list[str]:
 
         words = sentence.split()
 
-        if len(words) <= max_chunk_words:
+        # First chunk: ultra-short for fast TTFA
+        if is_first_chunk and len(words) > first_chunk_words:
+            # Take only first few words
+            first_part = ' '.join(words[:first_chunk_words])
+            # Add punctuation if it makes sense
+            if words[first_chunk_words - 1][-1] not in '.!?,;':
+                first_part += '...'
+            chunks.append(first_part)
+            is_first_chunk = False
+
+            # Rest of the sentence
+            remaining_words = words[first_chunk_words:]
+            if remaining_words:
+                remaining = ' '.join(remaining_words)
+                # Process remaining as normal chunks
+                for i in range(0, len(remaining_words), max_chunk_words):
+                    chunk = ' '.join(remaining_words[i:i + max_chunk_words])
+                    if chunk:
+                        chunks.append(chunk)
+        elif len(words) <= max_chunk_words:
             chunks.append(sentence)
+            is_first_chunk = False
         else:
             # Split long sentences by commas or conjunctions
             sub_pattern = r'(?<=,)\s+|(?<=;)\s+|\s+(?:et|ou|mais|donc|car)\s+'
@@ -60,14 +83,28 @@ def split_into_chunks(text: str, max_chunk_words: int = 8) -> list[str]:
                     continue
 
                 sub_words = sub.split()
-                if len(sub_words) <= max_chunk_words:
+
+                if is_first_chunk and len(sub_words) > first_chunk_words:
+                    first_part = ' '.join(sub_words[:first_chunk_words])
+                    if sub_words[first_chunk_words - 1][-1] not in '.!?,;':
+                        first_part += '...'
+                    chunks.append(first_part)
+                    is_first_chunk = False
+                    remaining_words = sub_words[first_chunk_words:]
+                    for i in range(0, len(remaining_words), max_chunk_words):
+                        chunk = ' '.join(remaining_words[i:i + max_chunk_words])
+                        if chunk:
+                            chunks.append(chunk)
+                elif len(sub_words) <= max_chunk_words:
                     chunks.append(sub)
+                    is_first_chunk = False
                 else:
                     # Force split long chunks by word count
                     for i in range(0, len(sub_words), max_chunk_words):
                         chunk = ' '.join(sub_words[i:i + max_chunk_words])
                         if chunk:
                             chunks.append(chunk)
+                    is_first_chunk = False
 
     return chunks
 
