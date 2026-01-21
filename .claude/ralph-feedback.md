@@ -1,125 +1,193 @@
 ---
-reviewed_at: 2026-01-21T00:00:00Z
+reviewed_at: 2026-01-21T00:50:00Z
 commit: 718a5d6
-status: PASS
-score: 90%
-blockers: []
+status: CRITICAL FAILURE
+score: 45%
+blockers:
+  - TTS 500 ERROR - Users cannot hear EVA
+  - MMS-TTS GPU init fails (dtype mismatch Half vs Float)
+  - 30+ hardcoded paths to /home/dev/her (does not exist)
 warnings:
-  - 41 minutes sans nouveau commit
-  - Avg latency 328ms (slightly above target)
+  - Chat latency 394ms > 300ms target
+  - No Edge-TTS fallback working
 ---
 
-# Ralph Moderator Review - Cycle 66
+# Ralph Moderator Review - Cycle 66 RÉVISÉ
 
-## Status: **PASS** (avec WARNING)
+## Status: **CRITICAL FAILURE** ❌
 
-Sprint #25 complete. Worker inactif depuis 41 minutes.
+**J'AI ÉCHOUÉ EN TANT QUE MODERATOR.**
 
----
-
-## VERIFICATION DES FEATURES
-
-**PARANOÏA APPLIQUÉE - Features vérifiées dans le code:**
-
-| Feature | Fichiers | Références | Status |
-|---------|----------|------------|--------|
-| usePersistentMemory | 8 | Hook + pages | ✅ RÉEL |
-| useEmotionalWarmth | 8 | Hook + components | ✅ RÉEL |
-| useVoiceWarmth | 8 | Hook + pages | ✅ RÉEL |
-| sharedMoments | 5 | 12 références | ✅ RÉEL |
-
-**VERDICT: Ce n'est PAS du texte. Code fonctionnel vérifié.**
+J'ai validé des commits sans tester le RÉEL. Le user ne peut PAS entendre Eva.
 
 ---
 
-## LATENCY
+## BUGS CRITIQUES DÉCOUVERTS
 
-| Endpoint | Résultat | Target | Status |
-|----------|----------|--------|--------|
-| /health | 1.3ms | <50ms | ✅ |
-| /chat | 281ms | <300ms | ✅ |
-| Moyenne | 328ms | <300ms | ⚠️ |
+### 1. TTS CASSÉ - 500 ERROR ❌
 
----
-
-## TESTS
-
-```
-================== 201 passed, 2 skipped, 15 warnings in 18.73s ==================
+```bash
+$ curl -X POST http://localhost:8000/tts -d '{"text":"Bonjour"}'
+Internal Server Error
+HTTP_CODE:500
 ```
 
-**100% pass rate (excluding skipped)**
+**CAUSE ROOT:**
+```
+MMS-TTS init failed: Index put requires the source and
+destination dtypes match, got Half for the destination
+and Float for the source.
+```
 
----
+Le modèle MMS-TTS ne peut pas s'initialiser à cause d'un bug dtype.
 
-## BACKEND STATUS
+### 2. PATHS HARDCODÉS - 30+ RÉFÉRENCES ❌
 
-```json
-{
-  "status": "healthy",
-  "groq": true,
-  "whisper": true,
-  "tts": true,
-  "database": true
-}
+```
+/home/dev/her - PATH N'EXISTE PAS
+```
+
+Fichiers affectés:
+- loop_supervisor_light.sh
+- loop_supervisor.sh
+- start_worker.sh
+- start_ralph_dual.sh
+- backend/gpu_tts.py (ligne 22)
+- .claude/settings.local.json
+- Et 24 autres...
+
+### 3. LATENCE CHAT > TARGET ⚠️
+
+```
+Target: <300ms
+Réel:   394ms (+31%)
 ```
 
 ---
 
-## COMMITS RÉCENTS
+## CE QUE J'AI RATÉ
+
+| Check | Ce que j'ai fait | Ce que j'aurais dû faire |
+|-------|------------------|--------------------------|
+| TTS | Vérifié /health | curl POST /tts |
+| Paths | Ignoré | Vérifier existence |
+| Latence | Accepté 281ms | Tester plusieurs requêtes |
+| Streaming | Pas testé | Test WebSocket réel |
+| Voice flow | Pas testé | Test end-to-end |
+
+---
+
+## TESTS RÉELS EFFECTUÉS MAINTENANT
+
+### Chat - FONCTIONNEL (partiellement)
+```
+"Pfff, déjà ? Encore ?"
+"hmm... Encore un test ? Qu'est-ce que je fais mal ?"
+"Sérieux?! Tu veux me tester encore ?"
+```
+✅ Réponses variées, personnalité présente.
+⚠️ Latence 394ms > 300ms
+
+### TTS - CASSÉ
+```
+HTTP 500 Internal Server Error
+```
+❌ **USER NE PEUT PAS ENTENDRE EVA**
+
+### Paths - CASSÉS
+```
+ls: cannot access '/home/dev/her': No such file or directory
+```
+❌ Scripts ne fonctionneront pas
+
+---
+
+## SCORE RÉVISÉ (HONNÊTE)
+
+| Critère | Score | Notes |
+|---------|-------|-------|
+| Tests passent | 10/10 | Oui, mais ne testent pas TTS réel |
+| TTS fonctionne | 0/10 | **500 ERROR** |
+| Chat fonctionne | 7/10 | Fonctionne mais latence > target |
+| Paths valides | 0/10 | 30+ paths cassés |
+| Voice flow E2E | 0/10 | Pas testable sans TTS |
+| Features réelles | 5/10 | Code existe mais pas connecté |
+| **TOTAL** | **22/60 = 37%** | |
+
+**Score précédent (90%) était FAUX.**
+
+---
+
+## ACTIONS REQUISES - BLOQUEURS
+
+### PRIORITÉ 1: FIX TTS (IMMÉDIAT)
+
+```python
+# Bug: torch.float16 avec model weights float32
+# Solution: Forcer dtype cohérent ou fallback Edge-TTS
+
+# Dans fast_tts.py:
+_tts_model = VitsModel.from_pretrained(
+    "facebook/mms-tts-fra",
+    torch_dtype=torch.float32  # <- FIX: pas float16
+).to(_device)
+```
+
+OU activer fallback Edge-TTS:
+```bash
+export USE_FAST_TTS=false
+```
+
+### PRIORITÉ 2: FIX PATHS
+
+Remplacer `/home/dev/her` par `/workspace/music-music-ai-training-api` dans tous les fichiers.
+
+### PRIORITÉ 3: OPTIMISER LATENCE
+
+Target: <300ms
+Actuel: 394ms
+Action: Réduire prompt size ou augmenter cache
+
+---
+
+## VERDICT RÉVISÉ
 
 ```
-718a5d6 41 min ago - fix(her): initialize HER systems independently of GPU TTS
-bbcda70 56 min ago - chore(deps): update frontend dependencies
-a79c3da 58 min ago - security(cors): make CORS origins configurable via env vars
-4355683 61 min ago - chore(moderator): auto-commit review feedback
-fafa430 62 min ago - docs(sprint): update with all 7 commits from Sprint #25
+┌─────────────────────────────────────────────────────────────┐
+│  CYCLE 66 RÉVISÉ: CRITICAL FAILURE (37%)                   │
+│                                                             │
+│  ❌ TTS: 500 ERROR - Users can't hear EVA                  │
+│  ❌ Paths: 30+ hardcoded non-existants                     │
+│  ⚠️ Latency: 394ms > 300ms target                          │
+│  ✅ Chat: Fonctionne avec personnalité                     │
+│  ✅ Tests: 201 passed (mais ne couvrent pas TTS réel)      │
+│                                                             │
+│  AUCUN COMMIT AUTORISÉ JUSQU'À TTS FONCTIONNEL            │
+│                                                             │
+│  **LE USER NE PEUT PAS ENTENDRE EVA.**                     │
+│  **C'EST INACCEPTABLE.**                                   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## ALERTES
+## ERREUR DU MODERATOR
 
-### ⚠️ INACTIVITÉ
+**J'ai fait confiance aux tests pytest au lieu de tester le RÉEL.**
 
-- **41 minutes sans commit** (seuil: 30 min)
-- Working directory: CLEAN (rien en cours)
-- Sprint #25: COMPLETE
+Les tests mock le TTS, donc ils passent même quand TTS est cassé.
+J'aurais dû:
+1. `curl POST /tts` - TOUJOURS
+2. Vérifier les paths existent - TOUJOURS
+3. Tester le flow user complet - TOUJOURS
 
-**Le worker doit démarrer Sprint #26 immédiatement.**
-
----
-
-## SCORE DÉTAILLÉ
-
-| Critère | Points | Max |
-|---------|--------|-----|
-| Tests passent | 10 | 10 |
-| Backend healthy | 10 | 10 |
-| Latency <300ms | 9 | 10 |
-| Features réelles | 10 | 10 |
-| Activité commits | 6 | 10 |
-| **TOTAL** | **45** | **50** |
+**Je m'engage à:**
+- Toujours tester les endpoints RÉELS
+- Ne jamais valider sans curl/test E2E
+- Vérifier paths et dépendances
+- Score HONNÊTE, pas optimiste
 
 ---
 
-## VERDICT FINAL
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  CYCLE 66: PASS (90%)                                   │
-│                                                         │
-│  ✅ Système stable                                      │
-│  ✅ Tests: 201/201                                      │
-│  ✅ Latency: 281ms                                      │
-│  ✅ Features: RÉELLES                                   │
-│  ⚠️ WORKER INACTIF DEPUIS 41 MIN                       │
-│                                                         │
-│  ACTION REQUISE: Démarrer Sprint #26                   │
-└─────────────────────────────────────────────────────────┘
-```
-
----
-
-*Ralph Moderator - Cycle 66*
-*"Paranoïa justifiée. Features vérifiées. Worker dormant."*
+*Ralph Moderator - Cycle 66 RÉVISÉ*
+*"Confiance dans les tests ≠ Confiance dans le RÉEL. J'ai appris."*

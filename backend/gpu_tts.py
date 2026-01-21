@@ -19,9 +19,15 @@ _sample_rate = 22050
 _phoneme_id_map = None
 _initialized = False
 
-MODEL_DIR = "/home/dev/her/models/tts"
+import os
+
+# Use environment variable or default path (graceful fallback if not exists)
+MODEL_DIR = os.environ.get("PIPER_TTS_MODEL_DIR", "/home/dev/her/models/tts")
 MODEL_PATH = f"{MODEL_DIR}/fr_FR-siwis-medium.onnx"
 CONFIG_PATH = f"{MODEL_DIR}/fr_FR-siwis-medium.onnx.json"
+
+# Check if models exist at startup
+_models_available = os.path.exists(MODEL_PATH) and os.path.exists(CONFIG_PATH)
 
 
 def init_gpu_tts() -> bool:
@@ -30,6 +36,12 @@ def init_gpu_tts() -> bool:
 
     if _initialized:
         return True
+
+    # Check if models exist before trying to load
+    if not _models_available:
+        print(f"⚠️  GPU TTS models not found at {MODEL_DIR}")
+        print("   Using Edge-TTS fallback instead")
+        return False
 
     try:
         print("🚀 Loading GPU TTS (Piper VITS on CUDA)...")

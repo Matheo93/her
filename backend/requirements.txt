@@ -13,7 +13,7 @@ groq==0.13.1
 faster-whisper==1.1.0
 
 # TTS
-edge-tts==6.1.12
+edge-tts>=7.2.7
 
 # Audio
 soundfile==0.13.1
