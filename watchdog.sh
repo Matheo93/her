@@ -46,10 +46,10 @@ restart_if_needed() {
 
 # Also restart Ralph Loop if tmux dies
 #check_ralph_loop() {
-    if ! tmux ls 2>/dev/null | grep -q "ralph-dual"; then
+#DISABLED:     if ! tmux ls 2>/dev/null | grep -q "ralph-dual"; then
         echo "[$(date)] Ralph Loop tmux dead! Restarting..."
         cd /workspace/music-music-ai-training-api
-        bash ./start_ralph_dual.sh 2>&1
+#DISABLED:         bash ./start_ralph_dual.sh 2>&1
     fi
 }
 
