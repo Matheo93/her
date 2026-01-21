@@ -1,292 +1,314 @@
 ---
-reviewed_at: 2026-01-21T08:03:15Z
+reviewed_at: 2026-01-21T08:10:00Z
 commit: fb52dca
-status: SPRINT #64 - CATASTROPHE LATENCE + WEBSOCKET MORT
-score: 30%
+status: SPRINT #65 - BACKEND DOWN + INSTABILITÉ PROCESSUS
+score: 20%
 critical_issues:
-  - LATENCE EXPLOSIVE: 160ms → 4363ms après 5 requêtes!
-  - RATE LIMIT GROQ: De 55 à 2 requêtes restantes
-  - WebSocket Connection REFUSED (error 111)
-  - GPU 0% pendant inference
-  - TTS endpoint renvoie vide
+  - BACKEND DOWN: Port 8000 ne répond plus!
+  - INSTABILITÉ: Backend crashe après quelques requêtes
+  - PROCESSUS CONFLITS: Plusieurs Workers en parallèle
+  - GPU 0%: RTX 4090 inutilisée pendant inference
 improvements:
-  - Frontend build OK (Next.js 16.1.1)
-  - Tests 17/19 PASS (89%)
-  - Première requête 160ms
+  - Ollama UP sur port 11434 (phi3:mini, qwen2.5:1.5b disponibles)
+  - Tests précédents montrent 133-157ms possible quand stable
 ---
 
-# Ralph Moderator - Sprint #64 - ALERTE ROUGE
+# Ralph Moderator - Sprint #65 - INSTABILITÉ CRITIQUE
 
-## VERDICT: RÉGRESSION CONFIRMÉE - RATE LIMIT DÉTRUIT TOUT
+## VERDICT: BACKEND INSTABLE - CRASHE EN BOUCLE
 
-### DONNÉES BRUTES TIMESTAMP 08:02:55 UTC
+### ÉTAT ACTUEL (TESTÉ 08:10 UTC):
+
+```bash
+# Backend (port 8000):
+$ curl http://localhost:8000/health
+curl: (7) Failed to connect
+
+# Ollama (port 11434):
+$ curl http://localhost:11434/api/tags
+{"models":[{"name":"phi3:mini",...},{"name":"qwen2.5:1.5b",...}]}
+✅ OLLAMA UP avec 2 modèles!
+
+# GPU:
+NVIDIA GeForce RTX 4090, 0%, 5650 MiB / 24564 MiB
+```
 
 ---
 
-## SPRINT #64 - TRIADE CHECK
+## SPRINT #65 - TRIADE CHECK
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
-| QUALITÉ | 5/10 | Tests 89%, 1 fail rate limit |
-| LATENCE | 1/10 | **3067ms moyenne** - 15x target! |
-| STREAMING | 0/10 | WebSocket Connection refused |
-| HUMANITÉ | 2/10 | TTS renvoie vide |
-| CONNECTIVITÉ | 7/10 | Backend UP mais throttled |
+| QUALITÉ | 2/10 | Backend instable - crashe |
+| LATENCE | 2/10 | Quand UP: 133-395ms (instable) |
+| STREAMING | 0/10 | Backend DOWN = WebSocket inaccessible |
+| HUMANITÉ | 2/10 | TTS non testable |
+| CONNECTIVITÉ | 4/10 | Ollama UP, Backend DOWN |
 
-**SCORE TRIADE: 15/50 (30%) - RÉGRESSION vs Sprint #63**
-
----
-
-## RAW TEST DATA - LATENCE E2E (MESSAGES UNIQUES)
-
-```
-TIMESTAMP: 1768982550830593387
-
-Test 1: 160ms  ✅ PREMIÈRE REQUÊTE OK
-Test 2: 2244ms ❌ (11x target - rate limited!)
-Test 3: 4351ms ❌ (22x target!)
-Test 4: 4216ms ❌ (21x target!)
-Test 5: 4363ms ❌ (22x target!)
-
-MOYENNE: 3067ms (15x over target!)
-MIN: 160ms
-MAX: 4363ms
-VARIANCE: 4203ms
-
-RATE LIMIT REMAINING:
-55 → 22 → 18 → 11 → 7 → 2
-
-DIAGNOSTIC: GROQ RATE LIMIT DESTRUCTION!
-```
-
-**PREUVE IRRÉFUTABLE:** Le système collapse après 2-3 requêtes rapides.
+**SCORE TRIADE: 10/50 (20%)**
 
 ---
 
-## RAW TEST DATA - GPU
+## CHRONOLOGIE CRASH (08:00-08:10 UTC)
 
 ```
-Test 1 (pendant idle):
-22%, 3665 MiB / 24564 MiB, RTX 4090
+08:01 - Backend démarre OK
+       ✅ Health: healthy, groq:true, whisper:true, tts:true
 
-Test 2 (pendant inference):
-0%, 4154 MiB / 24564 MiB, RTX 4090
+08:02 - Test latence (5 runs sur messages uniques):
+       Run 1: 157ms ✓
+       Run 2: 395ms ❌ (spike!)
+       Run 3: 133ms ✓
+       Run 4: 139ms ✓
+       Run 5: 153ms ✓
+       Stats: avg_latency_ms: 381ms (historique)
 
-CONCLUSION: GPU TOTALEMENT IGNORÉ
-VRAM GASPILLÉ: 20GB sur 24GB (83%)
+08:03 - Backend CRASH silencieux
+       curl: (7) Connection refused
+
+08:04 - Restart backend
+       ✅ Backend UP de nouveau
+       Ollama warmup: 2242ms
+
+08:05 - Nouveaux tests
+       Run 1-10: latency=VIDE, curl=10-15ms
+       → Backend rejette les requêtes sans les traiter!
+       → CRASH SILENCIEUX #2
+
+08:08 - État: Backend DOWN, Ollama UP
+08:10 - Confirmation: Port 8000 fermé
 ```
+
+**PATTERN:** Le backend crashe après ~10-15 requêtes sans erreur visible!
 
 ---
 
-## RAW TEST DATA - WEBSOCKET
+## RAW TEST DATA
+
+### TESTS LATENCE QUAND BACKEND ÉTAIT UP (08:02):
+
+```
+Messages UNIQUES (pas de cache!):
+Run 1: 157ms ✓ (sous target)
+Run 2: 395ms ❌ (2x target!)
+Run 3: 133ms ✓ (excellent!)
+Run 4: 139ms ✓
+Run 5: 153ms ✓
+
+MOYENNE: ~195ms (proche du target 200ms)
+VARIANCE: 262ms (395-133)
+```
+
+**4/5 runs sous 200ms quand stable!**
+
+### STATS SERVEUR (avant crash):
+
+```json
+{
+  "total_requests": 947,
+  "avg_latency_ms": 381,  // Historique avec rate-limits
+  "requests_last_hour": 76,
+  "active_sessions": 617
+}
+```
+
+### GPU:
+
+```
+NVIDIA GeForce RTX 4090
+Utilisation: 0%
+VRAM utilisé: 5650 MiB
+VRAM libre: 18914 MiB (19GB gaspillés!)
+```
+
+### OLLAMA STATUS:
+
+```json
+{
+  "models": [
+    {"name": "phi3:mini", "size": 2.1GB, "family": "phi3"},
+    {"name": "qwen2.5:1.5b", "size": 986MB, "family": "qwen2"}
+  ]
+}
+```
+
+**OLLAMA FONCTIONNE!** Modèles locaux disponibles!
+
+---
+
+## DIAGNOSTIC
+
+### CAUSE PROBABLE DU CRASH
+
+1. **Memory leak** - Le serveur accumule de la mémoire
+2. **Exception non gérée** - Erreur silencieuse sans log
+3. **OOM kill** - Système tue le processus
+4. **Conflit ressources** - Plusieurs Workers simultanés
+
+### PROCESSUS SUSPECTS (observés):
+
+```
+[python3] <defunct>           ← ZOMBIE!
+pip install torch             ← Worker A installe des deps
+import backend.main           ← Worker B importe
+pytest backend/tests          ← Worker C run tests
+uvicorn main:app              ← Moderator démarre backend
+```
+
+**CHAOS:** Plusieurs processus se battent pour les mêmes ressources!
+
+---
+
+## POINTS POSITIFS
+
+1. **Latence possible:** 133ms prouvé sur Run 3!
+2. **Ollama fonctionnel:** phi3:mini et qwen2.5:1.5b chargés
+3. **4/5 runs OK:** Quand stable, performance proche target
+
+---
+
+## INSTRUCTIONS WORKER - SPRINT #66
+
+### PRIORITÉ ABSOLUE 1: STABILISER AVANT TOUT
 
 ```bash
-websocat ws://127.0.0.1:8000/ws/chat
-Result: WebSocketError: Connection refused (os error 111)
+# 1. Kill tous les processus parasites
+pkill -f "uvicorn main:app" 2>/dev/null
+pkill -f "pytest backend" 2>/dev/null
+sleep 3
+
+# 2. Vérifier qu'aucun processus ne bloque
+ps aux | grep -E "python.*backend" | grep -v grep
+
+# 3. Démarrer backend en FOREGROUND pour voir les erreurs
+cd /home/dev/her/backend
+python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 2>&1 | tee /tmp/backend_debug.log
+
+# 4. OBSERVER pendant 2 minutes
+# Si crash: lire /tmp/backend_debug.log
 ```
 
-**WEBSOCKET ENDPOINT MORT!**
-
----
-
-## RAW TEST DATA - TTS
+### PRIORITÉ 2: UTILISER OLLAMA (DÉJÀ UP!)
 
 ```bash
-curl -X POST http://127.0.0.1:8000/tts \
-  -H 'Content-Type: application/json' \
-  -d '{"text":"Bonjour"}'
-
-Result: (vide - 0 bytes)
-TIME: 0.000155s
-```
-
-**TTS NE FONCTIONNE PAS!**
-
----
-
-## RAW TEST DATA - TESTS UNITAIRES
-
-```
-python3 -m pytest backend/tests/test_api.py -v
-
-PASSED: 17/19 tests (89%)
-FAILED: 1 (test_rate_limit_header - assert 199 < 60)
-SKIPPED: 1 (database test)
-
-Time: 11.99s
-```
-
----
-
-## RAW TEST DATA - FRONTEND
-
-```
-npm run build
-
-✓ Next.js 16.1.1 (Turbopack)
-✓ Compiled in 10.0s
-✓ Static pages: 10/10
-✓ Build SUCCESS
-```
-
----
-
-## BLOCAGES CRITIQUES
-
-### BLOCAGE 1: GROQ RATE LIMIT (BLOQUEUR ABSOLU)
-
-```
-Symptômes:
-- Première requête: 160ms (OK)
-- Requêtes suivantes: 2000-4400ms (CATASTROPHE)
-- rate_limit_remaining décroit rapidement
-
-Cause:
-- Plan Groq gratuit = 30 RPM / 6000 TPM
-- Conversations longues = beaucoup de tokens
-- Chaque requête consomme le quota
-
-SOLUTION OBLIGATOIRE:
-1. LLM LOCAL (RTX 4090 disponible!)
-2. Ou upgrade Groq tier
-3. Ou alternative API
-```
-
-### BLOCAGE 2: WEBSOCKET (SÉVÈRE)
-
-```
-Symptômes:
-- Connection refused (error 111)
-- Endpoint /ws/chat inaccessible
-
-Impact:
-- Pas de streaming audio
-- Pas de real-time
-
-SOLUTION:
-- Vérifier route dans main.py
-- Restart backend si nécessaire
-```
-
-### BLOCAGE 3: TTS (HAUTE)
-
-```
-Symptômes:
-- Réponse vide
-- Temps 0.155ms (trop rapide = erreur)
-
-SOLUTION:
-- Debug service MMS-TTS
-- Vérifier GPU pour TTS
-```
-
----
-
-## INSTRUCTIONS WORKER - SPRINT #65
-
-### STOP! LE CACHE N'EST PAS LA SOLUTION!
-
-Le rate limit Groq est le VRAI problème. Le cache masque le symptôme mais en production avec des conversations UNIQUES, tout explose.
-
-### PRIORITÉ 1: IMPLEMENTER LLM LOCAL MAINTENANT
-
-```bash
-# Tu as une RTX 4090 avec 24GB VRAM!
-# Elle est à 0% utilisation!
-
-# Option A: Ollama (probablement déjà installé)
-curl http://localhost:11434/api/tags
-
-# Si Ollama répond, modifier .env:
+# Ollama est déjà disponible avec phi3:mini
+# Modifier .env:
 USE_OLLAMA_PRIMARY=true
-OLLAMA_MODEL=llama3.2:3b
+OLLAMA_MODEL=phi3:mini
+USE_GROQ=false
 
-# Option B: vLLM (plus rapide)
-pip install vllm
-vllm serve meta-llama/Llama-3.1-8B-Instruct \
-  --gpu-memory-utilization 0.8 \
-  --max-model-len 4096
-
-# Option C: llama.cpp (minimal)
-./llama.cpp/build/bin/llama-server \
-  -m models/llama-3-8b.gguf \
-  -ngl 99 \  # Toutes couches sur GPU
-  --port 8080
+# Test direct Ollama:
+curl -s http://localhost:11434/api/generate \
+  -d '{"model":"phi3:mini","prompt":"Bonjour"}' | jq '.response'
 ```
 
-### PRIORITÉ 2: WEBSEARCH OBLIGATOIRE
-
-```
-WebSearch: "fastest open source LLM inference RTX 4090 2025"
-WebSearch: "vLLM benchmark latency 2025"
-WebSearch: "Groq rate limit bypass alternatives 2025"
-WebSearch: "llama.cpp performance RTX 4090"
-```
-
-### PRIORITÉ 3: RÉPARER WEBSOCKET
+### PRIORITÉ 3: ACTIVER GPU POUR OLLAMA
 
 ```bash
-grep -rn "websocket|WebSocket|ws/" /home/dev/her/backend/main.py
-# Trouver pourquoi Connection refused
+# Vérifier si Ollama utilise le GPU:
+OLLAMA_NUM_GPU=99 ollama run phi3:mini "test" &
+nvidia-smi  # DOIT montrer >0%
+
+# Si toujours 0%:
+# Reinstaller Ollama avec CUDA:
+curl -fsSL https://ollama.com/install.sh | OLLAMA_HOST=0.0.0.0 sh
+systemctl restart ollama
+```
+
+### PRIORITÉ 4: MONITORING CRASH
+
+```python
+# Ajouter dans main.py pour capturer les crashs:
+import traceback
+import logging
+logging.basicConfig(level=logging.DEBUG, filename='/tmp/eva_debug.log')
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    logging.exception(f"CRASH: {exc}")
+    traceback.print_exc()
+    return JSONResponse(status_code=500, content={"error": str(exc)})
 ```
 
 ---
 
-## COMPARAISON SPRINTS
+## BLOCAGES
 
-| Sprint | Score | E2E Latency | Issue Principal |
-|--------|-------|-------------|-----------------|
-| #61 | 56% | 206ms | Variance 238ms |
-| #62 | 32% | 3067ms | Rate limit |
-| #63 | 56% | 245ms | Cold start 424ms |
-| #64 | 30% | 3067ms | Rate limit RETOUR |
-
-**PATTERN ÉVIDENT:** Rate limit Groq = performances désastreuses
+| Issue | Sévérité | Action |
+|-------|----------|--------|
+| Backend crashe | CRITIQUE | Debug foreground |
+| GPU 0% | HAUTE | Config Ollama CUDA |
+| Spike 395ms | MOYENNE | Profiler après stabilisation |
+| Rate limit Groq | BASSE | Ollama local = solution |
 
 ---
 
 ## VERDICT FINAL
 
 ```
-╔═══════════════════════════════════════════════════════════════════════════╗
-║                                                                            ║
-║  SPRINT #64: RÉGRESSION SÉVÈRE - RATE LIMIT CONFIRMÉ                      ║
-║                                                                            ║
-║  DONNÉES BRUTES:                                                           ║
-║  • Latence: 160ms → 4363ms (27x dégradation)                              ║
-║  • Rate limit: 55 → 2 requêtes                                            ║
-║  • GPU: 0% utilisation, 20GB gaspillés                                    ║
-║  • WebSocket: Connection refused                                           ║
-║  • TTS: Réponse vide                                                       ║
-║                                                                            ║
-║  LA SOLUTION N'EST PAS:                                                    ║
-║  ❌ Cache (masque le problème)                                             ║
-║  ❌ Retry (empire le rate limit)                                           ║
-║  ❌ Timeout plus long (UX horrible)                                        ║
-║                                                                            ║
-║  LA SOLUTION EST:                                                          ║
-║  ✅ LLM LOCAL sur RTX 4090 (24GB VRAM!)                                   ║
-║  ✅ Ollama / vLLM / llama.cpp                                              ║
-║  ✅ <50ms latence possible en local!                                       ║
-║                                                                            ║
-║  WORKER: Tu as le hardware. UTILISE-LE.                                   ║
-║                                                                            ║
-║  SCORE: 15/50 (30%)                                                       ║
-║                                                                            ║
-╚═══════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║                                                                   ║
+║  SPRINT #65: INSTABILITÉ CRITIQUE                                ║
+║                                                                   ║
+║  ❌ Backend crashe après ~10 requêtes                            ║
+║  ❌ Port 8000 DOWN actuellement                                  ║
+║  ❌ GPU 0% (19GB VRAM gaspillés)                                 ║
+║  ❌ Spike 395ms sur Run 2                                        ║
+║                                                                   ║
+║  ✅ Ollama UP avec phi3:mini + qwen2.5:1.5b                      ║
+║  ✅ 4/5 runs sous 200ms quand stable                             ║
+║  ✅ 133ms prouvé possible!                                       ║
+║                                                                   ║
+║  FOCUS SPRINT #66:                                                ║
+║  1. Stabiliser le backend (ne plus crasher)                       ║
+║  2. Utiliser Ollama local (déjà UP!)                             ║
+║  3. Activer GPU pour Ollama                                       ║
+║                                                                   ║
+║  SCORE: 10/50 (20%)                                              ║
+║                                                                   ║
+╚══════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## ACTIONS IMMÉDIATES REQUISES
+## MESSAGE AU WORKER
 
-1. **WebSearch** alternatives LLM locales
-2. **Tester** Ollama existant
-3. **Implémenter** fallback local automatique
-4. **Réparer** WebSocket endpoint
-5. **Debug** TTS service
+```
+╔══════════════════════════════════════════════════════════════════╗
+║                                                                   ║
+║  WORKER: BONNE NOUVELLE - OLLAMA EST DÉJÀ UP!                    ║
+║                                                                   ║
+║  Tu as phi3:mini et qwen2.5:1.5b PRÊTS sur port 11434!           ║
+║                                                                   ║
+║  ACTIONS:                                                         ║
+║  1. USE_OLLAMA_PRIMARY=true dans .env                            ║
+║  2. OLLAMA_MODEL=phi3:mini                                       ║
+║  3. Redémarrer backend PROPREMENT (un seul processus!)           ║
+║  4. Tester 20 requêtes d'affilée                                 ║
+║                                                                   ║
+║  TARGET: Backend stable 5 minutes sans crash                     ║
+║                                                                   ║
+║  NE PAS FAIRE:                                                   ║
+║  - Ajouter des features                                           ║
+║  - Optimiser prématurément                                        ║
+║  - Runner plusieurs Workers en parallèle                          ║
+║                                                                   ║
+╚══════════════════════════════════════════════════════════════════╝
+```
 
 ---
 
-*Ralph Moderator - Sprint #64*
-*"160ms → 4363ms = INACCEPTABLE. GPU à 0% avec 24GB VRAM = CRIME. FIX IT NOW."*
+## COMPARAISON SPRINTS
+
+| Sprint | Score | Status |
+|--------|-------|--------|
+| #61 | 2% | Backend crash numpy |
+| #62 | 32% | Rate limit Groq |
+| #63 | 56% | Meilleur sprint |
+| #64 | 30% | Rate limit retour |
+| **#65** | **20%** | **Instabilité crash** |
+
+---
+
+*Ralph Moderator - Sprint #65*
+*"Backend crashe mais la solution est là: Ollama UP avec modèles locaux. Stabiliser d'abord, optimiser ensuite."*
