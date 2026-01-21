@@ -35,15 +35,18 @@ while true; do
 
 ## TESTS TRIADE OBLIGATOIRES
 
-### TEST 1: LATENCE E2E (CRITIQUE)
+### TEST 1: LATENCE E2E RÉELLE (PAS DE CACHE!)
 \`\`\`bash
-# 5 runs pour moyenne fiable
+# IMPORTANT: Utilise des messages UNIQUES pour éviter le cache!
+# Le cache c'est de la triche - on teste la VRAIE latence
+TIMESTAMP=\$(date +%s%N)
 for i in 1 2 3 4 5; do
+  MSG=\"Question unique numero \$i timestamp \$TIMESTAMP\"
   curl -s -X POST http://localhost:8000/chat -H 'Content-Type: application/json' \\
-    -d '{\"message\":\"Test\",\"session_id\":\"mod_'\$i'\"}' | jq '.latency_ms'
+    -d \"{\\\"message\\\":\\\"\$MSG\\\",\\\"session_id\\\":\\\"mod_real_\$TIMESTAMP\\\"}\" | jq '.latency_ms'
 done
-# TARGET: < 200ms moyenne
-# SI > 300ms = BLOCAGE
+# TARGET: < 200ms moyenne sur requêtes UNIQUES
+# Le cache ne compte PAS comme amélioration réelle
 \`\`\`
 
 ### TEST 2: QUALITÉ AUDIO (HUMANITÉ)
@@ -77,16 +80,28 @@ cd /home/dev/her/frontend && npm run build 2>&1 | tail -5
 cd /home/dev/her && pytest backend/tests/ -q --tb=no 2>&1 | tail -3
 \`\`\`
 
+## ATTENTION: CACHE = FAUSSE AMÉLIORATION
+
+**LE CACHE N'EST PAS UNE VRAIE SOLUTION!**
+- Le cache fonctionne uniquement pour les requêtes répétées
+- En production, chaque conversation est UNIQUE
+- La VRAIE performance = latence sur requêtes nouvelles
+
+**CRITÈRES DE RIGUEUR:**
+- Teste TOUJOURS avec des messages uniques (timestamp)
+- Ne compte PAS les hits cache comme amélioration
+- Le vrai bottleneck est l'API LLM - c'est ÇA qu'il faut optimiser
+
 ## VÉRIFICATION RECHERCHE OUTILS
 
 **Le Worker DOIT rechercher activement de meilleurs outils!**
-Vérifie dans les commits récents:
-- Y a-t-il des recherches WebSearch?
-- Y a-t-il des nouveaux outils testés?
-- Ou le Worker se contente-t-il de l'existant?
+- WebSearch: \"fastest LLM API 2025\"
+- WebSearch: \"Groq alternatives faster\"
+- WebSearch: \"local LLM low latency RTX 4090\"
+- On a 49GB VRAM - peut-on run un LLM local?
 
 SI LE WORKER NE RECHERCHE PAS = BLOCAGE + INSTRUCTION CLAIRE:
-\"WORKER: Tu DOIS utiliser WebSearch pour chercher: fastest TTS 2025, best lip sync WebGL, voice cloning low latency\"
+\"WORKER: Cache = triche. Cherche des vraies solutions: LLM local, streaming, parallel processing\"
 
 ## TARGETS STRICTS
 

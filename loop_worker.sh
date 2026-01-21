@@ -83,15 +83,28 @@ SI TU ES BLOQUÉ:
 - 32 CPUs, 251GB RAM
 - Backend: http://localhost:8000
 
-## TARGETS STRICTS
+## ATTENTION: CACHE = SOLUTION FACILE, PAS VRAIE SOLUTION
 
-| Composant | Target | Actuel | Action |
-|-----------|--------|--------|--------|
-| STT | < 50ms | ~16ms | ✅ Maintenir |
-| LLM | < 100ms | ~300ms | Optimiser prompt |
-| TTS | < 50ms | ~70ms | Chercher mieux |
-| Avatar | 60 FPS | ? | Mesurer |
-| E2E | < 200ms | ~400ms | AMÉLIORER |
+**Le cache c'est de la triche!**
+- En production, chaque message utilisateur est UNIQUE
+- Le cache ne fonctionne que pour les requêtes répétées
+- Tu DOIS optimiser la VRAIE latence LLM
+
+**VRAIES SOLUTIONS À EXPLORER:**
+1. LLM local sur RTX 4090 (49GB VRAM!) - Llama 70B peut tourner
+2. Streaming token par token (TTFT au lieu de latence totale)
+3. Réduire la taille du prompt/contexte
+4. Utiliser un modèle plus petit mais rapide
+5. Paralléliser les appels (LLM + TTS en même temps)
+
+## TARGETS STRICTS (SUR REQUÊTES UNIQUES!)
+
+| Composant | Target | Note |
+|-----------|--------|------|
+| STT | < 50ms | OK |
+| LLM | < 100ms | LE BOTTLENECK - API externe |
+| TTS | < 50ms | OK avec GPU |
+| E2E | < 200ms | Sur messages UNIQUES |
 
 ## PROCESS OBLIGATOIRE
 
