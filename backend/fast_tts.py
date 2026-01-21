@@ -8,6 +8,7 @@ import numpy as np
 import io
 import time
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor
 import scipy.io.wavfile as wav
 
 # Global model instances
@@ -16,6 +17,9 @@ _tokenizer = None
 _device = None
 _sample_rate = 16000
 _initialized = False
+
+# Dedicated thread pool for TTS to avoid executor startup overhead
+_tts_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="tts")
 
 
 def init_fast_tts() -> bool:
@@ -136,15 +140,17 @@ def fast_tts_mp3(text: str) -> Optional[bytes]:
 
 
 async def async_fast_tts(text: str) -> Optional[bytes]:
-    """Async wrapper for fast_tts"""
+    """Async wrapper for fast_tts using dedicated thread pool"""
     import asyncio
-    return await asyncio.get_event_loop().run_in_executor(None, fast_tts, text)
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(_tts_executor, fast_tts, text)
 
 
 async def async_fast_tts_mp3(text: str) -> Optional[bytes]:
-    """Async wrapper for fast_tts_mp3"""
+    """Async wrapper for fast_tts_mp3 using dedicated thread pool"""
     import asyncio
-    return await asyncio.get_event_loop().run_in_executor(None, fast_tts_mp3, text)
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(_tts_executor, fast_tts_mp3, text)
 
 
 if __name__ == "__main__":

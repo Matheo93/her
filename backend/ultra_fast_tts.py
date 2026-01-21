@@ -162,10 +162,11 @@ def ultra_fast_tts(text: str, speed: float = 1.0) -> Optional[bytes]:
 
 
 async def async_ultra_fast_tts(text: str, speed: float = 1.0) -> Optional[bytes]:
-    """Async wrapper for ultra_fast_tts"""
+    """Async wrapper for ultra_fast_tts using dedicated thread pool"""
     import asyncio
+    from fast_tts import _tts_executor
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, ultra_fast_tts, text, speed)
+    return await loop.run_in_executor(_tts_executor, ultra_fast_tts, text, speed)
 
 
 def benchmark():

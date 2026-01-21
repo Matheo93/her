@@ -234,17 +234,19 @@ def gpu_tts_mp3(text: str, speed: float = 1.0) -> Optional[bytes]:
 
 
 async def async_gpu_tts(text: str, speed: float = 1.0) -> Optional[bytes]:
-    """Async wrapper for gpu_tts (WAV format)"""
+    """Async wrapper for gpu_tts (WAV format) using dedicated thread pool"""
     import asyncio
+    from fast_tts import _tts_executor
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, gpu_tts, text, speed)
+    return await loop.run_in_executor(_tts_executor, gpu_tts, text, speed)
 
 
 async def async_gpu_tts_mp3(text: str, speed: float = 1.0) -> Optional[bytes]:
-    """Async wrapper for gpu_tts_mp3 (MP3 format)"""
+    """Async wrapper for gpu_tts_mp3 (MP3 format) using dedicated thread pool"""
     import asyncio
+    from fast_tts import _tts_executor
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, gpu_tts_mp3, text, speed)
+    return await loop.run_in_executor(_tts_executor, gpu_tts_mp3, text, speed)
 
 
 def benchmark():
