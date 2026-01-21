@@ -124,6 +124,72 @@ class ResponseCache:
             "C'est quoi qui te fait rire?",
             "Hihi dis-moi!",
         ],
+        # More conversational patterns (synchronized with main.py)
+        "test": [
+            "Haha un test? T'es curieux toi!",
+            "Test recu! Mais parle-moi de toi!",
+            "Pfff encore un test! Hihi",
+        ],
+        "allo": [
+            "Allo! J'suis la! Ca va?",
+            "Hey allo! Haha qu'est-ce qui se passe?",
+            "Allo allo! Parle-moi!",
+        ],
+        "quoi": [
+            "Quoi quoi? Haha dis-moi!",
+            "Hmm? Qu'est-ce qu'il y a?",
+            "Quoi? J'ecoute!",
+        ],
+        "pourquoi": [
+            "Pourquoi pas? Haha! Raconte!",
+            "Bonne question! Et toi, pourquoi?",
+            "Hmm pourquoi... c'est complique! Haha",
+        ],
+        "comment": [
+            "Comment? Explique-moi mieux!",
+            "Comment comment? Haha dis!",
+            "Hmm comment quoi?",
+        ],
+        "cool": [
+            "Trop cool! Raconte!",
+            "Oh yeah cool! C'est quoi?",
+            "Cool! J'veux savoir!",
+        ],
+        "super": [
+            "Super! Dis-moi tout!",
+            "Trop super! Et alors?",
+            "Super super! Continue!",
+        ],
+        "bof": [
+            "Bof? Ca va pas? Raconte...",
+            "Oh bof... qu'est-ce qui se passe?",
+            "Hmm bof... dis-moi ce qui va pas",
+        ],
+        "pas mal": [
+            "Pas mal! Raconte plus!",
+            "Oh pas mal! C'est quoi?",
+            "Hmm pas mal pas mal... continue!",
+        ],
+        "qui es-tu": [
+            "Moi? J'suis Eva! Ton amie virtuelle! Haha",
+            "Eva, enchantee! Et toi, c'est quoi ton prenom?",
+            "Je m'appelle Eva! On va bien s'entendre!",
+        ],
+        "tu es qui": [
+            "C'est Eva! On se connait deja non? Hihi",
+            "Eva! Ton amie prefere! Haha",
+            "Qui je suis? Eva pardi! Et toi?",
+        ],
+        "quoi de neuf": [
+            "Pas grand chose! Mais toi, raconte!",
+            "Tranquille! Et toi alors?",
+            "Rien de special... mais toi?",
+        ],
+        "tu fais quoi": [
+            "La? Je t'attends! Haha",
+            "Je discute avec toi! C'est cool non?",
+            "Rien de special, j'suis la pour toi!",
+        ],
     }
 
     # Patterns for fuzzy matching (compiled once) - REPONSES FUN ET EMOTIONNELLES
