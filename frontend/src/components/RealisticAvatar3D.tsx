@@ -350,8 +350,9 @@ function RealisticHead({
     const headSwayY = Math.sin(microMovementPhase.current * 0.5) * 0.008 + idleShift;
     const headSwayZ = Math.sin(microMovementPhase.current * 0.4) * 0.005;
 
-    // Base rotation offset to face camera (negative X tilts head back to show face)
-    const baseFaceOffset = -0.5; // ~29 degrees - natural face-forward position
+    // Base rotation offset: 0 = face directly toward camera (no tilt)
+    // In Three.js with camera at z=2.5 looking at origin, face should already point toward camera
+    const baseFaceOffset = 0; // No rotation needed - face geometry is toward +Z
     headRef.current.rotation.x = baseFaceOffset + headSwayX + smoothedExpression.current.headTilt;
     headRef.current.rotation.y = headSwayY;
     headRef.current.rotation.z = headSwayZ;
@@ -637,110 +638,110 @@ function RealisticHead({
 
       {/* Nose - with ref for micro-animations */}
       <group ref={noseRef}>
-        <mesh position={[0, -0.05, 0.45]} material={skinMaterial}>
+        <mesh position={[0, -0.05, 0.58]} material={skinMaterial}>
           <coneGeometry args={[0.06, 0.12, 16]} />
         </mesh>
-        <mesh position={[0, -0.1, 0.48]} material={skinMaterial}>
+        <mesh position={[0, -0.1, 0.62]} material={skinMaterial}>
           <sphereGeometry args={[0.04, 16, 16]} />
         </mesh>
         {/* Nostrils - subtle definition */}
-        <mesh position={[-0.02, -0.11, 0.47]}>
+        <mesh position={[-0.02, -0.11, 0.61]}>
           <sphereGeometry args={[0.012, 8, 8]} />
           <meshBasicMaterial color="#8B6B5A" />
         </mesh>
-        <mesh position={[0.02, -0.11, 0.47]}>
+        <mesh position={[0.02, -0.11, 0.61]}>
           <sphereGeometry args={[0.012, 8, 8]} />
           <meshBasicMaterial color="#8B6B5A" />
         </mesh>
       </group>
 
       {/* Left eye socket */}
-      <group ref={leftEyeRef} position={[-0.15, 0.1, 0.35]}>
+      <group ref={leftEyeRef} position={[-0.15, 0.1, 0.50]}>
         {/* Eyeball */}
         <mesh>
           <sphereGeometry args={[0.06, 32, 32]} />
           <meshStandardMaterial color="#FFFEF8" roughness={0.1} />
         </mesh>
         {/* Iris - warm amber-brown */}
-        <mesh position={[0, 0, 0.045]}>
+        <mesh position={[0, 0, 0.058]}>
           <circleGeometry args={[0.035, 32]} />
           <meshStandardMaterial color="#5C4033" roughness={0.3} />
         </mesh>
         {/* Iris detail ring */}
-        <mesh position={[0, 0, 0.046]}>
+        <mesh position={[0, 0, 0.059]}>
           <ringGeometry args={[0.025, 0.034, 32]} />
           <meshStandardMaterial color="#8B6914" roughness={0.4} transparent opacity={0.5} />
         </mesh>
         {/* Pupil - dilates with emotion */}
-        <mesh ref={leftPupilRef} position={[0, 0, 0.05]}>
+        <mesh ref={leftPupilRef} position={[0, 0, 0.061]}>
           <circleGeometry args={[0.015, 32]} />
           <meshBasicMaterial color="#0A0A0A" />
         </mesh>
         {/* Eye highlight - makes eyes look alive */}
-        <mesh position={[0.015, 0.015, 0.055]}>
+        <mesh position={[0.015, 0.015, 0.063]}>
           <circleGeometry args={[0.008, 16]} />
           <meshBasicMaterial color="#FFFFFF" />
         </mesh>
         {/* Secondary smaller highlight */}
-        <mesh position={[-0.008, -0.01, 0.054]}>
+        <mesh position={[-0.008, -0.01, 0.062]}>
           <circleGeometry args={[0.004, 16]} />
           <meshBasicMaterial color="#FFFFFF" transparent opacity={0.6} />
         </mesh>
       </group>
 
       {/* Right eye socket */}
-      <group ref={rightEyeRef} position={[0.15, 0.1, 0.35]}>
+      <group ref={rightEyeRef} position={[0.15, 0.1, 0.50]}>
         <mesh>
           <sphereGeometry args={[0.06, 32, 32]} />
           <meshStandardMaterial color="#FFFEF8" roughness={0.1} />
         </mesh>
         {/* Iris - warm amber-brown */}
-        <mesh position={[0, 0, 0.045]}>
+        <mesh position={[0, 0, 0.058]}>
           <circleGeometry args={[0.035, 32]} />
           <meshStandardMaterial color="#5C4033" roughness={0.3} />
         </mesh>
         {/* Iris detail ring */}
-        <mesh position={[0, 0, 0.046]}>
+        <mesh position={[0, 0, 0.059]}>
           <ringGeometry args={[0.025, 0.034, 32]} />
           <meshStandardMaterial color="#8B6914" roughness={0.4} transparent opacity={0.5} />
         </mesh>
         {/* Pupil - dilates with emotion */}
-        <mesh ref={rightPupilRef} position={[0, 0, 0.05]}>
+        <mesh ref={rightPupilRef} position={[0, 0, 0.061]}>
           <circleGeometry args={[0.015, 32]} />
           <meshBasicMaterial color="#0A0A0A" />
         </mesh>
         {/* Eye highlight */}
-        <mesh position={[0.015, 0.015, 0.055]}>
+        <mesh position={[0.015, 0.015, 0.063]}>
           <circleGeometry args={[0.008, 16]} />
           <meshBasicMaterial color="#FFFFFF" />
         </mesh>
         {/* Secondary smaller highlight */}
-        <mesh position={[-0.008, -0.01, 0.054]}>
+        <mesh position={[-0.008, -0.01, 0.062]}>
           <circleGeometry args={[0.004, 16]} />
           <meshBasicMaterial color="#FFFFFF" transparent opacity={0.6} />
         </mesh>
       </group>
 
       {/* Left eyelid */}
-      <mesh ref={leftLidRef} position={[-0.15, 0.16, 0.38]}>
+      <mesh ref={leftLidRef} position={[-0.15, 0.16, 0.53]}>
         <boxGeometry args={[0.14, 0.02, 0.04]} />
         <meshStandardMaterial color="#E8B4A0" />
       </mesh>
 
       {/* Right eyelid */}
-      <mesh ref={rightLidRef} position={[0.15, 0.16, 0.38]}>
+      <mesh ref={rightLidRef} position={[0.15, 0.16, 0.53]}>
         <boxGeometry args={[0.14, 0.02, 0.04]} />
         <meshStandardMaterial color="#E8B4A0" />
       </mesh>
 
       {/* Left eyebrow */}
-      <mesh ref={leftEyebrowRef} position={[-0.15, 0.22, 0.4]}>
+      <mesh ref={leftEyebrowRef} position={[-0.15, 0.22, 0.55]}>
         <capsuleGeometry args={[0.015, 0.1, 4, 8]} />
         <meshStandardMaterial color="#6B4423" />
       </mesh>
 
       {/* Right eyebrow */}
-      <mesh ref={rightEyebrowRef} position={[0.15, 0.22, 0.4]} rotation={[0, 0, 0]}>
+      <mesh ref={rightEyebrowRef} position={[0.15, 0.22, 0.55]} rotation={[0, 0, 0]}>
         <capsuleGeometry args={[0.015, 0.1, 4, 8]} />
         <meshStandardMaterial color="#6B4423" />
       </mesh>
@@ -748,29 +749,29 @@ function RealisticHead({
       {/* Jaw/Lower face */}
       <group ref={jawRef}>
         {/* Lower lip */}
-        <mesh ref={mouthRef} position={[0, -0.22, 0.42]} material={lipMaterial}>
+        <mesh ref={mouthRef} position={[0, -0.15, 0.55]} material={lipMaterial}>
           <torusGeometry args={[0.06, 0.02, 16, 32, Math.PI]} />
         </mesh>
 
         {/* Upper lip */}
-        <mesh position={[0, -0.18, 0.42]} material={lipMaterial} rotation={[Math.PI, 0, 0]}>
+        <mesh position={[0, -0.11, 0.55]} material={lipMaterial} rotation={[Math.PI, 0, 0]}>
           <torusGeometry args={[0.055, 0.015, 16, 32, Math.PI]} />
         </mesh>
 
         {/* Inside mouth (dark) */}
-        <mesh position={[0, -0.2, 0.38]}>
+        <mesh position={[0, -0.13, 0.50]}>
           <sphereGeometry args={[0.04, 16, 16]} />
           <meshBasicMaterial color="#3A1A1A" />
         </mesh>
 
         {/* Chin */}
-        <mesh position={[0, -0.35, 0.3]} material={skinMaterial}>
-          <sphereGeometry args={[0.15, 32, 32]} />
+        <mesh position={[0, -0.28, 0.42]} material={skinMaterial}>
+          <sphereGeometry args={[0.10, 32, 32]} />
         </mesh>
       </group>
 
       {/* Cheeks with subtle blush - refs for Duchenne smile */}
-      <mesh ref={leftCheekRef} position={[-0.25, -0.05, 0.35]}>
+      <mesh ref={leftCheekRef} position={[-0.22, 0.0, 0.48]}>
         <sphereGeometry args={[0.12, 16, 16]} />
         <meshStandardMaterial
           color="#F0A090"
@@ -778,7 +779,7 @@ function RealisticHead({
           opacity={0.3}
         />
       </mesh>
-      <mesh ref={rightCheekRef} position={[0.25, -0.05, 0.35]}>
+      <mesh ref={rightCheekRef} position={[0.22, 0.0, 0.48]}>
         <sphereGeometry args={[0.12, 16, 16]} />
         <meshStandardMaterial
           color="#F0A090"
@@ -788,11 +789,11 @@ function RealisticHead({
       </mesh>
 
       {/* Dimples - appear when smiling genuinely */}
-      <mesh ref={leftDimpleRef} position={[-0.22, -0.15, 0.4]} scale={0}>
+      <mesh ref={leftDimpleRef} position={[-0.18, -0.08, 0.52]} scale={0}>
         <sphereGeometry args={[0.02, 8, 8]} />
         <meshStandardMaterial color="#D4A090" />
       </mesh>
-      <mesh ref={rightDimpleRef} position={[0.22, -0.15, 0.4]} scale={0}>
+      <mesh ref={rightDimpleRef} position={[0.18, -0.08, 0.52]} scale={0}>
         <sphereGeometry args={[0.02, 8, 8]} />
         <meshStandardMaterial color="#D4A090" />
       </mesh>
