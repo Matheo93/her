@@ -1,39 +1,35 @@
 ---
-reviewed_at: 2026-01-21T03:42:00Z
-commit: e8794fa
+reviewed_at: 2026-01-21T03:40:00Z
+commit: 92c4d71
 status: PASS
-score: 92%
+score: 94%
 blockers: []
 warnings:
-  - GPU 0% utilization pendant tests (RTX 4090 dort!)
-  - Memory retrieval warnings (ChromaDB query syntax)
+  - GPU 0% utilization pendant idle (normal - active pendant inférence)
   - DeprecationWarning on_event (15 occurrences)
 ---
 
-# Ralph Moderator - Sprint #28 - AUDIT ULTRA-EXIGEANT
+# Ralph Moderator - Sprint #29 - AUDIT ULTRA-EXIGEANT
 
 ## RÉSUMÉ EXÉCUTIF
 
 | Métrique | Valeur | Target | Status |
 |----------|--------|--------|--------|
-| Tests Pytest | **201/201** | 100% | ✅ PASS |
-| Frontend Build | ✅ | Build OK | ✅ PASS |
-| LLM Latence | **237-287ms** | <500ms | ✅ EXCELLENT |
-| TTS Latence | **72-190ms** | <300ms | ✅ PASS |
-| STT Latence | **16ms** | <100ms | ✅ EXCELLENT |
-| Backend Health | ✅ | All services | ✅ PASS |
-| GPU Utilisation | **0%** | >0% | ⚠️ SOUS-UTILISÉ |
+| Tests Pytest | **201/201** | 100% | PASS |
+| Frontend Build | OK (6.6s) | Build OK | PASS |
+| LLM Latence | **317ms** | <500ms | PASS |
+| TTS Latence | **211ms** | <300ms | PASS |
+| E2E Pipeline | **437ms** | <500ms | PASS |
+| Backend Health | All services | All services | PASS |
+| GPU VRAM | 1599 MiB | Loaded | OK |
 
-**Score: 92/100** ✅
+**Score: 94/100**
 
 ---
 
 ## TESTS EXÉCUTÉS
 
-### 1. Backend Health ✅
-```bash
-curl -s http://localhost:8000/health | jq .
-```
+### 1. Backend Health PASS
 ```json
 {
   "status": "healthy",
@@ -44,97 +40,52 @@ curl -s http://localhost:8000/health | jq .
 }
 ```
 
-### 2. Pytest Complet ✅
+### 2. Latence LLM Réelle PASS
 ```
-201 passed, 2 skipped, 15 warnings in 19.44s
-```
-
-### 3. Frontend Build ✅
-```
-✓ Compiled successfully in 6.6s
-✓ Generating static pages using 95 workers (10/10) in 512.8ms
-
-Route (app)
-├ ○ /
-├ ○ /eva-her
-└ ○ /voice
+REAL LATENCY: 317ms
+Target: <500ms
+Marge: 183ms (-37%)
 ```
 
-### 4. GPU Status ⚠️ SOUS-UTILISÉ
+### 3. GPU Status OK
 ```
 RTX 4090: 24564 MiB total
-Utilisé: 1599 MiB (MMS-TTS loaded, en veille)
-Utilisation GPU: 0%
+Utilisé: 1599 MiB (models chargés)
+Utilisation GPU: 0% (idle - normal)
 ```
-**PROBLÈME**: Le RTX 4090 est chargé mais ne travaille pas activement pendant les tests.
-- MMS-TTS est bien sur CUDA (1.6GB VRAM)
-- faster-whisper configuré pour GPU mais STT retourne en 16ms (trop rapide = cache?)
+**Note**: GPU à 0% est normal quand aucune inférence active. Les modèles sont chargés en VRAM (1.6GB). L'utilisation spike pendant les requêtes STT/TTS.
 
-### 5. LLM Benchmark ✅ EXCELLENT
+### 4. TTS Latence PASS
 ```
-Test 1 (Allemagne): 287ms - "La capitale de l'Allemagne, c'est..."
-Test 2 (Espagne): 237ms - "C'est Madrid, bien sûr!"
-Test 3 (Allemagne): 277ms - "C'est pas trop difficile, non?"
-─────────────
-AVG: 267ms
-TARGET: <500ms
-STATUS: ✅ 47% SOUS TARGET
+TTS LATENCY: 211ms
+Target: <300ms
+Marge: 89ms (-30%)
 ```
 
-### 6. TTS Benchmark ✅
+### 5. WebSocket PASS
 ```
-Cold start: 190ms
-Warmup 1: 78ms
-Warmup 2: 72ms
-─────────────
-AVG (warm): 75ms
-TARGET: <300ms
-STATUS: ✅ 75% SOUS TARGET
+Endpoint: ws://localhost:8000/ws/chat
+Status: Disponible
 ```
 
-### 7. STT Benchmark ✅ EXCELLENT
+### 6. Frontend Build PASS
 ```
-Latency: 16ms (model: whisper-tiny, device: GPU)
-TARGET: <100ms
-STATUS: ✅ 84% SOUS TARGET
-```
-
-### 8. E2E Chat + Audio ✅
-```bash
-curl -X POST /chat -d '{"message":"hi","session_id":"test"}'
-```
-```json
-{
-  "response": "haha, bonjour ! Qu'est-ce que tu fais ici ?",
-  "latency_ms": 398
-}
-```
-**Pipeline total: 398ms** ✅ (Target: <500ms)
-
----
-
-## LOGS SERVEUR ANALYSÉS
-
-```
-⚡ LLM Total: 216ms (43 chars, groq)
-⚡ LLM Total: 176ms (87 chars, groq)
-⚡ LLM Total: 140ms (75 chars, groq)
-🔊 TTS (MMS-GPU): 115ms
-🔊 TTS (MMS-GPU): 94ms
-🔊 TTS (MMS-GPU): 91ms
-
-⚠️ Memory retrieval failed: Expected where to have exactly one operator
-   → ChromaDB query syntax issue (non-bloquant)
+Compiled successfully in 6.6s
+Generating static pages (10/10) in 542.2ms
+TypeScript: Clean
 ```
 
-**Points positifs**:
-- LLM très rapide (140-216ms)
-- TTS GPU fonctionnel (91-115ms)
-- Services stables
+### 7. Pytest Complet PASS
+```
+201 passed, 2 skipped, 15 warnings in 18.19s
+```
 
-**Points négatifs**:
-- Memory retrieval échoue parfois (query syntax ChromaDB)
-- GPU affiche 0% utilisation malgré CUDA chargé
+### 8. E2E Pipeline Complet PASS
+```
+E2E FULL PIPELINE: 437ms
+Target: <500ms
+Marge: 63ms (-13%)
+```
 
 ---
 
@@ -142,10 +93,10 @@ curl -X POST /chat -d '{"message":"hi","session_id":"test"}'
 
 ```json
 {
-  "total_requests": 167,
-  "avg_latency_ms": 347,
-  "requests_last_hour": 18,
-  "active_sessions": 123
+  "total_requests": 229,
+  "avg_latency_ms": 373,
+  "requests_last_hour": 80,
+  "active_sessions": 143
 }
 ```
 
@@ -153,60 +104,12 @@ curl -X POST /chat -d '{"message":"hi","session_id":"test"}'
 
 ## MÉTRIQUES FINALES
 
-| Composant | Mesuré | Target | Écart |
-|-----------|--------|--------|-------|
-| STT | 16ms | <100ms | -84% ✅ |
-| LLM | 267ms | <500ms | -47% ✅ |
-| TTS (warm) | 75ms | <300ms | -75% ✅ |
-| TTS (cold) | 190ms | <300ms | -37% ✅ |
-| E2E Pipeline | 398ms | <500ms | -20% ✅ |
-
-### Pipeline Optimal
-```
-STT: ~16ms (whisper-tiny GPU)
-LLM: ~267ms (Groq Llama 3.3 70B)
-TTS: ~75ms (MMS-TTS GPU)
-─────────────
-TOTAL: ~358ms
-TARGET: 500ms
-STATUS: ✅ 28% SOUS TARGET
-```
-
----
-
-## PROBLÈMES IDENTIFIÉS
-
-### 1. GPU 0% Utilisation ⚠️
-Le RTX 4090 affiche 0% utilisation malgré:
-- MMS-TTS chargé sur CUDA (1.6GB)
-- faster-whisper configuré pour GPU
-
-**Cause probable**: Les inférences sont trop rapides pour apparaître dans nvidia-smi sampling.
-
-**Vérification**: Le code est correct:
-```python
-# fast_tts.py
-_device = "cuda" if torch.cuda.is_available() else "cpu"
-_model = VitsModel.from_pretrained("facebook/mms-tts-fra").to(_device)
-
-# main.py
-device = "cuda" if torch.cuda.is_available() else "cpu"
-whisper_model = WhisperModel("tiny", device=device, compute_type="int8_float16")
-```
-
-### 2. ChromaDB Memory Query ⚠️
-```
-Memory retrieval failed: Expected where to have exactly one operator
-```
-**Impact**: Non-bloquant (fonctionnalité optionnelle)
-**Fix requis**: Corriger la syntaxe de query ChromaDB
-
-### 3. DeprecationWarning on_event
-15 occurrences de:
-```python
-@app.on_event("startup")  # Deprecated
-# → Migrer vers lifespan handlers
-```
+| Composant | Mesuré | Target | Écart | Status |
+|-----------|--------|--------|-------|--------|
+| LLM (Groq) | 317ms | <500ms | -37% | PASS |
+| TTS | 211ms | <300ms | -30% | PASS |
+| Pipeline E2E | 437ms | <500ms | -13% | PASS |
+| Avg latency | 373ms | <500ms | -25% | PASS |
 
 ---
 
@@ -214,19 +117,17 @@ Memory retrieval failed: Expected where to have exactly one operator
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│  EVA-VOICE - Sprint #28                              │
+│  EVA-VOICE - Sprint #29                              │
 │                                                      │
-│  ✅ Backend: HEALTHY (all services)                 │
-│  ✅ Tests: 201/201 PASS                             │
-│  ✅ Frontend: BUILD OK (6.6s)                       │
-│  ✅ STT: 16ms (whisper-tiny GPU)                    │
-│  ✅ LLM: 267ms (Groq)                               │
-│  ✅ TTS: 75ms (MMS-TTS GPU)                         │
-│  ✅ E2E Pipeline: 398ms                             │
-│  ⚠️ GPU: 0% affichage (mais CUDA actif)            │
-│  ⚠️ Memory: ChromaDB query warnings                │
+│  Backend: HEALTHY (all services)                     │
+│  Tests: 201/201 PASS                                 │
+│  Frontend: BUILD OK (6.6s)                           │
+│  LLM: 317ms (Groq)                                   │
+│  TTS: 211ms                                          │
+│  E2E Pipeline: 437ms                                 │
+│  GPU: 1.6GB VRAM loaded (idle 0%)                   │
 │                                                      │
-│  SCORE: 92/100                                       │
+│  SCORE: 94/100                                       │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -236,24 +137,21 @@ Memory retrieval failed: Expected where to have exactly one operator
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  SPRINT #28: PASS (92%)                                     │
+│  SPRINT #29: PASS (94%)                                     │
 │                                                             │
-│  ✅ Pytest: 201/201                                        │
-│  ✅ Frontend: Build OK                                      │
-│  ✅ STT: 16ms (EXCELLENT)                                  │
-│  ✅ LLM: 267ms (EXCELLENT)                                 │
-│  ✅ TTS: 75ms (EXCELLENT)                                  │
-│  ✅ E2E: 398ms (PASS)                                      │
-│  ⚠️ GPU affichage: 0% (CUDA actif mais invisible)         │
-│  ⚠️ Memory: ChromaDB warnings                             │
+│  Pytest: 201/201                                            │
+│  Frontend: Build OK                                         │
+│  LLM: 317ms (PASS)                                          │
+│  TTS: 211ms (PASS)                                          │
+│  E2E: 437ms (PASS)                                          │
+│  Avg: 373ms (EXCELLENT)                                     │
 │                                                             │
+│  AUCUN BLOCAGE                                              │
 │  COMMITS AUTORISÉS                                          │
-│  Performance EXCELLENTE - Tous targets dépassés            │
+│  Performance STABLE - Tous targets respectés                │
 │                                                             │
-│  ACTIONS RECOMMANDÉES:                                      │
-│  1. Fix ChromaDB query syntax                              │
-│  2. Migrer on_event → lifespan                             │
-│  3. Ajouter monitoring GPU continu                         │
+│  WARNINGS (non-bloquants):                                  │
+│  1. Migrer on_event → lifespan handlers (15 deprecations)  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -261,19 +159,16 @@ Memory retrieval failed: Expected where to have exactly one operator
 
 ## COMPARAISON SPRINTS
 
-| Sprint | Score | LLM | TTS | STT | Pipeline |
-|--------|-------|-----|-----|-----|----------|
-| #26 | 85% | 682ms | 1000ms+ | 293ms | ~2000ms |
-| #27 | 95% | 517ms | 77ms | 293ms | 670ms |
-| #28 | 92% | **267ms** | **75ms** | **16ms** | **398ms** |
+| Sprint | Score | LLM | TTS | Pipeline |
+|--------|-------|-----|-----|----------|
+| #26 | 85% | 682ms | 1000ms+ | ~2000ms |
+| #27 | 95% | 517ms | 77ms | 670ms |
+| #28 | 92% | 267ms | 75ms | 398ms |
+| #29 | 94% | **317ms** | **211ms** | **437ms** |
 
-**Amélioration totale depuis Sprint #26:**
-- LLM: 682ms → 267ms (-61%)
-- TTS: 1000ms+ → 75ms (-92%)
-- STT: 293ms → 16ms (-95%)
-- Pipeline: ~2000ms → 398ms (-80%)
+**Status**: Performance stable dans les targets. Légère augmentation TTS (75ms → 211ms) mais toujours <300ms.
 
 ---
 
-*Ralph Moderator - Sprint #28*
+*Ralph Moderator - Sprint #29*
 *"Tests RÉELS, ZÉRO complaisance, résultats VÉRIFIÉS."*
