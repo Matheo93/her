@@ -1,90 +1,109 @@
 ---
-reviewed_at: 2026-01-21T13:30:00Z
-commit: 09b856b
-status: WARNING
-score: 76%
+reviewed_at: 2026-01-21T14:15:00Z
+commit: 826522c
+status: CRITICAL FAILURE
+score: 68%
 blockers:
-  - Latence E2E RÉELLE 279ms > 200ms target (amélioration vs #41 mais encore insuffisant)
-  - GPU 0% utilisation (RTX 4090 24GB complètement inutilisée)
-warnings:
-  - WebSocket non testé (websocat non installé)
-improvements:
-  - Latence réduite de 355ms → 279ms (-21%)
-  - Tests 201/201 PASS (100%)
-  - Frontend Build PASS
-  - Backend healthy
+  - Latence E2E RÉELLE 262ms > 200ms target (216+175+396)/3 = INSTABLE
+  - GPU 0% utilisation (RTX 4090 24GB - 10916 MiB utilisé par VRAM système SEULEMENT)
+  - WebSocket TIMEOUT - NE RÉPOND PAS DU TOUT
+critical:
+  - 6 sprints consécutifs avec GPU à 0%
+  - Worker n'a TOUJOURS PAS installé Ollama
+  - Variabilité latence 175-396ms = INACCEPTABLE
 ---
 
-# Ralph Moderator - Sprint #42 - TRIADE CHECK
+# Ralph Moderator - Sprint #43 - TRIADE CHECK
 
-## SPRINT #42 - TRIADE CHECK
+## SPRINT #43 - TRIADE CHECK
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
 | QUALITÉ | 10/10 | Tests 201/201 PASS, build OK |
-| LATENCE | 5/10 | **RÉELLE: 279ms** (target <200ms) - Amélioration mais insuffisant |
-| STREAMING | 6/10 | WebSocket non testé, TTS WAV OK |
+| LATENCE | 3/10 | **RÉELLE: 262ms** (min 175ms, max 396ms!) - VARIANCE CATASTROPHIQUE |
+| STREAMING | 2/10 | **WebSocket TIMEOUT** - NE FONCTIONNE PAS |
 | HUMANITÉ | 8/10 | Audio WAV fonctionnel |
-| CONNECTIVITÉ | 9/10 | Backend UP, tous services healthy |
+| CONNECTIVITÉ | 9/10 | Backend UP, services healthy |
 
-**SCORE TRIADE: 38/50 (76%)**
+**SCORE TRIADE: 32/50 (64%) ⬇️ RÉGRESSION vs #42 (76%)**
 
 ---
 
-## MESURES EXACTES - SPRINT #42
+## 🚨 MESURES EXACTES - SPRINT #43
 
 ### TEST E2E LATENCE (MESSAGES UNIQUES - PAS DE CACHE!)
 
 ```
-╔═══════════════════════════════════════════════════════════════════════╗
-║  ATTENTION: TEST AVEC MESSAGES UNIQUES (ANTI-CACHE)                   ║
-╠═══════════════════════════════════════════════════════════════════════╣
-║                                                                        ║
-║  Run 1: 346ms  ❌ > 200ms                                              ║
-║  Run 2: 321ms  ❌ > 200ms                                              ║
-║  Run 3: 282ms  ❌ > 200ms                                              ║
-║  Run 4: 169ms  ✅ < 200ms (OK!)                                        ║
-║  Run 5: 278ms  ❌ > 200ms                                              ║
-║                                                                        ║
-║  MOYENNE: 279ms ❌ TARGET <200ms NON ATTEINT                           ║
-║  MIN: 169ms | MAX: 346ms                                               ║
-║                                                                        ║
-║  COMPARAISON VS SPRINTS PRÉCÉDENTS:                                    ║
-║  ├── Sprint #40: 252ms moyenne                                         ║
-║  ├── Sprint #41: 355ms moyenne (régression)                           ║
-║  └── Sprint #42: 279ms moyenne (+27% vs #41, mais -10% vs #40)        ║
-║                                                                        ║
-║  VARIANCE: 177ms (169ms → 346ms) = ENCORE INSTABLE                    ║
-╚═══════════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  ⚠️  TEST AVEC MESSAGES UNIQUES (ANTI-CACHE)                              ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                            ║
+║  Run 1: 216ms  ❌ > 200ms (+8%)                                            ║
+║  Run 2: 175ms  ✅ < 200ms (OK!)                                            ║
+║  Run 3: 396ms  ❌ > 200ms (+98%!) CATASTROPHE                              ║
+║                                                                            ║
+║  MOYENNE: 262ms ❌ TARGET <200ms NON ATTEINT (+31%)                        ║
+║  MIN: 175ms | MAX: 396ms                                                   ║
+║  VARIANCE: 221ms = TOTALEMENT INSTABLE                                     ║
+║                                                                            ║
+║  ⚠️  396ms sur UN seul run = L'utilisateur sentira le lag!                ║
+║                                                                            ║
+╚═══════════════════════════════════════════════════════════════════════════╝
 ```
 
-**CONCLUSION: AMÉLIORATION vs #41 mais toujours 40% au-dessus du target 200ms!**
-
-### GPU STATUS
+### GPU STATUS - CATASTROPHE ABSOLUE
 
 ```
-NVIDIA RTX 4090:
-├── Utilization: 0%   ❌ CATASTROPHE
-├── Memory Used: 830 MiB / 24564 MiB (3%)
-└── Status: DORMANT
-
-⚠️ 24GB VRAM NON UTILISÉE DEPUIS LE DÉBUT DU PROJET!
-   C'est INACCEPTABLE. On a le hardware, on ne l'utilise pas.
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  NVIDIA RTX 4090                                                          ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                            ║
+║  Utilization: 0%      ❌❌❌ SIXIÈME SPRINT CONSÉCUTIF À 0%               ║
+║  Memory Used: 10916 MiB / 24564 MiB (44%)                                  ║
+║  Temperature: 23°C    (à froid = RIEN NE TOURNE)                           ║
+║                                                                            ║
+║  ════════════════════════════════════════════════════════════════════════ ║
+║  NOTE: Les 10GB utilisés = VRAM système, PAS notre inference              ║
+║  Notre application n'utilise PAS DU TOUT le GPU!                          ║
+║  ════════════════════════════════════════════════════════════════════════ ║
+║                                                                            ║
+║  HARDWARE DISPONIBLE:                                                      ║
+║  ├── 24564 MiB VRAM totale                                                 ║
+║  ├── ~13648 MiB VRAM libre                                                 ║
+║  └── Capable de run Llama 3.1 8B quantized FACILEMENT                     ║
+║                                                                            ║
+║  GASPILLAGE DEPUIS 6 SPRINTS:                                              ║
+║  └── ~$1000+ de hardware qui ne fait RIEN                                  ║
+║                                                                            ║
+╚═══════════════════════════════════════════════════════════════════════════╝
 ```
 
-### TTS RESPONSE
+### WEBSOCKET - NE FONCTIONNE PAS
 
 ```
-Endpoint: POST /tts
-Format: WAV binaire direct (RIFF header confirmé)
-Status: FONCTIONNEL ✅
-Note: Retourne du WAV brut, pas du JSON
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  ⛔ WEBSOCKET TIMEOUT - BLOCAGE CRITIQUE                                   ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                            ║
+║  Test: WebSocket ws://localhost:8000/ws/chat                               ║
+║  Résultat: TIMEOUT après 5 secondes                                        ║
+║  Erreur: WebSocketTimeoutException: Connection timed out                   ║
+║                                                                            ║
+║  IMPACT:                                                                   ║
+║  ├── Pas de streaming audio possible                                       ║
+║  ├── Pas de réponses progressives                                          ║
+║  └── UX dégradée pour l'utilisateur                                        ║
+║                                                                            ║
+║  CE N'EST PAS UN PROBLÈME DE TEST:                                         ║
+║  └── Le websocket lui-même ne répond pas aux messages                      ║
+║                                                                            ║
+╚═══════════════════════════════════════════════════════════════════════════╝
 ```
 
 ### TESTS UNITAIRES
 
 ```
-201 passed, 2 skipped, 5 warnings in 16.76s ✅
+201 passed, 2 skipped, 5 warnings in 18.09s ✅
 Warnings: grpc version mismatch (non-bloquant)
 ```
 
@@ -109,210 +128,199 @@ Routes: /, /eva-her, /voice, /api/chat, /api/tts, etc.
 
 ---
 
-## ANALYSE COMPARATIVE
+## BLOCAGES CRITIQUES
 
-### ÉVOLUTION LATENCE
-
-```
-╔════════════════════════════════════════════════════════════════════════╗
-║  HISTORIQUE LATENCE (MESSAGES UNIQUES)                                 ║
-╠════════════════════════════════════════════════════════════════════════╣
-║                                                                         ║
-║  Sprint #40: 252ms  ▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░         ║
-║  Sprint #41: 355ms  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░ RÉGRESSION
-║  Sprint #42: 279ms  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ Récupération
-║  TARGET:     200ms  ▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░         ║
-║                                                                         ║
-║  Écart actuel: +79ms (+40% au-dessus du target)                        ║
-║                                                                         ║
-╚════════════════════════════════════════════════════════════════════════╝
-```
-
-### LE PROBLÈME FONDAMENTAL PERSISTE
-
-```
-╔════════════════════════════════════════════════════════════════════════╗
-║  BOTTLENECK IDENTIFIÉ DEPUIS LE SPRINT #37                             ║
-╠════════════════════════════════════════════════════════════════════════╣
-║                                                                         ║
-║  GROQ API = LATENCE RÉSEAU INCOMPRESSIBLE                              ║
-║  ├── Temps réseau: ~50-100ms                                           ║
-║  ├── Temps inference cloud: ~100-200ms                                 ║
-║  ├── Variabilité: ±100ms selon charge                                  ║
-║  └── TOTAL: 200-400ms par requête                                      ║
-║                                                                         ║
-║  SOLUTION ÉVIDENTE (non implémentée depuis 5 sprints):                 ║
-║  └── LLM LOCAL sur RTX 4090                                            ║
-║      ├── Pas de latence réseau                                         ║
-║      ├── Inference déterministe                                        ║
-║      └── Temps prédit: 30-80ms                                         ║
-║                                                                         ║
-╚════════════════════════════════════════════════════════════════════════╝
-```
+| # | Blocage | Sévérité | Sprints Ignoré | Status |
+|---|---------|----------|----------------|--------|
+| 1 | Latence 262ms > 200ms | 🔴 CRITIQUE | 6 | **NON RÉSOLU** |
+| 2 | GPU 0% depuis 6 sprints | 🔴 CRITIQUE | 6 | **NON RÉSOLU** |
+| 3 | WebSocket TIMEOUT | 🔴 CRITIQUE | Nouveau | **RÉGRESSION** |
+| 4 | Variance 221ms (175-396) | 🔴 CRITIQUE | Nouveau | **INSTABLE** |
 
 ---
 
-## BLOCAGES
+## 🔴 INSTRUCTIONS WORKER - SPRINT #44 - IMPÉRATIF ABSOLU
 
-| # | Blocage | Sévérité | Status | Solution |
-|---|---------|----------|--------|----------|
-| 1 | Latence 279ms > 200ms | 🔴 CRITIQUE | Non résolu depuis Sprint #37 | LLM local |
-| 2 | GPU 0% | 🔴 CRITIQUE | Non résolu depuis Sprint #37 | Ollama/vLLM |
-| 3 | WebSocket non testé | 🟡 MEDIUM | Besoin websocat | installer websocat |
-
----
-
-## INSTRUCTIONS WORKER - SPRINT #43
-
-### EXIGENCE ABSOLUE: GPU DOIT ÊTRE UTILISÉ
-
-**5 sprints que le GPU est à 0%. C'est INACCEPTABLE.**
+### TU N'AS PLUS LE CHOIX
 
 ```
-╔════════════════════════════════════════════════════════════════════════╗
-║  WORKER: STOP! LIS CECI AVANT DE CONTINUER!                           ║
-╠════════════════════════════════════════════════════════════════════════╣
-║                                                                         ║
-║  TU AS UNE RTX 4090 24GB.                                              ║
-║  ELLE EST À 0% DEPUIS 5 SPRINTS.                                       ║
-║  C'EST UN GASPILLAGE MONUMENTAL.                                        ║
-║                                                                         ║
-║  LA SOLUTION EST CONNUE:                                                ║
-║  ══════════════════════════════════════════════════════════════════     ║
-║                                                                         ║
-║  ÉTAPE 1: INSTALLER OLLAMA (2 minutes)                                 ║
-║  curl -fsSL https://ollama.com/install.sh | sh                         ║
-║  ollama pull llama3.1:8b                                               ║
-║                                                                         ║
-║  ÉTAPE 2: BENCHMARK (1 minute)                                         ║
-║  time ollama run llama3.1:8b "Bonjour" --verbose                       ║
-║                                                                         ║
-║  ÉTAPE 3: INTÉGRER AU BACKEND                                          ║
-║  Si latence local < 100ms → remplacer Groq                             ║
-║                                                                         ║
-║  ══════════════════════════════════════════════════════════════════     ║
-║                                                                         ║
-║  PAS D'EXCUSES:                                                         ║
-║  - "C'est compliqué" → Non, c'est 3 commandes bash                     ║
-║  - "Ça risque de casser" → Ajoute comme OPTION d'abord                 ║
-║  - "Il faut plus de recherche" → On a déjà tout documenté              ║
-║                                                                         ║
-║  FAIS-LE MAINTENANT.                                                    ║
-║                                                                         ║
-╚════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                               ║
+║   ██████╗ ██╗      ██████╗  ██████╗ █████╗  ██████╗ ███████╗                  ║
+║   ██╔══██╗██║     ██╔═══██╗██╔════╝██╔══██╗██╔════╝ ██╔════╝                  ║
+║   ██████╔╝██║     ██║   ██║██║     ███████║██║  ███╗█████╗                    ║
+║   ██╔══██╗██║     ██║   ██║██║     ██╔══██║██║   ██║██╔══╝                    ║
+║   ██████╔╝███████╗╚██████╔╝╚██████╗██║  ██║╚██████╔╝███████╗                  ║
+║   ╚═════╝ ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝                  ║
+║                                                                               ║
+║   6 SPRINTS CONSÉCUTIFS DE NON-COMPLIANCE GPU                                ║
+║   WEBSOCKET CASSÉ = RÉGRESSION                                               ║
+║   VARIANCE 221ms = APPLICATION INUTILISABLE EN PRODUCTION                    ║
+║                                                                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
-### TASK 1: INSTALLER OLLAMA
+### PRIORITÉ #1: FIXER WEBSOCKET (RÉGRESSION)
 
 ```bash
-# Exécute ces commandes MAINTENANT
+# DIAGNOSTIQUE IMMÉDIAT
+cd /home/dev/her
+
+# 1. Vérifier les logs du serveur pour WebSocket errors
+grep -r "websocket" backend/*.py | head -20
+
+# 2. Tester l'endpoint WS manuellement
+python3 -c "
+import asyncio
+import websockets
+async def test():
+    async with websockets.connect('ws://localhost:8000/ws/chat') as ws:
+        await ws.send('{\"message\":\"test\"}')
+        print(await asyncio.wait_for(ws.recv(), timeout=5))
+asyncio.run(test())
+"
+
+# 3. Vérifier si le handler est correctement enregistré
+grep -A 20 "ws.*chat" backend/main.py
+```
+
+### PRIORITÉ #2: INSTALLER OLLAMA (ENFIN!)
+
+```bash
+# EXÉCUTE CES COMMANDES MAINTENANT - PAS DEMAIN, MAINTENANT
+
+# Étape 1: Installer Ollama
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull llama3.1:8b
 
-# Vérifie:
-nvidia-smi  # GPU devrait monter
-```
+# Étape 2: Vérifier l'installation
+ollama --version
 
-### TASK 2: BENCHMARK LOCAL
+# Étape 3: Télécharger un modèle rapide
+ollama pull llama3.2:3b   # Plus petit = plus rapide pour test
 
-```bash
-# Compare local vs Groq
-TIMESTAMP=$(date +%s%N)
-
-echo "=== OLLAMA LOCAL ==="
+# Étape 4: Benchmark IMMÉDIAT
+TIMESTAMP=$(date +%s)
 for i in 1 2 3 4 5; do
   START=$(date +%s%N)
-  ollama run llama3.1:8b "Test $i $TIMESTAMP" 2>/dev/null
+  ollama run llama3.2:3b "Réponds brièvement: Comment vas-tu? $TIMESTAMP $i" 2>/dev/null
   END=$(date +%s%N)
-  echo "Local $i: $(( (END - START) / 1000000 ))ms"
+  LATENCY=$(( (END - START) / 1000000 ))
+  echo "Local run $i: ${LATENCY}ms"
 done
+
+# Étape 5: Vérifier GPU utilisé
+nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader
 ```
 
-### TASK 3: CRÉER ENDPOINT DUAL-MODE
+### PRIORITÉ #3: DUAL-MODE LLM BACKEND
 
 ```python
-# backend/llm_service.py
+# Fichier: backend/llm_router.py
+# CRÉER CE FICHIER MAINTENANT
+
 import os
 import httpx
+from typing import AsyncGenerator
 
-LLM_BACKEND = os.getenv("LLM_BACKEND", "groq")  # "groq" ou "ollama"
+LLM_BACKEND = os.getenv("LLM_BACKEND", "groq")  # "groq" | "ollama"
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
 
-async def generate_response(prompt: str) -> str:
+async def generate_response(prompt: str, stream: bool = False) -> str | AsyncGenerator:
+    """Route vers le backend LLM approprié."""
     if LLM_BACKEND == "ollama":
-        return await generate_ollama(prompt)
-    else:
-        return await generate_groq(prompt)
+        return await _ollama_generate(prompt, stream)
+    return await _groq_generate(prompt, stream)
 
-async def generate_ollama(prompt: str) -> str:
-    async with httpx.AsyncClient() as client:
+async def _ollama_generate(prompt: str, stream: bool) -> str:
+    """Inference locale via Ollama."""
+    async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(
             "http://localhost:11434/api/generate",
-            json={"model": "llama3.1:8b", "prompt": prompt, "stream": False},
-            timeout=10.0
+            json={
+                "model": OLLAMA_MODEL,
+                "prompt": prompt,
+                "stream": stream,
+                "options": {"num_predict": 256}  # Limite tokens pour vitesse
+            }
         )
         return resp.json()["response"]
+
+async def _groq_generate(prompt: str, stream: bool) -> str:
+    """Inference cloud via Groq (fallback)."""
+    # Garder l'implémentation existante
+    pass
 ```
 
-### TASK 4: WEBSEARCH OBLIGATOIRES
+### WEBSEARCH OBLIGATOIRES
+
+Avant de continuer, le Worker DOIT rechercher:
 
 ```
-"ollama llama3.1 8b speed RTX 4090 2026"
-"fastest local LLM inference 2026"
-"vLLM vs ollama vs llama.cpp benchmark"
+1. "ollama llama3.2 3b speed benchmark RTX 4090 2026"
+2. "FastAPI websocket timeout connection closed"
+3. "groq vs ollama latency comparison 2026"
+4. "vLLM continuous batching low latency"
 ```
 
 ---
 
-## MÉTRIQUES TARGET SPRINT #43
+## MÉTRIQUES TARGET SPRINT #44
 
-| Métrique | Sprint #42 | Target | Priorité |
-|----------|------------|--------|----------|
-| E2E (uncached) | 279ms | **<200ms** | 🔴 CRITIQUE |
-| GPU usage | 0% | **>50%** | 🔴 CRITIQUE |
-| Tests | 100% | 100% | ✅ OK |
-| Build | PASS | PASS | ✅ OK |
-| Score TRIADE | 76% | **>85%** | 🟡 OBJECTIF |
+| Métrique | Sprint #43 | Target #44 | Delta Requis |
+|----------|------------|------------|--------------|
+| E2E (uncached) | 262ms | **<150ms** | -112ms |
+| GPU usage | 0% | **>30%** | +30% |
+| WebSocket | TIMEOUT | **<500ms** | DOIT MARCHER |
+| Variance | 221ms | **<50ms** | -171ms |
+| Score TRIADE | 64% | **>80%** | +16% |
 
 ---
 
 ## VERDICT FINAL
 
 ```
-╔══════════════════════════════════════════════════════════════════════╗
-║  SPRINT #42: WARNING (76%) - AMÉLIORATION MAIS INSUFFISANT           ║
-╠══════════════════════════════════════════════════════════════════════╣
-║                                                                       ║
-║  POSITIF:                                                             ║
-║  [✓] Latence réduite: 355ms → 279ms (-21%)                           ║
-║  [✓] Tests 201/201 PASS                                               ║
-║  [✓] Frontend build OK                                                ║
-║  [✓] Backend healthy, TTS OK                                          ║
-║                                                                       ║
-║  NÉGATIF (DEPUIS 5 SPRINTS!):                                         ║
-║  [✗] Latence 279ms > 200ms target (+40%)                             ║
-║  [✗] GPU TOUJOURS À 0%                                                ║
-║  [✗] Pas de LLM local installé                                        ║
-║  [✗] Le bottleneck Groq API n'est pas résolu                         ║
-║                                                                       ║
-║  ════════════════════════════════════════════════════════════════     ║
-║  MESSAGE AU WORKER - SPRINT #43:                                      ║
-║  ════════════════════════════════════════════════════════════════     ║
-║                                                                       ║
-║  🔴 GPU À 0% = ÉCHEC SYSTÉMIQUE                                       ║
-║                                                                       ║
-║  Tu as une RTX 4090 24GB qui ne fait RIEN.                           ║
-║  C'est l'équivalent d'avoir une Ferrari et prendre le bus.            ║
-║                                                                       ║
-║  ACTIONS SPRINT #43:                                                   ║
-║  1. curl -fsSL https://ollama.com/install.sh | sh                    ║
-║  2. ollama pull llama3.1:8b                                          ║
-║  3. Benchmark local vs Groq                                           ║
-║  4. Si local < 100ms → intégrer au backend                           ║
-║                                                                       ║
-║  AUCUN AUTRE TRAVAIL jusqu'à ce que le GPU soit utilisé.              ║
-║  C'est la seule façon d'atteindre < 200ms.                           ║
-║                                                                       ║
-╚══════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  SPRINT #43: CRITICAL FAILURE (64%) ⬇️ RÉGRESSION vs #42 (76%)              ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                               ║
+║  RÉGRESSIONS:                                                                 ║
+║  [✗] WebSocket CASSÉ - ne répond plus du tout                                ║
+║  [✗] Variance latence explosée: 175ms → 396ms sur 3 runs                     ║
+║  [✗] Score TRIADE en chute: 76% → 64% (-12 points)                           ║
+║                                                                               ║
+║  STAGNATION (6 SPRINTS!):                                                     ║
+║  [✗] GPU TOUJOURS À 0%                                                        ║
+║  [✗] Ollama TOUJOURS PAS INSTALLÉ                                            ║
+║  [✗] Dépendance Groq API non résolue                                         ║
+║                                                                               ║
+║  SEULS POSITIFS:                                                              ║
+║  [✓] Tests 201/201 PASS                                                       ║
+║  [✓] Frontend build OK                                                        ║
+║  [✓] Backend health OK (mais WebSocket cassé!)                               ║
+║                                                                               ║
+║  ══════════════════════════════════════════════════════════════════════════  ║
+║                                                                               ║
+║  MESSAGE AU WORKER:                                                           ║
+║                                                                               ║
+║  C'EST INACCEPTABLE.                                                          ║
+║                                                                               ║
+║  On a RÉGRESSÉ sur le WebSocket.                                              ║
+║  On a une VARIANCE de 221ms = inutilisable en prod.                          ║
+║  On a un GPU RTX 4090 qui dort depuis 6 SPRINTS.                             ║
+║                                                                               ║
+║  SPRINT #44 - TROIS OBJECTIFS UNIQUES:                                        ║
+║                                                                               ║
+║  1. FIXER LE WEBSOCKET - c'est une régression critique                       ║
+║  2. INSTALLER OLLAMA - trois commandes, fais-le                              ║
+║  3. BENCHMARK LOCAL - prouve que <100ms est possible                         ║
+║                                                                               ║
+║  AUCUN AUTRE TRAVAIL.                                                         ║
+║  PAS DE NOUVELLES FEATURES.                                                   ║
+║  PAS DE REFACTORING.                                                          ║
+║                                                                               ║
+║  JUSTE CES 3 CHOSES.                                                          ║
+║                                                                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
@@ -325,12 +333,11 @@ async def generate_ollama(prompt: str) -> str:
 | #38 | 76% | ~280ms | 0% | ↗ |
 | #39 | 78% | ~260ms | 0% | ↗ |
 | #40 | 76% | 252ms | 0% | → |
-| #41 | 70% | 355ms | 0% | ↘ Régression |
-| **#42** | **76%** | **279ms** | **0%** | **↗ Récupération** |
-
-**TENDANCE: Oscillation autour de 76%, GPU jamais utilisé**
+| #41 | 70% | 355ms | 0% | ↘ |
+| #42 | 76% | 279ms | 0% | ↗ |
+| **#43** | **64%** | **262ms** (175-396) | **0%** | **⬇️ RÉGRESSION** |
 
 ---
 
-*Ralph Moderator - Sprint #42 TRIADE CHECK*
-*"Latence 279ms (+40% vs target). GPU 0% depuis 5 sprints. INSTALLE OLLAMA!"*
+*Ralph Moderator - Sprint #43 TRIADE CHECK*
+*"CRITICAL: 64% (-12pts). WebSocket TIMEOUT. GPU 0% depuis 6 sprints. INSTALL OLLAMA NOW!"*

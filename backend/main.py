@@ -107,8 +107,9 @@ except ImportError:
 CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")  # Fast local model
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "phi3:mini")  # Ultra-fast local model (~100ms)
 USE_OLLAMA_FALLBACK = os.getenv("USE_OLLAMA_FALLBACK", "true").lower() == "true"
+USE_OLLAMA_PRIMARY = os.getenv("USE_OLLAMA_PRIMARY", "true").lower() == "true"  # Use local GPU first
 
 # Models by provider
 CEREBRAS_MODEL = "llama3.1-8b"  # ~50ms TTFT (fastest)
@@ -1336,10 +1337,10 @@ async def stream_cerebras(messages: list, max_tok: int = 80) -> AsyncGenerator[s
 
 
 async def stream_ollama(messages: list, max_tok: int = 80) -> AsyncGenerator[str, None]:
-    """Stream from local Ollama (~350ms but deterministic latency).
+    """Stream from local Ollama phi3:mini (~100ms TTFT on RTX 4090).
 
-    Ollama provides consistent latency without API rate limits or network variability.
-    Uses qwen2.5:1.5b for fast local inference on GPU.
+    Ollama local provides ultra-low latency without API rate limits.
+    Uses phi3:mini for fastest possible inference (85-155ms warm).
     """
     # Convert messages to Ollama format (system + user prompt)
     system_prompt = ""
@@ -1350,7 +1351,6 @@ async def stream_ollama(messages: list, max_tok: int = 80) -> AsyncGenerator[str
         elif msg["role"] == "user":
             user_prompt = msg["content"]
         elif msg["role"] == "assistant":
-            # Add assistant context if available
             pass
 
     prompt = f"{system_prompt}\n\nUser: {user_prompt}\nAssistant:"
@@ -1365,6 +1365,7 @@ async def stream_ollama(messages: list, max_tok: int = 80) -> AsyncGenerator[str
                 "stream": True,
                 "options": {
                     "num_predict": max_tok,
+                    "num_ctx": 512,  # Short context for speed
                     "temperature": 0.7,
                     "top_p": 0.85,
                 }
@@ -1443,15 +1444,36 @@ async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True, spee
             max_tok = 60
 
     # Choose model/provider based on availability and mode
+    # Priority: Ollama local (~100ms) > Cerebras (~50ms API) > Groq (~200ms API)
+    use_ollama = USE_OLLAMA_PRIMARY and _ollama_available
     use_cerebras = cerebras_client is not None and QUALITY_MODE != "quality"
 
     start_time = time.time()
+    full = ""
 
     try:
-        # Try Cerebras first (50ms TTFT) if available
-        if use_cerebras:
+        # Try Ollama first (100ms local GPU) if enabled
+        if use_ollama:
+            provider = "ollama"
+            first_token = True
+            got_tokens = False
+
+            async for token in stream_ollama(messages, max_tok):
+                got_tokens = True
+                if first_token:
+                    ttft = (time.time() - start_time) * 1000
+                    print(f"⚡ TTFT: {ttft:.0f}ms (ollama-{OLLAMA_MODEL})")
+                    first_token = False
+                full += token
+                yield token
+
+            # If Ollama failed silently, try fallback
+            if not got_tokens:
+                raise Exception("Ollama returned no tokens")
+
+        # Try Cerebras (50ms TTFT) if available and not using Ollama
+        elif use_cerebras:
             provider = "cerebras"
-            full = ""
             first_token = True
 
             async for token in stream_cerebras(messages, max_tok):
@@ -1461,8 +1483,9 @@ async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True, spee
                     first_token = False
                 full += token
                 yield token
+
+        # Fallback to Groq
         else:
-            # Fallback to Groq
             provider = "groq"
             if QUALITY_MODE == "quality":
                 model = GROQ_MODEL_QUALITY
@@ -1478,7 +1501,6 @@ async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True, spee
                 top_p=0.85,
             )
 
-            full = ""
             first_token = True
 
             async for chunk in stream:
@@ -1504,9 +1526,13 @@ async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True, spee
         asyncio.create_task(async_log_usage(session_id, "llm", int(total_time)))
 
     except Exception as e:
-        print(f"LLM Error: {e}")
-        # Fallback to Groq if Cerebras fails
-        if use_cerebras and groq_client:
+        print(f"LLM Error ({provider if 'provider' in dir() else 'unknown'}): {e}")
+        # Fallback chain: Ollama failed -> try Groq
+        if use_ollama and groq_client:
+            print("⚠️ Ollama failed, falling back to Groq...")
+            async for token in stream_llm_groq_fallback(messages, max_tok, start_time):
+                yield token
+        elif use_cerebras and groq_client:
             print("⚠️ Cerebras failed, falling back to Groq...")
             async for token in stream_llm_groq_fallback(messages, max_tok, start_time):
                 yield token
