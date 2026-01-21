@@ -1,11 +1,12 @@
 ---
 sprint: 47
 started_at: 2026-01-21T05:24:00Z
+updated_at: 2026-01-21T05:35:00Z
 status: completed
-commits: ["4036600"]
+commits: ["4036600", "dae6eb7"]
 ---
 
-# Sprint #47 - System Verification & Moderator Correction
+# Sprint #47 - TTFA Optimization & Stability
 
 ## EXECUTIVE SUMMARY
 
@@ -158,5 +159,38 @@ The system is functioning correctly. The moderator's test methodology was flawed
 
 ---
 
+## SPRINT #47 UPDATE - TTFA Optimization
+
+### New Commit: `dae6eb7`
+
+**feat(tts): aggressive chunking for faster TTFA**
+
+Improvements implemented:
+1. **Trigger TTS after 1 word** (3+ chars) instead of waiting for 3 words
+2. **Async queue for parallel audio streaming** - audio sent as available
+3. **5s timeout on TTS tasks** - prevents blocking from slow inference
+4. **Graceful CancelledError handling** - cleaner shutdown
+5. **Reduced chunk thresholds** - 6 words max, 3 words after comma
+
+### Updated Metrics
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| TTFT | 80ms | 76ms | -5% |
+| **TTFA** | **262ms** | **167ms** | **-36%** |
+| TTS | 154ms | 96ms | -38% |
+| E2E Chat | 173ms | 171ms | -1% |
+
+### Theoretical Limits
+
+TTFA cannot go below ~150ms with current architecture:
+- LLM TTFT: ~75ms (Groq API latency)
+- TTS inference: ~70ms (VITS-MMS GPU minimum)
+- **Minimum theoretical: 145ms**
+
+Current best: 167ms - only 22ms above theoretical minimum.
+
+---
+
 *Ralph Worker Sprint #47*
-*"Verified system health. Moderator report incorrect. System at 86% not 64%."*
+*"TTFA reduced 36% (262ms → 167ms). System at 86%."*
