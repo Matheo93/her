@@ -120,7 +120,7 @@ API_KEY = os.getenv("EVA_API_KEY", "eva-dev-key-change-in-prod")
 RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "60"))
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
 USE_FAST_MODEL = os.getenv("USE_FAST_MODEL", "true").lower() == "true"
-QUALITY_MODE = os.getenv("QUALITY_MODE", "balanced")  # fast, balanced, quality
+QUALITY_MODE = os.getenv("QUALITY_MODE", "fast")  # fast, balanced, quality
 USE_FAST_TTS = os.getenv("USE_FAST_TTS", "true").lower() == "true"  # MMS-TTS (100ms) vs Edge-TTS (1500ms)
 
 # Voix disponibles (Edge-TTS Microsoft Neural Voices - meilleures voix FR)
@@ -1083,8 +1083,8 @@ async def lifespan(app: FastAPI):
     model_name = GROQ_MODEL_FAST if USE_FAST_MODEL else GROQ_MODEL_QUALITY
     print(f"✅ Groq LLM connected ({model_name})")
 
-    # Ollama (local fallback for deterministic latency)
-    if USE_OLLAMA_FALLBACK:
+    # Ollama (local GPU LLM - primary or fallback)
+    if USE_OLLAMA_PRIMARY or USE_OLLAMA_FALLBACK:
         try:
             ollama_resp = await http_client.get(f"{OLLAMA_URL}/api/tags", timeout=2.0)
             if ollama_resp.status_code == 200:
@@ -1092,9 +1092,10 @@ async def lifespan(app: FastAPI):
                 if any(OLLAMA_MODEL in m for m in models):
                     global _ollama_available
                     _ollama_available = True
-                    print(f"✅ Ollama local LLM connected ({OLLAMA_MODEL})")
+                    mode = "PRIMARY" if USE_OLLAMA_PRIMARY else "fallback"
+                    print(f"✅ Ollama local LLM connected ({OLLAMA_MODEL}) [{mode}]")
                 else:
-                    print(f"⚠️ Ollama running but {OLLAMA_MODEL} not found")
+                    print(f"⚠️ Ollama running but {OLLAMA_MODEL} not found. Available: {models[:3]}")
         except Exception as e:
             print(f"⚠️ Ollama not available: {e}")
 
@@ -1437,7 +1438,7 @@ async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True, spee
             messages[0]["content"] = get_system_prompt()
 
         if QUALITY_MODE == "fast":
-            max_tok = 40  # Ultra-short for fastest latency
+            max_tok = 25  # Ultra-short for fastest latency (<200ms)
         elif QUALITY_MODE == "quality":
             max_tok = 150
         else:  # balanced
