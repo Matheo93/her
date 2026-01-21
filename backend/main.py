@@ -3563,12 +3563,17 @@ async def ws_stream(ws: WebSocket):
                                     break
                                 sentence, task = item
                                 try:
-                                    audio = await task
+                                    # Timeout TTS task to prevent blocking (5s max)
+                                    audio = await asyncio.wait_for(task, timeout=5.0)
                                     if audio:
                                         await safe_ws_send(ws, {"type": "audio_start", "sentence": sentence[:50]})
                                         await safe_ws_send_bytes(ws, audio)
+                                except asyncio.TimeoutError:
+                                    print(f"TTS timeout for: {sentence[:30]}...")
                                 except Exception as e:
                                     print(f"TTS error: {e}")
+                        except asyncio.CancelledError:
+                            pass  # Normal cancellation
                         except Exception as e:
                             print(f"Audio sender error: {e}")
 
@@ -3591,21 +3596,23 @@ async def ws_stream(ws: WebSocket):
                         should_tts = False
                         chunk_text = ""
 
-                        if is_first_chunk and word_count >= 3:
-                            # First chunk: send after just 3 words for fast TTFA
-                            should_tts = True
-                            chunk_text = chunk_buffer.strip()
-                            is_first_chunk = False
+                        if is_first_chunk:
+                            # First chunk: send immediately after 1 word OR 3 chars
+                            # This gives fastest TTFA by starting TTS ASAP
+                            if word_count >= 1 and len(chunk_buffer.strip()) >= 3:
+                                should_tts = True
+                                chunk_text = chunk_buffer.strip()
+                                is_first_chunk = False
                         elif any(chunk_buffer.rstrip().endswith(p) for p in ['.', '!', '?', '...']):
                             # Sentence end
                             should_tts = True
                             chunk_text = chunk_buffer.strip()
-                        elif chunk_buffer.rstrip().endswith(',') and word_count >= 4:
-                            # After comma with enough words
+                        elif chunk_buffer.rstrip().endswith(',') and word_count >= 3:
+                            # After comma with some words
                             should_tts = True
                             chunk_text = chunk_buffer.strip()
-                        elif word_count >= 8:
-                            # Force chunk after 8 words
+                        elif word_count >= 6:
+                            # Force chunk after 6 words
                             should_tts = True
                             chunk_text = chunk_buffer.strip()
 
@@ -3678,48 +3685,90 @@ async def ws_stream(ws: WebSocket):
                 current_mood = get_mood_from_emotion(emotion["dominant"]) if auto_mood else "default"
                 mood_settings = MOOD_VOICE_SETTINGS.get(current_mood, MOOD_VOICE_SETTINGS["default"])
 
-                # Stream LLM + parallel TTS
+                # Stream LLM + AGGRESSIVE early TTS (TTFA target: <50ms)
                 full_response = ""
-                sentence_buffer = ""
-                tts_tasks = []
+                chunk_buffer = ""
+                word_count = 0
+                is_first_chunk = True
+                tts_queue_voice = asyncio.Queue()
                 disconnected = False
+
+                # Background audio sender
+                async def voice_audio_sender():
+                    try:
+                        while True:
+                            item = await tts_queue_voice.get()
+                            if item is None:
+                                break
+                            chunk_text, task = item
+                            try:
+                                # Timeout TTS task to prevent blocking (5s max)
+                                audio = await asyncio.wait_for(task, timeout=5.0)
+                                if audio:
+                                    await safe_ws_send(ws, {"type": "audio_start", "sentence": chunk_text[:50]})
+                                    await safe_ws_send_bytes(ws, audio)
+                            except asyncio.TimeoutError:
+                                print(f"TTS timeout for: {chunk_text[:30]}...")
+                            except Exception as e:
+                                print(f"TTS error: {e}")
+                    except asyncio.CancelledError:
+                        pass  # Normal cancellation
+                    except Exception as e:
+                        print(f"Voice audio sender error: {e}")
+
+                audio_task = asyncio.create_task(voice_audio_sender())
 
                 async for token in stream_llm(session_id, text):
                     full_response += token
-                    sentence_buffer += token
+                    chunk_buffer += token
                     if not await safe_ws_send(ws, {"type": "token", "content": token}):
                         disconnected = True
                         break
 
-                    if any(sentence_buffer.rstrip().endswith(p) for p in ['.', '!', '?', '...']):
-                        sentence = sentence_buffer.strip()
-                        if len(sentence) > 3:
-                            tts_task = asyncio.create_task(
-                                text_to_speech(sentence, voice, mood_settings["rate"], mood_settings["pitch"])
-                            )
-                            tts_tasks.append((sentence, tts_task))
-                        sentence_buffer = ""
+                    word_count = len(chunk_buffer.split())
+                    should_tts = False
+                    chunk_text = ""
+
+                    # AGGRESSIVE CHUNKING for fast TTFA
+                    if is_first_chunk:
+                        # First chunk: send immediately after 1 word OR 3 chars
+                        if word_count >= 1 and len(chunk_buffer.strip()) >= 3:
+                            should_tts = True
+                            chunk_text = chunk_buffer.strip()
+                            is_first_chunk = False
+                    elif any(chunk_buffer.rstrip().endswith(p) for p in ['.', '!', '?', '...']):
+                        should_tts = True
+                        chunk_text = chunk_buffer.strip()
+                    elif chunk_buffer.rstrip().endswith(',') and word_count >= 3:
+                        should_tts = True
+                        chunk_text = chunk_buffer.strip()
+                    elif word_count >= 6:
+                        should_tts = True
+                        chunk_text = chunk_buffer.strip()
+
+                    if should_tts and len(chunk_text) > 3:
+                        tts_task = asyncio.create_task(
+                            text_to_speech(chunk_text, voice, mood_settings["rate"], mood_settings["pitch"])
+                        )
+                        await tts_queue_voice.put((chunk_text, tts_task))
+                        chunk_buffer = ""
+                        word_count = 0
 
                 if disconnected:
+                    await tts_queue_voice.put(None)
                     break
 
-                if sentence_buffer.strip():
-                    sentence = sentence_buffer.strip()
+                if chunk_buffer.strip() and len(chunk_buffer.strip()) > 3:
+                    chunk_text = chunk_buffer.strip()
                     tts_task = asyncio.create_task(
-                        text_to_speech(sentence, voice, mood_settings["rate"], mood_settings["pitch"])
+                        text_to_speech(chunk_text, voice, mood_settings["rate"], mood_settings["pitch"])
                     )
-                    tts_tasks.append((sentence, tts_task))
+                    await tts_queue_voice.put((chunk_text, tts_task))
 
                 await safe_ws_send(ws, {"type": "response_end", "text": full_response})
 
-                for sentence, task in tts_tasks:
-                    try:
-                        audio = await task
-                        if audio:
-                            await safe_ws_send(ws, {"type": "audio_start", "sentence": sentence[:50]})
-                            await safe_ws_send_bytes(ws, audio)
-                    except Exception as e:
-                        print(f"TTS error: {e}")
+                await tts_queue_voice.put(None)
+                await audio_task
 
                 await safe_ws_send(ws, {"type": "audio_end"})
 
