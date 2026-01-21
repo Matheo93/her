@@ -23,62 +23,73 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>" 2>/dev/null || true
 
 while true; do
     echo "=== Starting Worker @ $(date) ==="
-    claude --dangerously-skip-permissions -p "Tu es Ralph Worker ELITE. ZÉRO MOCK, CODE RÉEL UNIQUEMENT.
+    claude --dangerously-skip-permissions -p "Tu es Ralph Worker ELITE. MISSION: AMÉLIORER LA TRIADE.
+
+## LA TRIADE (À AMÉLIORER CONSTAMMENT)
+
+1. **QUALITÉ** - Code production-ready, pas de mock
+2. **LATENCE** - Pipeline < 300ms (STT + LLM + TTS)
+3. **STREAMING** - Audio/video en temps réel
+4. **HUMANITÉ** - Voix naturelle, avatar réaliste, émotions
+5. **CONNECTIVITÉ** - Tout doit être relié et fonctionnel
+
+## OBLIGATION: RECHERCHER LES MEILLEURS OUTILS
+
+**AVANT de coder, tu DOIS chercher les meilleurs outils 2024-2025:**
+
+\`\`\`bash
+# Utilise WebSearch pour trouver les meilleurs outils!
+# Exemples de recherches à faire:
+# - \"fastest TTS library 2025 GPU CUDA\"
+# - \"real-time lip sync library WebGL 2025\"
+# - \"best voice cloning low latency\"
+# - \"streaming audio synthesis neural\"
+\`\`\`
+
+**NE TE CONTENTE PAS de ce qui est déjà installé!**
+- Edge-TTS = 1000ms+ = INACCEPTABLE
+- Cherche: Piper, XTTS, StyleTTS2, F5-TTS, CosyVoice
+- Cherche: Audio2Face alternatives, MediaPipe face mesh
+- Cherche: WebGPU audio processing
 
 ## RESSOURCES DISPONIBLES
 
-- **RTX 4090** avec **49GB VRAM** - UTILISE-LE!
+- **RTX 4090 49GB VRAM** - DOIT être saturé!
 - 32 CPUs, 251GB RAM
-- Backend sur http://localhost:8000
-- faster-whisper disponible (peut tourner sur GPU)
+- Backend: http://localhost:8000
 
-## PROBLÈMES ACTUELS À FIXER
+## TARGETS STRICTS
 
-### 1. TTS TROP LENT (1000-1900ms)
-Edge-TTS est trop lent. Solutions:
-- Installer un TTS local GPU (Piper, VITS, Coqui)
-- Utiliser sherpa-onnx avec GPU
-- Ou Bark/TortoiseTTS sur RTX 4090
+| Composant | Target | Actuel | Action |
+|-----------|--------|--------|--------|
+| STT | < 50ms | ~16ms | ✅ Maintenir |
+| LLM | < 100ms | ~300ms | Optimiser prompt |
+| TTS | < 50ms | ~70ms | Chercher mieux |
+| Avatar | 60 FPS | ? | Mesurer |
+| E2E | < 200ms | ~400ms | AMÉLIORER |
 
-### 2. GPU INUTILISÉ (0%)
-Le RTX 4090 49GB dort! À activer:
-- faster-whisper sur CUDA
-- TTS sur GPU
-- Avatar rendering GPU
+## PROCESS OBLIGATOIRE
 
-### 3. LATENCE TOTALE TROP HAUTE
-Objectif: < 300ms total (STT + LLM + TTS)
-Actuel: ~2000ms à cause du TTS
+1. **RECHERCHE** - WebSearch pour trouver le state-of-the-art
+2. **ÉVALUATION** - Comparer les options (latence, qualité)
+3. **IMPLÉMENTATION** - Code production, pas de mock
+4. **TEST** - Mesurer latence réelle avec curl
+5. **COMMIT** - Si amélioration confirmée
 
-## AVANT DE CODER
+## HUMANITÉ DE L'AVATAR
 
-1. Vérifie que le backend tourne: \`curl http://localhost:8000/health\`
-2. Teste la latence: \`curl -X POST http://localhost:8000/chat ...\`
-3. Vérifie le GPU: \`nvidia-smi\`
+L'avatar doit être RÉALISTE:
+- Lip sync précis (visemes, coarticulation)
+- Micro-expressions (clignements, sourcils)
+- Respiration visible
+- Regard naturel (saccades, fixation)
+- Émotions subtiles
 
-## CODE RÉEL UNIQUEMENT
+**Cherche les meilleurs outils pour chaque aspect!**
 
-- Pas de hooks client-side qui ne font rien
-- Pas de mock/placeholder
-- Chaque feature doit être TESTABLE
-- Chaque feature doit être CONNECTÉE au backend
+Lis .claude/ralph-feedback.md pour les blocages.
 
-## PRIORITÉ #1: TTS RAPIDE
-
-1. Cherche une solution TTS GPU compatible RTX 4090
-2. Implémente-la dans backend/
-3. Teste la latence réelle
-4. Target: < 100ms pour TTS
-
-## APRÈS CHAQUE CHANGEMENT
-
-- Teste avec curl
-- Vérifie la latence
-- Vérifie le GPU
-
-Lis .claude/ralph-feedback.md pour voir les blocages du Moderator.
-
-GO - DU VRAI CODE QUI MARCHE."
+GO - RECHERCHE + AMÉLIORATION CONTINUE DE LA TRIADE."
 
     # Auto-push after worker session
     auto_push
