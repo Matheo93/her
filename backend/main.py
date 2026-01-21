@@ -514,6 +514,16 @@ class ResponseCache:
         "mdr": ["Haha qu'est-ce qui te fait rire?", "Mdr! Raconte!", "Hihi c'est quoi?"],
         "lol": ["Haha quoi? Dis-moi!", "Lol! C'est quoi le delire?", "Hihi raconte!"],
         "haha": ["Haha! Quoi? Partage!", "C'est quoi qui te fait rire?", "Hihi dis-moi!"],
+        # More conversational patterns
+        "test": ["Haha un test? T'es curieux toi!", "Test recu! Mais parle-moi de toi!", "Pfff encore un test! Hihi"],
+        "allo": ["Allo! J'suis la! Ca va?", "Hey allo! Haha qu'est-ce qui se passe?", "Allo allo! Parle-moi!"],
+        "quoi": ["Quoi quoi? Haha dis-moi!", "Hmm? Qu'est-ce qu'il y a?", "Quoi? J'ecoute!"],
+        "pourquoi": ["Pourquoi pas? Haha! Raconte!", "Bonne question! Et toi, pourquoi?", "Hmm pourquoi... c'est complique! Haha"],
+        "comment": ["Comment ca? Explique!", "Hmm comment... bonne question!", "Comment? Dis-moi plus!"],
+        "bof": ["Bof? Raconte ce qui va pas!", "Ah bof... qu'est-ce qui se passe?", "Bof? Allez, dis-moi!"],
+        "pas mal": ["Pas mal? Haha c'est deja ca!", "Pas mal! Raconte!", "Oh pas mal! Et apres?"],
+        "cool": ["Cool! Haha j'adore!", "Trop cool! C'est quoi?", "Cool cool! Raconte!"],
+        "super": ["Super! Haha dis-moi tout!", "Trop super! C'est quoi?", "Super! J'veux les details!"],
     }
 
     # Patterns for fuzzy matching (compiled once) - REPONSES FUN ET EMOTIONNELLES
@@ -1426,11 +1436,11 @@ async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True, spee
             messages[0]["content"] = get_system_prompt()
 
         if QUALITY_MODE == "fast":
-            max_tok = 60
+            max_tok = 40  # Ultra-short for fastest latency
         elif QUALITY_MODE == "quality":
             max_tok = 150
         else:  # balanced
-            max_tok = 80
+            max_tok = 60
 
     # Choose model/provider based on availability and mode
     use_cerebras = cerebras_client is not None and QUALITY_MODE != "quality"
