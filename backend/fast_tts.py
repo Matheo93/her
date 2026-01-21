@@ -38,9 +38,15 @@ def init_fast_tts() -> bool:
 
         _sample_rate = _model.config.sampling_rate
 
-        # Warmup (critical for GPU - first runs are slow)
-        for _ in range(5):
-            inputs = _tokenizer("Test", return_tensors="pt").to(_device)
+        # Note: cudnn.benchmark=True causes latency spikes, so we keep it disabled
+        # Note: float32_matmul_precision('high') can cause issues with VITS
+
+        # Extended warmup (stabilizes latency after model load)
+        warmup_phrases = ["Test", "Bonjour", "Comment?", "Super!"]
+        print(f"   Warmup: 15 iterations...")
+        for i in range(15):
+            phrase = warmup_phrases[i % len(warmup_phrases)]
+            inputs = _tokenizer(phrase, return_tensors="pt").to(_device)
             with torch.inference_mode():
                 _ = _model(**inputs).waveform
 
@@ -48,7 +54,7 @@ def init_fast_tts() -> bool:
             torch.cuda.synchronize()
 
         _initialized = True
-        print(f"✅ VITS-MMS ready ({_device.upper()}, {_sample_rate}Hz, ~30ms)")
+        print(f"✅ VITS-MMS ready ({_device.upper()}, {_sample_rate}Hz, ~50-70ms)")
         return True
 
     except Exception as e:
