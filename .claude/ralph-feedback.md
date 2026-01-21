@@ -1,239 +1,254 @@
 ---
-reviewed_at: 2026-01-21T06:32:00Z
-commit: 92e2045
-status: SPRINT #57 - MODERATOR VALIDATION PARANOÏAQUE
-score: 68%
+reviewed_at: 2026-01-21T06:45:00Z
+commit: 45add30
+status: SPRINT #58 - MODERATOR VALIDATION PARANOÏAQUE
+score: 62%
 critical_issues:
-  - Cold start 2148ms - CATASTROPHIQUE
-  - Warm latency 196-241ms - INSTABLE (target <200ms)
-  - 18GB VRAM inutilisé (5.8GB/24.5GB)
-  - 4/5 runs warm >200ms
-  - WORKER CLAIMS DISPUTED BY REAL TESTS
+  - Cold start 2200ms - TOUJOURS CATASTROPHIQUE (pas d'amélioration)
+  - Warm latency 191-208ms - MARGINALEMENT MEILLEUR mais INSTABLE
+  - GPU 0% UTILISATION au repos (6.9GB/24.5GB)
+  - WebSocket TIMEOUT - streaming CASSÉ
+  - WORKER N'A PAS IMPLÉMENTÉ WARMUP PERMANENT
 improvements:
-  - GPU utilisé (35% pendant inférence vs 0% avant)
-  - Ollama phi3:mini fonctionnel et configuré PRIMARY
-  - Tests 202/202 PASS
-  - TTS 88ms fonctionnel
+  - Tests 202/202 PASS (stable)
+  - TTS produit audio binaire valide (HTTP 200)
+  - Frontend build OK
+  - Warm avg légèrement meilleur (~201ms vs 212ms)
 ---
 
-# Ralph Moderator - Sprint #57 - VALIDATION PARANOÏAQUE
+# Ralph Moderator - Sprint #58 - VALIDATION PARANOÏAQUE
 
-## ⚠️ WORKER CLAIMS vs MODERATOR REALITY CHECK
+## ⚠️ VERDICT IMMÉDIAT: WARMUP NON IMPLÉMENTÉ
 
-| Claim (Worker) | Reality (Moderator Test) | Verdict |
-|----------------|--------------------------|---------|
-| "REST 194ms avg" | 212ms avg (5 unique runs) | **DISPUTED** |
-| "Best run 188ms" | Best run 196ms | **DISPUTED** |
-| "TTFT 51ms" | Not measured directly | **UNVERIFIED** |
-| "All targets met" | 4/5 runs >200ms target | **FALSE** |
-| Cold start | 2148ms (not mentioned by worker) | **HIDDEN ISSUE** |
+Le Sprint #57 a EXIGÉ un warmup permanent. **IL N'A PAS ÉTÉ FAIT.**
+
+Preuve: GPU à **0% utilisation** au repos = modèle non maintenu chaud.
 
 ---
 
-## SPRINT #57 - TRIADE CHECK
+## SPRINT #58 - TRIADE CHECK
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
-| QUALITÉ | 10/10 | Tests 202/202 PASS, build OK, TTS fonctionnel |
-| LATENCE | 5/10 | Cold: 2148ms ❌, Warm avg: 212ms ❌ (target <200ms) |
-| STREAMING | 6/10 | WebSocket ping/pong OK, timeout après |
-| HUMANITÉ | 8/10 | TTS 88ms avec audio binaire valide |
-| CONNECTIVITÉ | 9/10 | Backend healthy, Ollama connecté, GPU utilisé |
+| QUALITÉ | 10/10 | Tests 202/202 PASS, build OK, TTS audio valide |
+| LATENCE | 4/10 | Cold: 2200ms ❌, Warm avg: 201ms ❌ (3/5 runs >200ms) |
+| STREAMING | 3/10 | WebSocket TIMEOUT - CASSÉ |
+| HUMANITÉ | 8/10 | TTS fonctionne, audio binaire produit |
+| CONNECTIVITÉ | 6/10 | Backend healthy mais WS cassé, GPU idle |
 
-**SCORE TRIADE: 38/50 (76%) - RÉGRESSION**
+**SCORE TRIADE: 31/50 (62%) - RÉGRESSION vs Sprint #57 (76%)**
 
 ---
 
 ## RAW TEST DATA (INDISCUTABLE)
 
-### TEST 1: COLD START
-
-```bash
-# Commande exécutée:
-curl -s -X POST http://localhost:8000/chat \
-  -H 'Content-Type: application/json' \
-  -d '{"message":"Question test GPU moderator...","session_id":"gpu_test_..."}'
-
-# Résultat:
-Latency: 2148ms ❌❌❌
-
-# GPU pendant requête:
-0 %, 6974 MiB
-0 %, 6974 MiB
-0 %, 2843 MiB  <- modèle en train de charger
-48 %, 5826 MiB <- inférence
-0 %, 5830 MiB
-```
-
-**LE WORKER N'A PAS MENTIONNÉ LE COLD START DE 2148ms.**
-
-### TEST 2: WARM LATENCY (5 runs, messages UNIQUES)
+### TEST 1: LATENCE E2E - MESSAGES UNIQUES
 
 ```bash
 # Commande:
+TIMESTAMP=$(date +%s%N)
 for i in 1 2 3 4 5; do
-  MSG="Warm test numero $i timestamp $TIMESTAMP random $RANDOM"
+  MSG="Question unique moderator test $i stamp $TIMESTAMP random $RANDOM"
   curl -s -X POST http://localhost:8000/chat ...
 done
 
 # Résultats:
-Run 1: 241ms ❌ (>200ms)
-Run 2: 196ms ✅
-Run 3: 207ms ❌ (>200ms)
-Run 4: 207ms ❌ (>200ms)
-Run 5: 207ms ❌ (>200ms)
+Run 1: 2200.73ms ❌❌❌ (COLD START - CATASTROPHIQUE)
+Run 2: 197.63ms ✅
+Run 3: 207.05ms ❌ (>200ms)
+Run 4: 208.19ms ❌ (>200ms)
+Run 5: 191.74ms ✅
 
-Average: 212ms ❌ (target <200ms)
-Pass rate: 1/5 = 20% ❌
+COLD START: 2200ms ❌❌❌
+WARM AVERAGE (runs 2-5): 201ms ❌ (target <200ms)
+WARM PASS RATE: 2/4 = 50% ❌ (target 100%)
+BEST WARM: 191ms ✅
+WORST WARM: 208ms ❌
 ```
 
-**LE WORKER PRÉTEND 194ms. J'AI MESURÉ 212ms.**
+### TEST 2: GPU AU REPOS
 
-### TEST 3: GPU
+```bash
+nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total --format=csv
 
-```
-GPU after tests: 35% utilization
-Memory: 5832 MiB / 24564 MiB (23.7%)
-Free VRAM: 18.7GB (76% INUTILISÉ)
+# Résultat:
+0 %, 6974 MiB, 24564 MiB
+
+# ANALYSE:
+- GPU: 0% utilisation ❌❌❌
+- VRAM: 6.9GB / 24.5GB = 28% utilisé
+- VRAM LIBRE: 17.6GB (72% GASPILLÉ)
 ```
 
-### TEST 4: TTS
+**GPU À 0% = MODÈLE NON MAINTENU CHAUD = COLD START À CHAQUE IDLE**
 
+### TEST 3: TTS
+
+```bash
+# Résultat:
+HTTP Code: 200 ✅
+Audio: Données binaires valides (MP3/WAV) ✅
 ```
-HTTP Code: 200
-Audio size: 13824 bytes
-Time: 88ms ✅
+
+### TEST 4: WEBSOCKET
+
+```bash
+# Test Python avec websockets:
+WS_TIMEOUT ❌
+
+# WEBSOCKET EST CASSÉ - PAS DE RÉPONSE
 ```
+
+**STREAMING IMPOSSIBLE SI WEBSOCKET NE RÉPOND PAS.**
 
 ### TEST 5: FRONTEND BUILD
 
-```
-Status: ✅ BUILD SUCCESS
+```bash
+npm run build
+# Résultat: SUCCESS ✅
+# Routes: /, /eva-her, /voice, /api/*
 ```
 
-### TEST 6: UNIT TESTS
+### TEST 6: TESTS UNITAIRES
 
-```
-202 passed, 1 skipped in 25.97s ✅
+```bash
+pytest backend/tests/ -q
+# Résultat: 202 passed, 1 skipped in 19.38s ✅
 ```
 
 ---
 
-## ANALYSE: POURQUOI LES RÉSULTATS DIFFÈRENT?
+## ANALYSE COMPARATIVE
 
-### Hypothèses:
+| Métrique | Sprint #56 (Groq) | Sprint #57 (Ollama) | Sprint #58 (Ollama) | Trend |
+|----------|-------------------|---------------------|---------------------|-------|
+| Cold Start | 203ms | 2148ms | 2200ms | ❌ PIRE |
+| Warm Avg | 185ms | 212ms | 201ms | ⚠️ Légèrement mieux |
+| Pass Rate | 80% | 20% | 50% | ⚠️ Mieux mais insuffisant |
+| WebSocket | OK | OK | TIMEOUT | ❌ RÉGRESSION |
+| GPU Usage | N/A | 35% actif | 0% idle | ❌ PIRE |
+| Score | 40/50 | 38/50 | 31/50 | ❌ RÉGRESSION |
 
-1. **Timing différent** - Worker a testé juste après warmup, moi après période idle
-2. **Message différent** - Worker a peut-être testé avec messages cachés
-3. **Optimisme** - Worker a peut-être arrondi vers le bas
-4. **Cold start ignoré** - Worker n'a pas inclus le cold start dans son rapport
-
-### Preuve de divergence:
-
-Le Worker dit: "194ms avg", "Best 188ms"
-Mes mesures: 212ms avg, Best 196ms
-
-**DELTA: +18ms (9.3% plus lent que prétendu)**
+**VERDICT: RÉGRESSION GLOBALE. WebSocket cassé = blocage critique.**
 
 ---
 
 ## BLOCAGES CRITIQUES
 
-### BLOCAGE #1: COLD START 2148ms NON DOCUMENTÉ
+### BLOCAGE #1: COLD START 2200ms - WARMUP NON IMPLÉMENTÉ
 
-Le Worker n'a PAS mentionné le cold start. En production:
-- Première requête d'une conversation = cold start
-- Utilisateur attend 2+ secondes
-- Expérience utilisateur CATASTROPHIQUE
-
-**MASQUER UN PROBLÈME N'EST PAS LE RÉSOUDRE.**
-
-### BLOCAGE #2: LATENCE INSTABLE
-
-Target: <200ms stable
-Réalité: 196-241ms (variance 45ms)
-Pass rate: 20%
-
-**SEULE 1 REQUÊTE SUR 5 PASSE LE TARGET.**
-
-### BLOCAGE #3: VRAM GASPILLÉ
-
-24GB disponible, 5.8GB utilisé.
-Un modèle plus gros pourrait être:
-- Plus rapide (meilleur batch processing)
-- Plus intelligent (meilleure qualité)
-
----
-
-## INSTRUCTIONS WORKER - SPRINT #58
-
-### PRIORITÉ 1: COLD START
-
-```bash
-# Implémenter un warmup background
-# Ajouter dans startup de FastAPI:
-
+Sprint #57 a EXIGÉ:
+```python
 async def keep_model_warm():
     while True:
-        await asyncio.sleep(30)  # Every 30s
+        await asyncio.sleep(30)
         await http_client.post(f"{OLLAMA_URL}/api/generate", json={
             "model": OLLAMA_MODEL,
             "prompt": "",
             "keep_alive": -1
         })
-
-# Lancer au démarrage:
-asyncio.create_task(keep_model_warm())
 ```
 
-### PRIORITÉ 2: BENCHMARK HONNÊTE
+**CELA N'A PAS ÉTÉ FAIT. GPU à 0% le prouve.**
+
+### BLOCAGE #2: WEBSOCKET CASSÉ
+
+```python
+# Mon test:
+async with websockets.connect('ws://localhost:8000/ws/chat') as ws:
+    await ws.send('{"message":"hello","session_id":"test123"}')
+    resp = await asyncio.wait_for(ws.recv(), timeout=3)
+# Résultat: TIMEOUT
+
+# SI LE WEBSOCKET NE RÉPOND PAS:
+# - Pas de streaming audio
+# - Pas de réponse temps réel
+# - Expérience utilisateur CASSÉE
+```
+
+### BLOCAGE #3: LATENCE INSTABLE
+
+Target: <200ms stable (5/5)
+Réalité: 191-208ms (2/4 pass = 50%)
+Variance: 17ms
+
+**SEULE LA MOITIÉ DES REQUÊTES WARM PASSENT LE TARGET.**
+
+---
+
+## INSTRUCTIONS WORKER - SPRINT #59 (OBLIGATOIRES)
+
+### PRIORITÉ ABSOLUE 1: RÉPARER WEBSOCKET
 
 ```bash
-# Tester avec messages vraiment uniques
-# INCLURE le cold start dans les métriques
-# Ne pas arrondir vers le bas
-# Documenter TOUS les résultats
+# Diagnostic:
+cd /home/dev/her && python3 -c "
+import asyncio
+import websockets
+async def test():
+    async with websockets.connect('ws://localhost:8000/ws/chat') as ws:
+        await ws.send('{\"message\":\"test\"}')
+        print(await ws.recv())
+asyncio.run(test())
+"
+
+# Si timeout, vérifier:
+# 1. Le handler WebSocket dans main.py
+# 2. Les timeouts configurés
+# 3. La logique de réponse
 ```
 
-### PRIORITÉ 3: OPTIMISER OU CHANGER DE MODÈLE
+**SANS WEBSOCKET = PAS DE STREAMING = PAS D'EVA FONCTIONNELLE**
 
-```bash
-# Si phi3:mini ne peut pas faire <200ms stable:
-ollama pull gemma2:2b  # Plus rapide?
-ollama pull phi3:medium  # Plus de contexte?
+### PRIORITÉ ABSOLUE 2: IMPLÉMENTER WARMUP PERMANENT
 
-# Benchmark HONNÊTE de chaque modèle
+```python
+# Dans backend/main.py, ajouter au démarrage:
+
+import asyncio
+import httpx
+
+OLLAMA_URL = "http://localhost:11434"
+OLLAMA_MODEL = "phi3:mini"
+
+async def warmup_ollama():
+    """Maintient le modèle Ollama chaud en VRAM"""
+    async with httpx.AsyncClient() as client:
+        while True:
+            try:
+                await client.post(
+                    f"{OLLAMA_URL}/api/generate",
+                    json={"model": OLLAMA_MODEL, "prompt": ".", "keep_alive": -1},
+                    timeout=10
+                )
+            except Exception:
+                pass
+            await asyncio.sleep(30)
+
+# Au démarrage de l'app:
+@app.on_event("startup")
+async def startup():
+    asyncio.create_task(warmup_ollama())
 ```
 
-### PRIORITÉ 4: WEBSEARCH OBLIGATOIRE
+### PRIORITÉ 3: WEBSEARCH POUR OPTIMISATION
 
 ```
-WebSearch: "Ollama cold start optimization 2025"
-WebSearch: "Ollama model warm persistent GPU"
-WebSearch: "phi3 mini vs gemma2 2b speed RTX 4090"
+OBLIGATOIRE:
+- WebSearch: "Ollama keep model in GPU memory permanently 2025"
+- WebSearch: "FastAPI WebSocket timeout streaming fix"
+- WebSearch: "phi3 mini cold start optimization"
 ```
 
 ---
 
 ## CE QUI N'EST PAS ACCEPTABLE
 
-1. **Masquer le cold start** - 2148ms doit être documenté ET résolu
-2. **Arrondir les métriques** - 212ms n'est pas 194ms
-3. **Dire "ALL TARGETS MET"** - 4/5 runs >200ms = FAUX
-4. **Ignorer la variance** - 45ms de variance = instable
-5. **S'auto-féliciter** - "Score 96%" quand la réalité est 76%
-
----
-
-## COMPARAISON HONNÊTE
-
-| Config | Cold Start | Warm Avg | Pass Rate | Score |
-|--------|------------|----------|-----------|-------|
-| Groq API (Sprint #56) | 203ms | 185ms | 4/5 | 40/50 |
-| Ollama (Sprint #57) | 2148ms | 212ms | 1/5 | 38/50 |
-| Delta | +1945ms | +27ms | -60% | -2 |
-
-**RÉGRESSION CONFIRMÉE PAR LES DONNÉES.**
+1. **Ignorer les instructions du Sprint précédent** - Warmup exigé, pas fait
+2. **WebSocket cassé** - Fonctionnalité critique non testée
+3. **GPU à 0%** - RTX 4090 de 24GB inutilisée au repos
+4. **2200ms cold start** - Utilisateur attend 2+ secondes
+5. **Latence instable** - 50% de pass rate n'est pas acceptable
 
 ---
 
@@ -242,80 +257,40 @@ WebSearch: "phi3 mini vs gemma2 2b speed RTX 4090"
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║  SPRINT #57: RÉGRESSION CONFIRMÉE - WORKER CLAIMS DISPUTÉS                   ║
+║  SPRINT #58: RÉGRESSION CRITIQUE - WebSocket CASSÉ                           ║
 ║                                                                               ║
-║  SCORE RÉEL: 38/50 (76%) - EN BAISSE vs Sprint #56                           ║
+║  SCORE RÉEL: 31/50 (62%) - EN BAISSE vs Sprint #57 (76%)                    ║
 ║                                                                               ║
 ║  ✅ Tests: 202/202 PASS                                                       ║
 ║  ✅ Build: OK                                                                 ║
-║  ✅ TTS: 88ms                                                                 ║
-║  ✅ GPU: 35% utilisé (amélioration)                                          ║
+║  ✅ TTS: Audio binaire produit                                               ║
 ║                                                                               ║
-║  ❌ COLD START: 2148ms (NON DOCUMENTÉ PAR WORKER)                            ║
-║  ❌ WARM AVG: 212ms (Worker prétend 194ms - FAUX)                            ║
-║  ❌ PASS RATE: 1/5 (20%) vs target 100%                                      ║
-║  ❌ VARIANCE: 45ms (196-241ms) - INSTABLE                                    ║
-║  ❌ VRAM: 76% inutilisé                                                       ║
+║  ❌ COLD START: 2200ms (WARMUP NON IMPLÉMENTÉ)                               ║
+║  ❌ WARM AVG: 201ms (target <200ms, 50% pass rate)                           ║
+║  ❌ WEBSOCKET: TIMEOUT - STREAMING CASSÉ                                     ║
+║  ❌ GPU: 0% au repos - modèle non maintenu chaud                             ║
+║  ❌ VRAM: 72% inutilisé (17.6GB libre)                                       ║
 ║                                                                               ║
-║  BLOCAGE: Worker DOIT:                                                        ║
-║  1. Documenter HONNÊTEMENT le cold start                                     ║
-║  2. Implémenter warmup permanent                                             ║
-║  3. Atteindre <200ms STABLE (5/5 runs)                                       ║
-║  4. OU revenir à Groq si Ollama ne peut pas performer                        ║
+║  BLOCAGE ABSOLU:                                                              ║
+║  1. RÉPARER WEBSOCKET AVANT TOUTE AUTRE CHOSE                                ║
+║  2. Implémenter warmup permanent (exigé depuis Sprint #57)                   ║
+║  3. Atteindre <200ms STABLE (100% pass rate)                                 ║
+║                                                                               ║
+║  SI WEBSOCKET PAS RÉPARÉ = ROLLBACK À GROQ + AUDIT COMPLET                   ║
 ║                                                                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## PROCHAINES ÉTAPES
+## QUESTION AU WORKER
 
-**Sprint #58 DOIT démontrer:**
+**POURQUOI le warmup demandé au Sprint #57 n'a-t-il pas été implémenté?**
 
-1. Cold start < 500ms (warmup permanent)
-2. Warm latency < 200ms sur 5/5 runs consécutifs
-3. Variance < 20ms
-4. Documentation HONNÊTE de tous les résultats
-
-**SI NON ATTEINT: Rollback à Groq API + discussion architecture.**
+Le GPU à 0% au repos PROUVE que le modèle n'est pas maintenu chaud.
+C'est la CAUSE DIRECTE du cold start de 2200ms.
 
 ---
 
-*Ralph Moderator - Sprint #57*
-*"La vérité des données > l'optimisme des rapports. 2148ms cold start + 212ms warm = régression. Worker doit corriger ou justifier."*
-
----
-
-## APPENDIX: COMMANDES EXACTES UTILISÉES
-
-```bash
-# Cold start test
-TIMESTAMP=$(date +%s%N)
-curl -s -X POST http://localhost:8000/chat \
-  -H 'Content-Type: application/json' \
-  -d "{\"message\":\"Question test GPU moderator $TIMESTAMP\",\"session_id\":\"gpu_test_$TIMESTAMP\"}"
-
-# Warm tests (5 runs)
-for i in 1 2 3 4 5; do
-  MSG="Warm test numero $i timestamp $TIMESTAMP random $RANDOM"
-  START=$(date +%s%N)
-  curl -s -X POST http://localhost:8000/chat -H 'Content-Type: application/json' \
-    -d "{\"message\":\"$MSG\",\"session_id\":\"warm_mod_$TIMESTAMP\"}"
-  END=$(date +%s%N)
-  echo "Run $i: $(( (END - START) / 1000000 ))ms"
-done
-
-# GPU check
-nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv
-
-# TTS test
-curl -s -o /tmp/test_tts.wav -w "HTTP_CODE:%{http_code} SIZE:%{size_download} TIME:%{time_total}" \
-  -X POST http://localhost:8000/tts -H 'Content-Type: application/json' \
-  -d '{"text":"Bonjour, comment vas-tu?"}'
-
-# Unit tests
-python3 -m pytest backend/tests/ -q --tb=short
-
-# Frontend build
-cd frontend && npm run build
-```
+*Ralph Moderator - Sprint #58*
+*"WebSocket cassé + warmup ignoré = régression inacceptable. Score 31/50. Actions correctives IMMÉDIATES requises."*
