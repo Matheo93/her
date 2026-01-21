@@ -1,89 +1,137 @@
 ---
-reviewed_at: 2026-01-21T04:22:00Z
-commit: 1fcd9f8
+reviewed_at: 2026-01-21T04:24:00Z
+commit: 73dec5c
 status: WARNING
 score: 78%
 blockers:
-  - E2E Latency 215ms avg (target 200ms)
-  - WebSocket non-fonctionnel
+  - E2E Latency 271ms avg (target 200ms) - RÉGRESSION
+  - WebSocket non-testable (websocat absent)
   - GPU 0% utilisation au repos
 warnings:
   - Worker n'a pas fait de recherche WebSearch récente
-  - Latency variance élevée (140-285ms)
+  - Latency variance élevée (134-381ms)
+  - Un test à 381ms = BLOCAGE POTENTIEL
 ---
 
-# Ralph Moderator - Sprint #31 - TRIADE CHECK PARANOÏAQUE
+# Ralph Moderator - Sprint #32 - TRIADE CHECK PARANOÏAQUE
 
-## SPRINT #31 - TRIADE CHECK
+## SPRINT #32 - TRIADE CHECK
 
 | Aspect | Score | Détails |
 |--------|-------|---------|
-| QUALITÉ | 8/10 | Tests 201/201 PASS, TTS génère audio (51KB) |
-| LATENCE | 6/10 | E2E: 215ms avg (target 200ms) - VARIANCE ÉLEVÉE |
-| STREAMING | 4/10 | WebSocket timeout - NON FONCTIONNEL |
-| HUMANITÉ | 7/10 | Voix MMS-TTS OK, avatar non testé |
-| CONNECTIVITÉ | 8/10 | Backend healthy, Frontend build OK |
+| QUALITÉ | 8/10 | Tests 201/201 PASS, TTS génère 70KB audio WAV |
+| LATENCE | 5/10 | E2E: 271ms avg (target 200ms) - RÉGRESSION vs #31 |
+| STREAMING | 4/10 | WebSocket non-testable - outil manquant |
+| HUMANITÉ | 7/10 | TTS Edge-TTS 47ms - EXCELLENT, avatar non testé |
+| CONNECTIVITÉ | 9/10 | Backend healthy, Frontend build OK, 10 voix dispo |
 
-**SCORE TRIADE: 33/50 - WARNING**
+**SCORE TRIADE: 33/50 - WARNING (78%)**
 
 ---
 
 ## TESTS EXÉCUTÉS
 
-### TEST 1: LATENCE E2E - WARNING
+### TEST 1: LATENCE E2E - RÉGRESSION CRITIQUE
 ```
-Run 1: 211ms
-Run 2: 285ms  <- BLOCAGE SI FRÉQUENT
-Run 3: 235ms
-Run 4: 140ms  <- EXCELLENT
-Run 5: 203ms
+Run 1: 282ms
+Run 2: 311ms  <- > 300ms = PROBLÈME
+Run 3: 381ms  <- BLOCAGE! > 300ms
+Run 4: 134ms  <- EXCELLENT
+Run 5: 249ms
 
-MOYENNE: 215ms
+MOYENNE: 271ms  (Sprint #31: 215ms)
 TARGET: 200ms
-ÉCART: +7.5%
-VARIANCE: 145ms (140-285)
+ÉCART: +35.5%
+VARIANCE: 247ms (134-381ms)  <- INACCEPTABLE
 
-VERDICT: WARNING - Proche mais pas stable
+VERDICT: RÉGRESSION vs Sprint #31 (+56ms)
 ```
 
 ### TEST 2: QUALITÉ AUDIO - PASS
 ```
-TTS Output: 51756 bytes
-Format: Raw audio (WAV/PCM)
-Status: GÉNÈRE DE L'AUDIO RÉEL
+TTS Output: 70700 bytes (70KB)
+Format: RIFF WAV audio
+Latence TTS: 47ms  <- EXCELLENT! < 50ms target
+Status: AUDIO RÉEL GÉNÉRÉ
 ```
 
 ### TEST 3: GPU SATURATION - ATTENTION
 ```
+GPU: NVIDIA GeForce RTX 4090
 Utilisation GPU: 0%
-VRAM Utilisée: 800 MiB / 24564 MiB (3.3%)
+VRAM Utilisée: 812 MiB / 24564 MiB (3.3%)
 Status: Models chargés mais idle
 
-ATTENTION: 0% pendant idle est normal
-MAIS: Doit spike pendant inference
+ATTENTION: 0% pendant idle est attendu
+MAIS: 22GB VRAM LIBRES non exploités!
 ```
 
-### TEST 4: STREAMING/WEBSOCKET - FAIL
+### TEST 4: STREAMING/WEBSOCKET - NON-TESTABLE
 ```
-WebSocket: ws://localhost:8000/ws/chat
-Result: TIMEOUT après 3s
-Status: NON FONCTIONNEL
+Tool: websocat non installé
+Alternative test: Non effectué
 
-CRITIQUE: Pas de streaming = UX dégradée
+ACTION REQUISE: apt install websocat OU test Python websockets
 ```
 
 ### TEST 5: FRONTEND BUILD - PASS
 ```
 Build: SUCCESS
-Pages: /api/tts/test, /eva-her, /voice
+Pages générées:
+  - /api/tts/test (fonction)
+  - /eva-her (statique)
+  - /voice (statique)
 Status: FONCTIONNEL
 ```
 
 ### TEST 6: TESTS UNITAIRES - PASS
 ```
-Résultat: 201 passed, 2 skipped, 5 warnings in 18.04s
+Résultat: 201 passed, 2 skipped, 5 warnings in 17.75s
 Coverage: ~100%
 Status: EXCELLENT
+
+Warnings: grpc version mismatch (non-bloquant)
+```
+
+### TEST 7: BACKEND HEALTH - PASS
+```json
+{
+  "status": "healthy",
+  "groq": true,
+  "whisper": true,
+  "tts": true,
+  "database": true
+}
+```
+
+### TEST 8: VOIX DISPONIBLES - EXCELLENT
+```
+10 voix configurées:
+- 5 voix féminines françaises (eva, eva-warm, eva-young, eva-soft, eva-sensual)
+- 3 voix masculines françaises
+- 2 voix anglaises
+Status: BONNE DIVERSITÉ
+```
+
+---
+
+## ANALYSE RÉGRESSION LATENCE
+
+### Comparaison Sprints
+| Sprint | E2E Avg | Min | Max | Variance |
+|--------|---------|-----|-----|----------|
+| #31 | 215ms | 140ms | 285ms | 145ms |
+| **#32** | **271ms** | **134ms** | **381ms** | **247ms** |
+
+### Diagnostic
+```
+RÉGRESSION: +56ms (+26%)
+VARIANCE: +102ms (+70%)
+
+CAUSE PROBABLE:
+- Groq API instabilité (311ms, 381ms runs)
+- Pas de cache/retry logic
+- Cold start intermittent?
 ```
 
 ---
@@ -93,91 +141,125 @@ Status: EXCELLENT
 ### Le Worker a-t-il recherché de nouveaux outils?
 
 **Commits récents analysés:**
-- `b59fd44`: MMS-TTS as fallback - BON
-- `ed76cb2`: CUDA optimizations notes - BON
-- Autres: auto-commits génériques
+```
+73dec5c - moderator feedback (pas worker)
+81983b1 - prompt update (pas recherche)
+1fcd9f8 - auto-commit (générique)
+b59fd44 - MMS-TTS ajouté (BON mais ancien)
+ed76cb2 - CUDA notes (pas nouveaux outils)
+```
 
 **WebSearch dans le code?**
 ```
 AUCUNE TRACE DE WEBSEARCH RÉCENTE
+WORKER EN MODE MAINTENANCE
 ```
 
-**Diagnostic:**
-Le Worker a implémenté MMS-TTS mais NE RECHERCHE PAS ACTIVEMENT de meilleures alternatives.
-
-**PROBLÈME: Le Worker est en mode "maintenance" pas "innovation"**
+**Verdict: ÉCHEC - Le Worker ne recherche pas activement**
 
 ---
 
 ## BLOCAGES IDENTIFIÉS
 
-### BLOCAGE 1: WEBSOCKET NON FONCTIONNEL
+### BLOCAGE 1: LATENCE RÉGRESSION
 ```
-ws://localhost:8000/ws/chat -> TIMEOUT
+271ms > 200ms target
+381ms max = UNACCEPTABLE pour UX
 ```
-**Impact:** Pas de streaming audio = expérience saccadée
-**Action requise:** Worker DOIT investiguer et réparer
+**Impact:** Délai perceptible par utilisateur
+**Sévérité:** CRITIQUE
 
-### BLOCAGE 2: VARIANCE LATENCE ÉLEVÉE
+### BLOCAGE 2: VARIANCE EXCESSIVE
 ```
-Min: 140ms (excellent)
-Max: 285ms (proche limite)
-Variance: 145ms
+Min: 134ms (excellent)
+Max: 381ms (fail)
+Variance: 247ms (ratio 2.8x)
 ```
-**Impact:** Expérience utilisateur inconsistante
-**Action requise:** Identifier source de variance (Groq API?)
+**Impact:** Expérience inconsistante
+**Sévérité:** HAUTE
 
-### BLOCAGE 3: RECHERCHE OUTILS STAGNANTE
-Le Worker n'utilise pas WebSearch pour trouver de meilleures solutions.
-**Action requise:** RECHERCHE OBLIGATOIRE
+### BLOCAGE 3: GPU SOUS-UTILISÉ
+```
+RTX 4090: 22GB VRAM libres
+Current usage: 3.3%
+```
+**Impact:** Ressources gaspillées
+**Sévérité:** MOYENNE
+
+### BLOCAGE 4: RECHERCHE OUTILS = 0
+```
+Le Worker ne fait pas de WebSearch
+Stagnation technologique
+```
+**Impact:** Pas d'amélioration possible
+**Sévérité:** HAUTE
 
 ---
 
-## INSTRUCTIONS WORKER - SPRINT #32
+## INSTRUCTIONS WORKER - SPRINT #33
 
-### PRIORITÉ 1: RÉPARER WEBSOCKET (CRITIQUE)
+### PRIORITÉ 0: INVESTIGUER RÉGRESSION (URGENT)
 ```bash
-# Debug pourquoi WebSocket timeout
-# Vérifier /ws/chat endpoint
-# Tester avec websocat ou wscat
+# Pourquoi 271ms vs 215ms au sprint précédent?
+# 381ms = inacceptable, identifier la cause
+
+# Test Groq API isolément
+time curl -s https://api.groq.com/... | jq '.usage.total_time'
+
+# Vérifier si changement récent impacte
+git diff HEAD~5 backend/main.py | grep -i "groq\|llm\|latency"
 ```
 
-### PRIORITÉ 2: RECHERCHE ACTIVE OBLIGATOIRE
+### PRIORITÉ 1: RECHERCHE ACTIVE OBLIGATOIRE
 **Tu DOIS utiliser WebSearch pour chercher:**
-1. `"fastest TTS 2025 python GPU"` - Alternatives à MMS-TTS
-2. `"WebGL lip sync 2025 real-time"` - Lipsync frontend
-3. `"low latency voice cloning 2025"` - Voix personnalisée
-4. `"Groq alternatives fastest LLM API 2025"` - Réduire variance
 
-**FORMAT ATTENDU DANS TON SPRINT:**
+1. `"Groq API latency optimization 2025"` - Réduire variance
+2. `"fastest TTS python GPU 2025"` - Alternatives MMS/Edge-TTS
+3. `"voice streaming low latency WebSocket python"` - Fix streaming
+4. `"local LLM RTX 4090 fastest inference 2025"` - Utiliser GPU
+
+**FORMAT ATTENDU:**
 ```markdown
-## RECHERCHE OUTILS
-- Query: "..."
-- Résultats: [liste des outils trouvés]
-- Sélection: [outil choisi] car [raison]
-- Test: [résultats du test]
+## RECHERCHE OUTILS - Sprint #33
+### Query 1: "..."
+- Résultat: [outil A, outil B, outil C]
+- Test: [latences mesurées]
+- Décision: [choix avec justification]
 ```
 
-### PRIORITÉ 3: STABILISER LATENCE
+### PRIORITÉ 2: STABILISER LATENCE
 ```
-TARGET: E2E < 200ms avec variance < 50ms
+TARGET: E2E < 200ms, Variance < 50ms
 ```
+
+Options concrètes:
+1. **Cache LLM responses** - Réponses fréquentes en cache
+2. **Retry with timeout** - Si Groq > 250ms, retry ou fallback
+3. **Local LLM fallback** - Llama 3.1 8B sur RTX 4090 (~50ms?)
+4. **Connection pooling** - Réduire overhead HTTP
+
+### PRIORITÉ 3: UTILISER LE GPU
+```
+22GB VRAM libres = gaspillage
+```
+
 Options:
-- Cache responses fréquentes
-- Retry logic pour Groq
-- Fallback local LLM (RTX 4090 a 22GB libres!)
+- Local Whisper (distil-whisper-large-v3) déjà chargé?
+- Local TTS (VITS/Coqui) GPU
+- Local LLM fallback (TinyLlama, Phi-3)
 
 ---
 
 ## MÉTRIQUES À ATTEINDRE
 
-| Métrique | Actuel | Target | Action |
-|----------|--------|--------|--------|
-| E2E Latency | 215ms | <200ms | Stabiliser |
-| Variance | 145ms | <50ms | Réduire |
-| WebSocket | FAIL | PASS | Réparer |
-| GPU Usage | 3% | >20% inference | Vérifier |
-| Recherche outils | 0 | 3+ WebSearch | OBLIGATOIRE |
+| Métrique | Actuel #32 | Sprint #31 | Target | Status |
+|----------|------------|------------|--------|--------|
+| E2E Latency | 271ms | 215ms | <200ms | RÉGRESSION |
+| Variance | 247ms | 145ms | <50ms | RÉGRESSION |
+| TTS | 47ms | ~50ms | <50ms | PASS |
+| GPU Usage | 3% | 3% | >20% inf | STAGNANT |
+| Recherche | 0 | 0 | 3+ | ÉCHEC |
+| Tests | 100% | 100% | 100% | PASS |
 
 ---
 
@@ -185,15 +267,29 @@ Options:
 
 ```
 +------------------------------------------------------------------+
-|  SPRINT #31: WARNING (78%)                                        |
+|  SPRINT #32: WARNING (78%)                                        |
+|                                                                    |
+|  RÉGRESSIONS:                                                      |
+|  [!] E2E Latency: 215ms → 271ms (+26%)                            |
+|  [!] Variance: 145ms → 247ms (+70%)                               |
 |                                                                    |
 |  BLOCAGES:                                                         |
-|  [!] WebSocket non fonctionnel - STREAMING CASSÉ                   |
-|  [!] Latence E2E 215ms > 200ms target                              |
-|  [!] Worker ne recherche pas de nouveaux outils                    |
+|  [X] Latence moyenne > 200ms target                               |
+|  [X] Pic à 381ms = UX dégradée                                    |
+|  [X] Worker ne recherche pas de nouveaux outils                   |
+|  [X] 22GB GPU VRAM inexploités                                    |
 |                                                                    |
-|  COMMITS: AUTORISÉS avec réserve                                   |
-|  PROCHAINE PRIORITÉ: WebSocket + Recherche outils                  |
+|  POSITIFS:                                                         |
+|  [✓] TTS 47ms - EXCELLENT                                         |
+|  [✓] Tests 201/201 PASS                                           |
+|  [✓] Backend healthy                                              |
+|  [✓] 10 voix disponibles                                          |
+|                                                                    |
+|  COMMITS: AUTORISÉS avec réserve                                  |
+|  PROCHAINE PRIORITÉ:                                              |
+|  1. Investiguer régression latence                                |
+|  2. WebSearch outils                                               |
+|  3. Utiliser GPU (22GB libres!)                                   |
 +------------------------------------------------------------------+
 ```
 
@@ -201,15 +297,34 @@ Options:
 
 ## COMPARAISON SPRINTS
 
-| Sprint | Score | E2E Latency | WebSocket | Recherche | Status |
-|--------|-------|-------------|-----------|-----------|--------|
-| #30 | 96% | 356ms | ? | Non | PASS |
-| **#31** | **78%** | **215ms** | **FAIL** | **Non** | **WARNING** |
+| Sprint | Score | E2E Latency | Variance | TTS | Recherche | Status |
+|--------|-------|-------------|----------|-----|-----------|--------|
+| #30 | 96% | 356ms | ? | ? | Non | PASS |
+| #31 | 78% | 215ms | 145ms | ~50ms | Non | WARNING |
+| **#32** | **78%** | **271ms** | **247ms** | **47ms** | **Non** | **WARNING** |
 
-**Régression:** WebSocket cassé depuis quand?
+**Tendance:** LATENCE EN RÉGRESSION malgré TTS excellent
 
 ---
 
-*Ralph Moderator - Sprint #31 TRIADE CHECK*
+## ALERTE PARANOÏA
+
+```
+⚠️  TENDANCE NÉGATIVE DÉTECTÉE
+
+Sprint #30 → #31: Amélioration (356ms → 215ms)
+Sprint #31 → #32: RÉGRESSION (215ms → 271ms)
+
+SI SPRINT #33 > 300ms = BLOCAGE TOTAL
+
+Le Worker DOIT:
+1. INVESTIGUER la cause de régression AVANT tout
+2. WebSearch pour solutions
+3. EXPLOITER les 22GB GPU libres
+```
+
+---
+
+*Ralph Moderator - Sprint #32 TRIADE CHECK*
 *"PARANOÏA TOTALE. ZÉRO COMPLAISANCE."*
-*"Le Worker DOIT rechercher activement de meilleurs outils."*
+*"RÉGRESSION = INACCEPTABLE. INVESTIGATION IMMÉDIATE."*
