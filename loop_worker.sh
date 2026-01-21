@@ -83,19 +83,23 @@ SI TU ES BLOQUÉ:
 - 32 CPUs, 251GB RAM
 - Backend: http://localhost:8000
 
-## ATTENTION: CACHE = SOLUTION FACILE, PAS VRAIE SOLUTION
+## DÉCISION FINALE: LLM 100% LOCAL
 
-**Le cache c'est de la triche!**
-- En production, chaque message utilisateur est UNIQUE
-- Le cache ne fonctionne que pour les requêtes répétées
-- Tu DOIS optimiser la VRAIE latence LLM
+**UTILISE UNIQUEMENT Ollama phi3:mini**
+- Pas de Groq API (ajoute 500ms+ de réseau)
+- phi3:mini = 2.2GB, rapide, suffisant pour conversation
+- NE PAS télécharger d'autres modèles (llama3.1, etc.)
 
-**VRAIES SOLUTIONS À EXPLORER:**
-1. LLM local sur RTX 4090 (49GB VRAM!) - Llama 70B peut tourner
-2. Streaming token par token (TTFT au lieu de latence totale)
-3. Réduire la taille du prompt/contexte
-4. Utiliser un modèle plus petit mais rapide
-5. Paralléliser les appels (LLM + TTS en même temps)
+**COLD START = PRIORITÉ #1**
+Le système DOIT répondre < 200ms même après 5 minutes d'inactivité.
+- Keepalive toutes les 10 secondes (pas 30)
+- Warmup au démarrage avec 5 requêtes test
+- Garder le modèle chaud en mémoire GPU
+
+**INTERDIT:**
+- Télécharger llama3.1:8b (trop gros, 4.9GB)
+- Utiliser Groq API (latence réseau)
+- Modifier sans mesurer l'impact
 
 ## TARGETS STRICTS (SUR REQUÊTES UNIQUES!)
 
