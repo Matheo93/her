@@ -682,9 +682,15 @@ export function RealisticAvatarImage({
               <stop offset="100%" stopColor="#3D2817" />
             </radialGradient>
 
-            {/* Blush */}
+            {/* Blush gradients - with warmth variation */}
             <radialGradient id="blushLeft" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor={HER_COLORS.blush} stopOpacity="0.3" />
+              <stop offset="0%" stopColor={HER_COLORS.blush} stopOpacity="0.35" />
+              <stop offset="60%" stopColor={HER_COLORS.blush} stopOpacity="0.15" />
+              <stop offset="100%" stopColor={HER_COLORS.blush} stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="blushRight" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor={HER_COLORS.coral} stopOpacity="0.25" />
+              <stop offset="70%" stopColor={HER_COLORS.blush} stopOpacity="0.1" />
               <stop offset="100%" stopColor={HER_COLORS.blush} stopOpacity="0" />
             </radialGradient>
           </defs>
@@ -740,8 +746,30 @@ export function RealisticAvatarImage({
             cy={130 - cheekRise * 4}
             rx="20"
             ry={15 + cheekRise * 2}
-            fill="url(#blushLeft)"
+            fill="url(#blushRight)"
           />
+
+          {/* Additional blush highlight when smiling/happy */}
+          {cheekRise > 0.3 && (
+            <>
+              <ellipse
+                cx="55"
+                cy={125 - cheekRise * 5}
+                rx="8"
+                ry="6"
+                fill={HER_COLORS.coral}
+                opacity={cheekRise * 0.15}
+              />
+              <ellipse
+                cx="145"
+                cy={125 - cheekRise * 5}
+                rx="8"
+                ry="6"
+                fill={HER_COLORS.coral}
+                opacity={cheekRise * 0.15}
+              />
+            </>
+          )}
 
           {/* Subtle freckles across nose and cheeks */}
           <g opacity="0.4">
