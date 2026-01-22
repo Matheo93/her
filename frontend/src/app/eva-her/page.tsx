@@ -1399,6 +1399,30 @@ export default function EvaHerPage() {
           </span>
         </motion.button>
 
+        {/* Voice mode indicator - shows current voice warmth mode */}
+        <AnimatePresence>
+          {isConnected && voiceWarmth.mode !== "default" && (
+            <motion.div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+              style={{ backgroundColor: `${colors.cream}80` }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 0.6, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              title={voiceWarmth.description}
+            >
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill={colors.coral} style={{ opacity: 0.7 }}>
+                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+              </svg>
+              <span className="text-xs font-light capitalize" style={{ color: colors.earth, opacity: 0.6 }}>
+                {voiceWarmth.mode === "intimate" ? "intime" :
+                 voiceWarmth.mode === "warm" ? "chaleureux" :
+                 voiceWarmth.mode === "protective" ? "protecteur" :
+                 voiceWarmth.mode === "excited" ? "enthousiaste" : voiceWarmth.mode}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <AnimatePresence>
           {herStatus.isConnected && (
             <motion.div
