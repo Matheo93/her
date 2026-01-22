@@ -1158,6 +1158,9 @@ export function RealisticAvatarImage({
             {/* Caruncle - inner eye corner pink flesh */}
             <ellipse cx="58" cy="111" rx="2" ry="2.5" fill="#E8A5A5" opacity="0.7" />
             <ellipse cx="58.5" cy="110.5" rx="1" ry="1.2" fill="#F0B5B5" opacity="0.5" />
+            {/* Tear duct moisture reflection - wet highlight */}
+            <ellipse cx="57.5" cy="111.5" rx="0.6" ry="0.8" fill="white" opacity="0.5" />
+            <ellipse cx="57.2" cy="111.2" rx="0.25" ry="0.35" fill="white" opacity="0.7" />
 
             {/* Iris with limbal ring */}
             <motion.circle
