@@ -60,8 +60,12 @@ export default function EvaHerPage() {
   const [messageSent, setMessageSent] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [inputMicLevel, setInputMicLevel] = useState(0);
+  const [showKeyboardHint, setShowKeyboardHint] = useState(false);
+  const [connectionLatency, setConnectionLatency] = useState<number | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
+  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastPingTimeRef = useRef<number>(0);
   const inputAnalyzerRef = useRef<AnalyserNode | null>(null);
   const inputAnimationRef = useRef<number | null>(null);
 
@@ -143,6 +147,18 @@ export default function EvaHerPage() {
     presence: persistentMemory.restoredWarmth || 0.8,
   });
   const [showWelcome, setShowWelcome] = useState(!persistentMemory.isReturningUser);
+
+  // Show keyboard hint to new users after 5 seconds of inactivity
+  useEffect(() => {
+    if (!persistentMemory.isReturningUser && isConnected && !isListening && !isSpeaking) {
+      const timer = setTimeout(() => {
+        setShowKeyboardHint(true);
+        // Auto-hide after 10 seconds
+        setTimeout(() => setShowKeyboardHint(false), 10000);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [persistentMemory.isReturningUser, isConnected, isListening, isSpeaking]);
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
@@ -317,6 +333,14 @@ export default function EvaHerPage() {
               mode: voiceWarmth.mode,
             }
           }));
+
+          // Start ping interval to measure latency
+          pingIntervalRef.current = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              lastPingTimeRef.current = Date.now();
+              ws.send(JSON.stringify({ type: "ping" }));
+            }
+          }, 10000);
         };
 
         ws.onerror = () => {
@@ -325,6 +349,12 @@ export default function EvaHerPage() {
 
         ws.onclose = (event) => {
           setIsConnected(false);
+
+          // Clear ping interval
+          if (pingIntervalRef.current) {
+            clearInterval(pingIntervalRef.current);
+            pingIntervalRef.current = null;
+          }
 
           // Handle different close codes
           if (event.code === 1000) {
@@ -349,6 +379,14 @@ export default function EvaHerPage() {
         const data = JSON.parse(event.data);
 
         switch (data.type) {
+          case "pong":
+            // Calculate latency from ping
+            if (lastPingTimeRef.current > 0) {
+              const latency = Date.now() - lastPingTimeRef.current;
+              setConnectionLatency(latency);
+            }
+            break;
+
           case "her_context":
             setEvaEmotion(data.response_emotion || "neutral");
             break;
@@ -751,7 +789,7 @@ export default function EvaHerPage() {
         {/* Dark mode toggle */}
         <motion.button
           onClick={darkMode.toggle}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
+          className="relative flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 overflow-hidden"
           style={{
             backgroundColor: `${colors.cream}90`,
             // @ts-expect-error CSS custom property for focus ring
@@ -761,27 +799,69 @@ export default function EvaHerPage() {
           whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
           aria-label={darkMode.isDark ? "Passer en mode clair" : "Passer en mode sombre"}
         >
-          <motion.div
-            initial={false}
-            animate={{ rotate: darkMode.isDark ? 180 : 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            {darkMode.isDark ? (
+          {/* Animated icon container with crossfade */}
+          <div className="relative w-4 h-4">
+            {/* Moon icon */}
+            <motion.div
+              className="absolute inset-0"
+              initial={false}
+              animate={{
+                opacity: darkMode.isDark ? 1 : 0,
+                scale: darkMode.isDark ? 1 : 0.5,
+                rotate: darkMode.isDark ? 0 : -90,
+              }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+            >
               <svg className="w-4 h-4" fill={colors.earth} viewBox="0 0 24 24">
                 <path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z" />
               </svg>
-            ) : (
-              <svg className="w-4 h-4" fill={colors.earth} viewBox="0 0 24 24">
-                <path d="M12 7a5 5 0 100 10 5 5 0 000-10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke={colors.earth} strokeWidth="2" strokeLinecap="round" />
+            </motion.div>
+            {/* Sun icon */}
+            <motion.div
+              className="absolute inset-0"
+              initial={false}
+              animate={{
+                opacity: darkMode.isDark ? 0 : 1,
+                scale: darkMode.isDark ? 0.5 : 1,
+                rotate: darkMode.isDark ? 90 : 0,
+              }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="5" fill={colors.earth} />
+                {/* Sun rays */}
+                {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
+                  <motion.line
+                    key={i}
+                    x1="12"
+                    y1="2"
+                    x2="12"
+                    y2="4"
+                    stroke={colors.earth}
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    transform={`rotate(${angle} 12 12)`}
+                    initial={false}
+                    animate={prefersReducedMotion ? {} : { opacity: [0.6, 1, 0.6] }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      delay: i * 0.1,
+                    }}
+                  />
+                ))}
               </svg>
-            )}
-          </motion.div>
-          <span
+            </motion.div>
+          </div>
+          <motion.span
             className="text-xs font-light hidden sm:inline"
             style={{ color: colors.earth, opacity: 0.7 }}
+            initial={false}
+            animate={{ opacity: 0.7 }}
+            key={darkMode.isDark ? "dark" : "light"}
           >
             {darkMode.isDark ? "Sombre" : "Clair"}
-          </span>
+          </motion.span>
         </motion.button>
 
         <AnimatePresence>
@@ -1223,6 +1303,67 @@ export default function EvaHerPage() {
             </motion.button>
           </div>
         </div>
+
+        {/* Keyboard shortcut hint for new users */}
+        <AnimatePresence>
+          {showKeyboardHint && !isListening && !isSpeaking && (
+            <motion.div
+              className="flex items-center justify-center gap-2 mt-2"
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              transition={{ duration: 0.3 }}
+            >
+              <kbd
+                className="px-2 py-0.5 text-xs rounded"
+                style={{
+                  backgroundColor: `${colors.cream}80`,
+                  color: colors.earth,
+                  border: `1px solid ${colors.softShadow}40`,
+                }}
+              >
+                Espace
+              </kbd>
+              <span
+                className="text-xs font-light"
+                style={{ color: colors.earth, opacity: 0.6 }}
+              >
+                pour parler
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Latency indicator when connected */}
+        <AnimatePresence>
+          {isConnected && connectionLatency !== null && (
+            <motion.div
+              className="flex items-center justify-center gap-1.5 mt-2"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                className="w-1.5 h-1.5 rounded-full"
+                style={{
+                  backgroundColor: connectionLatency < 100
+                    ? "#4ade80" // green - excellent
+                    : connectionLatency < 300
+                      ? "#fbbf24" // yellow - good
+                      : "#f87171", // red - poor
+                }}
+                animate={prefersReducedMotion ? {} : { scale: [1, 1.2, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
+              <span
+                className="text-xs font-light tabular-nums"
+                style={{ color: colors.earth, opacity: 0.5 }}
+              >
+                {connectionLatency}ms
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Connection status - animated, only when disconnected */}
         <AnimatePresence>
