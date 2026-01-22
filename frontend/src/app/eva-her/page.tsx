@@ -1506,7 +1506,7 @@ export default function EvaHerPage() {
           )}
         </AnimatePresence>
 
-        {/* Eva's words - subtle, appearing below avatar */}
+        {/* Eva's words - subtle, appearing below avatar with typewriter effect */}
         <AnimatePresence mode="wait">
           {currentText && (
             <motion.div
@@ -1516,12 +1516,24 @@ export default function EvaHerPage() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
             >
-              <p
+              <motion.p
                 className="text-lg leading-relaxed"
                 style={{ color: colors.earth }}
+                initial={{ opacity: 0.7 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.2 }}
               >
                 {currentText}
-              </p>
+                {/* Typing cursor when still receiving tokens */}
+                {isThinking && (
+                  <motion.span
+                    className="inline-block w-0.5 h-5 ml-0.5 align-middle"
+                    style={{ backgroundColor: colors.coral }}
+                    animate={{ opacity: [1, 0] }}
+                    transition={{ duration: 0.5, repeat: Infinity }}
+                  />
+                )}
+              </motion.p>
             </motion.div>
           )}
         </AnimatePresence>
