@@ -1,6 +1,6 @@
 ---
 active: true
-iteration: 3
+iteration: 4
 max_iterations: 0
 completion_promise: null
 started_at: "2026-01-22T07:53:58Z"
@@ -8,7 +8,7 @@ started_at: "2026-01-22T07:53:58Z"
 
 Sprint 225 Ameliore avatar UX latence performance. Code teste valide screenshot. Boucle infinie.
 
-## Sprint 225 Progress - Iteration 3
+## Sprint 225 Progress - Iteration 4
 
 ### Completed:
 1. **Avatar Performance Optimizations (iteration 1)**:
@@ -31,6 +31,12 @@ Sprint 225 Ameliore avatar UX latence performance. Code teste valide screenshot.
    - Added `contain: layout paint` for improved paint performance
    - Added `userSelect: none` for smoother touch interactions
 
+5. **Visibility-Based Animation Pausing (iteration 3)**:
+   - Added tab visibility detection to pause animations when hidden
+   - Optimized breathing interval from 50ms to 60ms (16fps, less CPU)
+   - Pause eye saccades, head movements, micro-expressions when hidden
+   - Saves battery/CPU when user switches tabs
+
 ### Test Results:
 - Backend: 202/202 tests passed (100%)
 - Frontend build: PASS (no warnings)
@@ -38,3 +44,4 @@ Sprint 225 Ameliore avatar UX latence performance. Code teste valide screenshot.
 ### Commits:
 - `perf(avatar): add GPU acceleration hints for smoother animations`
 - `perf(avatar): memoize SVG defs and add CSS containment`
+- `🤖 Auto-save: Ralph Sprint 08:02` (visibility-based animation pausing)

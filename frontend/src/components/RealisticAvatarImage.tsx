@@ -270,6 +270,24 @@ export function RealisticAvatarImage({
   const [headTilt, setHeadTilt] = useState({ x: 0, y: 0, rotation: 0 });
   const [microExpression, setMicroExpression] = useState(0); // 0-1 subtle expression intensity
   const [smoothEmotion, setSmoothEmotion] = useState(emotion);
+
+  // Intersection observer for lazy rendering - only render when visible
+  const [isInViewport, setIsInViewport] = useState(true);
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInViewport(entry.isIntersecting);
+      },
+      { threshold: 0.1, rootMargin: "50px" }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   // Asymmetric micro-expressions for naturalism
   const [asymmetry, setAsymmetry] = useState({ eyebrow: 0, smile: 0 }); // -1 to 1
 
@@ -455,9 +473,12 @@ export function RealisticAvatarImage({
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
-  // Breathing animation - respects reduced motion, pauses when tab not visible
+  // Combined visibility: tab visible AND element in viewport
+  const shouldAnimate = isVisible && isInViewport;
+
+  // Breathing animation - respects reduced motion, pauses when not visible/viewport
   useEffect(() => {
-    if (prefersReducedMotion || !isVisible) return;
+    if (prefersReducedMotion || !shouldAnimate) return;
 
     // Breathing rate varies by state - using 60ms (16fps) for smoother animation with less overhead
     const breathRate = isSpeaking ? 0.084 : isListening ? 0.048 : 0.06;
@@ -465,7 +486,7 @@ export function RealisticAvatarImage({
       setBreathPhase((prev) => (prev + breathRate) % (Math.PI * 2));
     }, 60); // 60ms = ~16fps, smoother than 50ms while saving CPU
     return () => clearInterval(interval);
-  }, [prefersReducedMotion, isSpeaking, isListening, isVisible]);
+  }, [prefersReducedMotion, isSpeaking, isListening, shouldAnimate]);
 
   // Natural blinking with emotion-aware timing
   useEffect(() => {
@@ -513,9 +534,9 @@ export function RealisticAvatarImage({
     };
   }, [isListening, isSpeaking, smoothEmotion]);
 
-  // Micro eye movement (saccades) - pauses when tab not visible
+  // Micro eye movement (saccades) - pauses when not visible/viewport
   useEffect(() => {
-    if (!isVisible) return;
+    if (!shouldAnimate) return;
 
     const interval = setInterval(() => {
       if (isListening) {
@@ -531,11 +552,11 @@ export function RealisticAvatarImage({
     }, 800 + Math.random() * 500);
 
     return () => clearInterval(interval);
-  }, [isListening, isVisible]);
+  }, [isListening, shouldAnimate]);
 
-  // Natural head micro-movements (subtle nodding, tilting) - respects reduced motion and visibility
+  // Natural head micro-movements (subtle nodding, tilting) - respects reduced motion and visibility/viewport
   useEffect(() => {
-    if (prefersReducedMotion || !isVisible) {
+    if (prefersReducedMotion || !shouldAnimate) {
       setHeadTilt({ x: 0, y: 0, rotation: 0 });
       return;
     }
@@ -565,11 +586,11 @@ export function RealisticAvatarImage({
 
     animationId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationId);
-  }, [isSpeaking, isListening, prefersReducedMotion, isVisible]);
+  }, [isSpeaking, isListening, prefersReducedMotion, shouldAnimate]);
 
-  // Micro-expressions - subtle emotional flickers with asymmetry (pauses when tab not visible)
+  // Micro-expressions - subtle emotional flickers with asymmetry (pauses when not visible/viewport)
   useEffect(() => {
-    if (!isVisible) return;
+    if (!shouldAnimate) return;
 
     const interval = setInterval(() => {
       // Random micro-expression intensity
@@ -611,11 +632,11 @@ export function RealisticAvatarImage({
     }, 2500 + Math.random() * 3500);
 
     return () => clearInterval(interval);
-  }, [smoothEmotion, isVisible]);
+  }, [smoothEmotion, shouldAnimate]);
 
   // Idle animations for lifelike presence when not speaking/listening
   useEffect(() => {
-    if (prefersReducedMotion || !isVisible) return;
+    if (prefersReducedMotion || !shouldAnimate) return;
     if (isSpeaking || isListening) {
       setIdleLipPart(0);
       return;
@@ -640,7 +661,7 @@ export function RealisticAvatarImage({
       clearInterval(lipInterval);
       clearInterval(breathInterval);
     };
-  }, [prefersReducedMotion, isSpeaking, isListening, isVisible]);
+  }, [prefersReducedMotion, isSpeaking, isListening, shouldAnimate]);
 
   // Breathing values - memoized with state-dependent amplitude
   const breathAmplitude = useMemo(() => {
