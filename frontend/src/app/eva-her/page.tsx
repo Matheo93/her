@@ -2264,17 +2264,28 @@ export default function EvaHerPage() {
               role="status"
               aria-label={`Connexion ${connectionQuality.label}, latence ${connectionLatency} millisecondes`}
             >
-              {/* Signal strength bars */}
+              {/* Signal strength bars with pulse animation */}
               <div className="flex gap-[1px] items-end h-3" aria-hidden="true">
                 {[1, 2, 3, 4].map((level) => (
-                  <div
+                  <motion.div
                     key={level}
-                    className="w-[2px] rounded-sm transition-colors"
+                    className="w-[2px] rounded-sm"
                     style={{
                       height: level * 2 + 2,
                       backgroundColor: level <= connectionQuality.bars
                         ? latencyColor
                         : `${colors.softShadow}30`,
+                    }}
+                    animate={
+                      level <= connectionQuality.bars && !prefersReducedMotion
+                        ? { opacity: [0.7, 1, 0.7] }
+                        : {}
+                    }
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      delay: level * 0.15,
+                      ease: "easeInOut",
                     }}
                   />
                 ))}
