@@ -1032,6 +1032,9 @@ export function RealisticAvatarImage({
             {/* Eye white */}
             <ellipse cx="72" cy="110" rx="14" ry="10" fill="white" />
 
+            {/* Eyeball shadow - lid shadow on sclera */}
+            <ellipse cx="72" cy="104" rx="12" ry="4" fill="#E8DDD5" opacity="0.5" />
+
             {/* Caruncle - inner eye corner pink flesh */}
             <ellipse cx="58" cy="111" rx="2" ry="2.5" fill="#E8A5A5" opacity="0.7" />
             <ellipse cx="58.5" cy="110.5" rx="1" ry="1.2" fill="#F0B5B5" opacity="0.5" />
@@ -1230,6 +1233,9 @@ export function RealisticAvatarImage({
           <g transform={`translate(${gazeOffset.x || 0}, ${gazeOffset.y || 0})`}>
             {/* Eye white */}
             <ellipse cx="128" cy="110" rx="14" ry="10" fill="white" />
+
+            {/* Eyeball shadow - lid shadow on sclera */}
+            <ellipse cx="128" cy="104" rx="12" ry="4" fill="#E8DDD5" opacity="0.5" />
 
             {/* Caruncle - inner eye corner pink flesh */}
             <ellipse cx="142" cy="111" rx="2" ry="2.5" fill="#E8A5A5" opacity="0.7" />
