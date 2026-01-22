@@ -513,7 +513,7 @@ export function RealisticAvatarImage({
     }
   }, [blinkState]);
 
-  // Eyebrow position - memoized, uses smooth emotion
+  // Eyebrow position - memoized, uses smooth emotion and activity state
   const eyebrowY = useMemo(() => {
     let base = 0;
     switch (smoothEmotion) {
@@ -524,8 +524,10 @@ export function RealisticAvatarImage({
       case "curiosity": base = -2; break;
       default: base = 0;
     }
-    return base + (microExpression * -1.5);
-  }, [smoothEmotion, microExpression]);
+    // Slight raise when listening (attentive), slight lower when speaking
+    const activityMod = isListening ? -1.5 : isSpeaking ? 0.5 : 0;
+    return base + (microExpression * -1.5) + activityMod;
+  }, [smoothEmotion, microExpression, isListening, isSpeaking]);
 
   // Smile amount - memoized, uses smooth emotion
   const smileAmount = useMemo(() => {
