@@ -1276,8 +1276,25 @@ export function RealisticAvatarImage({
             })()}
           </g>
 
-          {/* Chin highlight */}
-          <ellipse cx="100" cy="185" rx="15" ry="8" fill="#F5D0C5" opacity="0.4" />
+          {/* Chin with jaw movement */}
+          <motion.ellipse
+            cx="100"
+            cy={185 + mouthShape.jawDrop * 3}
+            rx="15"
+            ry="8"
+            fill="#F5D0C5"
+            opacity="0.4"
+            transition={{ duration: 0.05 }}
+          />
+          {/* Chin shadow - moves with jaw */}
+          <motion.path
+            d={`M85 ${180 + mouthShape.jawDrop * 2} Q100 ${188 + mouthShape.jawDrop * 3} 115 ${180 + mouthShape.jawDrop * 2}`}
+            fill="none"
+            stroke="#D4A090"
+            strokeWidth="0.6"
+            opacity="0.3"
+            transition={{ duration: 0.05 }}
+          />
 
           {/* Hair front wisps */}
           <path
