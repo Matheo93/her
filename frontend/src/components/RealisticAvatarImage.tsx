@@ -2111,12 +2111,31 @@ export function RealisticAvatarImage({
             fill="#C89B8B"
             opacity="0.15"
           />
+          {/* Deeper chin shadow - core shadow */}
+          <ellipse
+            cx="100"
+            cy="193"
+            rx="25"
+            ry="6"
+            fill="#B88878"
+            opacity="0.12"
+          />
+          {/* Jaw underside contour */}
           <path
             d="M65 192 Q100 198 135 192"
             fill="none"
             stroke="#C89B8B"
             strokeWidth="1"
             opacity="0.2"
+          />
+          {/* Soft ambient occlusion under jaw */}
+          <path
+            d="M70 190 Q100 195 130 190"
+            fill="none"
+            stroke="#A87868"
+            strokeWidth="2"
+            opacity="0.08"
+            strokeLinecap="round"
           />
 
           {/* Neck structure details */}
