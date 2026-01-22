@@ -1063,8 +1063,11 @@ export function RealisticAvatarImage({
             </g>
           )}
 
-          {/* Nose tip highlight */}
+          {/* Nose tip highlight - base glow */}
           <ellipse cx="100" cy="140" rx="6" ry="4" fill="#F5D0C5" opacity="0.5" />
+          {/* Nose tip specular highlight - sharp light reflection */}
+          <ellipse cx="99" cy="139" rx="2" ry="1.2" fill="white" opacity="0.4" />
+          <ellipse cx="98.5" cy="138.5" rx="0.8" ry="0.5" fill="white" opacity="0.6" />
 
           {/* Left eye group */}
           <g transform={`translate(${gazeOffset.x || 0}, ${gazeOffset.y || 0})`}>
