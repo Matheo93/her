@@ -1077,13 +1077,32 @@ export function RealisticAvatarImage({
             />
           )}
 
-          {/* Left eye crease */}
-          <path
-            d="M58 100 Q72 96 86 100"
-            fill="none"
-            stroke="#C89B8B"
-            strokeWidth="0.8"
-          />
+          {/* Left eye crease - double lid fold */}
+          <g>
+            {/* Primary crease */}
+            <path
+              d="M58 100 Q72 96 86 100"
+              fill="none"
+              stroke="#C89B8B"
+              strokeWidth="0.8"
+            />
+            {/* Secondary subtle fold */}
+            <path
+              d="M60 97 Q72 94 84 97"
+              fill="none"
+              stroke="#D4B5A5"
+              strokeWidth="0.4"
+              opacity="0.4"
+            />
+            {/* Lid depth shadow */}
+            <path
+              d="M62 102 Q72 100 82 102"
+              fill="none"
+              stroke="#C89B8B"
+              strokeWidth="0.3"
+              opacity="0.25"
+            />
+          </g>
 
           {/* Left upper eyelashes - subtle curved strokes */}
           <g opacity={blinkState === "open" ? 0.7 : 0}>
@@ -1254,13 +1273,32 @@ export function RealisticAvatarImage({
             </g>
           )}
 
-          {/* Right eye crease */}
-          <path
-            d="M114 100 Q128 96 142 100"
-            fill="none"
-            stroke="#C89B8B"
-            strokeWidth="0.8"
-          />
+          {/* Right eye crease - double lid fold */}
+          <g>
+            {/* Primary crease */}
+            <path
+              d="M114 100 Q128 96 142 100"
+              fill="none"
+              stroke="#C89B8B"
+              strokeWidth="0.8"
+            />
+            {/* Secondary subtle fold */}
+            <path
+              d="M116 97 Q128 94 140 97"
+              fill="none"
+              stroke="#D4B5A5"
+              strokeWidth="0.4"
+              opacity="0.4"
+            />
+            {/* Lid depth shadow */}
+            <path
+              d="M118 102 Q128 100 138 102"
+              fill="none"
+              stroke="#C89B8B"
+              strokeWidth="0.3"
+              opacity="0.25"
+            />
+          </g>
 
           {/* Right upper eyelashes - subtle curved strokes */}
           <g opacity={blinkState === "open" ? 0.7 : 0}>
