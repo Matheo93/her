@@ -1,9 +1,142 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo } from "react";
+import { useRef, useEffect, useState, useMemo, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HER_COLORS, HER_SPRINGS, EMOTION_PRESENCE } from "@/styles/her-theme";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
+
+// Memoized SVG defs to prevent unnecessary re-renders
+// These are static and only depend on HER_COLORS which rarely changes
+const AvatarSVGDefs = memo(function AvatarSVGDefs() {
+  return (
+    <defs>
+      {/* Main skin gradient */}
+      <radialGradient id="skinGradient" cx="50%" cy="40%" r="60%">
+        <stop offset="0%" stopColor="#F5D0C5" />
+        <stop offset="50%" stopColor="#F0C5B5" />
+        <stop offset="75%" stopColor="#EABAA8" />
+        <stop offset="100%" stopColor="#D4A090" />
+      </radialGradient>
+
+      {/* Warm undertone for cheeks/nose area */}
+      <radialGradient id="warmUndertone" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="#F2A89E" stopOpacity="0.2" />
+        <stop offset="100%" stopColor="#F2A89E" stopOpacity="0" />
+      </radialGradient>
+
+      {/* Subtle skin texture overlay */}
+      <filter id="skinTexture" x="0%" y="0%" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" result="noise" seed="5" />
+        <feColorMatrix type="saturate" values="0" result="gray" />
+        <feBlend in="SourceGraphic" in2="gray" mode="overlay" result="blend" />
+        <feComposite in="blend" in2="SourceAlpha" operator="in" />
+      </filter>
+
+      {/* Freckle pattern */}
+      <pattern id="frecklePattern" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+        <circle cx="5" cy="8" r="0.6" fill="#C89B8B" opacity="0.3" />
+        <circle cx="18" cy="5" r="0.5" fill="#C89B8B" opacity="0.25" />
+        <circle cx="32" cy="12" r="0.7" fill="#C89B8B" opacity="0.2" />
+        <circle cx="12" cy="22" r="0.5" fill="#C89B8B" opacity="0.3" />
+        <circle cx="28" cy="28" r="0.6" fill="#C89B8B" opacity="0.25" />
+        <circle cx="8" cy="35" r="0.4" fill="#C89B8B" opacity="0.2" />
+        <circle cx="35" cy="35" r="0.5" fill="#C89B8B" opacity="0.3" />
+      </pattern>
+
+      {/* Subtle pore texture pattern - very fine for realism */}
+      <pattern id="porePattern" x="0" y="0" width="12" height="12" patternUnits="userSpaceOnUse">
+        <circle cx="2" cy="3" r="0.15" fill="#D4A090" opacity="0.15" />
+        <circle cx="7" cy="2" r="0.12" fill="#D4A090" opacity="0.12" />
+        <circle cx="10" cy="6" r="0.15" fill="#D4A090" opacity="0.15" />
+        <circle cx="4" cy="8" r="0.12" fill="#D4A090" opacity="0.12" />
+        <circle cx="9" cy="10" r="0.15" fill="#D4A090" opacity="0.15" />
+        <circle cx="1" cy="11" r="0.12" fill="#D4A090" opacity="0.12" />
+      </pattern>
+
+      {/* Subsurface scattering effect - skin translucency glow */}
+      <radialGradient id="sssGlow" cx="50%" cy="40%" r="60%">
+        <stop offset="0%" stopColor="#FFE0D0" stopOpacity="0.15" />
+        <stop offset="40%" stopColor="#F5C0B0" stopOpacity="0.08" />
+        <stop offset="100%" stopColor="#E8A090" stopOpacity="0" />
+      </radialGradient>
+
+      {/* Nose bridge SSS highlight */}
+      <linearGradient id="noseSSSGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#FFE8E0" stopOpacity="0.25" />
+        <stop offset="50%" stopColor="#F5D0C5" stopOpacity="0.15" />
+        <stop offset="100%" stopColor="#F5D0C5" stopOpacity="0" />
+      </linearGradient>
+
+      {/* Eye shine */}
+      <radialGradient id="eyeShine" cx="30%" cy="30%" r="50%">
+        <stop offset="0%" stopColor="white" stopOpacity="0.9" />
+        <stop offset="100%" stopColor="white" stopOpacity="0" />
+      </radialGradient>
+
+      {/* Lip gradient */}
+      <linearGradient id="lipGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor={HER_COLORS.coral} />
+        <stop offset="100%" stopColor="#D4706A" />
+      </linearGradient>
+
+      {/* Hair gradient */}
+      <linearGradient id="hairGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#4A3728" />
+        <stop offset="100%" stopColor="#3D2314" />
+      </linearGradient>
+
+      {/* Hair highlight gradient */}
+      <linearGradient id="hairHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#6B5344" stopOpacity="0.6" />
+        <stop offset="50%" stopColor="#5A4233" stopOpacity="0.3" />
+        <stop offset="100%" stopColor="#4A3728" stopOpacity="0" />
+      </linearGradient>
+
+      {/* Iris gradient - warm brown with depth */}
+      <radialGradient id="irisGradient" cx="40%" cy="40%" r="55%">
+        <stop offset="0%" stopColor="#A67C20" />
+        <stop offset="30%" stopColor="#8B6914" />
+        <stop offset="60%" stopColor="#5C4033" />
+        <stop offset="85%" stopColor="#3D2817" />
+        <stop offset="100%" stopColor="#2A1A0F" />
+      </radialGradient>
+
+      {/* Limbal ring - darker edge around iris */}
+      <radialGradient id="limbalRing" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="transparent" />
+        <stop offset="85%" stopColor="transparent" />
+        <stop offset="100%" stopColor="#1A0F08" stopOpacity="0.4" />
+      </radialGradient>
+
+      {/* Iris fiber/ray pattern - creates realistic striation */}
+      <pattern id="irisRayPattern" patternUnits="userSpaceOnUse" width="16" height="16" patternTransform="rotate(0)">
+        <line x1="8" y1="0" x2="8" y2="16" stroke="#5C4033" strokeWidth="0.2" opacity="0.25" />
+        <line x1="4" y1="0" x2="4" y2="16" stroke="#8B6914" strokeWidth="0.15" opacity="0.2" />
+        <line x1="12" y1="0" x2="12" y2="16" stroke="#5C4033" strokeWidth="0.15" opacity="0.2" />
+      </pattern>
+
+      {/* Collarette pattern - inner ring detail */}
+      <radialGradient id="collarette" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="#A67C20" stopOpacity="0" />
+        <stop offset="35%" stopColor="#C89B50" stopOpacity="0.3" />
+        <stop offset="45%" stopColor="#A67C20" stopOpacity="0" />
+        <stop offset="100%" stopColor="transparent" />
+      </radialGradient>
+
+      {/* Blush gradients - with warmth variation */}
+      <radialGradient id="blushLeft" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor={HER_COLORS.blush} stopOpacity="0.35" />
+        <stop offset="60%" stopColor={HER_COLORS.blush} stopOpacity="0.15" />
+        <stop offset="100%" stopColor={HER_COLORS.blush} stopOpacity="0" />
+      </radialGradient>
+      <radialGradient id="blushRight" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor={HER_COLORS.coral} stopOpacity="0.25" />
+        <stop offset="70%" stopColor={HER_COLORS.blush} stopOpacity="0.1" />
+        <stop offset="100%" stopColor={HER_COLORS.blush} stopOpacity="0" />
+      </radialGradient>
+    </defs>
+  );
+});
 
 // Compatible interface with RealisticAvatar3D
 export interface VisemeWeights {
@@ -608,6 +741,11 @@ export function RealisticAvatarImage({
         willChange: prefersReducedMotion ? "auto" : "transform, opacity",
         transform: "translateZ(0)",
         backfaceVisibility: "hidden",
+        // CSS containment for better paint performance
+        contain: "layout paint",
+        // Prevent text selection for smoother interactions
+        userSelect: "none",
+        WebkitUserSelect: "none",
       }}
     >
       {/* Warm ambient glow - emotion responsive, respects reduced motion */}
@@ -651,132 +789,8 @@ export function RealisticAvatarImage({
             shapeRendering: "geometricPrecision",
           }}
         >
-          <defs>
-            {/* Main skin gradient */}
-            <radialGradient id="skinGradient" cx="50%" cy="40%" r="60%">
-              <stop offset="0%" stopColor="#F5D0C5" />
-              <stop offset="50%" stopColor="#F0C5B5" />
-              <stop offset="75%" stopColor="#EABAA8" />
-              <stop offset="100%" stopColor="#D4A090" />
-            </radialGradient>
-
-            {/* Warm undertone for cheeks/nose area */}
-            <radialGradient id="warmUndertone" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#F2A89E" stopOpacity="0.2" />
-              <stop offset="100%" stopColor="#F2A89E" stopOpacity="0" />
-            </radialGradient>
-
-            {/* Subtle skin texture overlay */}
-            <filter id="skinTexture" x="0%" y="0%" width="100%" height="100%">
-              <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" result="noise" seed="5" />
-              <feColorMatrix type="saturate" values="0" result="gray" />
-              <feBlend in="SourceGraphic" in2="gray" mode="overlay" result="blend" />
-              <feComposite in="blend" in2="SourceAlpha" operator="in" />
-            </filter>
-
-            {/* Freckle pattern */}
-            <pattern id="frecklePattern" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-              <circle cx="5" cy="8" r="0.6" fill="#C89B8B" opacity="0.3" />
-              <circle cx="18" cy="5" r="0.5" fill="#C89B8B" opacity="0.25" />
-              <circle cx="32" cy="12" r="0.7" fill="#C89B8B" opacity="0.2" />
-              <circle cx="12" cy="22" r="0.5" fill="#C89B8B" opacity="0.3" />
-              <circle cx="28" cy="28" r="0.6" fill="#C89B8B" opacity="0.25" />
-              <circle cx="8" cy="35" r="0.4" fill="#C89B8B" opacity="0.2" />
-              <circle cx="35" cy="35" r="0.5" fill="#C89B8B" opacity="0.3" />
-            </pattern>
-
-            {/* Subtle pore texture pattern - very fine for realism */}
-            <pattern id="porePattern" x="0" y="0" width="12" height="12" patternUnits="userSpaceOnUse">
-              <circle cx="2" cy="3" r="0.15" fill="#D4A090" opacity="0.15" />
-              <circle cx="7" cy="2" r="0.12" fill="#D4A090" opacity="0.12" />
-              <circle cx="10" cy="6" r="0.15" fill="#D4A090" opacity="0.15" />
-              <circle cx="4" cy="8" r="0.12" fill="#D4A090" opacity="0.12" />
-              <circle cx="9" cy="10" r="0.15" fill="#D4A090" opacity="0.15" />
-              <circle cx="1" cy="11" r="0.12" fill="#D4A090" opacity="0.12" />
-            </pattern>
-
-            {/* Subsurface scattering effect - skin translucency glow */}
-            <radialGradient id="sssGlow" cx="50%" cy="40%" r="60%">
-              <stop offset="0%" stopColor="#FFE0D0" stopOpacity="0.15" />
-              <stop offset="40%" stopColor="#F5C0B0" stopOpacity="0.08" />
-              <stop offset="100%" stopColor="#E8A090" stopOpacity="0" />
-            </radialGradient>
-
-            {/* Nose bridge SSS highlight */}
-            <linearGradient id="noseSSSGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#FFE8E0" stopOpacity="0.25" />
-              <stop offset="50%" stopColor="#F5D0C5" stopOpacity="0.15" />
-              <stop offset="100%" stopColor="#F5D0C5" stopOpacity="0" />
-            </linearGradient>
-
-            {/* Eye shine */}
-            <radialGradient id="eyeShine" cx="30%" cy="30%" r="50%">
-              <stop offset="0%" stopColor="white" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="white" stopOpacity="0" />
-            </radialGradient>
-
-            {/* Lip gradient */}
-            <linearGradient id="lipGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor={HER_COLORS.coral} />
-              <stop offset="100%" stopColor="#D4706A" />
-            </linearGradient>
-
-            {/* Hair gradient */}
-            <linearGradient id="hairGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#4A3728" />
-              <stop offset="100%" stopColor="#3D2314" />
-            </linearGradient>
-
-            {/* Hair highlight gradient */}
-            <linearGradient id="hairHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#6B5344" stopOpacity="0.6" />
-              <stop offset="50%" stopColor="#5A4233" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="#4A3728" stopOpacity="0" />
-            </linearGradient>
-
-            {/* Iris gradient - warm brown */}
-            {/* Iris gradient - warm brown with depth */}
-            <radialGradient id="irisGradient" cx="40%" cy="40%" r="55%">
-              <stop offset="0%" stopColor="#A67C20" />
-              <stop offset="30%" stopColor="#8B6914" />
-              <stop offset="60%" stopColor="#5C4033" />
-              <stop offset="85%" stopColor="#3D2817" />
-              <stop offset="100%" stopColor="#2A1A0F" />
-            </radialGradient>
-            {/* Limbal ring - darker edge around iris */}
-            <radialGradient id="limbalRing" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="transparent" />
-              <stop offset="85%" stopColor="transparent" />
-              <stop offset="100%" stopColor="#1A0F08" stopOpacity="0.4" />
-            </radialGradient>
-
-            {/* Iris fiber/ray pattern - creates realistic striation */}
-            <pattern id="irisRayPattern" patternUnits="userSpaceOnUse" width="16" height="16" patternTransform="rotate(0)">
-              <line x1="8" y1="0" x2="8" y2="16" stroke="#5C4033" strokeWidth="0.2" opacity="0.25" />
-              <line x1="4" y1="0" x2="4" y2="16" stroke="#8B6914" strokeWidth="0.15" opacity="0.2" />
-              <line x1="12" y1="0" x2="12" y2="16" stroke="#5C4033" strokeWidth="0.15" opacity="0.2" />
-            </pattern>
-
-            {/* Collarette pattern - inner ring detail */}
-            <radialGradient id="collarette" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#A67C20" stopOpacity="0" />
-              <stop offset="35%" stopColor="#C89B50" stopOpacity="0.3" />
-              <stop offset="45%" stopColor="#A67C20" stopOpacity="0" />
-              <stop offset="100%" stopColor="transparent" />
-            </radialGradient>
-
-            {/* Blush gradients - with warmth variation */}
-            <radialGradient id="blushLeft" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor={HER_COLORS.blush} stopOpacity="0.35" />
-              <stop offset="60%" stopColor={HER_COLORS.blush} stopOpacity="0.15" />
-              <stop offset="100%" stopColor={HER_COLORS.blush} stopOpacity="0" />
-            </radialGradient>
-            <radialGradient id="blushRight" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor={HER_COLORS.coral} stopOpacity="0.25" />
-              <stop offset="70%" stopColor={HER_COLORS.blush} stopOpacity="0.1" />
-              <stop offset="100%" stopColor={HER_COLORS.blush} stopOpacity="0" />
-            </radialGradient>
-          </defs>
+          {/* Memoized SVG defs - prevents re-rendering of static gradients */}
+          <AvatarSVGDefs />
 
           {/* Hair back layer */}
           <ellipse cx="100" cy="70" rx="75" ry="65" fill="url(#hairGradient)" />
