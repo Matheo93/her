@@ -1852,6 +1852,22 @@ export function RealisticAvatarImage({
             fill="url(#hairGradient)"
           />
 
+          {/* Hairline baby hairs - soft edge at forehead */}
+          <g opacity="0.4">
+            {/* Left temple baby hairs */}
+            <path d="M52 58 Q54 55 55 58" fill="none" stroke="#4A3728" strokeWidth="0.4" strokeLinecap="round" />
+            <path d="M55 55 Q58 52 60 55" fill="none" stroke="#4A3728" strokeWidth="0.3" strokeLinecap="round" />
+            <path d="M60 53 Q63 50 65 52" fill="none" stroke="#4A3728" strokeWidth="0.3" strokeLinecap="round" />
+            {/* Center forehead wisps */}
+            <path d="M85 48 Q88 45 90 47" fill="none" stroke="#4A3728" strokeWidth="0.3" strokeLinecap="round" />
+            <path d="M95 46 Q97 44 100 45" fill="none" stroke="#4A3728" strokeWidth="0.25" strokeLinecap="round" />
+            <path d="M105 46 Q108 44 110 47" fill="none" stroke="#4A3728" strokeWidth="0.3" strokeLinecap="round" />
+            {/* Right temple baby hairs */}
+            <path d="M135 52 Q138 50 140 53" fill="none" stroke="#4A3728" strokeWidth="0.3" strokeLinecap="round" />
+            <path d="M140 55 Q143 52 145 55" fill="none" stroke="#4A3728" strokeWidth="0.3" strokeLinecap="round" />
+            <path d="M145 58 Q147 55 148 58" fill="none" stroke="#4A3728" strokeWidth="0.4" strokeLinecap="round" />
+          </g>
+
           {/* Detailed hair strands */}
           <g opacity="0.9">
             {/* Left side strands */}
