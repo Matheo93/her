@@ -1893,11 +1893,47 @@ export default function EvaHerPage() {
                 "--tw-ring-color": colors.coral,
               }}
             />
-            {/* Character count - only show when typing */}
+            {/* Send button - appears when text is entered */}
             <AnimatePresence>
               {inputText.length > 0 && !messageSent && (
+                <motion.button
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center focus:outline-none focus-visible:ring-2"
+                  style={{
+                    backgroundColor: inputText.trim() ? colors.coral : `${colors.softShadow}30`,
+                    // @ts-expect-error CSS custom property for focus ring
+                    "--tw-ring-color": colors.coral,
+                  }}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  whileHover={inputText.trim() ? { scale: 1.1 } : {}}
+                  whileTap={inputText.trim() ? { scale: 0.95 } : {}}
+                  onClick={() => {
+                    if (inputText.trim()) {
+                      sendMessage(inputText);
+                      setInputText("");
+                      setIsUserTyping(false);
+                    }
+                  }}
+                  disabled={!inputText.trim()}
+                  aria-label="Envoyer le message"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill={inputText.trim() ? colors.warmWhite : colors.earth}
+                    viewBox="0 0 24 24"
+                    style={{ transform: "rotate(-45deg)", marginLeft: 2 }}
+                  >
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                  </svg>
+                </motion.button>
+              )}
+            </AnimatePresence>
+            {/* Character count - show above send button */}
+            <AnimatePresence>
+              {inputText.length > 200 && !messageSent && (
                 <motion.div
-                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                  className="absolute right-12 top-1/2 -translate-y-1/2"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 0.4 }}
                   exit={{ opacity: 0 }}
