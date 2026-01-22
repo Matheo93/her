@@ -1077,6 +1077,16 @@ export function RealisticAvatarImage({
             />
           )}
 
+          {/* Left brow bone highlight */}
+          <path
+            d="M60 94 Q72 91 84 94"
+            fill="none"
+            stroke="#F5E5D8"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            opacity="0.35"
+          />
+
           {/* Left eye crease - double lid fold */}
           <g>
             {/* Primary crease */}
@@ -1293,6 +1303,16 @@ export function RealisticAvatarImage({
               />
             </g>
           )}
+
+          {/* Right brow bone highlight */}
+          <path
+            d="M116 94 Q128 91 140 94"
+            fill="none"
+            stroke="#F5E5D8"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            opacity="0.35"
+          />
 
           {/* Right eye crease - double lid fold */}
           <g>
