@@ -2112,6 +2112,21 @@ export default function EvaHerPage() {
                 )}
               </AnimatePresence>
 
+              {/* Input level pulse - responds to mic input */}
+              {isListening && inputMicLevel > 0.1 && (
+                <motion.div
+                  className="absolute inset-0 rounded-full pointer-events-none"
+                  style={{
+                    backgroundColor: colors.coral,
+                    opacity: inputMicLevel * 0.3,
+                  }}
+                  animate={{
+                    scale: 1 + inputMicLevel * 0.15,
+                  }}
+                  transition={{ duration: 0.05 }}
+                />
+              )}
+
               {/* Real-time mic volume indicator - sound wave bars */}
               <AnimatePresence>
                 {isListening && (
