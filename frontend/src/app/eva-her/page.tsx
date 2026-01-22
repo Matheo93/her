@@ -1246,7 +1246,7 @@ export default function EvaHerPage() {
         {/* Dark mode toggle */}
         <motion.button
           onClick={darkMode.toggle}
-          className="relative flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 overflow-hidden"
+          className="relative flex items-center gap-2 px-3 py-2 sm:py-1.5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 overflow-hidden touch-manipulation"
           style={{
             backgroundColor: `${colors.cream}90`,
             // @ts-expect-error CSS custom property for focus ring
@@ -1324,7 +1324,7 @@ export default function EvaHerPage() {
         {/* Mute toggle button */}
         <motion.button
           onClick={toggleMute}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
+          className="flex items-center gap-2 px-3 py-2 sm:py-1.5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 touch-manipulation"
           style={{
             backgroundColor: `${colors.cream}90`,
             // @ts-expect-error CSS custom property for focus ring
@@ -1888,7 +1888,7 @@ export default function EvaHerPage() {
               disabled={!isConnected}
               aria-label={isListening ? "Relâcher pour envoyer" : "Maintenir pour parler"}
               aria-pressed={isListening}
-              className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 select-none"
+              className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 select-none touch-manipulation"
               style={{
                 backgroundColor: isListening ? colors.coral : colors.cream,
                 boxShadow: isListening
@@ -1896,7 +1896,6 @@ export default function EvaHerPage() {
                   : `0 4px 12px ${colors.softShadow}30`,
                 // @ts-expect-error CSS custom property for focus ring
                 "--tw-ring-color": colors.coral,
-                touchAction: "manipulation", // Prevent double-tap zoom
                 WebkitTapHighlightColor: "transparent", // Remove iOS tap highlight
               }}
               whileHover={prefersReducedMotion ? {} : { scale: 1.08 }}
