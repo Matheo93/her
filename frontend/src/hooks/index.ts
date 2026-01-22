@@ -258,3 +258,31 @@ export {
   type GestureAnimation,
   type GestureKeyframe,
 } from "./useAvatarGestures";
+
+// Avatar Breathing
+export {
+  useAvatarBreathing,
+  useBreathingIntensity,
+  useActivityBreathing,
+  useBreathingTransform,
+  PATTERN_CONFIGS,
+  type BreathingPattern,
+} from "./useAvatarBreathing";
+
+// Avatar Eye Tracking
+export {
+  useAvatarEyeTracking,
+  useCursorFollowingEyes,
+  useConversationGaze,
+  useEyeGazeTransform,
+  type GazeTarget,
+} from "./useAvatarEyeTracking";
+
+// Avatar Idle Variation
+export {
+  useAvatarIdleVariation,
+  useIdleMovement,
+  useIdleTransform,
+  BEHAVIOR_ANIMATIONS,
+  type IdleBehavior,
+} from "./useAvatarIdleVariation";
