@@ -51,7 +51,7 @@ interface DeviceCapabilities {
   forceTier: (tier: "high" | "medium" | "low" | null) => void;
 }
 
-interface RenderingSettings {
+export interface RenderingSettings {
   // Animation frame rate target
   targetFPS: 30 | 60;
 

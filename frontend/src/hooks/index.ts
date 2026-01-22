@@ -172,3 +172,30 @@ export {
   useAdaptiveQuality,
   useFrameThrottle,
 } from "./useFrameRate";
+
+// Page Visibility
+export {
+  useVisibility,
+  useIsVisible,
+  useVisibleCallback,
+  useVisibleValue,
+  useVisibleInterval,
+  useVisibleAnimationFrame,
+} from "./useVisibility";
+
+// Wake Lock (Screen Sleep Prevention)
+export {
+  useWakeLock,
+  useAutoWakeLock,
+  useCallWakeLock,
+  useBatteryAwareWakeLock,
+} from "./useWakeLock";
+
+// Avatar Performance (Unified)
+export {
+  useAvatarPerformance,
+  useAvatarRenderSettings,
+  useAvatarAnimationLoop,
+  useShouldRenderAvatar,
+  type RenderingSettings,
+} from "./useAvatarPerformance";
