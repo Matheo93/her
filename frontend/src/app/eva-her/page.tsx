@@ -1665,12 +1665,13 @@ export default function EvaHerPage() {
               type="text"
               value={inputText}
               id="eva-input"
-              onChange={(e) => setInputText(e.target.value)}
+              onChange={(e) => setInputText(e.target.value.slice(0, 500))}
               onKeyDown={handleKeyPress}
               placeholder="Dis quelque chose..."
               aria-label="Message pour EVA"
               aria-describedby="eva-status"
               autoComplete="off"
+              maxLength={500}
               className="w-full px-3 sm:px-5 py-2 sm:py-3 rounded-full border-0 outline-none text-sm sm:text-base focus:ring-2 focus:ring-offset-2 transition-shadow"
               style={{
                 backgroundColor: colors.cream,
@@ -1680,6 +1681,26 @@ export default function EvaHerPage() {
                 "--tw-ring-color": colors.coral,
               }}
             />
+            {/* Character count - only show when typing */}
+            <AnimatePresence>
+              {inputText.length > 0 && !messageSent && (
+                <motion.div
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0.4 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <span
+                    className="text-xs tabular-nums"
+                    style={{
+                      color: inputText.length > 450 ? colors.coral : colors.earth,
+                    }}
+                  >
+                    {inputText.length}/500
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
             {/* Message sent feedback */}
             <AnimatePresence>
               {messageSent && (
