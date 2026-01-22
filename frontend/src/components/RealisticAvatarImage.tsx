@@ -756,6 +756,17 @@ export function RealisticAvatarImage({
             fill="url(#skinGradient)"
           />
 
+          {/* Face contour shadows - subtle shading on sides */}
+          <g opacity="0.12">
+            {/* Left face contour */}
+            <ellipse cx="48" cy="130" rx="12" ry="40" fill="#B89080" />
+            {/* Right face contour */}
+            <ellipse cx="152" cy="130" rx="12" ry="40" fill="#B89080" />
+            {/* Hollow under cheekbones */}
+            <ellipse cx="55" cy="145" rx="8" ry="12" fill="#C89B8B" />
+            <ellipse cx="145" cy="145" rx="8" ry="12" fill="#C89B8B" />
+          </g>
+
           {/* Forehead */}
           <ellipse cx="100" cy="65" rx="50" ry="30" fill="url(#skinGradient)" />
 
