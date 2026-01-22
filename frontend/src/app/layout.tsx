@@ -10,6 +10,12 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Eva - Ton Compagnon IA",
   description: "Une IA compagnon chaleureuse inspirée du film Her",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false, // Prevent accidental zoom on mobile
+  },
 };
 
 export default function RootLayout({

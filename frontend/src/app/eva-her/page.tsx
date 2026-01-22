@@ -152,6 +152,7 @@ export default function EvaHerPage() {
   const inputAnalyzerRef = useRef<AnalyserNode | null>(null);
   const inputAnimationRef = useRef<number | null>(null);
   const messageSentTimeRef = useRef<number>(0); // Track message send time for response latency
+  const touchStartYRef = useRef<number>(0);
 
   // HER Feature: Persistent Memory - EVA remembers you
   const persistentMemory = usePersistentMemory();
@@ -1017,6 +1018,28 @@ export default function EvaHerPage() {
     };
   }, [isConnected, isListening, inputText, startListening, stopListening, toggleMute]);
 
+  // Touch gestures for mobile
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartYRef.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaY = touchStartYRef.current - touchEndY;
+    const swipeThreshold = 50;
+
+    // Swipe up to show keyboard hints
+    if (deltaY > swipeThreshold && !showKeyboardHint) {
+      setShowKeyboardHint(true);
+      logPerformanceMetric("gesture", "swipe_up_hints");
+    }
+    // Swipe down to hide keyboard hints
+    if (deltaY < -swipeThreshold && showKeyboardHint) {
+      setShowKeyboardHint(false);
+      logPerformanceMetric("gesture", "swipe_down_hints");
+    }
+  }, [showKeyboardHint]);
+
   return (
     <motion.div
       className="fixed inset-0 overflow-hidden flex flex-col items-center justify-center"
@@ -1026,6 +1049,8 @@ export default function EvaHerPage() {
       transition={{ duration: 0.5, ease: "easeOut" }}
       role="application"
       aria-label="EVA - Assistant vocal"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       {/* Skip links for keyboard navigation */}
       <nav className="sr-only focus-within:not-sr-only focus-within:absolute focus-within:top-4 focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:z-50 focus-within:flex focus-within:gap-2">
@@ -1701,12 +1726,18 @@ export default function EvaHerPage() {
               onMouseDown={startListening}
               onMouseUp={stopListening}
               onMouseLeave={stopListening}
-              onTouchStart={startListening}
-              onTouchEnd={stopListening}
+              onTouchStart={(e) => {
+                e.preventDefault(); // Prevent double-tap zoom
+                startListening();
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                stopListening();
+              }}
               disabled={!isConnected}
               aria-label={isListening ? "Relâcher pour envoyer" : "Maintenir pour parler"}
               aria-pressed={isListening}
-              className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2"
+              className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 select-none"
               style={{
                 backgroundColor: isListening ? colors.coral : colors.cream,
                 boxShadow: isListening
@@ -1714,6 +1745,8 @@ export default function EvaHerPage() {
                   : `0 4px 12px ${colors.softShadow}30`,
                 // @ts-expect-error CSS custom property for focus ring
                 "--tw-ring-color": colors.coral,
+                touchAction: "manipulation", // Prevent double-tap zoom
+                WebkitTapHighlightColor: "transparent", // Remove iOS tap highlight
               }}
               whileHover={prefersReducedMotion ? {} : { scale: 1.08 }}
               whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
