@@ -114,6 +114,13 @@ export default function EvaHerPage() {
   const [showKeyboardHint, setShowKeyboardHint] = useState(false);
   const [connectionLatency, setConnectionLatency] = useState<number | null>(null);
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
+  const [isMuted, setIsMuted] = useState(() => {
+    // Load muted preference from localStorage on mount
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("eva-muted") === "true";
+    }
+    return false;
+  });
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -212,6 +219,23 @@ export default function EvaHerPage() {
     }
   }, [persistentMemory.isReturningUser, isConnected, isListening, isSpeaking]);
 
+  // Persist mute preference to localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("eva-muted", isMuted.toString());
+    }
+  }, [isMuted]);
+
+  // Toggle mute function
+  const toggleMute = useCallback(() => {
+    setIsMuted((prev) => !prev);
+  }, []);
+
+  // Keep muted ref in sync with state
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
+
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
   const visemeWsRef = useRef<WebSocket | null>(null);
@@ -220,6 +244,7 @@ export default function EvaHerPage() {
   const audioQueueRef = useRef<{ audio: ArrayBuffer; emotion: string }[]>([]);
   const isPlayingRef = useRef(false);
   const playNextAudioRef = useRef<() => void>(() => {});
+  const isMutedRef = useRef(isMuted);
   const analyzerRef = useRef<AnalyserNode | null>(null);
   const bioAnimationRef = useRef<number | null>(null);
 
@@ -551,7 +576,11 @@ export default function EvaHerPage() {
       analyzerRef.current = analyzer;
 
       source.connect(analyzer);
-      analyzer.connect(audioContext.destination);
+
+      // Only connect to destination if not muted
+      if (!isMutedRef.current) {
+        analyzer.connect(audioContext.destination);
+      }
 
       // Update audio level for avatar
       const dataArray = new Uint8Array(analyzer.frequencyBinCount);
@@ -932,6 +961,84 @@ export default function EvaHerPage() {
           >
             {darkMode.isDark ? "Sombre" : "Clair"}
           </motion.span>
+        </motion.button>
+
+        {/* Mute toggle button */}
+        <motion.button
+          onClick={toggleMute}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
+          style={{
+            backgroundColor: `${colors.cream}90`,
+            // @ts-expect-error CSS custom property for focus ring
+            "--tw-ring-color": colors.coral,
+          }}
+          whileHover={prefersReducedMotion ? {} : { scale: 1.05 }}
+          whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
+          aria-label={isMuted ? "Activer le son" : "Couper le son"}
+          aria-pressed={isMuted}
+        >
+          {/* Speaker icon with animated state */}
+          <div className="relative w-4 h-4">
+            {/* Speaker base */}
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill={colors.earth}>
+              <path d="M3 9v6h4l5 5V4L7 9H3z" />
+              {/* Sound waves - hidden when muted */}
+              {!isMuted && (
+                <>
+                  <motion.path
+                    d="M14 9.5c1.5 1 1.5 4 0 5"
+                    stroke={colors.earth}
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    fill="none"
+                    initial={{ opacity: 0, pathLength: 0 }}
+                    animate={{ opacity: 1, pathLength: 1 }}
+                    transition={{ duration: 0.3 }}
+                  />
+                  <motion.path
+                    d="M16.5 7c2.5 2 2.5 8 0 10"
+                    stroke={colors.earth}
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    fill="none"
+                    initial={{ opacity: 0, pathLength: 0 }}
+                    animate={{ opacity: 1, pathLength: 1 }}
+                    transition={{ duration: 0.3, delay: 0.1 }}
+                  />
+                </>
+              )}
+            </svg>
+            {/* Mute slash */}
+            <AnimatePresence>
+              {isMuted && (
+                <motion.div
+                  className="absolute inset-0 flex items-center justify-center"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24">
+                    <line
+                      x1="4"
+                      y1="4"
+                      x2="20"
+                      y2="20"
+                      stroke={colors.coral}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          <span
+            className="text-xs font-light hidden sm:inline"
+            style={{ color: colors.earth, opacity: 0.7 }}
+          >
+            {isMuted ? "Muet" : "Son"}
+          </span>
         </motion.button>
 
         <AnimatePresence>
