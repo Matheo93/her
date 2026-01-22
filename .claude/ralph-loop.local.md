@@ -1,9 +1,9 @@
 ---
 active: true
-iteration: 136
+iteration: 2
 max_iterations: 0
 completion_promise: null
-started_at: "2026-01-22T07:44:10Z"
+started_at: "2026-01-22T07:52:00Z"
 ---
 
-Sprint 222 - Continue avatar improvements. Latence moins de 500ms. Screenshots obligatoires. Continue sans fin.
+Sprint 224 Ameliore avatar UX latence. Code teste valide. Continue infini.
