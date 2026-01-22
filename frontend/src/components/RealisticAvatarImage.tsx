@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HER_COLORS, HER_SPRINGS, EMOTION_PRESENCE } from "@/styles/her-theme";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 // Compatible interface with RealisticAvatar3D
 export interface VisemeWeights {
@@ -101,6 +102,7 @@ export function RealisticAvatarImage({
   inputAudioLevel = 0,
 }: RealisticAvatarImageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const prefersReducedMotion = useReducedMotion();
   const [breathPhase, setBreathPhase] = useState(0);
   const [blinkState, setBlinkState] = useState<"open" | "closing" | "closed" | "opening">("open");
   const [gazeOffset, setGazeOffset] = useState({ x: 0, y: 0 });
@@ -140,13 +142,15 @@ export function RealisticAvatarImage({
     return EMOTION_PRESENCE[smoothEmotion] || EMOTION_PRESENCE.neutral;
   }, [smoothEmotion]);
 
-  // Breathing animation
+  // Breathing animation - respects reduced motion
   useEffect(() => {
+    if (prefersReducedMotion) return;
+
     const interval = setInterval(() => {
       setBreathPhase((prev) => (prev + 0.05) % (Math.PI * 2));
     }, 50);
     return () => clearInterval(interval);
-  }, []);
+  }, [prefersReducedMotion]);
 
   // Natural blinking
   useEffect(() => {
@@ -202,8 +206,13 @@ export function RealisticAvatarImage({
     return () => clearInterval(interval);
   }, [isListening]);
 
-  // Natural head micro-movements (subtle nodding, tilting)
+  // Natural head micro-movements (subtle nodding, tilting) - respects reduced motion
   useEffect(() => {
+    if (prefersReducedMotion) {
+      setHeadTilt({ x: 0, y: 0, rotation: 0 });
+      return;
+    }
+
     const startTime = Date.now();
     let animationId: number;
 
@@ -229,7 +238,7 @@ export function RealisticAvatarImage({
 
     animationId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationId);
-  }, [isSpeaking, isListening]);
+  }, [isSpeaking, isListening, prefersReducedMotion]);
 
   // Micro-expressions - subtle emotional flickers
   useEffect(() => {
@@ -295,13 +304,14 @@ export function RealisticAvatarImage({
       className={`relative ${className}`}
       style={{ width: "100%", height: "100%", minHeight: "200px" }}
     >
-      {/* Warm ambient glow - emotion responsive */}
+      {/* Warm ambient glow - emotion responsive, respects reduced motion */}
       <motion.div
         className="absolute inset-0 rounded-full"
         style={{
           background: `radial-gradient(circle, ${emotionPresence.glow} 0%, transparent 70%)`,
+          opacity: prefersReducedMotion ? (isSpeaking ? 0.9 : isListening ? 0.7 : 0.5) : undefined,
         }}
-        animate={{
+        animate={prefersReducedMotion ? {} : {
           scale: [1, 1.05, 1],
           opacity: isSpeaking ? 0.9 : isListening ? 0.7 : 0.5,
         }}
@@ -649,44 +659,48 @@ export function RealisticAvatarImage({
         </svg>
       </motion.div>
 
-      {/* Listening indicator - subtle ring */}
+      {/* Listening indicator - subtle ring, respects reduced motion */}
       <AnimatePresence>
         {isListening && (
           <motion.div
             className="absolute inset-0 rounded-full border-2 pointer-events-none"
-            style={{ borderColor: HER_COLORS.coral }}
+            style={{
+              borderColor: HER_COLORS.coral,
+              opacity: prefersReducedMotion ? 0.5 : undefined,
+            }}
             initial={{ opacity: 0, scale: 0.95 }}
-            animate={{
+            animate={prefersReducedMotion ? { opacity: 0.5, scale: 1 } : {
               opacity: [0.3, 0.6, 0.3],
               scale: [1, 1.02, 1]
             }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{
               duration: 2,
-              repeat: Infinity,
+              repeat: prefersReducedMotion ? 0 : Infinity,
               ease: "easeInOut"
             }}
           />
         )}
       </AnimatePresence>
 
-      {/* Speaking pulse */}
+      {/* Speaking pulse - respects reduced motion */}
       <AnimatePresence>
         {isSpeaking && (
           <motion.div
             className="absolute inset-0 rounded-full pointer-events-none"
             style={{
               background: `radial-gradient(circle, ${HER_COLORS.coral}20 0%, transparent 70%)`,
+              opacity: prefersReducedMotion ? 0.4 : undefined,
             }}
             initial={{ opacity: 0 }}
-            animate={{
+            animate={prefersReducedMotion ? { opacity: 0.4 } : {
               opacity: [0.3, 0.5, 0.3],
               scale: [1, 1 + audioLevel * 0.05, 1]
             }}
             exit={{ opacity: 0 }}
             transition={{
               duration: 0.3,
-              repeat: Infinity,
+              repeat: prefersReducedMotion ? 0 : Infinity,
             }}
           />
         )}

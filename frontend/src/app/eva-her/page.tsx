@@ -593,6 +593,18 @@ export default function EvaHerPage() {
       className="fixed inset-0 overflow-hidden flex flex-col items-center justify-center transition-colors duration-500"
       style={{ backgroundColor: colors.warmWhite }}
     >
+      {/* Skip to content link for accessibility */}
+      <a
+        href="#eva-input"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-1/2 focus:-translate-x-1/2 focus:z-50 focus:px-4 focus:py-2 focus:rounded-full focus:text-sm"
+        style={{
+          backgroundColor: colors.coral,
+          color: colors.warmWhite,
+        }}
+      >
+        Aller au champ de saisie
+      </a>
+
       {/* Living ambient background - respects reduced motion */}
       <motion.div
         className="absolute inset-0 pointer-events-none"
@@ -671,10 +683,14 @@ export default function EvaHerPage() {
         {/* Dark mode toggle */}
         <motion.button
           onClick={darkMode.toggle}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors"
-          style={{ backgroundColor: `${colors.cream}90` }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
+          style={{
+            backgroundColor: `${colors.cream}90`,
+            // @ts-expect-error CSS custom property for focus ring
+            "--tw-ring-color": colors.coral,
+          }}
+          whileHover={prefersReducedMotion ? {} : { scale: 1.05 }}
+          whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
           aria-label={darkMode.isDark ? "Passer en mode clair" : "Passer en mode sombre"}
         >
           <motion.div
@@ -915,6 +931,7 @@ export default function EvaHerPage() {
             <input
               type="text"
               value={inputText}
+              id="eva-input"
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder="Dis quelque chose..."
@@ -970,8 +987,9 @@ export default function EvaHerPage() {
               className="absolute -inset-2 rounded-full"
               style={{
                 background: `radial-gradient(circle, ${colors.coral}15 0%, transparent 70%)`,
+                opacity: prefersReducedMotion ? (isListening ? 0.9 : 0.3) : undefined,
               }}
-              animate={{
+              animate={prefersReducedMotion ? {} : {
                 scale: [1, 1.1, 1],
                 opacity: isListening ? [0.8, 1, 0.8] : [0.2, 0.4, 0.2],
               }}
@@ -987,16 +1005,19 @@ export default function EvaHerPage() {
               disabled={!isConnected}
               aria-label={isListening ? "Relâcher pour envoyer" : "Maintenir pour parler"}
               aria-pressed={isListening}
-              className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center"
+              className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2"
               style={{
                 backgroundColor: isListening ? colors.coral : colors.cream,
                 boxShadow: isListening
                   ? `0 0 30px ${colors.coral}40, inset 0 0 15px ${colors.warmWhite}30`
                   : `0 4px 12px ${colors.softShadow}30`,
+                // @ts-expect-error CSS custom property for focus ring
+                "--tw-ring-color": colors.coral,
               }}
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={prefersReducedMotion ? {} : { scale: 1.08 }}
+              whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
               animate={
+                prefersReducedMotion ? {} :
                 isListening
                   ? { scale: [1, 1.05, 1] }
                   : isSpeaking && audioLevel > 0.1
