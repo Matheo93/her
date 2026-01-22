@@ -626,11 +626,18 @@ export function RealisticAvatarImage({
           style={{ filter: "drop-shadow(0 4px 20px rgba(139, 115, 85, 0.15))" }}
         >
           <defs>
-            {/* Skin gradient */}
+            {/* Main skin gradient */}
             <radialGradient id="skinGradient" cx="50%" cy="40%" r="60%">
               <stop offset="0%" stopColor="#F5D0C5" />
-              <stop offset="60%" stopColor="#EABAA8" />
+              <stop offset="50%" stopColor="#F0C5B5" />
+              <stop offset="75%" stopColor="#EABAA8" />
               <stop offset="100%" stopColor="#D4A090" />
+            </radialGradient>
+
+            {/* Warm undertone for cheeks/nose area */}
+            <radialGradient id="warmUndertone" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#F2A89E" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#F2A89E" stopOpacity="0" />
             </radialGradient>
 
             {/* Subtle skin texture overlay */}
@@ -741,6 +748,9 @@ export function RealisticAvatarImage({
 
           {/* Forehead */}
           <ellipse cx="100" cy="65" rx="50" ry="30" fill="url(#skinGradient)" />
+
+          {/* Warm undertone across central face - subtle warmth */}
+          <ellipse cx="100" cy="130" rx="45" ry="35" fill="url(#warmUndertone)" />
 
           {/* Cheek blush - left (rises with smile) */}
           <ellipse
