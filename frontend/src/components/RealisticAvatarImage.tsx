@@ -1468,6 +1468,27 @@ export function RealisticAvatarImage({
             opacity="0.3"
             transition={{ duration: 0.05 }}
           />
+          {/* Chin dimple - subtle cleft */}
+          <motion.g
+            opacity={0.25}
+            transition={{ duration: 0.05 }}
+          >
+            <motion.ellipse
+              cx="100"
+              cy={183 + mouthShape.jawDrop * 2.5}
+              rx="2.5"
+              ry="1.5"
+              fill="#C89B8B"
+            />
+            {/* Dimple highlight arc */}
+            <motion.path
+              d={`M98 ${182 + mouthShape.jawDrop * 2.5} Q100 ${181 + mouthShape.jawDrop * 2.5} 102 ${182 + mouthShape.jawDrop * 2.5}`}
+              fill="none"
+              stroke="#F5D0C5"
+              strokeWidth="0.6"
+              opacity="0.6"
+            />
+          </motion.g>
 
           {/* Neck shadow - gives depth under chin */}
           <ellipse
