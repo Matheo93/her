@@ -1154,6 +1154,17 @@ export function RealisticAvatarImage({
             transition={{ duration: 0.05 }}
           />
 
+          {/* Left upper eyelid shadow gradient - depth effect */}
+          <motion.ellipse
+            cx="72"
+            cy={100 + (getEyeLidY() || 0) * 0.5}
+            rx="14"
+            ry={3 + (getEyeLidY() || 0) * 0.3}
+            fill="#D4A090"
+            opacity={0.25 - (getEyeLidY() || 0) * 0.01}
+            transition={{ duration: 0.05 }}
+          />
+
           {/* Left lower eyelid - Duchenne squint pushes up */}
           {eyeSquint > 0.1 && (
             <motion.path
@@ -1354,6 +1365,17 @@ export function RealisticAvatarImage({
             width="32"
             height={(getEyeLidY() || 0.001) + eyeSquint * 4}
             fill="url(#skinGradient)"
+            transition={{ duration: 0.05 }}
+          />
+
+          {/* Right upper eyelid shadow gradient - depth effect */}
+          <motion.ellipse
+            cx="128"
+            cy={100 + (getEyeLidY() || 0) * 0.5}
+            rx="14"
+            ry={3 + (getEyeLidY() || 0) * 0.3}
+            fill="#D4A090"
+            opacity={0.25 - (getEyeLidY() || 0) * 0.01}
             transition={{ duration: 0.05 }}
           />
 
