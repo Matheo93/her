@@ -1,6 +1,6 @@
 ---
 active: true
-iteration: 5
+iteration: 6
 max_iterations: 0
 completion_promise: null
 started_at: "2026-01-22T07:53:58Z"
@@ -8,7 +8,7 @@ started_at: "2026-01-22T07:53:58Z"
 
 Sprint 225 Ameliore avatar UX latence performance. Code teste valide screenshot. Boucle infinie.
 
-## Sprint 225 Progress - Iteration 5
+## Sprint 225 Progress - Iteration 6
 
 ### Completed:
 1. **Avatar Performance Optimizations (iteration 1)**:
@@ -44,6 +44,12 @@ Sprint 225 Ameliore avatar UX latence performance. Code teste valide screenshot.
    - Reduces CPU usage on pages with scrollable content
    - threshold: 0.1, rootMargin: 50px for smooth transitions
 
+7. **Accessibility Improvements (iteration 5)**:
+   - Added role="img" and dynamic aria-label to container
+   - Generate aria-label based on speaking/listening state and emotion
+   - Added aria-live="polite" when speaking for screen reader announcements
+   - Added aria-hidden="true" and role="presentation" to decorative SVG
+
 ### Test Results:
 - Backend: 202/202 tests passed (100%)
 - Frontend build: PASS (no warnings)
@@ -55,9 +61,11 @@ Sprint 225 Ameliore avatar UX latence performance. Code teste valide screenshot.
 - CSS containment improves paint performance
 - Tab visibility pauses animations when tab hidden
 - Viewport observer pauses when scrolled out of view
+- Proper ARIA labels for screen reader users
 
 ### Commits:
 - `perf(avatar): add GPU acceleration hints for smoother animations`
 - `perf(avatar): memoize SVG defs and add CSS containment`
 - `perf(avatar): add visibility-based animation pausing for power savings`
 - `perf(avatar): add intersection observer for viewport-based animation pausing`
+- `a11y(avatar): add ARIA attributes for screen reader accessibility`
