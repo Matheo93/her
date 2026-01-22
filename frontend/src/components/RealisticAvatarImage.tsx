@@ -770,6 +770,9 @@ export function RealisticAvatarImage({
           {/* Forehead */}
           <ellipse cx="100" cy="65" rx="50" ry="30" fill="url(#skinGradient)" />
 
+          {/* Forehead highlight - light reflection on brow area */}
+          <ellipse cx="100" cy="62" rx="25" ry="12" fill="#F5E8DC" opacity="0.35" />
+
           {/* Temple area shading - subtle depth at sides of forehead */}
           <g opacity="0.15">
             {/* Left temple shadow */}
