@@ -1680,7 +1680,11 @@ export default function EvaHerPage() {
         <AnimatePresence mode="wait">
           {currentText && (
             <motion.div
-              className="mt-8 max-w-lg text-center px-6"
+              className="mt-8 max-w-lg text-center px-6 py-4 rounded-2xl"
+              style={{
+                backgroundColor: `${colors.warmWhite}85`,
+                backdropFilter: "blur(8px)",
+              }}
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
@@ -1689,8 +1693,8 @@ export default function EvaHerPage() {
               <motion.p
                 className="text-lg sm:text-xl leading-relaxed tracking-wide font-light"
                 style={{
-                  color: colors.earth,
-                  textShadow: `0 1px 2px ${colors.softShadow}20`,
+                  color: colors.textPrimary,
+                  textShadow: `0 1px 3px ${colors.softShadow}30`,
                 }}
                 initial={{ opacity: 0.7 }}
                 animate={{ opacity: 1 }}
