@@ -961,7 +961,7 @@ export default function EvaHerPage() {
     }
   }, [inputText, sendMessage]);
 
-  // Global keyboard shortcut: Space to talk (push-to-talk)
+  // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only trigger if not typing in input field
@@ -973,6 +973,25 @@ export default function EvaHerPage() {
       if (e.code === "Space" && !e.repeat && isConnected && !isListening) {
         e.preventDefault();
         startListening();
+      }
+
+      // Escape to cancel recording or clear input
+      if (e.code === "Escape") {
+        if (isListening) {
+          e.preventDefault();
+          stopListening();
+          logPerformanceMetric("shortcut", "escape_cancel_recording");
+        } else if (inputText) {
+          setInputText("");
+          logPerformanceMetric("shortcut", "escape_clear_input");
+        }
+      }
+
+      // M to toggle mute
+      if (e.code === "KeyM" && !e.repeat && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        toggleMute();
+        logPerformanceMetric("shortcut", "toggle_mute");
       }
     };
 
@@ -996,7 +1015,7 @@ export default function EvaHerPage() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [isConnected, isListening, startListening, stopListening]);
+  }, [isConnected, isListening, inputText, startListening, stopListening, toggleMute]);
 
   return (
     <motion.div
@@ -1787,32 +1806,70 @@ export default function EvaHerPage() {
           </div>
         </div>
 
-        {/* Keyboard shortcut hint for new users */}
+        {/* Keyboard shortcut hints */}
         <AnimatePresence>
           {showKeyboardHint && !isListening && !isSpeaking && (
             <motion.div
-              className="flex items-center justify-center gap-2 mt-2"
+              className="flex flex-wrap items-center justify-center gap-3 mt-2"
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.3 }}
             >
-              <kbd
-                className="px-2 py-0.5 text-xs rounded"
-                style={{
-                  backgroundColor: `${colors.cream}80`,
-                  color: colors.earth,
-                  border: `1px solid ${colors.softShadow}40`,
-                }}
-              >
-                Espace
-              </kbd>
-              <span
-                className="text-xs font-light"
-                style={{ color: colors.earth, opacity: 0.6 }}
-              >
-                pour parler
-              </span>
+              <div className="flex items-center gap-1.5">
+                <kbd
+                  className="px-2 py-0.5 text-xs rounded"
+                  style={{
+                    backgroundColor: `${colors.cream}80`,
+                    color: colors.earth,
+                    border: `1px solid ${colors.softShadow}40`,
+                  }}
+                >
+                  Espace
+                </kbd>
+                <span
+                  className="text-xs font-light"
+                  style={{ color: colors.earth, opacity: 0.6 }}
+                >
+                  parler
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <kbd
+                  className="px-1.5 py-0.5 text-xs rounded"
+                  style={{
+                    backgroundColor: `${colors.cream}80`,
+                    color: colors.earth,
+                    border: `1px solid ${colors.softShadow}40`,
+                  }}
+                >
+                  Esc
+                </kbd>
+                <span
+                  className="text-xs font-light"
+                  style={{ color: colors.earth, opacity: 0.6 }}
+                >
+                  annuler
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <kbd
+                  className="px-1.5 py-0.5 text-xs rounded"
+                  style={{
+                    backgroundColor: `${colors.cream}80`,
+                    color: colors.earth,
+                    border: `1px solid ${colors.softShadow}40`,
+                  }}
+                >
+                  ⌘M
+                </kbd>
+                <span
+                  className="text-xs font-light"
+                  style={{ color: colors.earth, opacity: 0.6 }}
+                >
+                  muet
+                </span>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
