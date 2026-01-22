@@ -1027,6 +1027,15 @@ export function RealisticAvatarImage({
               opacity="0.25"
               strokeLinecap="round"
             />
+
+            {/* Outer eye corner - lateral canthus shadow */}
+            <path
+              d="M85 110 Q87 111 86 113"
+              fill="none"
+              stroke="#D4A090"
+              strokeWidth="0.5"
+              opacity="0.4"
+            />
           </g>
 
           {/* Left eyelid - blink animation + Duchenne squint */}
@@ -1167,6 +1176,15 @@ export function RealisticAvatarImage({
               strokeWidth="0.6"
               opacity="0.25"
               strokeLinecap="round"
+            />
+
+            {/* Outer eye corner - lateral canthus shadow */}
+            <path
+              d="M115 110 Q113 111 114 113"
+              fill="none"
+              stroke="#D4A090"
+              strokeWidth="0.5"
+              opacity="0.4"
             />
           </g>
 
