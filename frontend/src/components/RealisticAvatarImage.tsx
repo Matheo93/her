@@ -139,6 +139,14 @@ export function RealisticAvatarImage({
   const [smoothEmotion, setSmoothEmotion] = useState(emotion);
   // Asymmetric micro-expressions for naturalism
   const [asymmetry, setAsymmetry] = useState({ eyebrow: 0, smile: 0 }); // -1 to 1
+
+  // Static facial micro-asymmetry - natural imperfection (computed once)
+  const staticAsymmetry = useMemo(() => ({
+    leftEyeY: -0.3,      // Left eye slightly higher
+    rightEyeScale: 0.98, // Right eye slightly smaller
+    noseTilt: 0.5,       // Nose tilts slightly right
+    mouthTilt: -0.2,     // Mouth tilts slightly left
+  }), []);
   const [eyeSquint, setEyeSquint] = useState(0); // 0-1 for genuine smile (Duchenne)
   const [noseWrinkle, setNoseWrinkle] = useState(0); // 0-1 for intense emotions
   const [cheekRise, setCheekRise] = useState(0); // 0-1 for smile cheek lift
