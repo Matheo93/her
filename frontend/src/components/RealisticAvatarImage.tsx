@@ -1947,9 +1947,12 @@ export function RealisticAvatarImage({
             />
             {/* Ear highlight */}
             <ellipse cx="34" cy="112" rx="3" ry="4" fill="#F5D0C5" opacity="0.4" />
+            {/* Ear lobe detail */}
+            <ellipse cx="32" cy="124" rx="4" ry="3" fill="#F0C5B5" opacity="0.6" />
+            <path d="M29 123 Q32 126 35 123" fill="none" stroke="#D4A090" strokeWidth="0.3" opacity="0.4" />
             {/* Small stud earring */}
-            <circle cx="32" cy="122" r="1.5" fill={HER_COLORS.coral} opacity="0.7" />
-            <circle cx="32" cy="122" r="0.8" fill="white" opacity="0.4" />
+            <circle cx="32" cy="124" r="1.5" fill={HER_COLORS.coral} opacity="0.7" />
+            <circle cx="32" cy="124" r="0.8" fill="white" opacity="0.4" />
           </g>
 
           {/* Right ear with detail */}
@@ -1966,9 +1969,12 @@ export function RealisticAvatarImage({
             />
             {/* Ear highlight */}
             <ellipse cx="166" cy="112" rx="3" ry="4" fill="#F5D0C5" opacity="0.4" />
+            {/* Ear lobe detail */}
+            <ellipse cx="168" cy="124" rx="4" ry="3" fill="#F0C5B5" opacity="0.6" />
+            <path d="M165 123 Q168 126 171 123" fill="none" stroke="#D4A090" strokeWidth="0.3" opacity="0.4" />
             {/* Small stud earring */}
-            <circle cx="168" cy="122" r="1.5" fill={HER_COLORS.coral} opacity="0.7" />
-            <circle cx="168" cy="122" r="0.8" fill="white" opacity="0.4" />
+            <circle cx="168" cy="124" r="1.5" fill={HER_COLORS.coral} opacity="0.7" />
+            <circle cx="168" cy="124" r="0.8" fill="white" opacity="0.4" />
           </g>
         </svg>
       </motion.div>
