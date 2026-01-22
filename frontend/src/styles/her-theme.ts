@@ -72,7 +72,28 @@ export const EMOTION_PRESENCE: Record<string, { glow: string; warmth: number }> 
   fear: { glow: "rgba(168, 149, 128, 0.4)", warmth: 0.9 },
   surprise: { glow: "rgba(232, 160, 144, 0.4)", warmth: 1.1 },
   neutral: { glow: "rgba(212, 196, 181, 0.3)", warmth: 1.0 },
+  curiosity: { glow: "rgba(212, 180, 160, 0.4)", warmth: 1.05 },
+  playful: { glow: "rgba(232, 150, 130, 0.45)", warmth: 1.15 },
 };
+
+// Dark mode emotion presence - adjusted for dark backgrounds
+export const EMOTION_PRESENCE_DARK: Record<string, { glow: string; warmth: number }> = {
+  joy: { glow: "rgba(240, 160, 138, 0.35)", warmth: 1.2 },
+  sadness: { glow: "rgba(180, 160, 140, 0.25)", warmth: 0.8 },
+  tenderness: { glow: "rgba(242, 184, 168, 0.4)", warmth: 1.1 },
+  excitement: { glow: "rgba(240, 160, 138, 0.45)", warmth: 1.3 },
+  anger: { glow: "rgba(224, 144, 144, 0.35)", warmth: 1.0 },
+  fear: { glow: "rgba(200, 180, 160, 0.3)", warmth: 0.9 },
+  surprise: { glow: "rgba(242, 184, 168, 0.35)", warmth: 1.1 },
+  neutral: { glow: "rgba(140, 120, 100, 0.25)", warmth: 1.0 },
+  curiosity: { glow: "rgba(220, 190, 170, 0.3)", warmth: 1.05 },
+  playful: { glow: "rgba(240, 170, 150, 0.4)", warmth: 1.15 },
+};
+
+// Get emotion presence based on mode
+export function getEmotionPresence(mode: ColorMode) {
+  return mode === "dark" ? EMOTION_PRESENCE_DARK : EMOTION_PRESENCE;
+}
 
 // Animation timing - organic, breathing
 export const HER_TIMING = {
