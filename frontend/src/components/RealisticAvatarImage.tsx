@@ -958,33 +958,75 @@ export function RealisticAvatarImage({
             <path d="M136 119 L137 121" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
           </g>
 
-          {/* Left eyebrow - with asymmetric micro-expression */}
-          <motion.path
-            d={`M58 ${90 + (getEyebrowY() || 0) + asymmetry.eyebrow * 2} Q72 ${85 + (getEyebrowY() || 0) + asymmetry.eyebrow * 1.5} 86 ${88 + (getEyebrowY() || 0) + asymmetry.eyebrow}`}
-            fill="none"
-            stroke="#5C4033"
-            strokeWidth="2.5"
-            strokeLinecap="round"
+          {/* Left eyebrow - multi-stroke for natural texture */}
+          <g
             style={{
               transform: `rotate(${eyebrowInnerAngle * 0.5}deg)`,
               transformOrigin: "58px 90px",
             }}
-            transition={{ duration: 0.3 }}
-          />
+          >
+            {/* Main eyebrow shape - tapered */}
+            <motion.path
+              d={`M58 ${90 + (getEyebrowY() || 0) + asymmetry.eyebrow * 2} Q72 ${85 + (getEyebrowY() || 0) + asymmetry.eyebrow * 1.5} 86 ${88 + (getEyebrowY() || 0) + asymmetry.eyebrow}`}
+              fill="none"
+              stroke="#5C4033"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              transition={{ duration: 0.3 }}
+            />
+            {/* Upper edge - thinner, lighter */}
+            <motion.path
+              d={`M60 ${88 + (getEyebrowY() || 0) + asymmetry.eyebrow * 2} Q72 ${83 + (getEyebrowY() || 0) + asymmetry.eyebrow * 1.5} 84 ${86 + (getEyebrowY() || 0) + asymmetry.eyebrow}`}
+              fill="none"
+              stroke="#4A3728"
+              strokeWidth="1"
+              strokeLinecap="round"
+              opacity="0.6"
+              transition={{ duration: 0.3 }}
+            />
+            {/* Hair texture strokes */}
+            <g opacity="0.4">
+              <path d="M62 89 L64 86" stroke="#3D2314" strokeWidth="0.5" />
+              <path d="M68 87 L70 84" stroke="#3D2314" strokeWidth="0.5" />
+              <path d="M74 86 L76 84" stroke="#3D2314" strokeWidth="0.5" />
+              <path d="M80 87 L82 85" stroke="#3D2314" strokeWidth="0.5" />
+            </g>
+          </g>
 
-          {/* Right eyebrow - opposite asymmetry for natural look */}
-          <motion.path
-            d={`M114 ${88 + (getEyebrowY() || 0) - asymmetry.eyebrow} Q128 ${85 + (getEyebrowY() || 0) - asymmetry.eyebrow * 1.5} 142 ${90 + (getEyebrowY() || 0) - asymmetry.eyebrow * 2}`}
-            fill="none"
-            stroke="#5C4033"
-            strokeWidth="2.5"
-            strokeLinecap="round"
+          {/* Right eyebrow - multi-stroke for natural texture */}
+          <g
             style={{
               transform: `rotate(${-eyebrowInnerAngle * 0.5}deg)`,
               transformOrigin: "142px 90px",
             }}
-            transition={{ duration: 0.3 }}
-          />
+          >
+            {/* Main eyebrow shape - tapered */}
+            <motion.path
+              d={`M114 ${88 + (getEyebrowY() || 0) - asymmetry.eyebrow} Q128 ${85 + (getEyebrowY() || 0) - asymmetry.eyebrow * 1.5} 142 ${90 + (getEyebrowY() || 0) - asymmetry.eyebrow * 2}`}
+              fill="none"
+              stroke="#5C4033"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              transition={{ duration: 0.3 }}
+            />
+            {/* Upper edge - thinner, lighter */}
+            <motion.path
+              d={`M116 ${86 + (getEyebrowY() || 0) - asymmetry.eyebrow} Q128 ${83 + (getEyebrowY() || 0) - asymmetry.eyebrow * 1.5} 140 ${88 + (getEyebrowY() || 0) - asymmetry.eyebrow * 2}`}
+              fill="none"
+              stroke="#4A3728"
+              strokeWidth="1"
+              strokeLinecap="round"
+              opacity="0.6"
+              transition={{ duration: 0.3 }}
+            />
+            {/* Hair texture strokes */}
+            <g opacity="0.4">
+              <path d="M118 87 L120 85" stroke="#3D2314" strokeWidth="0.5" />
+              <path d="M124 86 L126 84" stroke="#3D2314" strokeWidth="0.5" />
+              <path d="M130 86 L132 84" stroke="#3D2314" strokeWidth="0.5" />
+              <path d="M136 87 L138 86" stroke="#3D2314" strokeWidth="0.5" />
+            </g>
+          </g>
 
           {/* Mouth - animated with detailed viseme shapes + asymmetric smile */}
           <g>
