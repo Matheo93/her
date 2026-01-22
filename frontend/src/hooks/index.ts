@@ -142,3 +142,18 @@ export {
   useDelayedRender,
   useAnimationFrame,
 } from "./useTimeout";
+
+// Long Press
+export {
+  useLongPress,
+  useIsLongPressed,
+  useLongPressCallback,
+} from "./useLongPress";
+
+// Clipboard
+export {
+  useClipboard,
+  useCopyToClipboard,
+  useCopyButton,
+  useShare,
+} from "./useClipboard";
