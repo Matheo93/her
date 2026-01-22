@@ -1694,71 +1694,96 @@ export default function EvaHerPage() {
           )}
         </AnimatePresence>
 
-        {/* Thinking indicator - organic, breathing animation */}
+        {/* Thinking indicator - organic, breathing animation with text skeleton */}
         <AnimatePresence>
           {isThinking && !currentText && !isListening && !isProcessingAudio && (
             <motion.div
-              className="mt-8 flex items-center gap-3"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.3 }}
+              className="mt-8 flex flex-col items-center gap-4"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
             >
-              {/* Breathing circle - respects reduced motion */}
-              <motion.div
-                className="relative"
-                animate={prefersReducedMotion ? {} : { scale: [1, 1.1, 1] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <motion.div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: colors.coral }}
-                  animate={prefersReducedMotion ? {} : { opacity: [0.5, 1, 0.5] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                />
-                {!prefersReducedMotion && (
-                  <motion.div
-                    className="absolute inset-0 rounded-full"
-                    style={{ backgroundColor: colors.coral }}
-                    animate={{ scale: [1, 1.8], opacity: [0.4, 0] }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
-                  />
-                )}
-              </motion.div>
-
-              {/* Flowing dots - respects reduced motion */}
-              <div className="flex gap-1">
-                {[0, 1, 2].map((i) => (
+              {/* Text skeleton - shows where text will appear */}
+              <div className="flex flex-col items-center gap-2 max-w-xs">
+                {[0.85, 0.6, 0.75].map((width, i) => (
                   <motion.div
                     key={i}
-                    className="w-1 h-1 rounded-full"
-                    style={{ backgroundColor: colors.coral }}
-                    animate={prefersReducedMotion ? {} : {
-                      opacity: [0.2, 0.7, 0.2],
-                      scale: [0.8, 1.2, 0.8],
+                    className="h-3 rounded-full"
+                    style={{
+                      width: `${width * 100}%`,
+                      minWidth: 80,
+                      maxWidth: 200,
+                      backgroundColor: `${colors.softShadow}40`,
+                    }}
+                    initial={{ opacity: 0, scaleX: 0.8 }}
+                    animate={{
+                      opacity: prefersReducedMotion ? 0.5 : [0.3, 0.6, 0.3],
+                      scaleX: 1,
                     }}
                     transition={{
-                      duration: 1.2,
-                      repeat: Infinity,
-                      delay: i * 0.2,
-                      ease: "easeInOut",
+                      opacity: { duration: 1.5, repeat: Infinity, delay: i * 0.2 },
+                      scaleX: { duration: 0.3, delay: i * 0.1 },
                     }}
                   />
                 ))}
               </div>
 
-              {/* Optional text hint */}
-              <motion.span
-                className="text-xs font-light"
-                style={{ color: colors.earth, opacity: 0.4 }}
-                animate={{ opacity: [0.3, 0.5, 0.3] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                ...
-              </motion.span>
+              {/* Breathing circle with subtle glow */}
+              <div className="flex items-center gap-3">
+                <motion.div
+                  className="relative"
+                  animate={prefersReducedMotion ? {} : { scale: [1, 1.1, 1] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  <motion.div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: colors.coral }}
+                    animate={prefersReducedMotion ? {} : { opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                  {!prefersReducedMotion && (
+                    <motion.div
+                      className="absolute inset-0 rounded-full"
+                      style={{ backgroundColor: colors.coral }}
+                      animate={{ scale: [1, 2], opacity: [0.3, 0] }}
+                      transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut" }}
+                    />
+                  )}
+                </motion.div>
+
+                <span
+                  className="text-sm font-light"
+                  style={{ color: colors.earth, opacity: 0.6 }}
+                >
+                  Eva réfléchit...
+                </span>
+
+                {/* Flowing dots - respects reduced motion */}
+                <div className="flex gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      className="w-1 h-1 rounded-full"
+                      style={{ backgroundColor: colors.coral }}
+                      animate={prefersReducedMotion ? { opacity: 0.5 } : {
+                        y: [0, -4, 0],
+                        opacity: [0.3, 1, 0.3],
+                      }}
+                      transition={{
+                        duration: 0.8,
+                        repeat: Infinity,
+                        delay: i * 0.15,
+                        ease: "easeInOut",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
+
       </div>
 
       {/* Input area - minimal, at the bottom - optimized for small screens */}
@@ -2154,35 +2179,48 @@ export default function EvaHerPage() {
                   </motion.button>
                 </motion.div>
               ) : (
-                // Connecting animation
-                <>
-                  <motion.div className="flex gap-1">
-                    {[0, 1, 2].map((i) => (
+                // Connecting animation - progressive wave
+                <motion.div
+                  className="flex flex-col items-center gap-3"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <div className="flex items-center gap-0.5">
+                    {[0, 1, 2, 3, 4].map((i) => (
                       <motion.div
                         key={i}
-                        className="w-1.5 h-1.5 rounded-full"
+                        className="w-1 rounded-full"
                         style={{ backgroundColor: colors.coral }}
-                        animate={prefersReducedMotion ? {} : {
-                          scale: [1, 1.3, 1],
-                          opacity: [0.3, 0.8, 0.3],
+                        animate={prefersReducedMotion ? { height: 8 } : {
+                          height: [4, 14, 4],
+                          opacity: [0.4, 1, 0.4],
                         }}
                         transition={{
-                          duration: 1,
+                          duration: 0.8,
                           repeat: Infinity,
-                          delay: i * 0.15,
+                          delay: i * 0.1,
+                          ease: "easeInOut",
                         }}
                       />
                     ))}
-                  </motion.div>
-                  <motion.span
-                    className="text-sm font-light"
-                    style={{ color: colors.softShadow }}
-                    animate={prefersReducedMotion ? {} : { opacity: [0.5, 0.8, 0.5] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  >
-                    Connexion...
-                  </motion.span>
-                </>
+                  </div>
+                  <div className="flex flex-col items-center gap-0.5">
+                    <motion.span
+                      className="text-sm font-light"
+                      style={{ color: colors.earth, opacity: 0.7 }}
+                      animate={prefersReducedMotion ? {} : { opacity: [0.5, 0.8, 0.5] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    >
+                      Connexion...
+                    </motion.span>
+                    <span
+                      className="text-xs font-light"
+                      style={{ color: colors.softShadow }}
+                    >
+                      Eva se prépare
+                    </span>
+                  </div>
+                </motion.div>
               )}
             </motion.div>
           )}
