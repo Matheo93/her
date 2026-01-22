@@ -1138,14 +1138,15 @@ export default function EvaHerPage() {
         </a>
       </nav>
 
-      {/* Error toast notification */}
+      {/* Error toast notification - enhanced with dismiss button */}
       <AnimatePresence>
         {errorToast && (
           <motion.div
-            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full flex items-center gap-2 shadow-lg"
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl flex items-center gap-3 shadow-lg backdrop-blur-sm"
             style={{
-              backgroundColor: colors.coral,
+              backgroundColor: `${colors.coral}F0`,
               color: colors.warmWhite,
+              boxShadow: `0 4px 20px ${colors.coral}40`,
             }}
             initial={{ opacity: 0, y: -20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1153,10 +1154,27 @@ export default function EvaHerPage() {
             role="alert"
             aria-live="assertive"
           >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            {/* Warning icon with pulse */}
+            <motion.svg
+              className="w-5 h-5 flex-shrink-0"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+              animate={prefersReducedMotion ? {} : { scale: [1, 1.1, 1] }}
+              transition={{ duration: 1, repeat: 2 }}
+            >
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
-            </svg>
-            <span className="text-sm font-light">{errorToast}</span>
+            </motion.svg>
+            <span className="text-sm font-medium">{errorToast}</span>
+            {/* Dismiss button */}
+            <button
+              onClick={() => setErrorToast(null)}
+              className="ml-1 p-1 rounded-full hover:bg-white/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+              aria-label="Fermer la notification"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
