@@ -466,6 +466,7 @@ export default function EvaHerPage() {
   }, []);
 
   // Connect to main WebSocket with improved error handling
+  const connectRef = useRef<() => void>(() => {});
   useEffect(() => {
     const connect = () => {
       try {
@@ -627,8 +628,17 @@ export default function EvaHerPage() {
       }
     };
 
+    connectRef.current = connect;
     connect();
     return () => wsRef.current?.close();
+  }, []);
+
+  // Manual reconnect callback
+  const handleManualReconnect = useCallback(() => {
+    setConnectionError(null);
+    reconnectAttemptsRef.current = 0;
+    wsRef.current?.close();
+    setTimeout(() => connectRef.current(), 100);
   }, []);
 
   // Pre-decoded audio buffer for gapless playback
@@ -1736,26 +1746,42 @@ export default function EvaHerPage() {
               aria-live="polite"
             >
               {connectionError ? (
-                // Error state
+                // Error state with retry button
                 <motion.div
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-                  style={{ backgroundColor: `${colors.coral}20` }}
+                  className="flex flex-col items-center gap-2"
                   initial={{ scale: 0.9 }}
                   animate={{ scale: 1 }}
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill={colors.coral}
-                    viewBox="0 0 24 24"
+                  <div
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+                    style={{ backgroundColor: `${colors.coral}20` }}
                   >
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
-                  </svg>
-                  <span
-                    className="text-sm font-light"
-                    style={{ color: colors.coral }}
+                    <svg
+                      className="w-4 h-4"
+                      fill={colors.coral}
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+                    </svg>
+                    <span
+                      className="text-sm font-light"
+                      style={{ color: colors.coral }}
+                    >
+                      {connectionError}
+                    </span>
+                  </div>
+                  <motion.button
+                    onClick={handleManualReconnect}
+                    className="px-4 py-1.5 rounded-full text-sm font-light focus:outline-none focus:ring-2"
+                    style={{
+                      backgroundColor: colors.coral,
+                      color: colors.warmWhite,
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    {connectionError}
-                  </span>
+                    Réessayer
+                  </motion.button>
                 </motion.div>
               ) : (
                 // Connecting animation
