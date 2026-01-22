@@ -1767,6 +1767,25 @@ export function RealisticAvatarImage({
             })()}
           </g>
 
+          {/* Mentolabial fold - crease between lower lip and chin */}
+          <motion.path
+            d={`M88 ${172 + mouthShape.jawDrop * 1.5} Q100 ${174 + mouthShape.jawDrop * 1.8} 112 ${172 + mouthShape.jawDrop * 1.5}`}
+            fill="none"
+            stroke="#D4A090"
+            strokeWidth="0.5"
+            opacity="0.35"
+            transition={{ duration: 0.05 }}
+          />
+          {/* Mentolabial highlight */}
+          <motion.path
+            d={`M90 ${171 + mouthShape.jawDrop * 1.5} Q100 ${172 + mouthShape.jawDrop * 1.8} 110 ${171 + mouthShape.jawDrop * 1.5}`}
+            fill="none"
+            stroke="#F5D0C5"
+            strokeWidth="0.4"
+            opacity="0.4"
+            transition={{ duration: 0.05 }}
+          />
+
           {/* Chin with jaw movement */}
           <motion.ellipse
             cx="100"
