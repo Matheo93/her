@@ -598,7 +598,28 @@ export default function EvaHerPage() {
     return () => wsRef.current?.close();
   }, []);
 
-  // Audio playback with level detection
+  // Pre-decoded audio buffer for gapless playback
+  const predecodedBufferRef = useRef<AudioBuffer | null>(null);
+  const predecodingPromiseRef = useRef<Promise<AudioBuffer | null> | null>(null);
+
+  // Pre-decode next audio chunk for seamless playback
+  const predecodeNext = useCallback(async () => {
+    if (audioQueueRef.current.length === 0 || !audioContextRef.current) {
+      predecodedBufferRef.current = null;
+      return;
+    }
+    const nextItem = audioQueueRef.current[0];
+    if (!nextItem) return;
+    try {
+      predecodedBufferRef.current = await audioContextRef.current.decodeAudioData(
+        nextItem.audio.slice(0)
+      );
+    } catch {
+      predecodedBufferRef.current = null;
+    }
+  }, []);
+
+  // Audio playback with level detection and pre-decoding
   const playNextAudio = useCallback(async () => {
     if (isPlayingRef.current || audioQueueRef.current.length === 0) return;
 
@@ -614,7 +635,18 @@ export default function EvaHerPage() {
         audioContextRef.current = new AudioContext();
       }
       const audioContext = audioContextRef.current;
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+
+      // Use pre-decoded buffer if available, otherwise decode now
+      let audioBuffer: AudioBuffer;
+      if (predecodedBufferRef.current) {
+        audioBuffer = predecodedBufferRef.current;
+        predecodedBufferRef.current = null;
+      } else {
+        audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+      }
+
+      // Start pre-decoding next chunk for gapless playback
+      predecodeNext();
 
       const source = audioContext.createBufferSource();
       source.buffer = audioBuffer;
