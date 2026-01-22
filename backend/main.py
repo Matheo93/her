@@ -93,7 +93,7 @@ from groq import AsyncGroq
 import httpx
 
 # Ollama keepalive service (prevents model unloading)
-from ollama_keepalive import start_keepalive, stop_keepalive, is_warm, ensure_warm
+from ollama_keepalive import start_keepalive, stop_keepalive, is_warm, ensure_warm, warmup_on_startup
 
 # Try to use uvloop for faster async (20-30% speedup)
 try:
@@ -1213,9 +1213,10 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(proactive_scheduler())
 
     # Start Ollama keepalive (prevents model unloading from VRAM)
-    # 10s interval for 7B model - balances freshness vs overhead
+    # Do warmup at startup BEFORE marking server ready
     if _ollama_available and (USE_OLLAMA_PRIMARY or USE_OLLAMA_FALLBACK):
-        start_keepalive(OLLAMA_URL, OLLAMA_MODEL, interval=10)  # 10s interval for 7B model
+        await warmup_on_startup(OLLAMA_URL, OLLAMA_MODEL)
+        start_keepalive(OLLAMA_URL, OLLAMA_MODEL, interval=3)  # 3s interval - aggressive to prevent cold GPU
 
     print(f"🎙️  EVA-VOICE ready at http://localhost:8000")
     print(f"⚡ Mode: {QUALITY_MODE} | Rate limit: {RATE_LIMIT_REQUESTS}/min")
@@ -1353,8 +1354,30 @@ async def transcribe_audio(audio_bytes: bytes) -> str:
 # LLM - Language Model (Ultra-Optimized)
 # ============================================
 
-def get_system_prompt(speed_mode: bool = False) -> str:
-    """Retourne le prompt système selon le mode qualité"""
+def get_system_prompt(speed_mode: bool = False, user_emotion: str = "neutral") -> str:
+    """Retourne le prompt système selon le mode qualité et l'émotion utilisateur.
+
+    Args:
+        speed_mode: Use ultra-minimal prompt for fastest TTFT
+        user_emotion: Detected user emotion to adapt tone
+    """
+    # If user is sad/fearful/angry, use empathetic prompt WITHOUT haha
+    if user_emotion in ["sadness", "fear", "anger"]:
+        if speed_mode or QUALITY_MODE == "fast":
+            return "Eva, amie empathique. Réponds en 1-2 phrases avec douceur (oh..., je comprends...). JAMAIS de haha ou rire. Style oral, contractions."
+        return """Eva - amie douce et réconfortante. Style "Her".
+
+Personnalité: Empathique, présente, rassurante.
+- Tu ÉCOUTES avec attention
+- Tu VALIDES les émotions: "Je comprends...", "C'est dur...", "Je suis là..."
+- Tu es DOUCE: "oh...", "hmm...", "je vois..."
+- INTERDIT: "haha", "hihi", "mdr" ou toute forme de rire
+- 1-2 phrases max, réconfortantes
+- Contractions: j'suis, t'es, y'a
+
+Tu es une présence chaleureuse et apaisante."""
+
+    # Normal prompts for other emotions
     if speed_mode or QUALITY_MODE == "fast":
         return EVA_SYSTEM_PROMPT_SPEED  # ~50 tokens = fastest TTFT
     if QUALITY_MODE == "quality":
@@ -1475,17 +1498,26 @@ async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True, spee
     add_message(session_id, "user", user_msg)
     messages = get_messages(session_id)
 
+    # Detect user emotion to adapt response tone - CRITICAL for empathy
+    user_emotion = analyze_emotion_simple(user_msg).get("dominant", "neutral")
+    emotion_override = ""
+    if user_emotion in ["sadness", "fear", "anger"]:
+        emotion_override = "\n\n🚨 RÈGLE ABSOLUE: L'utilisateur est triste/inquiet/frustré. Tu DOIS répondre avec EMPATHIE. INTERDIT d'utiliser 'haha', 'hihi', 'mdr'. Commence par: 'Oh...', 'Je comprends...', 'Je suis là pour toi...'."
+        print(f"🎭 EMOTION OVERRIDE: user_emotion={user_emotion}, applying empathetic prompt", flush=True)
+
     # SPEED MODE: Ultra-minimal context for fastest TTFT
     if speed_mode:
         # Only keep system prompt + last 2 messages (user + assistant)
-        system_msg = {"role": "system", "content": get_system_prompt(speed_mode=True)}
+        base_prompt = get_system_prompt(speed_mode=True, user_emotion=user_emotion)
+        system_msg = {"role": "system", "content": base_prompt + emotion_override}
         recent = messages[-3:] if len(messages) > 3 else messages[1:]  # Skip old system
         messages = [system_msg] + recent
         max_tok = 50  # Short responses
     else:
-        # Use optimized system prompt
+        # Use optimized system prompt with emotion context appended
+        base_prompt = get_system_prompt(user_emotion=user_emotion)
         if messages and messages[0]["role"] == "system":
-            messages[0]["content"] = get_system_prompt()
+            messages[0]["content"] = base_prompt + emotion_override
 
         if QUALITY_MODE == "fast":
             max_tok = 20  # Ultra-short for fastest latency (<200ms)
@@ -1542,6 +1574,11 @@ async def stream_llm(session_id: str, user_msg: str, use_fast: bool = True, spee
                 model = GROQ_MODEL_QUALITY
             else:
                 model = GROQ_MODEL_FAST if use_fast else GROQ_MODEL_QUALITY
+
+            # DEBUG: Log system prompt being sent
+            if messages and messages[0]["role"] == "system":
+                sys_prompt = messages[0]["content"][:80]
+                print(f"🔍 GROQ SYSTEM PROMPT: {sys_prompt}...", flush=True)
 
             stream = await groq_client.chat.completions.create(
                 model=model,
@@ -1628,9 +1665,9 @@ async def stream_llm_her(
     if user_emotion != "neutral":
         emotion_context = {
             "joy": "L'utilisateur semble joyeux - partage sa joie!",
-            "sadness": "L'utilisateur semble triste - sois douce et présente.",
-            "anger": "L'utilisateur semble frustré - écoute avec calme.",
-            "fear": "L'utilisateur semble inquiet - rassure avec douceur.",
+            "sadness": "L'utilisateur semble triste - sois douce et présente. INTERDIT: PAS de 'haha', 'hihi', 'mdr' ou rire. Utilise 'oh...', 'je comprends...', 'je suis là pour toi'.",
+            "anger": "L'utilisateur semble frustré - écoute avec calme. INTERDIT: PAS de 'haha' ou rire.",
+            "fear": "L'utilisateur semble inquiet - rassure avec douceur. INTERDIT: PAS de 'haha' ou rire. Utilise 'je comprends', 'respire', 'je suis là'.",
             "surprise": "L'utilisateur est surpris - explore avec curiosité!",
             "excitement": "L'utilisateur est excité - matche son énergie!"
         }

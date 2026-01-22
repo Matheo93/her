@@ -237,6 +237,43 @@ async def ensure_warm() -> float:
     return latency if success else -1
 
 
+async def warmup_on_startup(
+    ollama_url: str = OLLAMA_URL,
+    model: str = OLLAMA_MODEL
+) -> bool:
+    """Synchronous warmup at server startup.
+
+    Call this BEFORE marking server as ready to ensure first request is fast.
+
+    Args:
+        ollama_url: Ollama API URL
+        model: Model name to warm up
+
+    Returns:
+        True if warmup succeeded
+    """
+    global _http_client, OLLAMA_URL, OLLAMA_MODEL, _is_warm
+
+    OLLAMA_URL = ollama_url
+    OLLAMA_MODEL = model
+
+    print(f"🔥 Warming up Ollama model '{model}' at startup...")
+
+    if _http_client is None:
+        _http_client = httpx.AsyncClient(timeout=30.0)
+
+    # Do a warmup burst to ensure model is fully GPU-active
+    success = await _warmup_burst()
+
+    if success:
+        _is_warm = True
+        print(f"✅ Ollama model '{model}' is hot and ready!")
+    else:
+        print(f"⚠️ Ollama warmup failed - first requests may be slow")
+
+    return success
+
+
 # Testing
 if __name__ == "__main__":
     async def test():
