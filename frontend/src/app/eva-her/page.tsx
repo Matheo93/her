@@ -136,6 +136,8 @@ export default function EvaHerPage() {
   const [connectionLatency, setConnectionLatency] = useState<number | null>(null);
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   const [audioQueueLength, setAudioQueueLength] = useState(0);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(true);
   const [isMuted, setIsMuted] = useState(() => {
     // Load muted preference from localStorage on mount
     if (typeof window !== "undefined") {
@@ -264,6 +266,29 @@ export default function EvaHerPage() {
   useEffect(() => {
     isMutedRef.current = isMuted;
   }, [isMuted]);
+
+  // Network status monitoring
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      logPerformanceMetric("network", "online");
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      setErrorToast("Connexion réseau perdue");
+      setTimeout(() => setErrorToast(null), 5000);
+      logPerformanceMetric("network", "offline");
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    setIsOnline(navigator.onLine);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
@@ -755,10 +780,19 @@ export default function EvaHerPage() {
 
       source.start(0);
       updateLevel();
-    } catch {
+    } catch (err) {
+      logPerformanceMetric("audioError", "playback_failed", { error: String(err) });
       isPlayingRef.current = false;
       setAudioLevel(0);
-      if (audioQueueRef.current.length > 0) {
+
+      // Show error toast only if this is a persistent issue
+      const remainingItems = audioQueueRef.current.length;
+      if (remainingItems === 0) {
+        setErrorToast("Erreur de lecture audio");
+        setTimeout(() => setErrorToast(null), 3000);
+      }
+
+      if (remainingItems > 0) {
         playNextAudioRef.current();
       } else {
         setIsSpeaking(false);
@@ -978,6 +1012,29 @@ export default function EvaHerPage() {
           Aller au microphone
         </a>
       </nav>
+
+      {/* Error toast notification */}
+      <AnimatePresence>
+        {errorToast && (
+          <motion.div
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full flex items-center gap-2 shadow-lg"
+            style={{
+              backgroundColor: colors.coral,
+              color: colors.warmWhite,
+            }}
+            initial={{ opacity: 0, y: -20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.9 }}
+            role="alert"
+            aria-live="assertive"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+            </svg>
+            <span className="text-sm font-light">{errorToast}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Living ambient background - respects reduced motion */}
       <motion.div
@@ -1237,6 +1294,28 @@ export default function EvaHerPage() {
                 style={{ color: colors.earth, opacity: 0.7 }}
               >
                 HER {Math.round(herStatus.healthScore * 100)}%
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Network offline indicator */}
+        <AnimatePresence>
+          {!isOnline && (
+            <motion.div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+              style={{ backgroundColor: `${colors.coral}30` }}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              role="status"
+              aria-live="polite"
+            >
+              <svg className="w-3 h-3" fill={colors.coral} viewBox="0 0 24 24">
+                <path d="M23.64 7c-.45-.34-4.93-4-11.64-4-1.5 0-2.89.19-4.15.48L18.18 13.8 23.64 7zM1.41 1.58L0 3l2.05 2.05C.94 6.25.42 7.05.36 7c-.37.28-.36.85 0 1.15C1.04 8.72 5.35 12 12 12c1.33 0 2.57-.15 3.72-.38l9.87 9.87 1.41-1.41L1.41 1.58zM3.84 11.98c.38.31.75.59 1.12.87l1.11-1.11c-.38-.23-.73-.48-1.06-.75l-1.17.99z" />
+              </svg>
+              <span className="text-xs font-light" style={{ color: colors.coral }}>
+                Hors ligne
               </span>
             </motion.div>
           )}
