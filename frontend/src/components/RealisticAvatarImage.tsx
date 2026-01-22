@@ -1217,21 +1217,34 @@ export function RealisticAvatarImage({
             />
           </g>
 
-          {/* Left upper eyelashes - subtle curved strokes */}
+          {/* Left upper eyelashes - enhanced curved strokes */}
           <g opacity={blinkState === "open" ? 0.7 : 0}>
+            {/* Primary lashes */}
             <path d="M60 101 Q59 98 58 96" fill="none" stroke="#3D2314" strokeWidth="0.6" strokeLinecap="round" />
+            <path d="M63 100 Q62 97 61 95" fill="none" stroke="#3D2314" strokeWidth="0.5" strokeLinecap="round" />
             <path d="M65 99 Q64 96 63 94" fill="none" stroke="#3D2314" strokeWidth="0.7" strokeLinecap="round" />
+            <path d="M68 98.5 Q67 95.5 66 93.5" fill="none" stroke="#3D2314" strokeWidth="0.6" strokeLinecap="round" />
             <path d="M70 98 Q70 95 69 93" fill="none" stroke="#3D2314" strokeWidth="0.8" strokeLinecap="round" />
+            <path d="M73 98 Q73 95 72 93" fill="none" stroke="#3D2314" strokeWidth="0.6" strokeLinecap="round" />
             <path d="M75 98 Q76 95 76 93" fill="none" stroke="#3D2314" strokeWidth="0.7" strokeLinecap="round" />
+            <path d="M78 98.5 Q79 95.5 79 93.5" fill="none" stroke="#3D2314" strokeWidth="0.6" strokeLinecap="round" />
             <path d="M80 99 Q82 96 83 94" fill="none" stroke="#3D2314" strokeWidth="0.6" strokeLinecap="round" />
             <path d="M84 101 Q86 98 88 97" fill="none" stroke="#3D2314" strokeWidth="0.5" strokeLinecap="round" />
+            {/* Secondary fine lashes */}
+            <path d="M66 99.5 Q65.5 97 65 95.5" fill="none" stroke="#4A3728" strokeWidth="0.35" strokeLinecap="round" />
+            <path d="M71 98.5 Q71 96 70.5 94" fill="none" stroke="#4A3728" strokeWidth="0.35" strokeLinecap="round" />
+            <path d="M77 98.5 Q77.5 96 77.5 94" fill="none" stroke="#4A3728" strokeWidth="0.35" strokeLinecap="round" />
           </g>
 
-          {/* Left lower eyelash hints - very subtle */}
-          <g opacity={blinkState === "open" ? 0.3 : 0}>
+          {/* Left lower eyelash hints - enhanced */}
+          <g opacity={blinkState === "open" ? 0.35 : 0}>
+            <path d="M62 119 L61 121" fill="none" stroke="#5C4033" strokeWidth="0.35" strokeLinecap="round" />
             <path d="M64 119 L63 121" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
+            <path d="M68 119.5 L67.5 121.5" fill="none" stroke="#5C4033" strokeWidth="0.35" strokeLinecap="round" />
             <path d="M72 120 L72 122" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
+            <path d="M76 119.5 L76.5 121.5" fill="none" stroke="#5C4033" strokeWidth="0.35" strokeLinecap="round" />
             <path d="M80 119 L81 121" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
+            <path d="M83 119 L84 120.5" fill="none" stroke="#5C4033" strokeWidth="0.35" strokeLinecap="round" />
           </g>
 
           {/* Left under-eye area - subtle orbital shadow */}
@@ -1458,21 +1471,35 @@ export function RealisticAvatarImage({
             />
           </g>
 
-          {/* Right upper eyelashes - subtle curved strokes */}
+          {/* Right upper eyelashes - enhanced curved strokes */}
           <g opacity={blinkState === "open" ? 0.7 : 0}>
+            {/* Primary lashes */}
             <path d="M116 101 Q114 98 112 97" fill="none" stroke="#3D2314" strokeWidth="0.5" strokeLinecap="round" />
+            <path d="M118 100 Q116 97 115 95" fill="none" stroke="#3D2314" strokeWidth="0.5" strokeLinecap="round" />
             <path d="M120 99 Q118 96 117 94" fill="none" stroke="#3D2314" strokeWidth="0.6" strokeLinecap="round" />
+            <path d="M123 98.5 Q121.5 95.5 121 93.5" fill="none" stroke="#3D2314" strokeWidth="0.6" strokeLinecap="round" />
             <path d="M125 98 Q124 95 124 93" fill="none" stroke="#3D2314" strokeWidth="0.7" strokeLinecap="round" />
+            <path d="M128 98 Q127 95 127 93" fill="none" stroke="#3D2314" strokeWidth="0.6" strokeLinecap="round" />
             <path d="M130 98 Q130 95 131 93" fill="none" stroke="#3D2314" strokeWidth="0.8" strokeLinecap="round" />
+            <path d="M133 98.5 Q133.5 95.5 134 93.5" fill="none" stroke="#3D2314" strokeWidth="0.6" strokeLinecap="round" />
             <path d="M135 99 Q136 96 137 94" fill="none" stroke="#3D2314" strokeWidth="0.7" strokeLinecap="round" />
+            <path d="M138 100 Q139 97 140 95" fill="none" stroke="#3D2314" strokeWidth="0.6" strokeLinecap="round" />
             <path d="M140 101 Q141 98 142 96" fill="none" stroke="#3D2314" strokeWidth="0.6" strokeLinecap="round" />
+            {/* Secondary fine lashes */}
+            <path d="M122 99 Q120.5 96.5 120 94.5" fill="none" stroke="#4A3728" strokeWidth="0.35" strokeLinecap="round" />
+            <path d="M127 98.5 Q126.5 96 126 94" fill="none" stroke="#4A3728" strokeWidth="0.35" strokeLinecap="round" />
+            <path d="M132 98.5 Q132 96 132.5 94" fill="none" stroke="#4A3728" strokeWidth="0.35" strokeLinecap="round" />
           </g>
 
-          {/* Right lower eyelash hints - very subtle */}
-          <g opacity={blinkState === "open" ? 0.3 : 0}>
+          {/* Right lower eyelash hints - enhanced */}
+          <g opacity={blinkState === "open" ? 0.35 : 0}>
+            <path d="M117 119 L116 120.5" fill="none" stroke="#5C4033" strokeWidth="0.35" strokeLinecap="round" />
             <path d="M120 119 L119 121" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
+            <path d="M124 119.5 L123.5 121.5" fill="none" stroke="#5C4033" strokeWidth="0.35" strokeLinecap="round" />
             <path d="M128 120 L128 122" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
+            <path d="M132 119.5 L132.5 121.5" fill="none" stroke="#5C4033" strokeWidth="0.35" strokeLinecap="round" />
             <path d="M136 119 L137 121" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
+            <path d="M139 119 L140 120.5" fill="none" stroke="#5C4033" strokeWidth="0.35" strokeLinecap="round" />
           </g>
 
           {/* Right under-eye area - subtle orbital shadow */}
