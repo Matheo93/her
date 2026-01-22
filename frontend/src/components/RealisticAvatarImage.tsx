@@ -779,21 +779,49 @@ export function RealisticAvatarImage({
             <ellipse cx="52" cy="85" rx="12" ry="18" fill="#C89B8B" />
             {/* Right temple shadow */}
             <ellipse cx="148" cy="85" rx="12" ry="18" fill="#C89B8B" />
-            {/* Temple veins hint - very subtle */}
-            <path
-              d="M48 78 Q50 82 52 88"
-              fill="none"
-              stroke="#D4A5A5"
-              strokeWidth="0.3"
-              opacity="0.4"
-            />
-            <path
-              d="M152 78 Q150 82 148 88"
-              fill="none"
-              stroke="#D4A5A5"
-              strokeWidth="0.3"
-              opacity="0.4"
-            />
+            {/* Temple veins - enhanced network */}
+            <g opacity="0.35">
+              {/* Left temple main vein */}
+              <path
+                d="M48 78 Q50 82 52 88"
+                fill="none"
+                stroke="#D4A5A5"
+                strokeWidth="0.4"
+              />
+              {/* Left temple branch */}
+              <path
+                d="M50 81 Q52 83 53 86"
+                fill="none"
+                stroke="#D4A5A5"
+                strokeWidth="0.25"
+              />
+              <path
+                d="M49 84 Q48 87 48 90"
+                fill="none"
+                stroke="#D4A5A5"
+                strokeWidth="0.2"
+              />
+              {/* Right temple main vein */}
+              <path
+                d="M152 78 Q150 82 148 88"
+                fill="none"
+                stroke="#D4A5A5"
+                strokeWidth="0.4"
+              />
+              {/* Right temple branch */}
+              <path
+                d="M150 81 Q148 83 147 86"
+                fill="none"
+                stroke="#D4A5A5"
+                strokeWidth="0.25"
+              />
+              <path
+                d="M151 84 Q152 87 152 90"
+                fill="none"
+                stroke="#D4A5A5"
+                strokeWidth="0.2"
+              />
+            </g>
           </g>
 
           {/* Warm undertone across central face - subtle warmth */}
