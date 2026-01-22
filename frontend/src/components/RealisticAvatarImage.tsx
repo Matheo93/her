@@ -608,11 +608,24 @@ export function RealisticAvatarImage({
               <stop offset="100%" stopColor="#D4A090" />
             </radialGradient>
 
-            {/* Subtle skin texture */}
-            <filter id="skinTexture">
-              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" result="noise" />
-              <feDisplacementMap in="SourceGraphic" in2="noise" scale="1" xChannelSelector="R" yChannelSelector="G" />
+            {/* Subtle skin texture overlay */}
+            <filter id="skinTexture" x="0%" y="0%" width="100%" height="100%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" result="noise" seed="5" />
+              <feColorMatrix type="saturate" values="0" result="gray" />
+              <feBlend in="SourceGraphic" in2="gray" mode="overlay" result="blend" />
+              <feComposite in="blend" in2="SourceAlpha" operator="in" />
             </filter>
+
+            {/* Freckle pattern */}
+            <pattern id="frecklePattern" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+              <circle cx="5" cy="8" r="0.6" fill="#C89B8B" opacity="0.3" />
+              <circle cx="18" cy="5" r="0.5" fill="#C89B8B" opacity="0.25" />
+              <circle cx="32" cy="12" r="0.7" fill="#C89B8B" opacity="0.2" />
+              <circle cx="12" cy="22" r="0.5" fill="#C89B8B" opacity="0.3" />
+              <circle cx="28" cy="28" r="0.6" fill="#C89B8B" opacity="0.25" />
+              <circle cx="8" cy="35" r="0.4" fill="#C89B8B" opacity="0.2" />
+              <circle cx="35" cy="35" r="0.5" fill="#C89B8B" opacity="0.3" />
+            </pattern>
 
             {/* Eye shine */}
             <radialGradient id="eyeShine" cx="30%" cy="30%" r="50%">
@@ -683,6 +696,28 @@ export function RealisticAvatarImage({
             ry={15 + cheekRise * 2}
             fill="url(#blushLeft)"
           />
+
+          {/* Subtle freckles across nose and cheeks */}
+          <g opacity="0.4">
+            {/* Left cheek freckles */}
+            <circle cx="52" cy="125" r="0.8" fill="#C89B8B" />
+            <circle cx="58" cy="130" r="0.6" fill="#C89B8B" />
+            <circle cx="65" cy="127" r="0.7" fill="#C89B8B" />
+            <circle cx="55" cy="135" r="0.5" fill="#C89B8B" />
+            <circle cx="62" cy="133" r="0.6" fill="#C89B8B" />
+            {/* Nose bridge freckles */}
+            <circle cx="95" cy="125" r="0.5" fill="#C89B8B" />
+            <circle cx="100" cy="128" r="0.6" fill="#C89B8B" />
+            <circle cx="105" cy="125" r="0.5" fill="#C89B8B" />
+            <circle cx="98" cy="132" r="0.4" fill="#C89B8B" />
+            <circle cx="103" cy="130" r="0.5" fill="#C89B8B" />
+            {/* Right cheek freckles */}
+            <circle cx="135" cy="127" r="0.7" fill="#C89B8B" />
+            <circle cx="142" cy="130" r="0.6" fill="#C89B8B" />
+            <circle cx="148" cy="125" r="0.8" fill="#C89B8B" />
+            <circle cx="138" cy="133" r="0.6" fill="#C89B8B" />
+            <circle cx="145" cy="135" r="0.5" fill="#C89B8B" />
+          </g>
 
           {/* Nasolabial folds (smile lines) - appear with smile and cheek rise */}
           {(cheekRise > 0.1 || smileAmount > 0.3) && (
