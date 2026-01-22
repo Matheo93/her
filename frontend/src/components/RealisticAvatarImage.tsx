@@ -669,6 +669,20 @@ export function RealisticAvatarImage({
               <circle cx="1" cy="11" r="0.12" fill="#D4A090" opacity="0.12" />
             </pattern>
 
+            {/* Subsurface scattering effect - skin translucency glow */}
+            <radialGradient id="sssGlow" cx="50%" cy="40%" r="60%">
+              <stop offset="0%" stopColor="#FFE0D0" stopOpacity="0.15" />
+              <stop offset="40%" stopColor="#F5C0B0" stopOpacity="0.08" />
+              <stop offset="100%" stopColor="#E8A090" stopOpacity="0" />
+            </radialGradient>
+
+            {/* Nose bridge SSS highlight */}
+            <linearGradient id="noseSSSGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#FFE8E0" stopOpacity="0.25" />
+              <stop offset="50%" stopColor="#F5D0C5" stopOpacity="0.15" />
+              <stop offset="100%" stopColor="#F5D0C5" stopOpacity="0" />
+            </linearGradient>
+
             {/* Eye shine */}
             <radialGradient id="eyeShine" cx="30%" cy="30%" r="50%">
               <stop offset="0%" stopColor="white" stopOpacity="0.9" />
@@ -841,6 +855,11 @@ export function RealisticAvatarImage({
 
           {/* Warm undertone across central face - subtle warmth */}
           <ellipse cx="100" cy="130" rx="45" ry="35" fill="url(#warmUndertone)" />
+
+          {/* Subsurface scattering glow - skin translucency effect */}
+          <ellipse cx="100" cy="125" rx="55" ry="45" fill="url(#sssGlow)" />
+          {/* SSS on nose bridge - light passing through thin skin */}
+          <ellipse cx="100" cy="120" rx="8" ry="20" fill="url(#noseSSSGradient)" />
 
           {/* Cheek blush - left (rises with smile) */}
           <ellipse
