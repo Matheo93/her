@@ -104,6 +104,8 @@ export function RealisticAvatarImage({
   const [breathPhase, setBreathPhase] = useState(0);
   const [blinkState, setBlinkState] = useState<"open" | "closing" | "closed" | "opening">("open");
   const [gazeOffset, setGazeOffset] = useState({ x: 0, y: 0 });
+  const [headTilt, setHeadTilt] = useState({ x: 0, y: 0, rotation: 0 });
+  const [microExpression, setMicroExpression] = useState(0); // 0-1 subtle expression intensity
 
   // Detailed mouth shape from visemes
   const mouthShape = useMemo(() => {
@@ -186,33 +188,78 @@ export function RealisticAvatarImage({
     return () => clearInterval(interval);
   }, [isListening]);
 
-  // Breathing values
-  const breathScale = 1 + Math.sin(breathPhase) * 0.008;
-  const breathY = Math.sin(breathPhase) * 2;
+  // Natural head micro-movements (subtle nodding, tilting)
+  useEffect(() => {
+    const startTime = Date.now();
+    let animationId: number;
 
-  // Eye lid position based on blink state
-  const getEyeLidY = () => {
+    const animate = () => {
+      const elapsed = (Date.now() - startTime) / 1000;
+
+      // Very subtle head movements - layered sine waves
+      const tiltX = Math.sin(elapsed * 0.3) * 0.5 + Math.sin(elapsed * 0.7) * 0.3;
+      const tiltY = Math.sin(elapsed * 0.4) * 0.4 + Math.cos(elapsed * 0.6) * 0.2;
+      const rotation = Math.sin(elapsed * 0.2) * 0.5;
+
+      // More movement when speaking, less when listening
+      const intensity = isSpeaking ? 1.2 : isListening ? 0.3 : 0.8;
+
+      setHeadTilt({
+        x: tiltX * intensity,
+        y: tiltY * intensity,
+        rotation: rotation * intensity,
+      });
+
+      animationId = requestAnimationFrame(animate);
+    };
+
+    animationId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationId);
+  }, [isSpeaking, isListening]);
+
+  // Micro-expressions - subtle emotional flickers
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Random micro-expression intensity
+      setMicroExpression(Math.random() * 0.3);
+
+      // Reset after short duration
+      setTimeout(() => setMicroExpression(0), 200);
+    }, 3000 + Math.random() * 4000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Breathing values - memoized
+  const breathScale = useMemo(() => 1 + Math.sin(breathPhase) * 0.008, [breathPhase]);
+  const breathY = useMemo(() => Math.sin(breathPhase) * 2, [breathPhase]);
+
+  // Eye lid position - memoized
+  const eyeLidY = useMemo(() => {
     switch (blinkState) {
       case "closing": return 8;
       case "closed": return 12;
       case "opening": return 4;
       default: return 0;
     }
-  };
+  }, [blinkState]);
 
-  // Emotion affects expression
-  const getEyebrowY = () => {
+  // Eyebrow position - memoized
+  const eyebrowY = useMemo(() => {
+    let base = 0;
     switch (emotion) {
       case "joy":
-      case "excitement": return -2;
-      case "sadness": return 3;
-      case "surprise": return -4;
-      case "curiosity": return -2;
-      default: return 0;
+      case "excitement": base = -2; break;
+      case "sadness": base = 3; break;
+      case "surprise": base = -4; break;
+      case "curiosity": base = -2; break;
+      default: base = 0;
     }
-  };
+    return base + (microExpression * -1.5);
+  }, [emotion, microExpression]);
 
-  const getSmileAmount = () => {
+  // Smile amount - memoized
+  const smileAmount = useMemo(() => {
     switch (emotion) {
       case "joy": return 0.7;
       case "tenderness": return 0.4;
@@ -221,7 +268,12 @@ export function RealisticAvatarImage({
       case "sadness": return -0.2;
       default: return 0.15;
     }
-  };
+  }, [emotion]);
+
+  // Legacy function wrappers for compatibility
+  const getEyeLidY = () => eyeLidY;
+  const getEyebrowY = () => eyebrowY;
+  const getSmileAmount = () => smileAmount;
 
   return (
     <div
@@ -242,14 +294,16 @@ export function RealisticAvatarImage({
         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
       />
 
-      {/* Main avatar container with breathing */}
+      {/* Main avatar container with breathing and head micro-movements */}
       <motion.div
         className="relative w-full h-full flex items-center justify-center"
         animate={{
           scale: breathScale,
-          y: breathY,
+          y: breathY + headTilt.y,
+          x: headTilt.x,
+          rotate: headTilt.rotation,
         }}
-        transition={{ duration: 0.1 }}
+        transition={{ duration: 0.15, ease: "easeOut" }}
       >
         {/* Face container - SVG-based realistic female face */}
         <svg

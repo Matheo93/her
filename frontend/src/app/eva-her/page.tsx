@@ -12,6 +12,7 @@ import { useHerStatus } from "@/hooks/useHerStatus";
 import { useBackendMemory } from "@/hooks/useBackendMemory";
 import { useBackchannel, shouldTriggerBackchannel } from "@/hooks/useBackchannel";
 import { useDarkMode } from "@/hooks/useDarkMode";
+import { MemoryIndicator } from "@/components/MemoryIndicator";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const VISEME_URL = process.env.NEXT_PUBLIC_VISEME_URL || "http://localhost:8003";
@@ -613,6 +614,13 @@ export default function EvaHerPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* SPRINT 87: Memory indicator */}
+        <MemoryIndicator
+          memory={persistentMemory}
+          colors={colors}
+          isVisible={isConnected && !isSpeaking && !isListening}
+        />
       </div>
 
       {/* SPRINT 26: HER System Status - Top right */}
