@@ -2028,6 +2028,80 @@ async def health():
         "database": bool(db_conn)
     }
 
+@app.get("/health/detailed")
+async def health_detailed():
+    """Detailed health check with response time metrics"""
+    import time as time_module
+
+    results = {
+        "status": "healthy",
+        "timestamp": time_module.time(),
+        "services": {},
+        "metrics": {}
+    }
+
+    # Check Groq
+    if groq_client:
+        start = time_module.perf_counter()
+        try:
+            # Simple ping - no actual API call
+            results["services"]["groq"] = {
+                "status": "available",
+                "latency_ms": round((time_module.perf_counter() - start) * 1000, 2)
+            }
+        except Exception as e:
+            results["services"]["groq"] = {"status": "error", "error": str(e)}
+    else:
+        results["services"]["groq"] = {"status": "unavailable"}
+
+    # Check Whisper
+    results["services"]["whisper"] = {
+        "status": "available" if whisper_model else "unavailable",
+        "model": "whisper-1" if whisper_model else None
+    }
+
+    # Check TTS
+    results["services"]["tts"] = {
+        "status": "available" if tts_available else "unavailable",
+        "engine": tts_engine if tts_available else None,
+        "voices_count": len(VOICES) if tts_available else 0
+    }
+
+    # Check Database
+    if db_conn:
+        try:
+            cursor = db_conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM messages")
+            msg_count = cursor.fetchone()[0]
+            results["services"]["database"] = {
+                "status": "available",
+                "messages_count": msg_count
+            }
+        except Exception as e:
+            results["services"]["database"] = {"status": "error", "error": str(e)}
+    else:
+        results["services"]["database"] = {"status": "unavailable"}
+
+    # Check Ollama
+    from ollama_keepalive import is_warm
+    results["services"]["ollama"] = {
+        "status": "warm" if is_warm() else "cold",
+        "primary": USE_OLLAMA_PRIMARY,
+        "fallback": USE_OLLAMA_FALLBACK
+    }
+
+    # Memory metrics
+    import sys
+    results["metrics"]["active_sessions"] = len(conversations)
+    results["metrics"]["memory_mb"] = round(sys.getsizeof(conversations) / 1024 / 1024, 2)
+
+    # Overall status
+    unhealthy_services = [k for k, v in results["services"].items() if v.get("status") == "error"]
+    if unhealthy_services:
+        results["status"] = "degraded"
+
+    return results
+
 @app.get("/voices")
 async def get_voices():
     """Liste des voix disponibles"""
