@@ -1521,6 +1521,41 @@ export function RealisticAvatarImage({
             />
           </motion.g>
 
+          {/* Jawline definition - subtle contour from ear to chin */}
+          <g opacity="0.25">
+            {/* Left jawline */}
+            <path
+              d="M45 145 Q55 165 75 180 Q88 188 100 190"
+              fill="none"
+              stroke="#C89B8B"
+              strokeWidth="0.8"
+              strokeLinecap="round"
+            />
+            {/* Right jawline */}
+            <path
+              d="M155 145 Q145 165 125 180 Q112 188 100 190"
+              fill="none"
+              stroke="#C89B8B"
+              strokeWidth="0.8"
+              strokeLinecap="round"
+            />
+            {/* Jawline highlight for 3D effect */}
+            <path
+              d="M50 142 Q60 160 78 175"
+              fill="none"
+              stroke="#F5D0C5"
+              strokeWidth="0.5"
+              opacity="0.5"
+            />
+            <path
+              d="M150 142 Q140 160 122 175"
+              fill="none"
+              stroke="#F5D0C5"
+              strokeWidth="0.5"
+              opacity="0.5"
+            />
+          </g>
+
           {/* Neck shadow - gives depth under chin */}
           <ellipse
             cx="100"
