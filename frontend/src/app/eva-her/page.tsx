@@ -24,6 +24,14 @@ const MemoryIndicator = dynamic(
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const VISEME_URL = process.env.NEXT_PUBLIC_VISEME_URL || "http://localhost:8003";
 
+// Performance metrics logging (Sprint 108)
+const logPerformanceMetric = (metric: string, value: number | string, extra?: Record<string, unknown>) => {
+  if (process.env.NODE_ENV === "development") {
+    const timestamp = new Date().toISOString().slice(11, 23);
+    console.log(`[PERF ${timestamp}] ${metric}: ${value}`, extra ? extra : "");
+  }
+};
+
 // Bio-data simulation for presence feeling
 interface BioData {
   heartRate: number;
@@ -141,6 +149,7 @@ export default function EvaHerPage() {
   const lastPingTimeRef = useRef<number>(0);
   const inputAnalyzerRef = useRef<AnalyserNode | null>(null);
   const inputAnimationRef = useRef<number | null>(null);
+  const messageSentTimeRef = useRef<number>(0); // Track message send time for response latency
 
   // HER Feature: Persistent Memory - EVA remembers you
   const persistentMemory = usePersistentMemory();
@@ -476,6 +485,7 @@ export default function EvaHerPage() {
           setIsConnected(true);
           setConnectionError(null);
           reconnectAttemptsRef.current = 0;
+          logPerformanceMetric("wsConnected", "main", { url: BACKEND_URL });
           ws.send(JSON.stringify({
             type: "config",
             user_id: "eva_her_user",
@@ -539,6 +549,7 @@ export default function EvaHerPage() {
             if (lastPingTimeRef.current > 0) {
               const latency = Date.now() - lastPingTimeRef.current;
               setConnectionLatency(latency);
+              logPerformanceMetric("wsLatency", `${latency}ms`);
             }
             break;
 
@@ -547,6 +558,12 @@ export default function EvaHerPage() {
             break;
 
           case "speaking_start":
+            // Log time to first audio response
+            if (messageSentTimeRef.current > 0) {
+              const responseTime = Date.now() - messageSentTimeRef.current;
+              logPerformanceMetric("timeToSpeech", `${responseTime}ms`);
+              messageSentTimeRef.current = 0;
+            }
             setIsSpeaking(true);
             setIsThinking(false);
             setIsProcessingAudio(false);
@@ -670,8 +687,16 @@ export default function EvaHerPage() {
     setIsSpeaking(true);
 
     const { audio: arrayBuffer, emotion } = audioQueueRef.current.shift()!;
-    setAudioQueueLength(audioQueueRef.current.length);
+    const remainingQueue = audioQueueRef.current.length;
+    setAudioQueueLength(remainingQueue);
     setEvaEmotion(emotion);
+
+    // Log audio queue status
+    logPerformanceMetric("audioQueue", remainingQueue, {
+      bufferSize: arrayBuffer.byteLength,
+      emotion,
+      hasPreDecoded: !!predecodedBufferRef.current,
+    });
 
     try {
       if (!audioContextRef.current) {
@@ -802,6 +827,9 @@ export default function EvaHerPage() {
         reader.onloadend = () => {
           const base64 = (reader.result as string).split(",")[1];
           if (wsRef.current?.readyState === WebSocket.OPEN) {
+            // Track audio send time for response latency
+            messageSentTimeRef.current = Date.now();
+            logPerformanceMetric("messageSent", "audio", { size: blob.size });
             wsRef.current.send(JSON.stringify({
               type: "audio",
               data: base64
@@ -854,6 +882,10 @@ export default function EvaHerPage() {
   // Send text message with visual feedback - memoized
   const sendMessage = useCallback((text: string) => {
     if (!text.trim() || !wsRef.current) return;
+
+    // Track message send time for response latency
+    messageSentTimeRef.current = Date.now();
+    logPerformanceMetric("messageSent", "text", { length: text.length });
 
     setCurrentText("");
     wsRef.current.send(JSON.stringify({
