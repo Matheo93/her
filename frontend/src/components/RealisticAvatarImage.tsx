@@ -764,9 +764,19 @@ export function RealisticAvatarImage({
   const getEyebrowY = () => eyebrowY;
   const getSmileAmount = () => smileAmount;
 
+  // Generate ARIA label based on current state
+  const ariaLabel = useMemo(() => {
+    const state = isSpeaking ? "speaking" : isListening ? "listening" : "idle";
+    const emotionLabel = smoothEmotion !== "neutral" ? `, feeling ${smoothEmotion}` : "";
+    return `Eva avatar, ${state}${emotionLabel}`;
+  }, [isSpeaking, isListening, smoothEmotion]);
+
   return (
     <div
       ref={containerRef}
+      role="img"
+      aria-label={ariaLabel}
+      aria-live={isSpeaking ? "polite" : "off"}
       className={`relative ${className}`}
       style={{
         width: "100%",
@@ -817,6 +827,8 @@ export function RealisticAvatarImage({
         {/* Face container - SVG-based realistic female face */}
         <svg
           viewBox="0 0 200 240"
+          role="presentation"
+          aria-hidden="true"
           className="w-full h-full max-w-[280px] max-h-[336px]"
           style={{
             filter: "drop-shadow(0 4px 20px rgba(139, 115, 85, 0.15))",

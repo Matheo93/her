@@ -1,6 +1,6 @@
 ---
 active: true
-iteration: 4
+iteration: 5
 max_iterations: 0
 completion_promise: null
 started_at: "2026-01-22T07:53:58Z"
@@ -8,7 +8,7 @@ started_at: "2026-01-22T07:53:58Z"
 
 Sprint 225 Ameliore avatar UX latence performance. Code teste valide screenshot. Boucle infinie.
 
-## Sprint 225 Progress - Iteration 4
+## Sprint 225 Progress - Iteration 5
 
 ### Completed:
 1. **Avatar Performance Optimizations (iteration 1)**:
@@ -37,11 +37,27 @@ Sprint 225 Ameliore avatar UX latence performance. Code teste valide screenshot.
    - Pause eye saccades, head movements, micro-expressions when hidden
    - Saves battery/CPU when user switches tabs
 
+6. **Intersection Observer for Viewport Awareness (iteration 4)**:
+   - Added IntersectionObserver to detect when avatar is in viewport
+   - Combined tab visibility + viewport visibility into `shouldAnimate`
+   - Pause all animations when avatar is scrolled out of view
+   - Reduces CPU usage on pages with scrollable content
+   - threshold: 0.1, rootMargin: 50px for smooth transitions
+
 ### Test Results:
 - Backend: 202/202 tests passed (100%)
 - Frontend build: PASS (no warnings)
 
+### Performance Impact Summary:
+- GPU-accelerated animations via will-change hints
+- 16fps breathing animation (was 20fps) - less CPU, still smooth
+- Memoized SVG defs prevent re-renders
+- CSS containment improves paint performance
+- Tab visibility pauses animations when tab hidden
+- Viewport observer pauses when scrolled out of view
+
 ### Commits:
 - `perf(avatar): add GPU acceleration hints for smoother animations`
 - `perf(avatar): memoize SVG defs and add CSS containment`
-- `🤖 Auto-save: Ralph Sprint 08:02` (visibility-based animation pausing)
+- `perf(avatar): add visibility-based animation pausing for power savings`
+- `perf(avatar): add intersection observer for viewport-based animation pausing`
