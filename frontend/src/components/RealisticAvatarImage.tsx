@@ -573,6 +573,40 @@ export function RealisticAvatarImage({
             strokeLinecap="round"
           />
 
+          {/* Nose wrinkle lines - for intense emotions */}
+          {noseWrinkle > 0.05 && (
+            <g opacity={noseWrinkle * 3}>
+              <path
+                d="M94 102 Q96 100 98 102"
+                fill="none"
+                stroke="#C89B8B"
+                strokeWidth="0.6"
+                strokeLinecap="round"
+              />
+              <path
+                d="M102 102 Q104 100 106 102"
+                fill="none"
+                stroke="#C89B8B"
+                strokeWidth="0.6"
+                strokeLinecap="round"
+              />
+              <path
+                d="M95 105 Q97 103 99 105"
+                fill="none"
+                stroke="#C89B8B"
+                strokeWidth="0.5"
+                strokeLinecap="round"
+              />
+              <path
+                d="M101 105 Q103 103 105 105"
+                fill="none"
+                stroke="#C89B8B"
+                strokeWidth="0.5"
+                strokeLinecap="round"
+              />
+            </g>
+          )}
+
           {/* Nose tip highlight */}
           <ellipse cx="100" cy="140" rx="6" ry="4" fill="#F5D0C5" opacity="0.5" />
 
@@ -605,15 +639,27 @@ export function RealisticAvatarImage({
             <circle cx="74" cy="112" r="1" fill="white" opacity="0.5" />
           </g>
 
-          {/* Left eyelid - blink animation */}
+          {/* Left eyelid - blink animation + Duchenne squint */}
           <motion.rect
             x="56"
             y="98"
             width="32"
-            height={getEyeLidY() || 0.001}
+            height={(getEyeLidY() || 0.001) + eyeSquint * 4}
             fill="url(#skinGradient)"
             transition={{ duration: 0.05 }}
           />
+
+          {/* Left lower eyelid - Duchenne squint pushes up */}
+          {eyeSquint > 0.1 && (
+            <motion.path
+              d={`M58 ${118 - eyeSquint * 3} Q72 ${120 - eyeSquint * 4} 86 ${118 - eyeSquint * 3}`}
+              fill="url(#skinGradient)"
+              stroke="none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: eyeSquint * 0.8 }}
+              transition={{ duration: 0.15 }}
+            />
+          )}
 
           {/* Left eye crease */}
           <path
@@ -652,15 +698,27 @@ export function RealisticAvatarImage({
             <circle cx="130" cy="112" r="1" fill="white" opacity="0.5" />
           </g>
 
-          {/* Right eyelid - blink animation */}
+          {/* Right eyelid - blink animation + Duchenne squint */}
           <motion.rect
             x="112"
             y="98"
             width="32"
-            height={getEyeLidY() || 0.001}
+            height={(getEyeLidY() || 0.001) + eyeSquint * 4}
             fill="url(#skinGradient)"
             transition={{ duration: 0.05 }}
           />
+
+          {/* Right lower eyelid - Duchenne squint pushes up */}
+          {eyeSquint > 0.1 && (
+            <motion.path
+              d={`M114 ${118 - eyeSquint * 3} Q128 ${120 - eyeSquint * 4} 142 ${118 - eyeSquint * 3}`}
+              fill="url(#skinGradient)"
+              stroke="none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: eyeSquint * 0.8 }}
+              transition={{ duration: 0.15 }}
+            />
+          )}
 
           {/* Right eye crease */}
           <path
@@ -670,27 +728,35 @@ export function RealisticAvatarImage({
             strokeWidth="0.8"
           />
 
-          {/* Left eyebrow */}
+          {/* Left eyebrow - with asymmetric micro-expression */}
           <motion.path
-            d={`M58 ${90 + (getEyebrowY() || 0)} Q72 ${85 + (getEyebrowY() || 0)} 86 ${88 + (getEyebrowY() || 0)}`}
+            d={`M58 ${90 + (getEyebrowY() || 0) + asymmetry.eyebrow * 2} Q72 ${85 + (getEyebrowY() || 0) + asymmetry.eyebrow * 1.5} 86 ${88 + (getEyebrowY() || 0) + asymmetry.eyebrow}`}
             fill="none"
             stroke="#5C4033"
             strokeWidth="2.5"
             strokeLinecap="round"
+            style={{
+              transform: `rotate(${eyebrowInnerAngle * 0.5}deg)`,
+              transformOrigin: "58px 90px",
+            }}
             transition={{ duration: 0.3 }}
           />
 
-          {/* Right eyebrow */}
+          {/* Right eyebrow - opposite asymmetry for natural look */}
           <motion.path
-            d={`M114 ${88 + (getEyebrowY() || 0)} Q128 ${85 + (getEyebrowY() || 0)} 142 ${90 + (getEyebrowY() || 0)}`}
+            d={`M114 ${88 + (getEyebrowY() || 0) - asymmetry.eyebrow} Q128 ${85 + (getEyebrowY() || 0) - asymmetry.eyebrow * 1.5} 142 ${90 + (getEyebrowY() || 0) - asymmetry.eyebrow * 2}`}
             fill="none"
             stroke="#5C4033"
             strokeWidth="2.5"
             strokeLinecap="round"
+            style={{
+              transform: `rotate(${-eyebrowInnerAngle * 0.5}deg)`,
+              transformOrigin: "142px 90px",
+            }}
             transition={{ duration: 0.3 }}
           />
 
-          {/* Mouth - animated with detailed viseme shapes */}
+          {/* Mouth - animated with detailed viseme shapes + asymmetric smile */}
           <g>
             {/* Calculate mouth dimensions from shape */}
             {(() => {
@@ -701,6 +767,11 @@ export function RealisticAvatarImage({
               const upperRaise = mouthShape.upperLipRaise * 3; // Upper lip raise for F/V
               const jawDrop = mouthShape.jawDrop * 12; // Jaw drop amount
 
+              // Asymmetric smile - one corner slightly higher
+              const smileAsym = asymmetry.smile * 2;
+              const leftSmileAdj = smileAsym > 0 ? smileAsym : 0;
+              const rightSmileAdj = smileAsym < 0 ? -smileAsym : 0;
+
               const leftX = 100 - baseWidth * widthMod;
               const rightX = 100 + baseWidth * widthMod;
               const upperY = 158 - smileAmt * 2 - upperRaise;
@@ -709,11 +780,11 @@ export function RealisticAvatarImage({
 
               return (
                 <>
-                  {/* Upper lip */}
+                  {/* Upper lip - with asymmetric corners */}
                   <motion.path
-                    d={`M${leftX} ${upperY}
+                    d={`M${leftX} ${upperY + leftSmileAdj}
                         Q${leftX + 10} ${upperY - 3 - upperRaise} 100 ${upperY - 5 - upperRaise + roundMod * 2}
-                        Q${rightX - 10} ${upperY - 3 - upperRaise} ${rightX} ${upperY}`}
+                        Q${rightX - 10} ${upperY - 3 - upperRaise} ${rightX} ${upperY + rightSmileAdj}`}
                     fill="url(#lipGradient)"
                     stroke="none"
                     transition={{ duration: 0.04 }}
@@ -728,11 +799,11 @@ export function RealisticAvatarImage({
                     transition={{ duration: 0.04 }}
                   />
 
-                  {/* Lower lip - more rounded for O sounds */}
+                  {/* Lower lip - more rounded for O sounds, with asymmetry */}
                   <motion.path
-                    d={`M${leftX + 2} ${lowerY - 2}
+                    d={`M${leftX + 2} ${lowerY - 2 + leftSmileAdj * 0.5}
                         Q100 ${lowerY + 8 + roundMod * 6}
-                        ${rightX - 2} ${lowerY - 2}`}
+                        ${rightX - 2} ${lowerY - 2 + rightSmileAdj * 0.5}`}
                     fill="url(#lipGradient)"
                     stroke="none"
                     transition={{ duration: 0.04 }}
