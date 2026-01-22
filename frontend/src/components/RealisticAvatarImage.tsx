@@ -645,6 +645,13 @@ export function RealisticAvatarImage({
               <stop offset="100%" stopColor="#3D2314" />
             </linearGradient>
 
+            {/* Hair highlight gradient */}
+            <linearGradient id="hairHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#6B5344" stopOpacity="0.6" />
+              <stop offset="50%" stopColor="#5A4233" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#4A3728" stopOpacity="0" />
+            </linearGradient>
+
             {/* Iris gradient - warm brown */}
             <radialGradient id="irisGradient" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor="#8B6914" />
@@ -659,13 +666,29 @@ export function RealisticAvatarImage({
             </radialGradient>
           </defs>
 
-          {/* Hair back */}
+          {/* Hair back layer */}
           <ellipse cx="100" cy="70" rx="75" ry="65" fill="url(#hairGradient)" />
           <ellipse cx="100" cy="90" rx="82" ry="75" fill="url(#hairGradient)" />
 
-          {/* Hair sides */}
+          {/* Hair sides with volume */}
           <ellipse cx="35" cy="100" rx="25" ry="50" fill="url(#hairGradient)" />
           <ellipse cx="165" cy="100" rx="25" ry="50" fill="url(#hairGradient)" />
+
+          {/* Hair volume layers */}
+          <path
+            d="M25 70 Q50 30 100 25 Q150 30 175 70 Q180 100 175 130 Q160 120 100 115 Q40 120 25 130 Q20 100 25 70"
+            fill="url(#hairGradient)"
+          />
+
+          {/* Hair highlight sweep */}
+          <path
+            d="M40 50 Q70 35 100 32 Q130 35 150 50"
+            fill="none"
+            stroke="url(#hairHighlight)"
+            strokeWidth="8"
+            strokeLinecap="round"
+            opacity="0.5"
+          />
 
           {/* Face shape - oval */}
           <ellipse
@@ -1197,21 +1220,25 @@ export function RealisticAvatarImage({
             fill="url(#hairGradient)"
           />
 
-          {/* Subtle hair strands */}
-          <path
-            d="M40 85 Q50 70 60 75"
-            fill="none"
-            stroke="#3D2314"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-          <path
-            d="M160 85 Q150 70 140 75"
-            fill="none"
-            stroke="#3D2314"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
+          {/* Detailed hair strands */}
+          <g opacity="0.9">
+            {/* Left side strands */}
+            <path d="M40 85 Q50 70 60 75" fill="none" stroke="#3D2314" strokeWidth="2" strokeLinecap="round" />
+            <path d="M35 90 Q45 75 55 80" fill="none" stroke="#4A3728" strokeWidth="1.5" strokeLinecap="round" />
+            <path d="M38 95 Q48 82 58 87" fill="none" stroke="#3D2314" strokeWidth="1" strokeLinecap="round" />
+            <path d="M42 80 Q52 65 62 70" fill="none" stroke="#5A4233" strokeWidth="1" strokeLinecap="round" opacity="0.7" />
+
+            {/* Right side strands */}
+            <path d="M160 85 Q150 70 140 75" fill="none" stroke="#3D2314" strokeWidth="2" strokeLinecap="round" />
+            <path d="M165 90 Q155 75 145 80" fill="none" stroke="#4A3728" strokeWidth="1.5" strokeLinecap="round" />
+            <path d="M162 95 Q152 82 142 87" fill="none" stroke="#3D2314" strokeWidth="1" strokeLinecap="round" />
+            <path d="M158 80 Q148 65 138 70" fill="none" stroke="#5A4233" strokeWidth="1" strokeLinecap="round" opacity="0.7" />
+
+            {/* Top strands for texture */}
+            <path d="M60 50 Q70 40 85 42" fill="none" stroke="#5A4233" strokeWidth="1" strokeLinecap="round" opacity="0.5" />
+            <path d="M140 50 Q130 40 115 42" fill="none" stroke="#5A4233" strokeWidth="1" strokeLinecap="round" opacity="0.5" />
+            <path d="M75 45 Q90 38 105 40" fill="none" stroke="#6B5344" strokeWidth="0.8" strokeLinecap="round" opacity="0.4" />
+          </g>
 
           {/* Left ear with detail */}
           <g>
