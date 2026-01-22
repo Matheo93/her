@@ -1139,8 +1139,8 @@ export function RealisticAvatarImage({
           <ellipse cx="99" cy="139" rx="2" ry="1.2" fill="white" opacity="0.4" />
           <ellipse cx="98.5" cy="138.5" rx="0.8" ry="0.5" fill="white" opacity="0.6" />
 
-          {/* Left eye group */}
-          <g transform={`translate(${gazeOffset.x || 0}, ${gazeOffset.y || 0})`}>
+          {/* Left eye group - with micro-asymmetry (slightly higher) */}
+          <g transform={`translate(${gazeOffset.x || 0}, ${(gazeOffset.y || 0) + staticAsymmetry.leftEyeY})`}>
             {/* Eye white */}
             <ellipse cx="72" cy="110" rx="14" ry="10" fill="white" />
 
@@ -1390,8 +1390,8 @@ export function RealisticAvatarImage({
             </g>
           )}
 
-          {/* Right eye group */}
-          <g transform={`translate(${gazeOffset.x || 0}, ${gazeOffset.y || 0})`}>
+          {/* Right eye group - with micro-asymmetry (slightly smaller) */}
+          <g transform={`translate(${gazeOffset.x || 0}, ${gazeOffset.y || 0}) scale(${staticAsymmetry.rightEyeScale})`} style={{ transformOrigin: "128px 110px" }}>
             {/* Eye white */}
             <ellipse cx="128" cy="110" rx="14" ry="10" fill="white" />
 
