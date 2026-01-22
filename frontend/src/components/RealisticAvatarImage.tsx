@@ -1609,6 +1609,36 @@ export function RealisticAvatarImage({
             opacity="0.2"
           />
 
+          {/* Neck structure details */}
+          <g opacity="0.2">
+            {/* Neck base visible portion */}
+            <ellipse cx="100" cy="210" rx="28" ry="10" fill="url(#skinGradient)" opacity="0.6" />
+            {/* Sternocleidomastoid muscle hints - left */}
+            <path
+              d="M72 195 Q68 205 65 215"
+              fill="none"
+              stroke="#C89B8B"
+              strokeWidth="0.6"
+              strokeLinecap="round"
+            />
+            {/* Sternocleidomastoid muscle hints - right */}
+            <path
+              d="M128 195 Q132 205 135 215"
+              fill="none"
+              stroke="#C89B8B"
+              strokeWidth="0.6"
+              strokeLinecap="round"
+            />
+            {/* Center neck highlight */}
+            <path
+              d="M100 196 L100 212"
+              fill="none"
+              stroke="#F5D0C5"
+              strokeWidth="0.8"
+              opacity="0.4"
+            />
+          </g>
+
           {/* Hair front wisps */}
           <path
             d="M45 75 Q60 50 75 60 Q65 45 55 50"
