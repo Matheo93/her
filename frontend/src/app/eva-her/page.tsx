@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 import type { VisemeWeights } from "@/components/RealisticAvatarImage";
@@ -13,8 +13,13 @@ import { useBackendMemory } from "@/hooks/useBackendMemory";
 import { useBackchannel, shouldTriggerBackchannel } from "@/hooks/useBackchannel";
 import { useDarkMode } from "@/hooks/useDarkMode";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { MemoryIndicator } from "@/components/MemoryIndicator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+
+// Lazy load non-critical components
+const MemoryIndicator = dynamic(
+  () => import("@/components/MemoryIndicator").then((mod) => mod.MemoryIndicator),
+  { ssr: false }
+);
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const VISEME_URL = process.env.NEXT_PUBLIC_VISEME_URL || "http://localhost:8003";
@@ -248,8 +253,46 @@ export default function EvaHerPage() {
   const analyzerRef = useRef<AnalyserNode | null>(null);
   const bioAnimationRef = useRef<number | null>(null);
 
-  // Determine current state for bio-data
-  const currentState = isSpeaking ? "speaking" : isListening ? "listening" : isThinking ? "thinking" : "idle";
+  // Determine current state for bio-data - memoized
+  const currentState = useMemo(() =>
+    isSpeaking ? "speaking" : isListening ? "listening" : isThinking ? "thinking" : "idle",
+    [isSpeaking, isListening, isThinking]
+  );
+
+  // Memoized screen reader status text
+  const statusText = useMemo(() =>
+    isConnected
+      ? isListening
+        ? "EVA vous écoute"
+        : isSpeaking
+          ? "EVA parle"
+          : isThinking
+            ? "EVA réfléchit"
+            : "EVA est prête"
+      : "Connexion en cours",
+    [isConnected, isListening, isSpeaking, isThinking]
+  );
+
+  // Memoized welcome message based on memory
+  const welcomeMessage = useMemo(() => {
+    if (persistentMemory.isReunion) {
+      switch (persistentMemory.reunionType) {
+        case "very_long": return "Tu es revenu... enfin";
+        case "long": return "Tu m'as manqué...";
+        case "medium": return "Je pensais à toi";
+        default: return "Te revoilà...";
+      }
+    }
+    return persistentMemory.isReturningUser ? "Rebonjour..." : "Je suis là...";
+  }, [persistentMemory.isReunion, persistentMemory.reunionType, persistentMemory.isReturningUser]);
+
+  // Memoized latency color
+  const latencyColor = useMemo(() => {
+    if (connectionLatency === null) return "#4ade80";
+    if (connectionLatency < 100) return "#4ade80"; // green - excellent
+    if (connectionLatency < 300) return "#fbbf24"; // yellow - good
+    return "#f87171"; // red - poor
+  }, [connectionLatency]);
 
   // JARVIS Feature: Bio-data animation
   useEffect(() => {
@@ -1163,17 +1206,7 @@ export default function EvaHerPage() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ delay: 0.5, ...HER_SPRINGS.gentle }}
             >
-              {persistentMemory.isReunion
-                ? persistentMemory.reunionType === "very_long"
-                  ? "Tu es revenu... enfin"
-                  : persistentMemory.reunionType === "long"
-                    ? "Tu m'as manqué..."
-                    : persistentMemory.reunionType === "medium"
-                      ? "Je pensais à toi"
-                      : "Te revoilà..."
-                : persistentMemory.isReturningUser
-                  ? "Rebonjour..."
-                  : "Je suis là..."}
+              {welcomeMessage}
             </motion.p>
           )}
         </AnimatePresence>
@@ -1402,15 +1435,7 @@ export default function EvaHerPage() {
           </div>
           {/* Screen reader status */}
           <span id="eva-status" className="sr-only">
-            {isConnected
-              ? isListening
-                ? "EVA vous écoute"
-                : isSpeaking
-                  ? "EVA parle"
-                  : isThinking
-                    ? "EVA réfléchit"
-                    : "EVA est prête"
-              : "Connexion en cours"}
+            {statusText}
           </span>
 
           {/* Microphone button - with breathing ambient ring */}
@@ -1579,13 +1604,7 @@ export default function EvaHerPage() {
             >
               <motion.div
                 className="w-1.5 h-1.5 rounded-full"
-                style={{
-                  backgroundColor: connectionLatency < 100
-                    ? "#4ade80" // green - excellent
-                    : connectionLatency < 300
-                      ? "#fbbf24" // yellow - good
-                      : "#f87171", // red - poor
-                }}
+                style={{ backgroundColor: latencyColor }}
                 animate={prefersReducedMotion ? {} : { scale: [1, 1.2, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
               />
