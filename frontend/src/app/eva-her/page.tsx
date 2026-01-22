@@ -1905,11 +1905,11 @@ export default function EvaHerPage() {
               aria-describedby="eva-status"
               autoComplete="off"
               maxLength={500}
-              className="w-full px-3 sm:px-5 py-2 sm:py-3 rounded-full border-0 outline-none text-sm sm:text-base focus:ring-2 focus:ring-offset-2 transition-shadow"
+              className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-full border-2 border-transparent outline-none text-sm sm:text-base focus:ring-2 focus:ring-offset-1 transition-all duration-200"
               style={{
                 backgroundColor: colors.cream,
                 color: colors.earth,
-                boxShadow: `inset 0 2px 4px ${colors.softShadow}20`,
+                boxShadow: `inset 0 2px 4px ${colors.softShadow}15, 0 1px 3px ${colors.softShadow}10`,
                 // @ts-expect-error CSS custom property for focus ring
                 "--tw-ring-color": colors.coral,
               }}
