@@ -749,6 +749,29 @@ export function RealisticAvatarImage({
           {/* Forehead */}
           <ellipse cx="100" cy="65" rx="50" ry="30" fill="url(#skinGradient)" />
 
+          {/* Temple area shading - subtle depth at sides of forehead */}
+          <g opacity="0.15">
+            {/* Left temple shadow */}
+            <ellipse cx="52" cy="85" rx="12" ry="18" fill="#C89B8B" />
+            {/* Right temple shadow */}
+            <ellipse cx="148" cy="85" rx="12" ry="18" fill="#C89B8B" />
+            {/* Temple veins hint - very subtle */}
+            <path
+              d="M48 78 Q50 82 52 88"
+              fill="none"
+              stroke="#D4A5A5"
+              strokeWidth="0.3"
+              opacity="0.4"
+            />
+            <path
+              d="M152 78 Q150 82 148 88"
+              fill="none"
+              stroke="#D4A5A5"
+              strokeWidth="0.3"
+              opacity="0.4"
+            />
+          </g>
+
           {/* Warm undertone across central face - subtle warmth */}
           <ellipse cx="100" cy="130" rx="45" ry="35" fill="url(#warmUndertone)" />
 
