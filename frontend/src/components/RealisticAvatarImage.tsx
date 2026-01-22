@@ -445,17 +445,27 @@ export function RealisticAvatarImage({
     return targetPresence;
   }, [smoothEmotion, transitioningFrom, emotionIntensity]);
 
-  // Breathing animation - respects reduced motion, varies with state
+  // Tab visibility for pausing animations when not visible
+  const [isVisible, setIsVisible] = useState(true);
   useEffect(() => {
-    if (prefersReducedMotion) return;
+    const handleVisibilityChange = () => {
+      setIsVisible(document.visibilityState === "visible");
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
 
-    // Breathing rate varies by state
-    const breathRate = isSpeaking ? 0.07 : isListening ? 0.04 : 0.05;
+  // Breathing animation - respects reduced motion, pauses when tab not visible
+  useEffect(() => {
+    if (prefersReducedMotion || !isVisible) return;
+
+    // Breathing rate varies by state - using 60ms (16fps) for smoother animation with less overhead
+    const breathRate = isSpeaking ? 0.084 : isListening ? 0.048 : 0.06;
     const interval = setInterval(() => {
       setBreathPhase((prev) => (prev + breathRate) % (Math.PI * 2));
-    }, 50);
+    }, 60); // 60ms = ~16fps, smoother than 50ms while saving CPU
     return () => clearInterval(interval);
-  }, [prefersReducedMotion, isSpeaking, isListening]);
+  }, [prefersReducedMotion, isSpeaking, isListening, isVisible]);
 
   // Natural blinking with emotion-aware timing
   useEffect(() => {
@@ -503,8 +513,10 @@ export function RealisticAvatarImage({
     };
   }, [isListening, isSpeaking, smoothEmotion]);
 
-  // Micro eye movement (saccades)
+  // Micro eye movement (saccades) - pauses when tab not visible
   useEffect(() => {
+    if (!isVisible) return;
+
     const interval = setInterval(() => {
       if (isListening) {
         // Focus on user when listening
@@ -519,11 +531,11 @@ export function RealisticAvatarImage({
     }, 800 + Math.random() * 500);
 
     return () => clearInterval(interval);
-  }, [isListening]);
+  }, [isListening, isVisible]);
 
-  // Natural head micro-movements (subtle nodding, tilting) - respects reduced motion
+  // Natural head micro-movements (subtle nodding, tilting) - respects reduced motion and visibility
   useEffect(() => {
-    if (prefersReducedMotion) {
+    if (prefersReducedMotion || !isVisible) {
       setHeadTilt({ x: 0, y: 0, rotation: 0 });
       return;
     }
@@ -553,10 +565,12 @@ export function RealisticAvatarImage({
 
     animationId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationId);
-  }, [isSpeaking, isListening, prefersReducedMotion]);
+  }, [isSpeaking, isListening, prefersReducedMotion, isVisible]);
 
-  // Micro-expressions - subtle emotional flickers with asymmetry
+  // Micro-expressions - subtle emotional flickers with asymmetry (pauses when tab not visible)
   useEffect(() => {
+    if (!isVisible) return;
+
     const interval = setInterval(() => {
       // Random micro-expression intensity
       setMicroExpression(Math.random() * 0.3);
@@ -597,11 +611,11 @@ export function RealisticAvatarImage({
     }, 2500 + Math.random() * 3500);
 
     return () => clearInterval(interval);
-  }, [smoothEmotion]);
+  }, [smoothEmotion, isVisible]);
 
   // Idle animations for lifelike presence when not speaking/listening
   useEffect(() => {
-    if (prefersReducedMotion) return;
+    if (prefersReducedMotion || !isVisible) return;
     if (isSpeaking || isListening) {
       setIdleLipPart(0);
       return;
@@ -626,7 +640,7 @@ export function RealisticAvatarImage({
       clearInterval(lipInterval);
       clearInterval(breathInterval);
     };
-  }, [prefersReducedMotion, isSpeaking, isListening]);
+  }, [prefersReducedMotion, isSpeaking, isListening, isVisible]);
 
   // Breathing values - memoized with state-dependent amplitude
   const breathAmplitude = useMemo(() => {
