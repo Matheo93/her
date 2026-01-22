@@ -1315,6 +1315,41 @@ export function RealisticAvatarImage({
             </motion.g>
           )}
 
+          {/* Glabella - area between eyebrows with frown lines */}
+          {eyebrowInnerAngle < -3 && (
+            <motion.g
+              initial={{ opacity: 0 }}
+              animate={{ opacity: Math.min(Math.abs(eyebrowInnerAngle) * 0.04, 0.4) }}
+              transition={{ duration: 0.15 }}
+            >
+              {/* Vertical frown lines (11 lines) */}
+              <path
+                d="M96 92 L96 98"
+                fill="none"
+                stroke="#C89B8B"
+                strokeWidth="0.4"
+                strokeLinecap="round"
+              />
+              <path
+                d="M104 92 L104 98"
+                fill="none"
+                stroke="#C89B8B"
+                strokeWidth="0.4"
+                strokeLinecap="round"
+              />
+              {/* Center crease for deep frown */}
+              {eyebrowInnerAngle < -7 && (
+                <path
+                  d="M100 93 L100 97"
+                  fill="none"
+                  stroke="#C89B8B"
+                  strokeWidth="0.3"
+                  opacity="0.6"
+                />
+              )}
+            </motion.g>
+          )}
+
           {/* Left eyebrow - multi-stroke for natural texture */}
           <g
             style={{
