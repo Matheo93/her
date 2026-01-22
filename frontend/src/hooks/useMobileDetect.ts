@@ -97,3 +97,21 @@ export function useIsTouchDevice(): boolean {
   const { isTouchDevice } = useMobileDetect();
   return isTouchDevice;
 }
+
+/**
+ * Hook to get current orientation
+ */
+export function useOrientation(): "portrait" | "landscape" {
+  const { orientation } = useMobileDetect();
+  return orientation;
+}
+
+/**
+ * Hook to get current breakpoint
+ */
+export function useBreakpoint(): "mobile" | "tablet" | "desktop" {
+  const { isMobile, isTablet } = useMobileDetect();
+  if (isMobile) return "mobile";
+  if (isTablet) return "tablet";
+  return "desktop";
+}

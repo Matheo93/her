@@ -6,7 +6,7 @@
  */
 
 // Mobile/Device Detection
-export { useMobileDetect, useIsMobile, useIsTouchDevice } from "./useMobileDetect";
+export { useMobileDetect, useIsMobile, useIsTouchDevice, useOrientation, useBreakpoint } from "./useMobileDetect";
 
 // Network Status
 export { useNetworkStatus, useIsOnline, useIsSlowConnection } from "./useNetworkStatus";
@@ -52,7 +52,13 @@ export { useConversationSummary } from "./useConversationSummary";
 export { useConversationQuality } from "./useConversationQuality";
 
 // Haptic
-export { useHapticFeedback } from "./useHapticFeedback";
+export {
+  useHapticFeedback,
+  useTouchHaptic,
+  useHapticButton,
+  useFormHaptics,
+  useGestureHaptics,
+} from "./useHapticFeedback";
 
 // Voice/Audio
 export { useVoiceIntimacy } from "./useVoiceIntimacy";
