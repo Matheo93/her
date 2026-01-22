@@ -137,6 +137,10 @@ export function RealisticAvatarImage({
   const [headTilt, setHeadTilt] = useState({ x: 0, y: 0, rotation: 0 });
   const [microExpression, setMicroExpression] = useState(0); // 0-1 subtle expression intensity
   const [smoothEmotion, setSmoothEmotion] = useState(emotion);
+  // Asymmetric micro-expressions for naturalism
+  const [asymmetry, setAsymmetry] = useState({ eyebrow: 0, smile: 0 }); // -1 to 1
+  const [eyeSquint, setEyeSquint] = useState(0); // 0-1 for genuine smile (Duchenne)
+  const [noseWrinkle, setNoseWrinkle] = useState(0); // 0-1 for intense emotions
   const prevEmotionRef = useRef(emotion);
 
   // Smoothed mouth shape for natural lip sync transitions
@@ -317,18 +321,43 @@ export function RealisticAvatarImage({
     return () => cancelAnimationFrame(animationId);
   }, [isSpeaking, isListening, prefersReducedMotion]);
 
-  // Micro-expressions - subtle emotional flickers
+  // Micro-expressions - subtle emotional flickers with asymmetry
   useEffect(() => {
     const interval = setInterval(() => {
       // Random micro-expression intensity
       setMicroExpression(Math.random() * 0.3);
 
+      // Asymmetric expressions for naturalism (one eyebrow higher, slight smile asymmetry)
+      setAsymmetry({
+        eyebrow: (Math.random() - 0.5) * 0.4, // One eyebrow slightly higher
+        smile: (Math.random() - 0.5) * 0.15, // Slight smile asymmetry
+      });
+
+      // Eye squint for genuine smiles (Duchenne marker)
+      if (smoothEmotion === "joy" || smoothEmotion === "excitement") {
+        setEyeSquint(0.2 + Math.random() * 0.2);
+      } else {
+        setEyeSquint(0);
+      }
+
+      // Nose wrinkle for intense emotions
+      if (smoothEmotion === "joy" || smoothEmotion === "anger" || smoothEmotion === "disgust") {
+        setNoseWrinkle(Math.random() * 0.15);
+      } else {
+        setNoseWrinkle(0);
+      }
+
       // Reset after short duration
-      setTimeout(() => setMicroExpression(0), 200);
-    }, 3000 + Math.random() * 4000);
+      setTimeout(() => {
+        setMicroExpression(0);
+        setAsymmetry({ eyebrow: 0, smile: 0 });
+        setEyeSquint((prev) => prev * 0.5); // Fade out squint
+        setNoseWrinkle(0);
+      }, 300);
+    }, 2500 + Math.random() * 3500);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [smoothEmotion]);
 
   // Breathing values - memoized with state-dependent amplitude
   const breathAmplitude = useMemo(() => {
