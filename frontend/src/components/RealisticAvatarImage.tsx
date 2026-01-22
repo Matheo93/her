@@ -811,6 +811,23 @@ export function RealisticAvatarImage({
             strokeWidth="0.8"
           />
 
+          {/* Left upper eyelashes - subtle curved strokes */}
+          <g opacity={blinkState === "open" ? 0.7 : 0}>
+            <path d="M60 101 Q59 98 58 96" fill="none" stroke="#3D2314" strokeWidth="0.6" strokeLinecap="round" />
+            <path d="M65 99 Q64 96 63 94" fill="none" stroke="#3D2314" strokeWidth="0.7" strokeLinecap="round" />
+            <path d="M70 98 Q70 95 69 93" fill="none" stroke="#3D2314" strokeWidth="0.8" strokeLinecap="round" />
+            <path d="M75 98 Q76 95 76 93" fill="none" stroke="#3D2314" strokeWidth="0.7" strokeLinecap="round" />
+            <path d="M80 99 Q82 96 83 94" fill="none" stroke="#3D2314" strokeWidth="0.6" strokeLinecap="round" />
+            <path d="M84 101 Q86 98 88 97" fill="none" stroke="#3D2314" strokeWidth="0.5" strokeLinecap="round" />
+          </g>
+
+          {/* Left lower eyelash hints - very subtle */}
+          <g opacity={blinkState === "open" ? 0.3 : 0}>
+            <path d="M64 119 L63 121" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
+            <path d="M72 120 L72 122" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
+            <path d="M80 119 L81 121" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
+          </g>
+
           {/* Left crow's feet - appear during genuine smiles */}
           {(eyeSquint > 0.15 || cheekRise > 0.2) && (
             <g opacity={(eyeSquint + cheekRise) * 0.6}>
@@ -923,6 +940,23 @@ export function RealisticAvatarImage({
             stroke="#C89B8B"
             strokeWidth="0.8"
           />
+
+          {/* Right upper eyelashes - subtle curved strokes */}
+          <g opacity={blinkState === "open" ? 0.7 : 0}>
+            <path d="M116 101 Q114 98 112 97" fill="none" stroke="#3D2314" strokeWidth="0.5" strokeLinecap="round" />
+            <path d="M120 99 Q118 96 117 94" fill="none" stroke="#3D2314" strokeWidth="0.6" strokeLinecap="round" />
+            <path d="M125 98 Q124 95 124 93" fill="none" stroke="#3D2314" strokeWidth="0.7" strokeLinecap="round" />
+            <path d="M130 98 Q130 95 131 93" fill="none" stroke="#3D2314" strokeWidth="0.8" strokeLinecap="round" />
+            <path d="M135 99 Q136 96 137 94" fill="none" stroke="#3D2314" strokeWidth="0.7" strokeLinecap="round" />
+            <path d="M140 101 Q141 98 142 96" fill="none" stroke="#3D2314" strokeWidth="0.6" strokeLinecap="round" />
+          </g>
+
+          {/* Right lower eyelash hints - very subtle */}
+          <g opacity={blinkState === "open" ? 0.3 : 0}>
+            <path d="M120 119 L119 121" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
+            <path d="M128 120 L128 122" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
+            <path d="M136 119 L137 121" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
+          </g>
 
           {/* Left eyebrow - with asymmetric micro-expression */}
           <motion.path
