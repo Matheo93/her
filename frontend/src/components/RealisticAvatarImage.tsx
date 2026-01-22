@@ -1713,6 +1713,25 @@ export function RealisticAvatarImage({
                     opacity="0.15"
                     transition={{ duration: 0.04 }}
                   />
+                  {/* Lower lip center specular - wet/glossy look */}
+                  <motion.ellipse
+                    cx="100"
+                    cy={lowerY + 1 + roundMod * 2.5}
+                    rx={4 * widthMod}
+                    ry={1.5}
+                    fill="white"
+                    opacity="0.25"
+                    transition={{ duration: 0.04 }}
+                  />
+                  <motion.ellipse
+                    cx="99"
+                    cy={lowerY + 0.5 + roundMod * 2}
+                    rx={1.5}
+                    ry={0.8}
+                    fill="white"
+                    opacity="0.35"
+                    transition={{ duration: 0.04 }}
+                  />
 
                   {/* Lower lip crease - labiomental fold */}
                   <motion.path
