@@ -76,3 +76,50 @@ export { useSharedSilence } from "./useSharedSilence";
 export { useProactivePresence } from "./useProactivePresence";
 export { useAnticipation } from "./useAnticipation";
 export { useBackchanneling } from "./useBackchanneling";
+
+// Connection/Latency
+export {
+  useConnectionSpeed,
+  useAdaptiveAnimationSpeed,
+  useReducedDataMode,
+  useImageQuality,
+} from "./useConnectionSpeed";
+
+// Focus Management
+export {
+  useFocusTrap,
+  useFocusOnMount,
+  useFocusWithin,
+  useFocusCycle,
+} from "./useFocusTrap";
+
+// Media Queries
+export {
+  useMediaQuery,
+  useIsSmall,
+  useIsMedium,
+  useIsLarge,
+  useIsXLarge,
+  useIs2XLarge,
+  useIsMobileOrSmaller,
+  useIsTabletOrSmaller,
+  usePrefersColorScheme,
+  usePrefersReducedMotion,
+  usePrefersContrast,
+  useOrientationQuery,
+  usePointerType,
+  useCanHover,
+  useDisplayMode,
+  useHighDPI,
+  useBreakpoints,
+  useHasSafeAreas,
+} from "./useMediaQuery";
+
+// Click Outside
+export {
+  useClickOutside,
+  useClickOutsideCallback,
+  useClickOutsideMultiple,
+  useDismissible,
+  useIsOutside,
+} from "./useClickOutside";
