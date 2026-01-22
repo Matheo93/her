@@ -391,20 +391,24 @@ export default function EvaHerPage() {
     }
   }, [evaEmotion]);
 
-  // Connect to Viseme WebSocket
+  // Connect to Viseme WebSocket with exponential backoff
+  const visemeReconnectRef = useRef(0);
   useEffect(() => {
+    let pingInterval: NodeJS.Timeout | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+
     const connectViseme = () => {
       try {
         const ws = new WebSocket(`${VISEME_URL.replace("http", "ws")}/ws/viseme`);
 
         ws.onopen = () => {
-          // Ping to keep alive
-          const interval = setInterval(() => {
+          visemeReconnectRef.current = 0; // Reset on success
+          // Ping to keep alive every 10s
+          pingInterval = setInterval(() => {
             if (ws.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify({ type: "ping" }));
             }
           }, 10000);
-          ws.addEventListener("close", () => clearInterval(interval));
         };
 
         ws.onmessage = (event) => {
@@ -414,22 +418,37 @@ export default function EvaHerPage() {
               setVisemeWeights(data.weights);
             }
           } catch {
-            // Ignore
+            // Ignore parse errors
           }
         };
 
+        ws.onerror = () => {
+          // Silent error handling - will trigger close
+        };
+
         ws.onclose = () => {
-          setTimeout(connectViseme, 5000);
+          if (pingInterval) clearInterval(pingInterval);
+          // Exponential backoff with max 30s
+          visemeReconnectRef.current++;
+          const delay = Math.min(2000 * Math.pow(1.5, visemeReconnectRef.current - 1), 30000);
+          reconnectTimeout = setTimeout(connectViseme, delay);
         };
 
         visemeWsRef.current = ws;
       } catch {
-        setTimeout(connectViseme, 5000);
+        // Connection failed, retry with backoff
+        visemeReconnectRef.current++;
+        const delay = Math.min(2000 * Math.pow(1.5, visemeReconnectRef.current - 1), 30000);
+        reconnectTimeout = setTimeout(connectViseme, delay);
       }
     };
 
     connectViseme();
-    return () => visemeWsRef.current?.close();
+    return () => {
+      if (pingInterval) clearInterval(pingInterval);
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      visemeWsRef.current?.close();
+    };
   }, []);
 
   // Connect to main WebSocket with improved error handling
