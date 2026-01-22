@@ -100,8 +100,22 @@ function AvatarLoadingSkeleton() {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.02); }
         }
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
         .avatar-skeleton-container {
           animation: breathe 4s ease-in-out infinite;
+        }
+        .skeleton-shimmer {
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.3) 50%,
+            transparent 100%
+          );
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite ease-in-out;
         }
       `}</style>
     </div>
@@ -1797,12 +1811,12 @@ export default function EvaHerPage() {
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.4, ease: "easeOut" }}
             >
-              {/* Text skeleton - shows where text will appear */}
+              {/* Text skeleton - shows where text will appear with shimmer effect */}
               <div className="flex flex-col items-center gap-2 max-w-xs">
                 {[0.85, 0.6, 0.75].map((width, i) => (
                   <motion.div
                     key={i}
-                    className="h-3 rounded-full"
+                    className="h-3 rounded-full relative overflow-hidden"
                     style={{
                       width: `${width * 100}%`,
                       minWidth: 80,
@@ -1818,7 +1832,15 @@ export default function EvaHerPage() {
                       opacity: { duration: 1.5, repeat: Infinity, delay: i * 0.2 },
                       scaleX: { duration: 0.3, delay: i * 0.1 },
                     }}
-                  />
+                  >
+                    {/* Shimmer overlay */}
+                    {!prefersReducedMotion && (
+                      <div
+                        className="absolute inset-0 skeleton-shimmer"
+                        style={{ animationDelay: `${i * 0.15}s` }}
+                      />
+                    )}
+                  </motion.div>
                 ))}
               </div>
 
