@@ -131,6 +131,8 @@ export default function EvaHerPage() {
   const [visemeWeights, setVisemeWeights] = useState<VisemeWeights>({ sil: 1 });
   const [messageSent, setMessageSent] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [reconnectCountdown, setReconnectCountdown] = useState<number | null>(null);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [inputMicLevel, setInputMicLevel] = useState(0);
   const [showKeyboardHint, setShowKeyboardHint] = useState(false);
   const [connectionLatency, setConnectionLatency] = useState<number | null>(null);
@@ -583,12 +585,34 @@ export default function EvaHerPage() {
             setConnectionError("Connexion interrompue");
           }
 
-          // Reconnect with exponential backoff
+          // Reconnect with exponential backoff and countdown display
           reconnectAttemptsRef.current++;
+          setReconnectAttempt(reconnectAttemptsRef.current);
+
           if (reconnectAttemptsRef.current <= maxReconnectAttempts) {
             const delay = Math.min(3000 * Math.pow(1.5, reconnectAttemptsRef.current - 1), 15000);
-            setTimeout(connect, delay);
+            const delaySeconds = Math.ceil(delay / 1000);
+
+            // Start countdown
+            setReconnectCountdown(delaySeconds);
+            let remaining = delaySeconds;
+            const countdownInterval = setInterval(() => {
+              remaining--;
+              if (remaining > 0) {
+                setReconnectCountdown(remaining);
+              } else {
+                clearInterval(countdownInterval);
+                setReconnectCountdown(null);
+              }
+            }, 1000);
+
+            setTimeout(() => {
+              clearInterval(countdownInterval);
+              setReconnectCountdown(null);
+              connect();
+            }, delay);
           } else {
+            setReconnectCountdown(null);
             setConnectionError("Impossible de se connecter. Rafraîchissez la page.");
           }
         };
@@ -2242,13 +2266,19 @@ export default function EvaHerPage() {
                       animate={prefersReducedMotion ? {} : { opacity: [0.5, 0.8, 0.5] }}
                       transition={{ duration: 1.5, repeat: Infinity }}
                     >
-                      Connexion...
+                      {reconnectCountdown !== null
+                        ? `Reconnexion dans ${reconnectCountdown}s...`
+                        : "Connexion..."
+                      }
                     </motion.span>
                     <span
                       className="text-xs font-light"
                       style={{ color: colors.softShadow }}
                     >
-                      Eva se prépare
+                      {reconnectAttempt > 0
+                        ? `Tentative ${reconnectAttempt}/5`
+                        : "Eva se prépare"
+                      }
                     </span>
                   </div>
                 </motion.div>
