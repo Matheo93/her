@@ -1485,6 +1485,19 @@ export function RealisticAvatarImage({
                     transition={{ duration: 0.04 }}
                   />
 
+                  {/* Lower lip crease - labiomental fold */}
+                  <motion.path
+                    d={`M${100 - 15 * widthMod} ${lowerY + 10 + roundMod * 4}
+                        Q100 ${lowerY + 12 + roundMod * 5}
+                        ${100 + 15 * widthMod} ${lowerY + 10 + roundMod * 4}`}
+                    fill="none"
+                    stroke="#D4A090"
+                    strokeWidth="0.5"
+                    opacity="0.3"
+                    strokeLinecap="round"
+                    transition={{ duration: 0.04 }}
+                  />
+
                   {/* Lip line - subtle definition between lips */}
                   {!isSpeaking && (
                     <path
