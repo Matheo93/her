@@ -2145,13 +2145,14 @@ export default function EvaHerPage() {
           Maintenez le bouton ou appuyez sur Espace pour parler. Relâchez pour envoyer votre message.
         </p>
 
-        {/* Keyboard shortcut hints */}
+        {/* Keyboard shortcut hints - enhanced styling */}
         <AnimatePresence>
           {showKeyboardHint && !isListening && !isSpeaking && (
             <motion.div
-              className="flex flex-wrap items-center justify-center gap-3 mt-2"
+              className="flex flex-wrap items-center justify-center gap-4 mt-3 px-4 py-2 rounded-full"
               role="region"
               aria-label="Raccourcis clavier"
+              style={{ backgroundColor: `${colors.cream}40` }}
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
@@ -2159,54 +2160,54 @@ export default function EvaHerPage() {
             >
               <div className="flex items-center gap-1.5">
                 <kbd
-                  className="px-2 py-0.5 text-xs rounded"
+                  className="px-2.5 py-1 text-xs rounded-md font-medium"
                   style={{
-                    backgroundColor: `${colors.cream}80`,
+                    backgroundColor: colors.cream,
                     color: colors.earth,
-                    border: `1px solid ${colors.softShadow}40`,
+                    boxShadow: `0 1px 2px ${colors.softShadow}30, inset 0 -1px 0 ${colors.softShadow}20`,
                   }}
                 >
                   Espace
                 </kbd>
                 <span
                   className="text-xs font-light"
-                  style={{ color: colors.earth, opacity: 0.6 }}
+                  style={{ color: colors.earth, opacity: 0.7 }}
                 >
                   parler
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
                 <kbd
-                  className="px-1.5 py-0.5 text-xs rounded"
+                  className="px-2 py-1 text-xs rounded-md font-medium"
                   style={{
-                    backgroundColor: `${colors.cream}80`,
+                    backgroundColor: colors.cream,
                     color: colors.earth,
-                    border: `1px solid ${colors.softShadow}40`,
+                    boxShadow: `0 1px 2px ${colors.softShadow}30, inset 0 -1px 0 ${colors.softShadow}20`,
                   }}
                 >
                   Esc
                 </kbd>
                 <span
                   className="text-xs font-light"
-                  style={{ color: colors.earth, opacity: 0.6 }}
+                  style={{ color: colors.earth, opacity: 0.7 }}
                 >
                   annuler
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
                 <kbd
-                  className="px-1.5 py-0.5 text-xs rounded"
+                  className="px-2 py-1 text-xs rounded-md font-medium"
                   style={{
-                    backgroundColor: `${colors.cream}80`,
+                    backgroundColor: colors.cream,
                     color: colors.earth,
-                    border: `1px solid ${colors.softShadow}40`,
+                    boxShadow: `0 1px 2px ${colors.softShadow}30, inset 0 -1px 0 ${colors.softShadow}20`,
                   }}
                 >
                   ⌘M
                 </kbd>
                 <span
                   className="text-xs font-light"
-                  style={{ color: colors.earth, opacity: 0.6 }}
+                  style={{ color: colors.earth, opacity: 0.7 }}
                 >
                   muet
                 </span>
