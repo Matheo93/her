@@ -14,6 +14,7 @@ import { useBackchannel, shouldTriggerBackchannel } from "@/hooks/useBackchannel
 import { useDarkMode } from "@/hooks/useDarkMode";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { MemoryIndicator } from "@/components/MemoryIndicator";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const VISEME_URL = process.env.NEXT_PUBLIC_VISEME_URL || "http://localhost:8003";
@@ -25,24 +26,74 @@ interface BioData {
   presence: number;
 }
 
+// Loading skeleton for avatar
+function AvatarLoadingSkeleton() {
+  return (
+    <div
+      className="w-full h-full rounded-full flex flex-col items-center justify-center gap-3"
+      style={{ backgroundColor: HER_COLORS.cream }}
+      role="status"
+      aria-label="Chargement de l'avatar"
+    >
+      {/* Face silhouette skeleton */}
+      <div className="relative">
+        {/* Head oval */}
+        <div
+          className="w-24 h-28 sm:w-32 sm:h-36 rounded-full"
+          style={{
+            background: `linear-gradient(135deg, ${HER_COLORS.softShadow}30 0%, ${HER_COLORS.softShadow}10 100%)`,
+            animation: "pulse 2s ease-in-out infinite",
+          }}
+        />
+        {/* Eyes placeholder */}
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 flex gap-4">
+          <div
+            className="w-3 h-2 rounded-full"
+            style={{
+              backgroundColor: `${HER_COLORS.softShadow}30`,
+              animation: "pulse 2s ease-in-out infinite 0.2s",
+            }}
+          />
+          <div
+            className="w-3 h-2 rounded-full"
+            style={{
+              backgroundColor: `${HER_COLORS.softShadow}30`,
+              animation: "pulse 2s ease-in-out infinite 0.2s",
+            }}
+          />
+        </div>
+        {/* Mouth placeholder */}
+        <div
+          className="absolute bottom-1/4 left-1/2 -translate-x-1/2 w-6 h-1.5 rounded-full"
+          style={{
+            backgroundColor: `${HER_COLORS.coral}40`,
+            animation: "pulse 2s ease-in-out infinite 0.4s",
+          }}
+        />
+      </div>
+      {/* Loading text */}
+      <span
+        className="text-xs font-light"
+        style={{ color: HER_COLORS.earth, opacity: 0.5 }}
+      >
+        Chargement...
+      </span>
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 0.8; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 // Dynamic import for avatar (avoid SSR issues)
 const RealisticAvatarImage = dynamic(
   () => import("@/components/RealisticAvatarImage").then((mod) => mod.RealisticAvatarImage),
   {
     ssr: false,
-    loading: () => (
-      <div className="w-64 h-64 md:w-80 md:h-80 rounded-full flex items-center justify-center"
-        style={{ backgroundColor: HER_COLORS.cream }}>
-        <div
-          className="w-8 h-8 rounded-full"
-          style={{
-            backgroundColor: HER_COLORS.coral,
-            animation: "breathe 4s ease-in-out infinite"
-          }}
-        />
-        <style>{`@keyframes breathe { 0%, 100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }`}</style>
-      </div>
-    ),
+    loading: () => <AvatarLoadingSkeleton />,
   }
 );
 
@@ -703,18 +754,32 @@ export default function EvaHerPage() {
     <div
       className="fixed inset-0 overflow-hidden flex flex-col items-center justify-center transition-colors duration-500"
       style={{ backgroundColor: colors.warmWhite }}
+      role="application"
+      aria-label="EVA - Assistant vocal"
     >
-      {/* Skip to content link for accessibility */}
-      <a
-        href="#eva-input"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-1/2 focus:-translate-x-1/2 focus:z-50 focus:px-4 focus:py-2 focus:rounded-full focus:text-sm"
-        style={{
-          backgroundColor: colors.coral,
-          color: colors.warmWhite,
-        }}
-      >
-        Aller au champ de saisie
-      </a>
+      {/* Skip links for keyboard navigation */}
+      <nav className="sr-only focus-within:not-sr-only focus-within:absolute focus-within:top-4 focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:z-50 focus-within:flex focus-within:gap-2">
+        <a
+          href="#eva-input"
+          className="px-4 py-2 rounded-full text-sm"
+          style={{
+            backgroundColor: colors.coral,
+            color: colors.warmWhite,
+          }}
+        >
+          Aller au champ de saisie
+        </a>
+        <a
+          href="#eva-mic"
+          className="px-4 py-2 rounded-full text-sm"
+          style={{
+            backgroundColor: colors.coral,
+            color: colors.warmWhite,
+          }}
+        >
+          Aller au microphone
+        </a>
+      </nav>
 
       {/* Living ambient background - respects reduced motion */}
       <motion.div
@@ -952,15 +1017,32 @@ export default function EvaHerPage() {
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
 
-        {/* Realistic Human Avatar - responsive sizing */}
+        {/* Realistic Human Avatar - responsive sizing with error boundary */}
         <div className="avatar w-40 h-40 xs:w-48 xs:h-48 sm:w-64 sm:h-64 md:w-80 md:h-80 relative z-10">
-          <RealisticAvatarImage
-            visemeWeights={visemeWeights}
-            emotion={evaEmotion}
-            isSpeaking={isSpeaking}
-            isListening={isListening}
-            audioLevel={audioLevel}
-          />
+          <ErrorBoundary
+            onError={(error) => console.error("Avatar error:", error)}
+            fallback={
+              <div
+                className="w-full h-full rounded-full flex items-center justify-center"
+                style={{ backgroundColor: colors.cream }}
+              >
+                <motion.div
+                  className="w-16 h-16 rounded-full"
+                  style={{ backgroundColor: colors.coral }}
+                  animate={{ scale: [1, 1.1, 1], opacity: [0.6, 1, 0.6] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                />
+              </div>
+            }
+          >
+            <RealisticAvatarImage
+              visemeWeights={visemeWeights}
+              emotion={evaEmotion}
+              isSpeaking={isSpeaking}
+              isListening={isListening}
+              audioLevel={audioLevel}
+            />
+          </ErrorBoundary>
         </div>
 
         {/* Welcome message - personalized based on memory */}
@@ -1240,6 +1322,7 @@ export default function EvaHerPage() {
             />
 
             <motion.button
+              id="eva-mic"
               onMouseDown={startListening}
               onMouseUp={stopListening}
               onMouseLeave={stopListening}
