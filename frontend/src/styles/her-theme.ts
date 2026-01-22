@@ -26,6 +26,40 @@ export const HER_COLORS = {
   glowWarm: "rgba(232, 160, 144, 0.4)",
 } as const;
 
+// Dark mode palette - warm evening tones (not cold/tech)
+export const HER_COLORS_DARK = {
+  // Primary palette - warm dark
+  coral: "#E8846B",       // Keep coral vibrant
+  cream: "#3D3530",       // Dark warm cream
+  warmWhite: "#2A2420",   // Dark warm background
+  earth: "#D4C4B0",       // Light earth for contrast
+  softShadow: "#4A4035",  // Dark shadow
+  blush: "#E8A090",       // Keep blush
+
+  // Functional colors
+  success: "#7A9E7E",
+  error: "#C97B7B",
+  warning: "#D4A574",
+
+  // Text colors - inverted
+  textPrimary: "#E8DDD0",    // Light cream text
+  textSecondary: "#C4B8A8",  // Softer light
+  textMuted: "#6A5D52",      // Muted dark
+
+  // Background gradients
+  bgGradient: "linear-gradient(135deg, #2A2420 0%, #3D3530 100%)",
+  glowCoral: "rgba(232, 132, 107, 0.25)",
+  glowWarm: "rgba(232, 160, 144, 0.3)",
+} as const;
+
+// Type for color modes
+export type ColorMode = "light" | "dark";
+
+// Get colors based on mode
+export function getHerColors(mode: ColorMode) {
+  return mode === "dark" ? HER_COLORS_DARK : HER_COLORS;
+}
+
 // Emotion to visual presence mapping
 // No labels, just feeling through color warmth
 export const EMOTION_PRESENCE: Record<string, { glow: string; warmth: number }> = {

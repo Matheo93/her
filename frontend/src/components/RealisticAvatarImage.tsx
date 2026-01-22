@@ -31,26 +31,63 @@ interface RealisticAvatarImageProps {
   inputAudioLevel?: number;
 }
 
-// Calculate mouth openness from viseme weights
+// Detailed mouth shape for each viseme
+interface MouthShape {
+  openness: number;      // 0-1: how open the mouth is
+  width: number;         // -1 to 1: narrow to wide
+  roundness: number;     // 0-1: how rounded (for O sounds)
+  upperLipRaise: number; // 0-1: upper lip raises (for F, V)
+  jawDrop: number;       // 0-1: jaw drops down
+}
+
+// Viseme to mouth shape mapping
+const VISEME_SHAPES: Record<string, MouthShape> = {
+  sil: { openness: 0, width: 0, roundness: 0, upperLipRaise: 0, jawDrop: 0 },
+  PP: { openness: 0, width: 0.1, roundness: 0, upperLipRaise: 0, jawDrop: 0 },  // P, B, M - lips together
+  FF: { openness: 0.15, width: 0.2, roundness: 0, upperLipRaise: 0.4, jawDrop: 0.1 },  // F, V - teeth on lip
+  TH: { openness: 0.2, width: 0.3, roundness: 0, upperLipRaise: 0, jawDrop: 0.15 },  // TH - tongue through teeth
+  DD: { openness: 0.3, width: 0.2, roundness: 0, upperLipRaise: 0, jawDrop: 0.25 },  // D, T, N - tongue to roof
+  kk: { openness: 0.35, width: 0.1, roundness: 0, upperLipRaise: 0, jawDrop: 0.3 },  // K, G - back of tongue
+  CH: { openness: 0.25, width: 0.4, roundness: 0.2, upperLipRaise: 0, jawDrop: 0.2 },  // CH, J, SH
+  SS: { openness: 0.15, width: 0.5, roundness: 0, upperLipRaise: 0, jawDrop: 0.1 },  // S, Z - teeth close
+  RR: { openness: 0.3, width: 0.2, roundness: 0.3, upperLipRaise: 0, jawDrop: 0.2 },  // R - slight roundness
+  AA: { openness: 0.8, width: 0.3, roundness: 0, upperLipRaise: 0, jawDrop: 0.7 },  // A - wide open
+  EE: { openness: 0.4, width: 0.6, roundness: 0, upperLipRaise: 0, jawDrop: 0.3 },  // E, I - wide smile
+  OO: { openness: 0.5, width: -0.3, roundness: 0.8, upperLipRaise: 0, jawDrop: 0.4 },  // O, U - rounded
+};
+
+// Calculate blended mouth shape from viseme weights
+function getMouthShape(weights: VisemeWeights): MouthShape {
+  const result: MouthShape = { openness: 0, width: 0, roundness: 0, upperLipRaise: 0, jawDrop: 0 };
+  let totalWeight = 0;
+
+  for (const [viseme, weight] of Object.entries(weights)) {
+    if (weight && weight > 0 && VISEME_SHAPES[viseme]) {
+      const shape = VISEME_SHAPES[viseme];
+      result.openness += shape.openness * weight;
+      result.width += shape.width * weight;
+      result.roundness += shape.roundness * weight;
+      result.upperLipRaise += shape.upperLipRaise * weight;
+      result.jawDrop += shape.jawDrop * weight;
+      totalWeight += weight;
+    }
+  }
+
+  // Normalize
+  if (totalWeight > 0) {
+    result.openness /= totalWeight;
+    result.width /= totalWeight;
+    result.roundness /= totalWeight;
+    result.upperLipRaise /= totalWeight;
+    result.jawDrop /= totalWeight;
+  }
+
+  return result;
+}
+
+// Legacy function for compatibility
 function getMouthOpenness(weights: VisemeWeights): number {
-  const vowels = ["AA", "EE", "OO"] as const;
-  let openness = 0;
-
-  for (const v of vowels) {
-    if (weights[v]) {
-      openness = Math.max(openness, weights[v]!);
-    }
-  }
-
-  // Other visemes contribute less
-  const consonants = ["PP", "FF", "TH", "DD", "kk", "CH", "SS", "RR"] as const;
-  for (const c of consonants) {
-    if (weights[c]) {
-      openness = Math.max(openness, weights[c]! * 0.5);
-    }
-  }
-
-  return openness;
+  return getMouthShape(weights).openness;
 }
 
 export function RealisticAvatarImage({
@@ -68,11 +105,19 @@ export function RealisticAvatarImage({
   const [blinkState, setBlinkState] = useState<"open" | "closing" | "closed" | "opening">("open");
   const [gazeOffset, setGazeOffset] = useState({ x: 0, y: 0 });
 
-  // Mouth openness from visemes or audio level
-  const mouthOpenness = useMemo(() => {
-    const visemeOpen = getMouthOpenness(visemeWeights);
-    return isSpeaking ? Math.max(visemeOpen, audioLevel * 0.8) : 0;
+  // Detailed mouth shape from visemes
+  const mouthShape = useMemo(() => {
+    const shape = getMouthShape(visemeWeights);
+    // Blend with audio level for fallback when visemes aren't precise
+    if (isSpeaking && shape.openness < audioLevel * 0.5) {
+      shape.openness = Math.max(shape.openness, audioLevel * 0.6);
+      shape.jawDrop = Math.max(shape.jawDrop, audioLevel * 0.5);
+    }
+    return isSpeaking ? shape : { openness: 0, width: 0, roundness: 0, upperLipRaise: 0, jawDrop: 0 };
   }, [visemeWeights, isSpeaking, audioLevel]);
+
+  // Legacy openness for compatibility
+  const mouthOpenness = mouthShape.openness;
 
   // Emotion to visual presence
   const emotionPresence = useMemo(() => {
@@ -408,84 +453,97 @@ export function RealisticAvatarImage({
             transition={{ duration: 0.3 }}
           />
 
-          {/* Mouth - animated for speech and emotion */}
+          {/* Mouth - animated with detailed viseme shapes */}
           <g>
-            {/* Upper lip */}
-            <motion.path
-              d={`M80 ${160 - getSmileAmount() * 2}
-                  Q90 ${157 - getSmileAmount() * 3} 100 ${155 - getSmileAmount() * 2}
-                  Q110 ${157 - getSmileAmount() * 3} 120 ${160 - getSmileAmount() * 2}`}
-              fill="url(#lipGradient)"
-              stroke="none"
-              animate={{
-                d: isSpeaking
-                  ? `M80 ${160 - getSmileAmount() * 2 - mouthOpenness * 3}
-                     Q90 ${157 - getSmileAmount() * 3 - mouthOpenness * 2} 100 ${155 - getSmileAmount() * 2 - mouthOpenness * 2}
-                     Q110 ${157 - getSmileAmount() * 3 - mouthOpenness * 2} 120 ${160 - getSmileAmount() * 2 - mouthOpenness * 3}`
-                  : undefined
-              }}
-              transition={{ duration: 0.05 }}
-            />
+            {/* Calculate mouth dimensions from shape */}
+            {(() => {
+              const smileAmt = getSmileAmount();
+              const baseWidth = 20; // Half width of mouth
+              const widthMod = 1 + mouthShape.width * 0.3; // Width modifier
+              const roundMod = mouthShape.roundness; // Roundness for O sounds
+              const upperRaise = mouthShape.upperLipRaise * 3; // Upper lip raise for F/V
+              const jawDrop = mouthShape.jawDrop * 12; // Jaw drop amount
 
-            {/* Cupid's bow - upper lip detail */}
-            <path
-              d="M94 156 L100 153 L106 156"
-              fill="none"
-              stroke="#C97070"
-              strokeWidth="0.5"
-            />
+              const leftX = 100 - baseWidth * widthMod;
+              const rightX = 100 + baseWidth * widthMod;
+              const upperY = 158 - smileAmt * 2 - upperRaise;
+              const lowerY = 162 + smileAmt * 2 + jawDrop;
+              const mouthHeight = lowerY - upperY;
 
-            {/* Lower lip */}
-            <motion.path
-              d={`M82 ${162 + getSmileAmount() * 2}
-                  Q100 ${170 + getSmileAmount() * 4 + mouthOpenness * 8}
-                  118 ${162 + getSmileAmount() * 2}`}
-              fill="url(#lipGradient)"
-              stroke="none"
-              animate={{
-                d: isSpeaking
-                  ? `M82 ${162 + getSmileAmount() * 2 + mouthOpenness * 4}
-                     Q100 ${170 + getSmileAmount() * 4 + mouthOpenness * 12}
-                     118 ${162 + getSmileAmount() * 2 + mouthOpenness * 4}`
-                  : undefined
-              }}
-              transition={{ duration: 0.05 }}
-            />
+              return (
+                <>
+                  {/* Upper lip */}
+                  <motion.path
+                    d={`M${leftX} ${upperY}
+                        Q${leftX + 10} ${upperY - 3 - upperRaise} 100 ${upperY - 5 - upperRaise + roundMod * 2}
+                        Q${rightX - 10} ${upperY - 3 - upperRaise} ${rightX} ${upperY}`}
+                    fill="url(#lipGradient)"
+                    stroke="none"
+                    transition={{ duration: 0.04 }}
+                  />
 
-            {/* Mouth interior when speaking */}
-            <AnimatePresence>
-              {isSpeaking && mouthOpenness > 0.1 && (
-                <motion.ellipse
-                  cx="100"
-                  cy={163 + mouthOpenness * 3}
-                  rx={15 + mouthOpenness * 5}
-                  ry={mouthOpenness * 8}
-                  fill="#4A2020"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.9 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.05 }}
-                />
-              )}
-            </AnimatePresence>
+                  {/* Cupid's bow */}
+                  <motion.path
+                    d={`M94 ${upperY - 2} L100 ${upperY - 5 + roundMod * 2} L106 ${upperY - 2}`}
+                    fill="none"
+                    stroke="#C97070"
+                    strokeWidth="0.5"
+                    transition={{ duration: 0.04 }}
+                  />
 
-            {/* Teeth hint when speaking wide */}
-            <AnimatePresence>
-              {isSpeaking && mouthOpenness > 0.4 && (
-                <motion.rect
-                  x="90"
-                  y={159 + mouthOpenness * 2}
-                  width="20"
-                  height="4"
-                  rx="1"
-                  fill="white"
-                  opacity="0.7"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.7 }}
-                  exit={{ opacity: 0 }}
-                />
-              )}
-            </AnimatePresence>
+                  {/* Lower lip - more rounded for O sounds */}
+                  <motion.path
+                    d={`M${leftX + 2} ${lowerY - 2}
+                        Q100 ${lowerY + 8 + roundMod * 6}
+                        ${rightX - 2} ${lowerY - 2}`}
+                    fill="url(#lipGradient)"
+                    stroke="none"
+                    transition={{ duration: 0.04 }}
+                  />
+
+                  {/* Mouth interior when speaking */}
+                  {isSpeaking && mouthShape.openness > 0.1 && (
+                    <motion.ellipse
+                      cx="100"
+                      cy={upperY + mouthHeight / 2}
+                      rx={(baseWidth - 5) * widthMod * (1 - roundMod * 0.3)}
+                      ry={mouthHeight / 2 - 2}
+                      fill="#3A1515"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 0.95 }}
+                      transition={{ duration: 0.03 }}
+                    />
+                  )}
+
+                  {/* Teeth - visible for wide mouth shapes */}
+                  {isSpeaking && mouthShape.openness > 0.25 && (
+                    <motion.rect
+                      x={100 - 10 * widthMod}
+                      y={upperY + 3}
+                      width={20 * widthMod}
+                      height={Math.min(5, mouthHeight * 0.4)}
+                      rx="1"
+                      fill="white"
+                      opacity={mouthShape.openness > 0.4 ? 0.85 : 0.6}
+                      transition={{ duration: 0.03 }}
+                    />
+                  )}
+
+                  {/* Tongue hint for certain visemes */}
+                  {isSpeaking && (mouthShape.openness > 0.3 || visemeWeights.TH || visemeWeights.DD) && (
+                    <motion.ellipse
+                      cx="100"
+                      cy={lowerY - 4}
+                      rx={8 * widthMod}
+                      ry={3}
+                      fill="#D47070"
+                      opacity={0.7}
+                      transition={{ duration: 0.03 }}
+                    />
+                  )}
+                </>
+              );
+            })()}
           </g>
 
           {/* Chin highlight */}

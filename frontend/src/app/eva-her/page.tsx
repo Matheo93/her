@@ -11,6 +11,7 @@ import { useVoiceWarmth } from "@/hooks/useVoiceWarmth";
 import { useHerStatus } from "@/hooks/useHerStatus";
 import { useBackendMemory } from "@/hooks/useBackendMemory";
 import { useBackchannel, shouldTriggerBackchannel } from "@/hooks/useBackchannel";
+import { useDarkMode } from "@/hooks/useDarkMode";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const VISEME_URL = process.env.NEXT_PUBLIC_VISEME_URL || "http://localhost:8003";
@@ -115,6 +116,10 @@ export default function EvaHerPage() {
       console.debug(`[Backchannel] ${type}: ${sound}`);
     },
   });
+
+  // SPRINT 86: Dark mode support
+  const darkMode = useDarkMode();
+  const colors = darkMode.colors;
 
   // Ref to track last backchannel time for throttling
   const lastBackchannelTimeRef = useRef<number | null>(null);
@@ -544,24 +549,24 @@ export default function EvaHerPage() {
 
   return (
     <div
-      className="fixed inset-0 overflow-hidden flex flex-col items-center justify-center"
-      style={{ backgroundColor: HER_COLORS.warmWhite }}
+      className="fixed inset-0 overflow-hidden flex flex-col items-center justify-center transition-colors duration-500"
+      style={{ backgroundColor: colors.warmWhite }}
     >
       {/* Living ambient background */}
       <motion.div
         className="absolute inset-0 pointer-events-none"
         animate={{
           background: [
-            `radial-gradient(ellipse at 50% 30%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
-            `radial-gradient(ellipse at 50% 28%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 72%)`,
-            `radial-gradient(ellipse at 50% 30%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+            `radial-gradient(ellipse at 50% 30%, ${colors.cream} 0%, ${colors.warmWhite} 70%)`,
+            `radial-gradient(ellipse at 50% 28%, ${colors.cream} 0%, ${colors.warmWhite} 72%)`,
+            `radial-gradient(ellipse at 50% 30%, ${colors.cream} 0%, ${colors.warmWhite} 70%)`,
           ],
         }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
 
       {/* JARVIS Feature: Bio-Data indicator */}
-      <div className="absolute top-6 left-6 flex flex-col gap-2">
+      <div className="absolute top-4 sm:top-6 left-4 sm:left-6 flex flex-col gap-2">
         <AnimatePresence>
           {isConnected && (
             <motion.div
@@ -582,25 +587,25 @@ export default function EvaHerPage() {
                 <svg
                   className="w-4 h-4"
                   viewBox="0 0 24 24"
-                  fill={HER_COLORS.coral}
+                  fill={colors.coral}
                   style={{ opacity: 0.7 }}
                 >
                   <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                 </svg>
                 <span
                   className="text-xs font-light tabular-nums"
-                  style={{ color: HER_COLORS.earth, opacity: 0.5 }}
+                  style={{ color: colors.earth, opacity: 0.5 }}
                 >
                   {bioData.heartRate}
                 </span>
               </motion.div>
               <div
                 className="w-16 h-1 rounded-full overflow-hidden"
-                style={{ backgroundColor: `${HER_COLORS.softShadow}40` }}
+                style={{ backgroundColor: `${colors.softShadow}40` }}
               >
                 <motion.div
                   className="h-full rounded-full"
-                  style={{ backgroundColor: HER_COLORS.coral }}
+                  style={{ backgroundColor: colors.coral }}
                   animate={{ width: `${bioData.presence * 100}%` }}
                   transition={{ duration: 0.5 }}
                 />
@@ -611,12 +616,44 @@ export default function EvaHerPage() {
       </div>
 
       {/* SPRINT 26: HER System Status - Top right */}
-      <div className="absolute top-6 right-6 flex flex-col items-end gap-2">
+      <div className="absolute top-4 sm:top-6 right-4 sm:right-6 flex flex-col items-end gap-2">
+        {/* Dark mode toggle */}
+        <motion.button
+          onClick={darkMode.toggle}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors"
+          style={{ backgroundColor: `${colors.cream}90` }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          aria-label={darkMode.isDark ? "Passer en mode clair" : "Passer en mode sombre"}
+        >
+          <motion.div
+            initial={false}
+            animate={{ rotate: darkMode.isDark ? 180 : 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            {darkMode.isDark ? (
+              <svg className="w-4 h-4" fill={colors.earth} viewBox="0 0 24 24">
+                <path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill={colors.earth} viewBox="0 0 24 24">
+                <path d="M12 7a5 5 0 100 10 5 5 0 000-10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke={colors.earth} strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            )}
+          </motion.div>
+          <span
+            className="text-xs font-light hidden sm:inline"
+            style={{ color: colors.earth, opacity: 0.7 }}
+          >
+            {darkMode.isDark ? "Sombre" : "Clair"}
+          </span>
+        </motion.button>
+
         <AnimatePresence>
           {herStatus.isConnected && (
             <motion.div
               className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-              style={{ backgroundColor: `${HER_COLORS.cream}90` }}
+              style={{ backgroundColor: `${colors.cream}90` }}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 0.8, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
@@ -636,7 +673,7 @@ export default function EvaHerPage() {
               />
               <span
                 className="text-xs font-light"
-                style={{ color: HER_COLORS.earth, opacity: 0.7 }}
+                style={{ color: colors.earth, opacity: 0.7 }}
               >
                 HER {Math.round(herStatus.healthScore * 100)}%
               </span>
@@ -658,7 +695,7 @@ export default function EvaHerPage() {
                 className="w-3 h-3"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke={HER_COLORS.earth}
+                stroke={colors.earth}
                 strokeWidth={1.5}
                 style={{ opacity: 0.5 }}
               >
@@ -670,7 +707,7 @@ export default function EvaHerPage() {
               </svg>
               <span
                 className="text-xs font-light"
-                style={{ color: HER_COLORS.earth, opacity: 0.5 }}
+                style={{ color: colors.earth, opacity: 0.5 }}
               >
                 {backendMemory.memories.length}
               </span>
@@ -685,7 +722,7 @@ export default function EvaHerPage() {
         <motion.div
           className="absolute w-72 h-72 md:w-96 md:h-96 rounded-full"
           style={{
-            background: `radial-gradient(circle, ${HER_COLORS.coral}15 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${colors.coral}15 0%, transparent 70%)`,
           }}
           animate={{
             scale: [1, 1 + bioData.breathPhase * 0.06, 1],
@@ -695,7 +732,7 @@ export default function EvaHerPage() {
         />
 
         {/* Realistic Human Avatar */}
-        <div className="w-64 h-64 md:w-80 md:h-80 relative z-10">
+        <div className="avatar w-48 h-48 sm:w-64 sm:h-64 md:w-80 md:h-80 relative z-10">
           <RealisticAvatarImage
             visemeWeights={visemeWeights}
             emotion={evaEmotion}
@@ -710,7 +747,7 @@ export default function EvaHerPage() {
           {showWelcome && !isListening && !isSpeaking && !isThinking && isConnected && (
             <motion.p
               className="mt-8 text-base max-w-md text-center px-4"
-              style={{ color: HER_COLORS.earth }}
+              style={{ color: colors.earth }}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 0.8, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
@@ -743,7 +780,7 @@ export default function EvaHerPage() {
             >
               <p
                 className="text-lg leading-relaxed"
-                style={{ color: HER_COLORS.earth }}
+                style={{ color: colors.earth }}
               >
                 {currentText}
               </p>
@@ -764,7 +801,7 @@ export default function EvaHerPage() {
                 <motion.div
                   key={i}
                   className="w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: HER_COLORS.coral }}
+                  style={{ backgroundColor: colors.coral }}
                   animate={{
                     opacity: [0.3, 0.8, 0.3],
                     y: [0, -3, 0],
@@ -782,9 +819,9 @@ export default function EvaHerPage() {
         </AnimatePresence>
       </div>
 
-      {/* Input area - minimal, at the bottom */}
-      <div className="w-full max-w-lg px-6 pb-8">
-        <div className="flex items-center gap-3">
+      {/* Input area - minimal, at the bottom - mobile optimized */}
+      <div className="w-full max-w-lg px-4 sm:px-6 pb-6 sm:pb-8">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Text input */}
           <input
             type="text"
@@ -792,11 +829,11 @@ export default function EvaHerPage() {
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyPress}
             placeholder="Dis quelque chose..."
-            className="flex-1 px-5 py-3 rounded-full border-0 outline-none text-base"
+            className="flex-1 px-4 sm:px-5 py-2.5 sm:py-3 rounded-full border-0 outline-none text-sm sm:text-base"
             style={{
-              backgroundColor: HER_COLORS.cream,
-              color: HER_COLORS.earth,
-              boxShadow: `inset 0 2px 4px ${HER_COLORS.softShadow}20`,
+              backgroundColor: colors.cream,
+              color: colors.earth,
+              boxShadow: `inset 0 2px 4px ${colors.softShadow}20`,
             }}
           />
 
@@ -805,7 +842,7 @@ export default function EvaHerPage() {
             <motion.div
               className="absolute -inset-2 rounded-full"
               style={{
-                background: `radial-gradient(circle, ${HER_COLORS.coral}15 0%, transparent 70%)`,
+                background: `radial-gradient(circle, ${colors.coral}15 0%, transparent 70%)`,
               }}
               animate={{
                 scale: [1, 1.1, 1],
@@ -821,12 +858,12 @@ export default function EvaHerPage() {
               onTouchStart={startListening}
               onTouchEnd={stopListening}
               disabled={!isConnected}
-              className="relative w-12 h-12 rounded-full flex items-center justify-center"
+              className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center"
               style={{
-                backgroundColor: isListening ? HER_COLORS.coral : HER_COLORS.cream,
+                backgroundColor: isListening ? colors.coral : colors.cream,
                 boxShadow: isListening
-                  ? `0 0 30px ${HER_COLORS.coral}40, inset 0 0 15px ${HER_COLORS.warmWhite}30`
-                  : `0 4px 12px ${HER_COLORS.softShadow}30`,
+                  ? `0 0 30px ${colors.coral}40, inset 0 0 15px ${colors.warmWhite}30`
+                  : `0 4px 12px ${colors.softShadow}30`,
               }}
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.95 }}
@@ -845,7 +882,7 @@ export default function EvaHerPage() {
               <svg
                 className="w-5 h-5"
                 fill="none"
-                stroke={isListening ? HER_COLORS.warmWhite : HER_COLORS.earth}
+                stroke={isListening ? colors.warmWhite : colors.earth}
                 viewBox="0 0 24 24"
                 strokeWidth={1.5}
               >
@@ -864,7 +901,7 @@ export default function EvaHerPage() {
                       <motion.div
                         key={i}
                         className="absolute inset-0 rounded-full"
-                        style={{ border: `1px solid ${HER_COLORS.coral}` }}
+                        style={{ border: `1px solid ${colors.coral}` }}
                         initial={{ scale: 1, opacity: 0.5 }}
                         animate={{ scale: 1.5 + i * 0.2, opacity: 0 }}
                         transition={{
@@ -887,7 +924,7 @@ export default function EvaHerPage() {
           {!isConnected && (
             <motion.p
               className="text-center text-sm mt-3 font-light"
-              style={{ color: HER_COLORS.softShadow }}
+              style={{ color: colors.softShadow }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.7 }}
               exit={{ opacity: 0 }}
