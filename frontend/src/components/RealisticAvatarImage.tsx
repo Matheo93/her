@@ -915,9 +915,25 @@ export function RealisticAvatarImage({
               strokeWidth="1.5"
               strokeLinecap="round"
             />
-            {/* Nostril shadows */}
-            <ellipse cx="94" cy="144" rx="3" ry="2" fill="#C89B8B" opacity="0.35" />
-            <ellipse cx="106" cy="144" rx="3" ry="2" fill="#C89B8B" opacity="0.35" />
+            {/* Nostril shadows - animate with breathing */}
+            <motion.ellipse
+              cx="94"
+              cy="144"
+              rx={3 + Math.sin(breathPhase) * 0.3}
+              ry={2 + Math.sin(breathPhase) * 0.15}
+              fill="#C89B8B"
+              opacity="0.35"
+              transition={{ duration: 0.1 }}
+            />
+            <motion.ellipse
+              cx="106"
+              cy="144"
+              rx={3 + Math.sin(breathPhase) * 0.3}
+              ry={2 + Math.sin(breathPhase) * 0.15}
+              fill="#C89B8B"
+              opacity="0.35"
+              transition={{ duration: 0.1 }}
+            />
             {/* Nose side shadows */}
             <path
               d="M96 125 Q93 135 92 143"
