@@ -1858,8 +1858,8 @@ export default function EvaHerPage() {
 
       </div>
 
-      {/* Input area - minimal, at the bottom - optimized for small screens */}
-      <div className="w-full max-w-lg px-3 sm:px-6 pb-4 sm:pb-8">
+      {/* Input area - minimal, at the bottom - optimized for mobile with safe area */}
+      <div className="w-full max-w-lg px-3 sm:px-6 pb-safe sm:pb-8" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Text input - with accessibility */}
           <div className="relative flex-1">
