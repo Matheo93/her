@@ -968,6 +968,10 @@ export function RealisticAvatarImage({
             {/* Eye white */}
             <ellipse cx="72" cy="110" rx="14" ry="10" fill="white" />
 
+            {/* Caruncle - inner eye corner pink flesh */}
+            <ellipse cx="58" cy="111" rx="2" ry="2.5" fill="#E8A5A5" opacity="0.7" />
+            <ellipse cx="58.5" cy="110.5" rx="1" ry="1.2" fill="#F0B5B5" opacity="0.5" />
+
             {/* Iris with limbal ring */}
             <motion.circle
               cx={72 + (gazeOffset.x || 0) * 0.5}
@@ -1103,6 +1107,10 @@ export function RealisticAvatarImage({
           <g transform={`translate(${gazeOffset.x || 0}, ${gazeOffset.y || 0})`}>
             {/* Eye white */}
             <ellipse cx="128" cy="110" rx="14" ry="10" fill="white" />
+
+            {/* Caruncle - inner eye corner pink flesh */}
+            <ellipse cx="142" cy="111" rx="2" ry="2.5" fill="#E8A5A5" opacity="0.7" />
+            <ellipse cx="141.5" cy="110.5" rx="1" ry="1.2" fill="#F0B5B5" opacity="0.5" />
 
             {/* Iris */}
             {/* Iris with limbal ring */}
