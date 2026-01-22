@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
@@ -6,6 +6,13 @@ const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export const metadata: Metadata = {
   title: "Eva - Ton Compagnon IA Vocale",
@@ -17,12 +24,6 @@ export const metadata: Metadata = {
     description: "Parle avec Eva, une IA compagnon chaleureuse. Conversations naturelles avec avatar expressif.",
     type: "website",
     locale: "fr_FR",
-  },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
   },
 };
 

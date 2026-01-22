@@ -600,7 +600,15 @@ export function RealisticAvatarImage({
     <div
       ref={containerRef}
       className={`relative ${className}`}
-      style={{ width: "100%", height: "100%", minHeight: "200px" }}
+      style={{
+        width: "100%",
+        height: "100%",
+        minHeight: "200px",
+        // GPU acceleration hints for smoother rendering
+        willChange: prefersReducedMotion ? "auto" : "transform, opacity",
+        transform: "translateZ(0)",
+        backfaceVisibility: "hidden",
+      }}
     >
       {/* Warm ambient glow - emotion responsive, respects reduced motion */}
       <motion.div
@@ -608,6 +616,8 @@ export function RealisticAvatarImage({
         style={{
           background: `radial-gradient(circle, ${emotionPresence.glow} 0%, transparent 70%)`,
           opacity: prefersReducedMotion ? (isSpeaking ? 0.9 : isListening ? 0.7 : 0.5) : undefined,
+          willChange: prefersReducedMotion ? "auto" : "transform, opacity",
+          transform: "translateZ(0)",
         }}
         animate={prefersReducedMotion ? {} : {
           scale: [1, 1.05, 1],
@@ -619,6 +629,10 @@ export function RealisticAvatarImage({
       {/* Main avatar container with breathing and head micro-movements */}
       <motion.div
         className="relative w-full h-full flex items-center justify-center"
+        style={{
+          willChange: prefersReducedMotion ? "auto" : "transform",
+          transform: "translateZ(0)",
+        }}
         animate={{
           scale: breathScale,
           y: breathY + headTilt.y,
@@ -631,7 +645,11 @@ export function RealisticAvatarImage({
         <svg
           viewBox="0 0 200 240"
           className="w-full h-full max-w-[280px] max-h-[336px]"
-          style={{ filter: "drop-shadow(0 4px 20px rgba(139, 115, 85, 0.15))" }}
+          style={{
+            filter: "drop-shadow(0 4px 20px rgba(139, 115, 85, 0.15))",
+            // Optimize SVG rendering
+            shapeRendering: "geometricPrecision",
+          }}
         >
           <defs>
             {/* Main skin gradient */}
