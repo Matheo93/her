@@ -1,6 +1,6 @@
 ---
 active: true
-iteration: 2
+iteration: 3
 max_iterations: 0
 completion_promise: null
 started_at: "2026-01-22T19:10:48Z"
@@ -18,4 +18,10 @@ Sprint 230 Ameliore avatar UX latence mobile. Code teste valide. Boucle infinie 
 - Added useAvatarState hook for activity/mood/attention management
 - Added useLatencyOptimizer hook for network latency handling
 - Added useAvatarExpressions hook for FACS-based facial expressions
+- All tests pass (202/202), build clean
+
+## Iteration 4
+- Added useLipSync hook for audio-driven viseme animation
+- Added useAudioVisualization hook for spectrum/level analysis
+- Added useAvatarGestures hook for gesture animations with keyframes
 - All tests pass (202/202), build clean
