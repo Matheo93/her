@@ -962,6 +962,16 @@ export function RealisticAvatarImage({
                 strokeLinecap="round"
               />
             </g>
+
+            {/* Eye moisture line - wet reflection along lower lid */}
+            <path
+              d="M60 117 Q72 119 84 117"
+              fill="none"
+              stroke="white"
+              strokeWidth="0.6"
+              opacity="0.25"
+              strokeLinecap="round"
+            />
           </g>
 
           {/* Left eyelid - blink animation + Duchenne squint */}
@@ -1089,6 +1099,16 @@ export function RealisticAvatarImage({
                 strokeLinecap="round"
               />
             </g>
+
+            {/* Eye moisture line - wet reflection along lower lid */}
+            <path
+              d="M116 117 Q128 119 140 117"
+              fill="none"
+              stroke="white"
+              strokeWidth="0.6"
+              opacity="0.25"
+              strokeLinecap="round"
+            />
           </g>
 
           {/* Right eyelid - blink animation + Duchenne squint */}
