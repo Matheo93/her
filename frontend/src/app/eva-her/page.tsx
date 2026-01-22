@@ -686,6 +686,9 @@ export default function EvaHerPage() {
   // Pre-decoded audio buffer for gapless playback
   const predecodedBufferRef = useRef<AudioBuffer | null>(null);
   const predecodingPromiseRef = useRef<Promise<AudioBuffer | null> | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const BUFFER_HIGH_WATERMARK = 3; // Start playback when buffer has 3+ chunks
+  const BUFFER_LOW_WATERMARK = 1; // Warning when buffer drops to 1
 
   // Pre-decode next audio chunk for seamless playback
   const predecodeNext = useCallback(async () => {
@@ -716,11 +719,14 @@ export default function EvaHerPage() {
     setAudioQueueLength(remainingQueue);
     setEvaEmotion(emotion);
 
-    // Log audio queue status
+    // Log audio queue status with watermark info
+    const bufferStatus = remainingQueue >= BUFFER_HIGH_WATERMARK ? "healthy" :
+                         remainingQueue <= BUFFER_LOW_WATERMARK ? "low" : "ok";
     logPerformanceMetric("audioQueue", remainingQueue, {
       bufferSize: arrayBuffer.byteLength,
       emotion,
       hasPreDecoded: !!predecodedBufferRef.current,
+      bufferStatus,
     });
 
     try {
@@ -750,12 +756,25 @@ export default function EvaHerPage() {
       analyzer.smoothingTimeConstant = 0.5;
       analyzerRef.current = analyzer;
 
-      source.connect(analyzer);
+      // Create gain node for crossfade
+      const gainNode = gainNodeRef.current || audioContext.createGain();
+      gainNodeRef.current = gainNode;
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(1, audioContext.currentTime + 0.02); // 20ms fade in
+
+      source.connect(gainNode);
+      gainNode.connect(analyzer);
 
       // Only connect to destination if not muted
       if (!isMutedRef.current) {
         analyzer.connect(audioContext.destination);
       }
+
+      // Schedule fade out before chunk ends
+      const fadeDuration = 0.02; // 20ms fade
+      const fadeOutTime = Math.max(0, audioBuffer.duration - fadeDuration);
+      gainNode.gain.setValueAtTime(1, audioContext.currentTime + fadeOutTime);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + audioBuffer.duration);
 
       // Update audio level for avatar
       const dataArray = new Uint8Array(analyzer.frequencyBinCount);
@@ -1819,7 +1838,7 @@ export default function EvaHerPage() {
               >
                 {connectionLatency}ms
               </span>
-              {/* Audio buffer indicator */}
+              {/* Audio buffer indicator with watermark status */}
               {audioQueueLength > 0 && (
                 <motion.div
                   className="flex items-center gap-1 ml-2"
@@ -1827,15 +1846,39 @@ export default function EvaHerPage() {
                   animate={{ opacity: 0.5, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
                 >
-                  <motion.div
-                    className="w-1 h-1 rounded-full"
-                    style={{ backgroundColor: colors.coral }}
-                    animate={prefersReducedMotion ? {} : { scale: [1, 1.3, 1] }}
-                    transition={{ duration: 0.5, repeat: Infinity }}
-                  />
+                  {/* Buffer bars visualization */}
+                  <div className="flex gap-px items-end h-3">
+                    {[1, 2, 3].map((level) => (
+                      <motion.div
+                        key={level}
+                        className="w-0.5 rounded-sm"
+                        style={{
+                          height: level * 3 + 3,
+                          backgroundColor: audioQueueLength >= level
+                            ? audioQueueLength >= BUFFER_HIGH_WATERMARK
+                              ? colors.success || "#7A9E7E"
+                              : audioQueueLength <= BUFFER_LOW_WATERMARK
+                                ? colors.coral
+                                : colors.earth
+                            : `${colors.softShadow}50`,
+                        }}
+                        animate={audioQueueLength >= level && !prefersReducedMotion ? {
+                          opacity: [0.6, 1, 0.6],
+                        } : {}}
+                        transition={{ duration: 1, repeat: Infinity }}
+                      />
+                    ))}
+                  </div>
                   <span
                     className="text-xs font-light tabular-nums"
-                    style={{ color: colors.earth, opacity: 0.4 }}
+                    style={{
+                      color: audioQueueLength >= BUFFER_HIGH_WATERMARK
+                        ? colors.success || "#7A9E7E"
+                        : audioQueueLength <= BUFFER_LOW_WATERMARK
+                          ? colors.coral
+                          : colors.earth,
+                      opacity: 0.5,
+                    }}
                   >
                     {audioQueueLength}
                   </span>
