@@ -859,6 +859,42 @@ export function RealisticAvatarImage({
             />
           </g>
 
+          {/* Cheek apple highlights - intensify with smile */}
+          <g opacity={0.2 + smileAmount * 0.25}>
+            {/* Left cheek apple - rises with smile */}
+            <ellipse
+              cx={60 - cheekRise}
+              cy={130 - cheekRise * 3}
+              rx="6"
+              ry="4"
+              fill="#F5E0D5"
+            />
+            <ellipse
+              cx={58 - cheekRise}
+              cy={128 - cheekRise * 3}
+              rx="3"
+              ry="2"
+              fill="white"
+              opacity="0.3"
+            />
+            {/* Right cheek apple - rises with smile */}
+            <ellipse
+              cx={140 + cheekRise}
+              cy={130 - cheekRise * 3}
+              rx="6"
+              ry="4"
+              fill="#F5E0D5"
+            />
+            <ellipse
+              cx={142 + cheekRise}
+              cy={128 - cheekRise * 3}
+              rx="3"
+              ry="2"
+              fill="white"
+              opacity="0.3"
+            />
+          </g>
+
           {/* Subtle freckles across nose and cheeks */}
           <g opacity="0.4">
             {/* Left cheek freckles */}
