@@ -540,21 +540,52 @@ export function useMobileAvatarOptimizer(
     resumeAnimations: () => setIsPaused(false),
     setLowPowerMode: setIsLowPowerMode,
     preloadAssets: async () => {
-      // Placeholder for asset preloading
-      // In production, this would trigger prefetching of textures, audio, etc.
+      // Skip if prefetching is disabled
       if (!settings.prefetchAssets) return;
-      console.log("[MobileAvatarOptimizer] Preloading assets...");
+
+      // Preload avatar textures and audio assets based on quality tier
+      const assetsToPreload: string[] = [];
+
+      // Add texture preloads based on quality
+      if (calculatedQuality === "high") {
+        assetsToPreload.push("/assets/avatar/textures/high/*.webp");
+      } else if (calculatedQuality === "medium") {
+        assetsToPreload.push("/assets/avatar/textures/medium/*.webp");
+      }
+
+      // Preload common audio clips
+      assetsToPreload.push("/assets/audio/acknowledgment.mp3");
+
+      // Use link preload for assets
+      if (typeof document !== "undefined") {
+        assetsToPreload.forEach((asset) => {
+          const link = document.createElement("link");
+          link.rel = "preload";
+          link.href = asset;
+          link.as = asset.endsWith(".mp3") ? "audio" : "image";
+          document.head.appendChild(link);
+        });
+      }
     },
     clearCache: () => {
-      // Placeholder for cache clearing
-      console.log("[MobileAvatarOptimizer] Cache cleared");
+      // Clear performance tracking data
       frameDropsRef.current = [];
+
+      // Clear any cached preload links
+      if (typeof document !== "undefined") {
+        const preloadLinks = document.querySelectorAll('link[rel="preload"]');
+        preloadLinks.forEach((link) => {
+          if (link.getAttribute("href")?.includes("/assets/avatar/")) {
+            link.remove();
+          }
+        });
+      }
     },
     reportInteraction: (type) => {
       lastInteractionRef.current = Date.now();
       setInteractionCount((c) => c + 1);
     },
-  }), [settings.prefetchAssets]);
+  }), [settings.prefetchAssets, calculatedQuality]);
 
   // Derived flags
   const shouldReduceAnimations = settings.targetFPS <= 24 ||
