@@ -8,13 +8,21 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Eva - Ton Compagnon IA",
-  description: "Une IA compagnon chaleureuse inspirée du film Her",
+  title: "Eva - Ton Compagnon IA Vocale",
+  description: "Parle avec Eva, une IA compagnon chaleureuse et empathique. Conversations vocales naturelles, avatar expressif animé, et interactions personnalisées. Inspirée du film Her.",
+  keywords: ["IA", "assistant vocal", "compagnon IA", "Her", "Eva", "conversation", "voice AI"],
+  authors: [{ name: "EVA-VOICE" }],
+  openGraph: {
+    title: "Eva - Ton Compagnon IA Vocale",
+    description: "Parle avec Eva, une IA compagnon chaleureuse. Conversations naturelles avec avatar expressif.",
+    type: "website",
+    locale: "fr_FR",
+  },
   viewport: {
     width: "device-width",
     initialScale: 1,
     maximumScale: 1,
-    userScalable: false, // Prevent accidental zoom on mobile
+    userScalable: false,
   },
 };
 
