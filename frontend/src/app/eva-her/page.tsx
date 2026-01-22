@@ -127,6 +127,8 @@ export default function EvaHerPage() {
   const [evaEmotion, setEvaEmotion] = useState("neutral");
   const [currentText, setCurrentText] = useState("");
   const [inputText, setInputText] = useState("");
+  const [isUserTyping, setIsUserTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
   const [visemeWeights, setVisemeWeights] = useState<VisemeWeights>({ sil: 1 });
   const [messageSent, setMessageSent] = useState(false);
@@ -1600,9 +1602,35 @@ export default function EvaHerPage() {
           </ErrorBoundary>
         </div>
 
+        {/* User typing indicator - Eva is attentively waiting */}
+        <AnimatePresence>
+          {isUserTyping && inputText.length > 0 && !isSpeaking && !isListening && (
+            <motion.div
+              className="mt-4 flex items-center gap-2"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 0.6, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.2 }}
+            >
+              <motion.div
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: colors.coral }}
+                animate={prefersReducedMotion ? {} : { scale: [1, 1.3, 1] }}
+                transition={{ duration: 0.8, repeat: Infinity }}
+              />
+              <span
+                className="text-xs font-light italic"
+                style={{ color: colors.earth }}
+              >
+                Eva t'écoute...
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Welcome message - personalized based on memory */}
         <AnimatePresence>
-          {showWelcome && !isListening && !isSpeaking && !isThinking && isConnected && (
+          {showWelcome && !isListening && !isSpeaking && !isThinking && isConnected && !isUserTyping && (
             <motion.p
               className="mt-8 text-base max-w-md text-center px-4"
               style={{ color: colors.earth }}
@@ -1839,7 +1867,17 @@ export default function EvaHerPage() {
               type="text"
               value={inputText}
               id="eva-input"
-              onChange={(e) => setInputText(e.target.value.slice(0, 500))}
+              onChange={(e) => {
+                setInputText(e.target.value.slice(0, 500));
+                // Detect typing activity
+                setIsUserTyping(true);
+                if (typingTimeoutRef.current) {
+                  clearTimeout(typingTimeoutRef.current);
+                }
+                typingTimeoutRef.current = setTimeout(() => {
+                  setIsUserTyping(false);
+                }, 1500);
+              }}
               onKeyDown={handleKeyPress}
               placeholder="Dis quelque chose..."
               aria-label="Message pour EVA"
