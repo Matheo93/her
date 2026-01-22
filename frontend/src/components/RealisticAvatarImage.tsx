@@ -189,13 +189,23 @@ export function RealisticAvatarImage({
     return () => clearInterval(interval);
   }, [prefersReducedMotion]);
 
-  // Natural blinking
+  // Natural blinking with emotion-aware timing
   useEffect(() => {
     const scheduleNextBlink = () => {
-      // Blink every 3-6 seconds, more when listening
-      const interval = isListening
-        ? 2000 + Math.random() * 2000
-        : 3000 + Math.random() * 3000;
+      // Blink frequency varies by state and emotion
+      let baseInterval = 3500;
+
+      if (isListening) {
+        baseInterval = 2500; // More attentive blinks when listening
+      } else if (isSpeaking) {
+        baseInterval = 4000; // Fewer blinks when speaking
+      } else if (smoothEmotion === "excitement" || smoothEmotion === "surprise") {
+        baseInterval = 2000; // More blinks when excited
+      } else if (smoothEmotion === "sadness") {
+        baseInterval = 5000; // Slower blinks when sad
+      }
+
+      const interval = baseInterval + Math.random() * (baseInterval * 0.5);
 
       return setTimeout(() => {
         setBlinkState("closing");
@@ -217,13 +227,13 @@ export function RealisticAvatarImage({
     };
 
     const timer = scheduleNextBlink();
-    const intervalId = setInterval(() => scheduleNextBlink(), 5000);
+    const intervalId = setInterval(() => scheduleNextBlink(), 4000);
 
     return () => {
       clearTimeout(timer);
       clearInterval(intervalId);
     };
-  }, [isListening]);
+  }, [isListening, isSpeaking, smoothEmotion]);
 
   // Micro eye movement (saccades)
   useEffect(() => {
@@ -327,6 +337,48 @@ export function RealisticAvatarImage({
       case "playful": return 0.5;
       case "sadness": return -0.2;
       default: return 0.15;
+    }
+  }, [smoothEmotion]);
+
+  // Pupil dilation - emotions affect pupil size
+  const pupilSize = useMemo(() => {
+    let base = 4; // Base pupil radius
+    switch (smoothEmotion) {
+      case "joy":
+      case "excitement":
+      case "surprise":
+        base = 4.8; // Dilated when happy/excited
+        break;
+      case "tenderness":
+      case "curiosity":
+        base = 4.5; // Slightly dilated
+        break;
+      case "fear":
+      case "anger":
+        base = 3.5; // Constricted
+        break;
+      case "sadness":
+        base = 3.8;
+        break;
+      default:
+        base = 4;
+    }
+    // Add subtle variation based on audio level when speaking
+    if (isSpeaking && audioLevel > 0.3) {
+      base += audioLevel * 0.3;
+    }
+    return base;
+  }, [smoothEmotion, isSpeaking, audioLevel]);
+
+  // Eyebrow inner angle for expressiveness
+  const eyebrowInnerAngle = useMemo(() => {
+    switch (smoothEmotion) {
+      case "sadness": return 8; // Inner corners up
+      case "anger": return -10; // Inner corners down (furrowed)
+      case "fear": return 6;
+      case "surprise": return 4;
+      case "curiosity": return 3;
+      default: return 0;
     }
   }, [smoothEmotion]);
 
@@ -474,9 +526,10 @@ export function RealisticAvatarImage({
             <motion.circle
               cx={72 + (gazeOffset.x || 0) * 0.5}
               cy="110"
-              r={emotion === "joy" || emotion === "tenderness" ? 3.5 : 3}
+              r={pupilSize}
               fill="#0A0A0A"
-              transition={{ duration: 0.2 }}
+              animate={{ r: pupilSize }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
             />
 
             {/* Eye shine */}
@@ -516,13 +569,14 @@ export function RealisticAvatarImage({
               transition={{ duration: 0.2 }}
             />
 
-            {/* Pupil */}
+            {/* Pupil - dilates with emotion */}
             <motion.circle
               cx={128 + (gazeOffset.x || 0) * 0.5}
               cy="110"
-              r={emotion === "joy" || emotion === "tenderness" ? 3.5 : 3}
+              r={pupilSize}
               fill="#0A0A0A"
-              transition={{ duration: 0.2 }}
+              animate={{ r: pupilSize }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
             />
 
             {/* Eye shine */}
