@@ -1351,16 +1351,35 @@ export function RealisticAvatarImage({
                     />
                   )}
 
-                  {/* Teeth - visible for wide mouth shapes */}
-                  {isSpeaking && mouthShape.openness > 0.25 && (
-                    <motion.rect
-                      x={100 - 10 * widthMod}
-                      y={upperY + 3}
-                      width={20 * widthMod}
-                      height={Math.min(5, mouthHeight * 0.4)}
-                      rx="1"
-                      fill="white"
-                      opacity={mouthShape.openness > 0.4 ? 0.85 : 0.6}
+                  {/* Upper teeth - visible for wide mouth shapes */}
+                  {isSpeaking && mouthShape.openness > 0.2 && (
+                    <g>
+                      {/* Upper teeth row */}
+                      <motion.path
+                        d={`M${100 - 12 * widthMod} ${upperY + 2}
+                            Q100 ${upperY + 1} ${100 + 12 * widthMod} ${upperY + 2}
+                            L${100 + 10 * widthMod} ${upperY + 5}
+                            Q100 ${upperY + 6} ${100 - 10 * widthMod} ${upperY + 5} Z`}
+                        fill="#FAFAFA"
+                        opacity={mouthShape.openness > 0.35 ? 0.9 : 0.7}
+                        transition={{ duration: 0.03 }}
+                      />
+                      {/* Teeth line separations */}
+                      <line x1="100" y1={upperY + 2} x2="100" y2={upperY + 5} stroke="#E8E8E8" strokeWidth="0.3" opacity="0.5" />
+                      <line x1={100 - 5 * widthMod} y1={upperY + 2.5} x2={100 - 5 * widthMod} y2={upperY + 5} stroke="#E8E8E8" strokeWidth="0.2" opacity="0.4" />
+                      <line x1={100 + 5 * widthMod} y1={upperY + 2.5} x2={100 + 5 * widthMod} y2={upperY + 5} stroke="#E8E8E8" strokeWidth="0.2" opacity="0.4" />
+                    </g>
+                  )}
+
+                  {/* Lower teeth hint - only for very open mouth */}
+                  {isSpeaking && mouthShape.openness > 0.5 && (
+                    <motion.path
+                      d={`M${100 - 8 * widthMod} ${lowerY - 3}
+                          Q100 ${lowerY - 4} ${100 + 8 * widthMod} ${lowerY - 3}
+                          L${100 + 6 * widthMod} ${lowerY - 1}
+                          Q100 ${lowerY} ${100 - 6 * widthMod} ${lowerY - 1} Z`}
+                      fill="#F5F5F5"
+                      opacity={0.5}
                       transition={{ duration: 0.03 }}
                     />
                   )}
