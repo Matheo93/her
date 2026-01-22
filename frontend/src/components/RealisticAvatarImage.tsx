@@ -676,10 +676,19 @@ export function RealisticAvatarImage({
             </linearGradient>
 
             {/* Iris gradient - warm brown */}
-            <radialGradient id="irisGradient" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#8B6914" />
-              <stop offset="50%" stopColor="#5C4033" />
-              <stop offset="100%" stopColor="#3D2817" />
+            {/* Iris gradient - warm brown with depth */}
+            <radialGradient id="irisGradient" cx="40%" cy="40%" r="55%">
+              <stop offset="0%" stopColor="#A67C20" />
+              <stop offset="30%" stopColor="#8B6914" />
+              <stop offset="60%" stopColor="#5C4033" />
+              <stop offset="85%" stopColor="#3D2817" />
+              <stop offset="100%" stopColor="#2A1A0F" />
+            </radialGradient>
+            {/* Limbal ring - darker edge around iris */}
+            <radialGradient id="limbalRing" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="transparent" />
+              <stop offset="85%" stopColor="transparent" />
+              <stop offset="100%" stopColor="#1A0F08" stopOpacity="0.4" />
             </radialGradient>
 
             {/* Blush gradients - with warmth variation */}
@@ -896,12 +905,20 @@ export function RealisticAvatarImage({
             {/* Eye white */}
             <ellipse cx="72" cy="110" rx="14" ry="10" fill="white" />
 
-            {/* Iris */}
+            {/* Iris with limbal ring */}
             <motion.circle
               cx={72 + (gazeOffset.x || 0) * 0.5}
               cy="110"
               r="7"
               fill="url(#irisGradient)"
+              transition={{ duration: 0.2 }}
+            />
+            {/* Limbal ring - darker edge */}
+            <motion.circle
+              cx={72 + (gazeOffset.x || 0) * 0.5}
+              cy="110"
+              r="7"
+              fill="url(#limbalRing)"
               transition={{ duration: 0.2 }}
             />
 
@@ -1015,11 +1032,20 @@ export function RealisticAvatarImage({
             <ellipse cx="128" cy="110" rx="14" ry="10" fill="white" />
 
             {/* Iris */}
+            {/* Iris with limbal ring */}
             <motion.circle
               cx={128 + (gazeOffset.x || 0) * 0.5}
               cy="110"
               r="7"
               fill="url(#irisGradient)"
+              transition={{ duration: 0.2 }}
+            />
+            {/* Limbal ring - darker edge */}
+            <motion.circle
+              cx={128 + (gazeOffset.x || 0) * 0.5}
+              cy="110"
+              r="7"
+              fill="url(#limbalRing)"
               transition={{ duration: 0.2 }}
             />
 
