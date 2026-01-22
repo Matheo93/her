@@ -1117,6 +1117,14 @@ export function RealisticAvatarImage({
             {/* Eye white */}
             <ellipse cx="72" cy="110" rx="14" ry="10" fill="white" />
 
+            {/* Sclera blood vessels - subtle veins */}
+            <g opacity="0.15">
+              <path d="M60 108 Q63 109 65 109" fill="none" stroke="#E8A5A5" strokeWidth="0.3" />
+              <path d="M61 111 Q64 110 66 110.5" fill="none" stroke="#E8A5A5" strokeWidth="0.25" />
+              <path d="M82 108 Q79 109 77 109" fill="none" stroke="#E8A5A5" strokeWidth="0.3" />
+              <path d="M81 112 Q78 111 76 111.5" fill="none" stroke="#E8A5A5" strokeWidth="0.25" />
+            </g>
+
             {/* Eyeball shadow - lid shadow on sclera */}
             <ellipse cx="72" cy="104" rx="12" ry="4" fill="#E8DDD5" opacity="0.5" />
 
@@ -1359,6 +1367,14 @@ export function RealisticAvatarImage({
           <g transform={`translate(${gazeOffset.x || 0}, ${gazeOffset.y || 0})`}>
             {/* Eye white */}
             <ellipse cx="128" cy="110" rx="14" ry="10" fill="white" />
+
+            {/* Sclera blood vessels - subtle veins */}
+            <g opacity="0.15">
+              <path d="M116 108 Q119 109 121 109" fill="none" stroke="#E8A5A5" strokeWidth="0.3" />
+              <path d="M117 111 Q120 110 122 110.5" fill="none" stroke="#E8A5A5" strokeWidth="0.25" />
+              <path d="M138 108 Q135 109 133 109" fill="none" stroke="#E8A5A5" strokeWidth="0.3" />
+              <path d="M137 112 Q134 111 132 111.5" fill="none" stroke="#E8A5A5" strokeWidth="0.25" />
+            </g>
 
             {/* Eyeball shadow - lid shadow on sclera */}
             <ellipse cx="128" cy="104" rx="12" ry="4" fill="#E8DDD5" opacity="0.5" />
