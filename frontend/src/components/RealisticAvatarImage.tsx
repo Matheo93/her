@@ -106,6 +106,8 @@ export function RealisticAvatarImage({
   const [gazeOffset, setGazeOffset] = useState({ x: 0, y: 0 });
   const [headTilt, setHeadTilt] = useState({ x: 0, y: 0, rotation: 0 });
   const [microExpression, setMicroExpression] = useState(0); // 0-1 subtle expression intensity
+  const [smoothEmotion, setSmoothEmotion] = useState(emotion);
+  const prevEmotionRef = useRef(emotion);
 
   // Detailed mouth shape from visemes
   const mouthShape = useMemo(() => {
@@ -121,10 +123,22 @@ export function RealisticAvatarImage({
   // Legacy openness for compatibility
   const mouthOpenness = mouthShape.openness;
 
-  // Emotion to visual presence
-  const emotionPresence = useMemo(() => {
-    return EMOTION_PRESENCE[emotion] || EMOTION_PRESENCE.neutral;
+  // Smooth emotion transitions
+  useEffect(() => {
+    if (emotion !== prevEmotionRef.current) {
+      // Delayed transition for natural feel
+      const timer = setTimeout(() => {
+        setSmoothEmotion(emotion);
+        prevEmotionRef.current = emotion;
+      }, 100);
+      return () => clearTimeout(timer);
+    }
   }, [emotion]);
+
+  // Emotion to visual presence - uses smoothed emotion
+  const emotionPresence = useMemo(() => {
+    return EMOTION_PRESENCE[smoothEmotion] || EMOTION_PRESENCE.neutral;
+  }, [smoothEmotion]);
 
   // Breathing animation
   useEffect(() => {
@@ -244,10 +258,10 @@ export function RealisticAvatarImage({
     }
   }, [blinkState]);
 
-  // Eyebrow position - memoized
+  // Eyebrow position - memoized, uses smooth emotion
   const eyebrowY = useMemo(() => {
     let base = 0;
-    switch (emotion) {
+    switch (smoothEmotion) {
       case "joy":
       case "excitement": base = -2; break;
       case "sadness": base = 3; break;
@@ -256,11 +270,11 @@ export function RealisticAvatarImage({
       default: base = 0;
     }
     return base + (microExpression * -1.5);
-  }, [emotion, microExpression]);
+  }, [smoothEmotion, microExpression]);
 
-  // Smile amount - memoized
+  // Smile amount - memoized, uses smooth emotion
   const smileAmount = useMemo(() => {
-    switch (emotion) {
+    switch (smoothEmotion) {
       case "joy": return 0.7;
       case "tenderness": return 0.4;
       case "excitement": return 0.6;
@@ -268,7 +282,7 @@ export function RealisticAvatarImage({
       case "sadness": return -0.2;
       default: return 0.15;
     }
-  }, [emotion]);
+  }, [smoothEmotion]);
 
   // Legacy function wrappers for compatibility
   const getEyeLidY = () => eyeLidY;

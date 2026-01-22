@@ -796,32 +796,66 @@ export default function EvaHerPage() {
           )}
         </AnimatePresence>
 
-        {/* Thinking indicator - organic, coral colored */}
+        {/* Thinking indicator - organic, breathing animation */}
         <AnimatePresence>
           {isThinking && !currentText && (
             <motion.div
-              className="mt-8 flex gap-1.5"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              className="mt-8 flex items-center gap-3"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.3 }}
             >
-              {[0, 1, 2].map((i) => (
+              {/* Breathing circle */}
+              <motion.div
+                className="relative"
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              >
                 <motion.div
-                  key={i}
-                  className="w-1.5 h-1.5 rounded-full"
+                  className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: colors.coral }}
-                  animate={{
-                    opacity: [0.3, 0.8, 0.3],
-                    y: [0, -3, 0],
-                  }}
-                  transition={{
-                    duration: 1.5,
-                    repeat: Infinity,
-                    delay: i * 0.15,
-                    ease: "easeInOut",
-                  }}
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                 />
-              ))}
+                <motion.div
+                  className="absolute inset-0 rounded-full"
+                  style={{ backgroundColor: colors.coral }}
+                  animate={{ scale: [1, 1.8], opacity: [0.4, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
+                />
+              </motion.div>
+
+              {/* Flowing dots */}
+              <div className="flex gap-1">
+                {[0, 1, 2].map((i) => (
+                  <motion.div
+                    key={i}
+                    className="w-1 h-1 rounded-full"
+                    style={{ backgroundColor: colors.coral }}
+                    animate={{
+                      opacity: [0.2, 0.7, 0.2],
+                      scale: [0.8, 1.2, 0.8],
+                    }}
+                    transition={{
+                      duration: 1.2,
+                      repeat: Infinity,
+                      delay: i * 0.2,
+                      ease: "easeInOut",
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Optional text hint */}
+              <motion.span
+                className="text-xs font-light"
+                style={{ color: colors.earth, opacity: 0.4 }}
+                animate={{ opacity: [0.3, 0.5, 0.3] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                ...
+              </motion.span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -927,18 +961,45 @@ export default function EvaHerPage() {
           </div>
         </div>
 
-        {/* Connection status - minimal, only when disconnected */}
+        {/* Connection status - animated, only when disconnected */}
         <AnimatePresence>
           {!isConnected && (
-            <motion.p
-              className="text-center text-sm mt-3 font-light"
-              style={{ color: colors.softShadow }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.7 }}
-              exit={{ opacity: 0 }}
+            <motion.div
+              className="flex items-center justify-center gap-2 mt-3"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
             >
-              Connexion...
-            </motion.p>
+              {/* Connecting animation */}
+              <motion.div
+                className="flex gap-1"
+              >
+                {[0, 1, 2].map((i) => (
+                  <motion.div
+                    key={i}
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: colors.coral }}
+                    animate={{
+                      scale: [1, 1.3, 1],
+                      opacity: [0.3, 0.8, 0.3],
+                    }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      delay: i * 0.15,
+                    }}
+                  />
+                ))}
+              </motion.div>
+              <motion.span
+                className="text-sm font-light"
+                style={{ color: colors.softShadow }}
+                animate={{ opacity: [0.5, 0.8, 0.5] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              >
+                Connexion...
+              </motion.span>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
