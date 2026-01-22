@@ -62,6 +62,7 @@ export default function EvaHerPage() {
   const [inputMicLevel, setInputMicLevel] = useState(0);
   const [showKeyboardHint, setShowKeyboardHint] = useState(false);
   const [connectionLatency, setConnectionLatency] = useState<number | null>(null);
+  const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -394,6 +395,7 @@ export default function EvaHerPage() {
           case "speaking_start":
             setIsSpeaking(true);
             setIsThinking(false);
+            setIsProcessingAudio(false);
             break;
 
           case "filler":
@@ -582,6 +584,9 @@ export default function EvaHerPage() {
         const blob = new Blob(chunks, { type: "audio/webm" });
         stream.getTracks().forEach(t => t.stop());
         setIsListening(false);
+
+        // Show processing state
+        setIsProcessingAudio(true);
 
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -931,11 +936,11 @@ export default function EvaHerPage() {
         </AnimatePresence>
       </div>
 
-      {/* Main content - centered, minimal */}
-      <div className="relative flex flex-col items-center justify-center flex-1 px-4">
+      {/* Main content - centered, minimal - optimized for small screens */}
+      <div className="relative flex flex-col items-center justify-center flex-1 px-2 sm:px-4">
         {/* Breathing glow around avatar - respects reduced motion */}
         <motion.div
-          className="absolute w-72 h-72 md:w-96 md:h-96 rounded-full"
+          className="absolute w-56 h-56 xs:w-72 xs:h-72 md:w-96 md:h-96 rounded-full"
           style={{
             background: `radial-gradient(circle, ${colors.coral}15 0%, transparent 70%)`,
             opacity: prefersReducedMotion ? 0.5 : undefined,
@@ -947,8 +952,8 @@ export default function EvaHerPage() {
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
 
-        {/* Realistic Human Avatar */}
-        <div className="avatar w-48 h-48 sm:w-64 sm:h-64 md:w-80 md:h-80 relative z-10">
+        {/* Realistic Human Avatar - responsive sizing */}
+        <div className="avatar w-40 h-40 xs:w-48 xs:h-48 sm:w-64 sm:h-64 md:w-80 md:h-80 relative z-10">
           <RealisticAvatarImage
             visemeWeights={visemeWeights}
             emotion={evaEmotion}
@@ -1055,9 +1060,48 @@ export default function EvaHerPage() {
           )}
         </AnimatePresence>
 
+        {/* Audio processing indicator - shows after recording, before EVA responds */}
+        <AnimatePresence>
+          {isProcessingAudio && !isThinking && !isSpeaking && (
+            <motion.div
+              className="mt-8 flex items-center gap-2"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              {/* Processing waveform animation */}
+              <div className="flex gap-0.5 items-center h-4">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <motion.div
+                    key={i}
+                    className="w-0.5 rounded-full"
+                    style={{ backgroundColor: colors.coral }}
+                    animate={prefersReducedMotion ? { height: 8 } : {
+                      height: [4, 12, 4],
+                    }}
+                    transition={{
+                      duration: 0.6,
+                      repeat: Infinity,
+                      delay: i * 0.1,
+                      ease: "easeInOut",
+                    }}
+                  />
+                ))}
+              </div>
+              <span
+                className="text-sm font-light"
+                style={{ color: colors.earth, opacity: 0.7 }}
+              >
+                Traitement...
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Thinking indicator - organic, breathing animation */}
         <AnimatePresence>
-          {isThinking && !currentText && !isListening && (
+          {isThinking && !currentText && !isListening && !isProcessingAudio && (
             <motion.div
               className="mt-8 flex items-center gap-3"
               initial={{ opacity: 0, scale: 0.8 }}
@@ -1122,8 +1166,8 @@ export default function EvaHerPage() {
         </AnimatePresence>
       </div>
 
-      {/* Input area - minimal, at the bottom - mobile optimized */}
-      <div className="w-full max-w-lg px-4 sm:px-6 pb-6 sm:pb-8">
+      {/* Input area - minimal, at the bottom - optimized for small screens */}
+      <div className="w-full max-w-lg px-3 sm:px-6 pb-4 sm:pb-8">
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Text input - with accessibility */}
           <div className="relative flex-1">
@@ -1137,7 +1181,7 @@ export default function EvaHerPage() {
               aria-label="Message pour EVA"
               aria-describedby="eva-status"
               autoComplete="off"
-              className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-full border-0 outline-none text-sm sm:text-base focus:ring-2 focus:ring-offset-2 transition-shadow"
+              className="w-full px-3 sm:px-5 py-2 sm:py-3 rounded-full border-0 outline-none text-sm sm:text-base focus:ring-2 focus:ring-offset-2 transition-shadow"
               style={{
                 backgroundColor: colors.cream,
                 color: colors.earth,
@@ -1204,7 +1248,7 @@ export default function EvaHerPage() {
               disabled={!isConnected}
               aria-label={isListening ? "Relâcher pour envoyer" : "Maintenir pour parler"}
               aria-pressed={isListening}
-              className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2"
+              className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2"
               style={{
                 backgroundColor: isListening ? colors.coral : colors.cream,
                 boxShadow: isListening
