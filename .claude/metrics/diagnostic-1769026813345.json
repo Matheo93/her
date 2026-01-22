@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-01-21T20:20:05.945Z",
+  "latency": {
+    "chat": 537
+  },
+  "screenshots": [
+    "diagnostic-t0.png",
+    "diagnostic-t1.png",
+    "diagnostic-home.png"
+  ],
+  "errors": [],
+  "avatar": {
+    "visible": true
+  },
+  "personality": {
+    "response": "Je vais super bien, merci ! Ça fait plaisir de te voir !"
+  }
+}

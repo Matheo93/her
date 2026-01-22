@@ -1,0 +1,28 @@
+#!/bin/bash
+# Lance /ralph dans Claude Code
+
+PROJECT_DIR="/workspace/music-music-ai-training-api"
+cd "$PROJECT_DIR"
+
+echo "=================================="
+echo "  RALPH LOOP LAUNCHER"
+echo "=================================="
+echo ""
+echo "Pour lancer Ralph, execute dans cette fenetre:"
+echo ""
+echo "  claude --dangerously-skip-permissions"
+echo ""
+echo "Puis tape:"
+echo "  /ralph"
+echo ""
+echo "Ralph va tourner en boucle infinie,"
+echo "generant des sprints et codant automatiquement."
+echo ""
+echo "Le hook eva-gate-steroids.py va:"
+echo "  - Bloquer si latence > 500ms"
+echo "  - Bloquer si pas de Puppeteer"
+echo "  - Auto-heal les services down"
+echo "  - Forcer les screenshots"
+echo "  - Verifier la personnalite EVA"
+echo ""
+echo "=================================="

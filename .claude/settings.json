@@ -6,7 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /home/dev/her/.claude/hooks/eva-gate.py"
+            "command": "python3 /workspace/music-music-ai-training-api/.claude/hooks/eva-gate-steroids.py",
+            "timeout": 120000
           }
         ]
       }
@@ -17,7 +18,16 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '📝 Fichier modifié - pense à tester visuellement avec Puppeteer'"
+            "command": "python3 -c \"import sys; print('\\n⚡ Code modifie - VALIDE avec Puppeteer + Latence!', file=sys.stderr)\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash:curl*chat*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$(date '+%H:%M:%S') - Latency check\" >> /workspace/music-music-ai-training-api/.claude/metrics/calls.log"
           }
         ]
       }

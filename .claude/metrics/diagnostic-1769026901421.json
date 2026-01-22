@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-01-21T20:21:41.422Z",
+  "latency": {
+    "tests": [
+      296,
+      219,
+      340,
+      178,
+      222
+    ],
+    "average": 251,
+    "max": 340,
+    "min": 178
+  },
+  "screenshots": [
+    "eva-her-t0.png",
+    "eva-her-t3.png",
+    "eva-home.png"
+  ],
+  "errors": [
+    "Error: <path> attribute d: Expected moveto path command ('M' or 'm'), \"undefined\".",
+    "Error: <path> attribute d: Expected moveto path command ('M' or 'm'), \"undefined\".",
+    "Error: <path> attribute d: Expected moveto path command ('M' or 'm'), \"undefined\".",
+    "Error: <path> attribute d: Expected moveto path command ('M' or 'm'), \"undefined\"."
+  ],
+  "avatar": {
+    "visible": true,
+    "animated": false
+  },
+  "personality": {
+    "responses": [
+      "C'est génial ! Tu as réussi !",
+      "Haha, c'est parti ! Oh, je suis prête !",
+      "Haha, c'est génial !",
+      "Haha, c'est génial ! Oh, tu as réussi !",
+      "Haha, c'est parti !"
+    ],
+    "isEva": true
+  }
+}

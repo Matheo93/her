@@ -380,7 +380,8 @@ export default function Home() {
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
             {/* Breathing presence orb - no face, just warm glow */}
             <motion.div
-              className="w-24 h-24 rounded-full mb-8"
+              data-testid="avatar"
+              className="avatar w-24 h-24 rounded-full mb-8"
               style={{
                 background: `radial-gradient(circle, ${HER_COLORS.coral} 0%, ${HER_COLORS.blush} 50%, ${HER_COLORS.cream} 100%)`,
                 boxShadow: `0 0 60px ${emotionGlow}`,

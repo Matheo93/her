@@ -1,0 +1,9 @@
+{"ts": "2026-01-21T22:27:55.639656", "metric": "e2e_latency", "value": 203.9262317121029, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-21T22:32:22.168411", "metric": "e2e_latency", "value": 183.49714949727058, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-21T22:33:17.104665", "metric": "e2e_latency", "value": 222.7636563281218, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-21T22:39:27.429874", "metric": "e2e_latency", "value": 244.55086390177408, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-22T00:19:24.712215", "metric": "e2e_latency", "value": 218.84268584350744, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-22T00:20:20.506065", "metric": "e2e_latency", "value": 222.05674399932226, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-22T00:21:06.863648", "metric": "e2e_latency", "value": 226.76291751364866, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-22T00:23:43.340946", "metric": "e2e_latency", "value": 229.8462384690841, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-22T03:42:59.122108", "metric": "e2e_latency", "value": 531.8911777188381, "tags": {"endpoint": "/chat"}}
