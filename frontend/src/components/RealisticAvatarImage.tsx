@@ -1121,6 +1121,27 @@ export function RealisticAvatarImage({
             <path d="M80 119 L81 121" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
           </g>
 
+          {/* Left under-eye area - subtle orbital shadow */}
+          <g opacity="0.15">
+            {/* Under-eye hollow */}
+            <path
+              d="M58 121 Q72 124 86 121"
+              fill="none"
+              stroke="#B89080"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+            {/* Tear trough line */}
+            <path
+              d="M60 123 Q68 125 75 123"
+              fill="none"
+              stroke="#C89B8B"
+              strokeWidth="0.6"
+              strokeLinecap="round"
+              opacity="0.5"
+            />
+          </g>
+
           {/* Left crow's feet - appear during genuine smiles */}
           {(eyeSquint > 0.15 || cheekRise > 0.2) && (
             <g opacity={(eyeSquint + cheekRise) * 0.6}>
@@ -1315,6 +1336,27 @@ export function RealisticAvatarImage({
             <path d="M120 119 L119 121" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
             <path d="M128 120 L128 122" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
             <path d="M136 119 L137 121" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
+          </g>
+
+          {/* Right under-eye area - subtle orbital shadow */}
+          <g opacity="0.15">
+            {/* Under-eye hollow */}
+            <path
+              d="M114 121 Q128 124 142 121"
+              fill="none"
+              stroke="#B89080"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+            {/* Tear trough line */}
+            <path
+              d="M125 123 Q132 125 140 123"
+              fill="none"
+              stroke="#C89B8B"
+              strokeWidth="0.6"
+              strokeLinecap="round"
+              opacity="0.5"
+            />
           </g>
 
           {/* Forehead expression lines - appear when eyebrows raised */}
