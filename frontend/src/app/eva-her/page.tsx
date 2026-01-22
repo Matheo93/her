@@ -366,13 +366,13 @@ export default function EvaHerPage() {
     return "#f87171"; // red - poor
   }, [connectionLatency]);
 
-  // Connection quality label for accessibility
+  // Connection quality label for accessibility with signal bars
   const connectionQuality = useMemo(() => {
-    if (connectionLatency === null) return { label: "Connecté", emoji: "●" };
-    if (connectionLatency < 100) return { label: "Excellent", emoji: "●" };
-    if (connectionLatency < 200) return { label: "Bon", emoji: "●" };
-    if (connectionLatency < 400) return { label: "Moyen", emoji: "●" };
-    return { label: "Faible", emoji: "●" };
+    if (connectionLatency === null) return { label: "Connecté", bars: 2 };
+    if (connectionLatency < 100) return { label: "Excellent", bars: 4 };
+    if (connectionLatency < 200) return { label: "Bon", bars: 3 };
+    if (connectionLatency < 400) return { label: "Moyen", bars: 2 };
+    return { label: "Faible", bars: 1 };
   }, [connectionLatency]);
 
   // JARVIS Feature: Bio-data animation
@@ -2205,13 +2205,21 @@ export default function EvaHerPage() {
               role="status"
               aria-label={`Connexion ${connectionQuality.label}, latence ${connectionLatency} millisecondes`}
             >
-              <motion.div
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: latencyColor }}
-                animate={prefersReducedMotion ? {} : { scale: [1, 1.2, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                aria-hidden="true"
-              />
+              {/* Signal strength bars */}
+              <div className="flex gap-[1px] items-end h-3" aria-hidden="true">
+                {[1, 2, 3, 4].map((level) => (
+                  <div
+                    key={level}
+                    className="w-[2px] rounded-sm transition-colors"
+                    style={{
+                      height: level * 2 + 2,
+                      backgroundColor: level <= connectionQuality.bars
+                        ? latencyColor
+                        : `${colors.softShadow}30`,
+                    }}
+                  />
+                ))}
+              </div>
               <span
                 className="text-xs font-light tabular-nums"
                 style={{ color: colors.earth, opacity: 0.5 }}
