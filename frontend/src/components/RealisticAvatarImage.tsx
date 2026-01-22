@@ -825,6 +825,26 @@ export function RealisticAvatarImage({
             </>
           )}
 
+          {/* Cheekbone highlights - light catching on facial structure */}
+          <g opacity="0.25">
+            {/* Left cheekbone */}
+            <ellipse
+              cx="52"
+              cy="122"
+              rx="10"
+              ry="5"
+              fill="#F5E5D8"
+            />
+            {/* Right cheekbone */}
+            <ellipse
+              cx="148"
+              cy="122"
+              rx="10"
+              ry="5"
+              fill="#F5E5D8"
+            />
+          </g>
+
           {/* Subtle freckles across nose and cheeks */}
           <g opacity="0.4">
             {/* Left cheek freckles */}
