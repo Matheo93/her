@@ -1176,6 +1176,7 @@ export default function EvaHerPage() {
                   {bioData.heartRate}
                 </span>
               </motion.div>
+              {/* Presence bar */}
               <div
                 className="w-16 h-1 rounded-full overflow-hidden"
                 style={{ backgroundColor: `${colors.softShadow}40` }}
@@ -1186,6 +1187,47 @@ export default function EvaHerPage() {
                   animate={{ width: `${bioData.presence * 100}%` }}
                   transition={{ duration: 0.5 }}
                 />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Warmth level indicator - shows connection depth */}
+        <AnimatePresence>
+          {isConnected && emotionalWarmth.levelNumeric > 0.1 && (
+            <motion.div
+              className="flex items-center gap-2"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 0.5, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              title={`Chaleur: ${emotionalWarmth.level}`}
+            >
+              {/* Warmth flame icon */}
+              <svg
+                className="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill={colors.coral}
+                style={{ opacity: 0.6 + emotionalWarmth.levelNumeric * 0.4 }}
+              >
+                <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
+              </svg>
+              {/* Warmth level dots */}
+              <div className="flex gap-0.5">
+                {[0.2, 0.4, 0.6, 0.8, 1.0].map((threshold, i) => (
+                  <motion.div
+                    key={i}
+                    className="w-1 h-1 rounded-full"
+                    style={{
+                      backgroundColor: emotionalWarmth.levelNumeric >= threshold
+                        ? colors.coral
+                        : `${colors.softShadow}40`,
+                    }}
+                    animate={emotionalWarmth.levelNumeric >= threshold && !prefersReducedMotion ? {
+                      scale: [1, 1.2, 1],
+                    } : {}}
+                    transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
+                  />
+                ))}
               </div>
             </motion.div>
           )}
