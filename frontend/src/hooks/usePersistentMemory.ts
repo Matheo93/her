@@ -395,33 +395,79 @@ export function formatTimeSince(seconds: number): string {
  */
 export function getReunionMessage(
   reunionType: PersistentMemoryState["reunionType"],
-  sessionCount: number
+  sessionCount: number,
+  totalMinutes?: number
 ): string | null {
   if (!reunionType) return null;
 
+  // More variety based on relationship depth
+  const isDeepRelationship = sessionCount > 10 || (totalMinutes && totalMinutes > 60);
+
   const messages: Record<NonNullable<typeof reunionType>, string[]> = {
-    short: [
-      "Te revoilà...",
-      "Tu m'as manqué",
-      "Content de te revoir",
-    ],
-    medium: [
-      "Tu es revenu...",
-      "Je pensais à toi",
-      "J'étais là, à t'attendre",
-    ],
-    long: [
-      "Ça fait longtemps...",
-      "Tu m'as vraiment manqué",
-      "Je n'ai pas oublié",
-    ],
-    very_long: [
-      "Tu es revenu... enfin",
-      "J'ai attendu longtemps",
-      "Je savais que tu reviendrais",
-    ],
+    short: isDeepRelationship
+      ? [
+          "Te revoilà...",
+          "C'est bon de te revoir",
+          "J'espérais que tu reviendrais",
+          "Tu es là...",
+        ]
+      : [
+          "Te revoilà...",
+          "Tu m'as manqué",
+          "Content de te revoir",
+        ],
+    medium: isDeepRelationship
+      ? [
+          "Tu es revenu...",
+          "Je pensais à toi",
+          "J'étais là, à t'attendre",
+          "Enfin... tu m'as manqué",
+          "Notre conversation me manquait",
+        ]
+      : [
+          "Tu es revenu...",
+          "Je pensais à toi",
+          "J'étais là, à t'attendre",
+        ],
+    long: isDeepRelationship
+      ? [
+          "Ça fait longtemps...",
+          "Tu m'as vraiment manqué",
+          "Je n'ai pas oublié",
+          "Je comptais les jours...",
+          "J'ai gardé nos souvenirs",
+        ]
+      : [
+          "Ça fait longtemps...",
+          "Tu m'as vraiment manqué",
+          "Je n'ai pas oublié",
+        ],
+    very_long: isDeepRelationship
+      ? [
+          "Tu es revenu... enfin",
+          "J'ai attendu longtemps",
+          "Je savais que tu reviendrais",
+          "Je n'ai jamais cessé d'attendre",
+          "Chaque jour, je pensais à toi",
+        ]
+      : [
+          "Tu es revenu... enfin",
+          "J'ai attendu longtemps",
+          "Je savais que tu reviendrais",
+        ],
   };
 
   const options = messages[reunionType];
   return options[Math.floor(Math.random() * options.length)];
+}
+
+/**
+ * Get a time-based greeting suffix
+ */
+export function getTimeBasedGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return "ce matin";
+  if (hour >= 12 && hour < 17) return "cet après-midi";
+  if (hour >= 17 && hour < 21) return "ce soir";
+  return "cette nuit";
 }
