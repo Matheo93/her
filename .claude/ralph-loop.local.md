@@ -1,12 +1,18 @@
 ---
 active: true
-iteration: 3
+iteration: 5
 max_iterations: 0
 completion_promise: null
 started_at: "2026-01-22T19:10:48Z"
 ---
 
 Sprint 230 Ameliore avatar UX latence mobile. Code teste valide. Boucle infinie sans arret.
+
+## Iteration 5
+- Added useAvatarBreathing hook for natural breathing patterns
+- Added useAvatarEyeTracking hook for gaze following and cursor tracking
+- Added useAvatarIdleVariation hook for weight shifts and micro-movements
+- All tests pass (202/202), build clean
 
 ## Iteration 2
 - Added useVisibility hook for Page Visibility API
