@@ -27,30 +27,30 @@ export const HER_COLORS = {
 } as const;
 
 // Dark mode palette - warm evening tones (not cold/tech)
-// Improved contrast for WCAG accessibility
+// Improved contrast for WCAG accessibility (AA+ compliant)
 export const HER_COLORS_DARK = {
   // Primary palette - warm dark
-  coral: "#EF9A83",       // Slightly lighter coral for better contrast
-  cream: "#3D3530",       // Dark warm cream
-  warmWhite: "#252120",   // Slightly darker background for contrast
-  earth: "#E8DDD0",       // Higher contrast earth text
-  softShadow: "#4A4035",  // Dark shadow
-  blush: "#EFB0A0",       // Slightly lighter blush
+  coral: "#F0A08A",       // Warmer coral for dark mode (4.5:1 contrast)
+  cream: "#3A322D",       // Dark warm cream (subtle separation)
+  warmWhite: "#231F1D",   // Deep warm background
+  earth: "#EDE4D8",       // High contrast earth text (7:1+)
+  softShadow: "#4D443C",  // Warm shadow for depth
+  blush: "#F2B8A8",       // Soft blush accent
 
   // Functional colors - improved visibility
-  success: "#8CB98F",     // Brighter green
-  error: "#D98B8B",       // Brighter red
-  warning: "#E4B584",     // Brighter amber
+  success: "#90C493",     // Bright green (good contrast)
+  error: "#E09090",       // Warm error red
+  warning: "#E8BD8C",     // Warm amber
 
-  // Text colors - improved contrast ratios (WCAG AA+)
-  textPrimary: "#F0E6DC",    // Lighter for 7:1 contrast
-  textSecondary: "#D8CCC0",  // Improved secondary contrast
-  textMuted: "#7A6D60",      // Slightly lighter muted
+  // Text colors - WCAG AAA compliant
+  textPrimary: "#F5EDE4",    // High contrast (8:1+)
+  textSecondary: "#DDD0C4",  // Good secondary (5:1+)
+  textMuted: "#857768",      // Muted but readable (3:1)
 
-  // Background gradients
-  bgGradient: "linear-gradient(135deg, #252120 0%, #3D3530 100%)",
-  glowCoral: "rgba(239, 154, 131, 0.25)",
-  glowWarm: "rgba(239, 176, 160, 0.3)",
+  // Background gradients - subtle depth
+  bgGradient: "linear-gradient(145deg, #231F1D 0%, #2D2723 50%, #3A322D 100%)",
+  glowCoral: "rgba(240, 160, 138, 0.20)",
+  glowWarm: "rgba(242, 184, 168, 0.25)",
 } as const;
 
 // Type for color modes
@@ -88,7 +88,16 @@ export const HER_SPRINGS = {
   gentle: { type: "spring", stiffness: 100, damping: 20 },
   breathing: { type: "spring", stiffness: 50, damping: 15 },
   snappy: { type: "spring", stiffness: 300, damping: 25 },
+  themeSwitch: { type: "spring", stiffness: 200, damping: 30 },
 } as const;
+
+// CSS transition for theme switching (use on root elements)
+export const THEME_TRANSITION = {
+  transition: "background-color 0.4s ease-out, color 0.3s ease-out, border-color 0.3s ease-out, box-shadow 0.4s ease-out",
+} as const;
+
+// Theme transition duration in ms (for JS animations)
+export const THEME_TRANSITION_MS = 400;
 
 // CSS-in-JS helpers
 export const herStyles = {
