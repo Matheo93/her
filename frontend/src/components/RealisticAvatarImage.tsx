@@ -1082,6 +1082,28 @@ export function RealisticAvatarImage({
                     transition={{ duration: 0.04 }}
                   />
 
+                  {/* Lower lip highlight - gives glossy appearance */}
+                  <motion.ellipse
+                    cx="100"
+                    cy={lowerY + 2 + roundMod * 3}
+                    rx={10 * widthMod}
+                    ry={3}
+                    fill="white"
+                    opacity="0.15"
+                    transition={{ duration: 0.04 }}
+                  />
+
+                  {/* Lip line - subtle definition between lips */}
+                  {!isSpeaking && (
+                    <path
+                      d={`M${leftX + 4} ${upperY + 1} Q100 ${upperY + 2} ${rightX - 4} ${upperY + 1}`}
+                      fill="none"
+                      stroke="#B86060"
+                      strokeWidth="0.4"
+                      opacity="0.5"
+                    />
+                  )}
+
                   {/* Mouth interior when speaking */}
                   {isSpeaking && mouthShape.openness > 0.1 && (
                     <motion.ellipse
