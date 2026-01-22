@@ -199,3 +199,33 @@ export {
   useShouldRenderAvatar,
   type RenderingSettings,
 } from "./useAvatarPerformance";
+
+// Avatar State Management
+export {
+  useAvatarState,
+  useAvatarSpeaking,
+  useAvatarMoodTransition,
+  useAvatarIdleAnimations,
+  type AvatarActivity,
+  type AvatarMood,
+  type AvatarAttention,
+} from "./useAvatarState";
+
+// Latency Optimization
+export {
+  useLatencyOptimizer,
+  useRequestTiming,
+  useAdaptiveRetry,
+  useLatencyAwarePrefetch,
+} from "./useLatencyOptimizer";
+
+// Avatar Expressions
+export {
+  useAvatarExpressions,
+  useLipSyncVisemes,
+  useExpressionGaze,
+  EXPRESSION_PRESETS,
+  type ExpressionBlendShape,
+  type BlendShapeValues,
+  type ExpressionPreset,
+} from "./useAvatarExpressions";
