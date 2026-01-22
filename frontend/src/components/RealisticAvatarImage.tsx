@@ -141,6 +141,7 @@ export function RealisticAvatarImage({
   const [asymmetry, setAsymmetry] = useState({ eyebrow: 0, smile: 0 }); // -1 to 1
   const [eyeSquint, setEyeSquint] = useState(0); // 0-1 for genuine smile (Duchenne)
   const [noseWrinkle, setNoseWrinkle] = useState(0); // 0-1 for intense emotions
+  const [cheekRise, setCheekRise] = useState(0); // 0-1 for smile cheek lift
   const prevEmotionRef = useRef(emotion);
 
   // Smoothed mouth shape for natural lip sync transitions
@@ -333,11 +334,16 @@ export function RealisticAvatarImage({
         smile: (Math.random() - 0.5) * 0.15, // Slight smile asymmetry
       });
 
-      // Eye squint for genuine smiles (Duchenne marker)
+      // Eye squint and cheek rise for genuine smiles (Duchenne marker)
       if (smoothEmotion === "joy" || smoothEmotion === "excitement") {
         setEyeSquint(0.2 + Math.random() * 0.2);
+        setCheekRise(0.3 + Math.random() * 0.2); // Cheeks lift during genuine smile
+      } else if (smoothEmotion === "tenderness" || smoothEmotion === "playful") {
+        setEyeSquint(0.1 + Math.random() * 0.1);
+        setCheekRise(0.15 + Math.random() * 0.1);
       } else {
         setEyeSquint(0);
+        setCheekRise(0);
       }
 
       // Nose wrinkle for intense emotions
@@ -352,6 +358,7 @@ export function RealisticAvatarImage({
         setMicroExpression(0);
         setAsymmetry({ eyebrow: 0, smile: 0 });
         setEyeSquint((prev) => prev * 0.5); // Fade out squint
+        setCheekRise((prev) => prev * 0.6); // Fade out cheek rise
         setNoseWrinkle(0);
       }, 300);
     }, 2500 + Math.random() * 3500);
@@ -558,11 +565,45 @@ export function RealisticAvatarImage({
           {/* Forehead */}
           <ellipse cx="100" cy="65" rx="50" ry="30" fill="url(#skinGradient)" />
 
-          {/* Cheek blush - left */}
-          <ellipse cx="60" cy="130" rx="20" ry="15" fill="url(#blushLeft)" />
+          {/* Cheek blush - left (rises with smile) */}
+          <ellipse
+            cx="60"
+            cy={130 - cheekRise * 4}
+            rx="20"
+            ry={15 + cheekRise * 2}
+            fill="url(#blushLeft)"
+          />
 
-          {/* Cheek blush - right */}
-          <ellipse cx="140" cy="130" rx="20" ry="15" fill="url(#blushLeft)" />
+          {/* Cheek blush - right (rises with smile) */}
+          <ellipse
+            cx="140"
+            cy={130 - cheekRise * 4}
+            rx="20"
+            ry={15 + cheekRise * 2}
+            fill="url(#blushLeft)"
+          />
+
+          {/* Nasolabial folds (smile lines) - appear with smile and cheek rise */}
+          {(cheekRise > 0.1 || smileAmount > 0.3) && (
+            <g opacity={Math.min((cheekRise * 2 + smileAmount * 0.5), 0.5)}>
+              {/* Left nasolabial fold */}
+              <path
+                d={`M85 ${145 - cheekRise * 3} Q78 ${155 - cheekRise * 2} 75 ${162 - cheekRise * 2}`}
+                fill="none"
+                stroke="#D4A090"
+                strokeWidth="0.8"
+                strokeLinecap="round"
+              />
+              {/* Right nasolabial fold */}
+              <path
+                d={`M115 ${145 - cheekRise * 3} Q122 ${155 - cheekRise * 2} 125 ${162 - cheekRise * 2}`}
+                fill="none"
+                stroke="#D4A090"
+                strokeWidth="0.8"
+                strokeLinecap="round"
+              />
+            </g>
+          )}
 
           {/* Nose */}
           <path
@@ -669,6 +710,33 @@ export function RealisticAvatarImage({
             strokeWidth="0.8"
           />
 
+          {/* Left crow's feet - appear during genuine smiles */}
+          {(eyeSquint > 0.15 || cheekRise > 0.2) && (
+            <g opacity={(eyeSquint + cheekRise) * 0.6}>
+              <path
+                d="M50 108 L45 105"
+                fill="none"
+                stroke="#C89B8B"
+                strokeWidth="0.5"
+                strokeLinecap="round"
+              />
+              <path
+                d="M48 112 L42 111"
+                fill="none"
+                stroke="#C89B8B"
+                strokeWidth="0.5"
+                strokeLinecap="round"
+              />
+              <path
+                d="M50 116 L45 119"
+                fill="none"
+                stroke="#C89B8B"
+                strokeWidth="0.4"
+                strokeLinecap="round"
+              />
+            </g>
+          )}
+
           {/* Right eye group */}
           <g transform={`translate(${gazeOffset.x || 0}, ${gazeOffset.y || 0})`}>
             {/* Eye white */}
@@ -718,6 +786,33 @@ export function RealisticAvatarImage({
               animate={{ opacity: eyeSquint * 0.8 }}
               transition={{ duration: 0.15 }}
             />
+          )}
+
+          {/* Right crow's feet - appear during genuine smiles */}
+          {(eyeSquint > 0.15 || cheekRise > 0.2) && (
+            <g opacity={(eyeSquint + cheekRise) * 0.6}>
+              <path
+                d="M150 108 L155 105"
+                fill="none"
+                stroke="#C89B8B"
+                strokeWidth="0.5"
+                strokeLinecap="round"
+              />
+              <path
+                d="M152 112 L158 111"
+                fill="none"
+                stroke="#C89B8B"
+                strokeWidth="0.5"
+                strokeLinecap="round"
+              />
+              <path
+                d="M150 116 L155 119"
+                fill="none"
+                stroke="#C89B8B"
+                strokeWidth="0.4"
+                strokeLinecap="round"
+              />
+            </g>
           )}
 
           {/* Right eye crease */}
