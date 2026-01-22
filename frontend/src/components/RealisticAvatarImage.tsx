@@ -179,15 +179,17 @@ export function RealisticAvatarImage({
     return EMOTION_PRESENCE[smoothEmotion] || EMOTION_PRESENCE.neutral;
   }, [smoothEmotion]);
 
-  // Breathing animation - respects reduced motion
+  // Breathing animation - respects reduced motion, varies with state
   useEffect(() => {
     if (prefersReducedMotion) return;
 
+    // Breathing rate varies by state
+    const breathRate = isSpeaking ? 0.07 : isListening ? 0.04 : 0.05;
     const interval = setInterval(() => {
-      setBreathPhase((prev) => (prev + 0.05) % (Math.PI * 2));
+      setBreathPhase((prev) => (prev + breathRate) % (Math.PI * 2));
     }, 50);
     return () => clearInterval(interval);
-  }, [prefersReducedMotion]);
+  }, [prefersReducedMotion, isSpeaking, isListening]);
 
   // Natural blinking with emotion-aware timing
   useEffect(() => {
@@ -300,9 +302,18 @@ export function RealisticAvatarImage({
     return () => clearInterval(interval);
   }, []);
 
-  // Breathing values - memoized
-  const breathScale = useMemo(() => 1 + Math.sin(breathPhase) * 0.008, [breathPhase]);
-  const breathY = useMemo(() => Math.sin(breathPhase) * 2, [breathPhase]);
+  // Breathing values - memoized with state-dependent amplitude
+  const breathAmplitude = useMemo(() => {
+    if (isSpeaking) return 0.012; // More visible when speaking
+    if (isListening) return 0.006; // Subtle when listening
+    // Idle: natural variation based on emotion
+    if (smoothEmotion === "excitement" || smoothEmotion === "joy") return 0.01;
+    if (smoothEmotion === "sadness") return 0.005;
+    return 0.008; // Default
+  }, [isSpeaking, isListening, smoothEmotion]);
+
+  const breathScale = useMemo(() => 1 + Math.sin(breathPhase) * breathAmplitude, [breathPhase, breathAmplitude]);
+  const breathY = useMemo(() => Math.sin(breathPhase) * (breathAmplitude * 250), [breathPhase, breathAmplitude]);
 
   // Eye lid position - memoized
   const eyeLidY = useMemo(() => {
