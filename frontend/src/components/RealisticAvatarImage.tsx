@@ -710,6 +710,21 @@ export function RealisticAvatarImage({
               <stop offset="100%" stopColor="#1A0F08" stopOpacity="0.4" />
             </radialGradient>
 
+            {/* Iris fiber/ray pattern - creates realistic striation */}
+            <pattern id="irisRayPattern" patternUnits="userSpaceOnUse" width="16" height="16" patternTransform="rotate(0)">
+              <line x1="8" y1="0" x2="8" y2="16" stroke="#5C4033" strokeWidth="0.2" opacity="0.25" />
+              <line x1="4" y1="0" x2="4" y2="16" stroke="#8B6914" strokeWidth="0.15" opacity="0.2" />
+              <line x1="12" y1="0" x2="12" y2="16" stroke="#5C4033" strokeWidth="0.15" opacity="0.2" />
+            </pattern>
+
+            {/* Collarette pattern - inner ring detail */}
+            <radialGradient id="collarette" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#A67C20" stopOpacity="0" />
+              <stop offset="35%" stopColor="#C89B50" stopOpacity="0.3" />
+              <stop offset="45%" stopColor="#A67C20" stopOpacity="0" />
+              <stop offset="100%" stopColor="transparent" />
+            </radialGradient>
+
             {/* Blush gradients - with warmth variation */}
             <radialGradient id="blushLeft" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor={HER_COLORS.blush} stopOpacity="0.35" />
@@ -1117,6 +1132,23 @@ export function RealisticAvatarImage({
               fill="url(#irisGradient)"
               transition={{ duration: 0.2 }}
             />
+            {/* Iris collarette - inner ring detail */}
+            <motion.circle
+              cx={72 + (gazeOffset.x || 0) * 0.5}
+              cy="110"
+              r="7"
+              fill="url(#collarette)"
+              transition={{ duration: 0.2 }}
+            />
+            {/* Iris ray pattern - fiber striations */}
+            <motion.circle
+              cx={72 + (gazeOffset.x || 0) * 0.5}
+              cy="110"
+              r="6.5"
+              fill="url(#irisRayPattern)"
+              opacity="0.4"
+              transition={{ duration: 0.2 }}
+            />
             {/* Limbal ring - darker edge */}
             <motion.circle
               cx={72 + (gazeOffset.x || 0) * 0.5}
@@ -1335,13 +1367,29 @@ export function RealisticAvatarImage({
             <ellipse cx="142" cy="111" rx="2" ry="2.5" fill="#E8A5A5" opacity="0.7" />
             <ellipse cx="141.5" cy="110.5" rx="1" ry="1.2" fill="#F0B5B5" opacity="0.5" />
 
-            {/* Iris */}
             {/* Iris with limbal ring */}
             <motion.circle
               cx={128 + (gazeOffset.x || 0) * 0.5}
               cy="110"
               r="7"
               fill="url(#irisGradient)"
+              transition={{ duration: 0.2 }}
+            />
+            {/* Iris collarette - inner ring detail */}
+            <motion.circle
+              cx={128 + (gazeOffset.x || 0) * 0.5}
+              cy="110"
+              r="7"
+              fill="url(#collarette)"
+              transition={{ duration: 0.2 }}
+            />
+            {/* Iris ray pattern - fiber striations */}
+            <motion.circle
+              cx={128 + (gazeOffset.x || 0) * 0.5}
+              cy="110"
+              r="6.5"
+              fill="url(#irisRayPattern)"
+              opacity="0.4"
               transition={{ duration: 0.2 }}
             />
             {/* Limbal ring - darker edge */}
