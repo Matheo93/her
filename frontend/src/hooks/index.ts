@@ -229,3 +229,32 @@ export {
   type BlendShapeValues,
   type ExpressionPreset,
 } from "./useAvatarExpressions";
+
+// Lip Sync
+export {
+  useLipSync,
+  useSimpleLipSync,
+  useVisemeSequence,
+  VISEME_BLEND_SHAPES,
+  PHONEME_TO_VISEME,
+  type Viseme,
+  type VisemeEvent,
+} from "./useLipSync";
+
+// Audio Visualization
+export {
+  useAudioVisualization,
+  useAudioLevel,
+  useVoiceActivity,
+  useSpectrumBars,
+} from "./useAudioVisualization";
+
+// Avatar Gestures
+export {
+  useAvatarGestures,
+  useConversationalGestures,
+  GESTURE_ANIMATIONS,
+  type GestureType,
+  type GestureAnimation,
+  type GestureKeyframe,
+} from "./useAvatarGestures";
