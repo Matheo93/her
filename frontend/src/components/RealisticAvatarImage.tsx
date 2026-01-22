@@ -875,6 +875,34 @@ export function RealisticAvatarImage({
             />
           </g>
 
+          {/* Philtrum - groove between nose and upper lip */}
+          <g opacity="0.35">
+            {/* Left philtrum ridge */}
+            <path
+              d="M97 147 Q96 152 97 156"
+              fill="none"
+              stroke="#D4A090"
+              strokeWidth="0.5"
+              strokeLinecap="round"
+            />
+            {/* Right philtrum ridge */}
+            <path
+              d="M103 147 Q104 152 103 156"
+              fill="none"
+              stroke="#D4A090"
+              strokeWidth="0.5"
+              strokeLinecap="round"
+            />
+            {/* Philtrum highlight */}
+            <path
+              d="M98.5 148 Q100 153 101.5 148"
+              fill="none"
+              stroke="#F5D0C5"
+              strokeWidth="0.8"
+              opacity="0.5"
+            />
+          </g>
+
           {/* Nose wrinkle lines - for intense emotions */}
           {noseWrinkle > 0.05 && (
             <g opacity={noseWrinkle * 3}>
