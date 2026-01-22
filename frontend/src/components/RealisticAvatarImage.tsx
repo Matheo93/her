@@ -864,9 +864,24 @@ export function RealisticAvatarImage({
               transition={{ duration: 0.3, ease: "easeOut" }}
             />
 
-            {/* Eye shine */}
-            <circle cx="70" cy="107" r="2.5" fill="white" opacity="0.9" />
-            <circle cx="74" cy="112" r="1" fill="white" opacity="0.5" />
+            {/* Eye sparkles - multiple catchlights for life */}
+            <g className="eye-sparkles">
+              {/* Primary catchlight */}
+              <circle cx="70" cy="107" r="2.5" fill="white" opacity="0.95" />
+              {/* Secondary catchlight */}
+              <circle cx="75" cy="113" r="1.2" fill="white" opacity="0.6" />
+              {/* Tertiary micro sparkle */}
+              <circle cx="68" cy="111" r="0.6" fill="white" opacity="0.4" />
+              {/* Window reflection arc */}
+              <path
+                d="M67 106 Q70 104 73 106"
+                fill="none"
+                stroke="white"
+                strokeWidth="0.8"
+                opacity="0.3"
+                strokeLinecap="round"
+              />
+            </g>
           </g>
 
           {/* Left eyelid - blink animation + Duchenne squint */}
@@ -967,9 +982,24 @@ export function RealisticAvatarImage({
               transition={{ duration: 0.3, ease: "easeOut" }}
             />
 
-            {/* Eye shine */}
-            <circle cx="126" cy="107" r="2.5" fill="white" opacity="0.9" />
-            <circle cx="130" cy="112" r="1" fill="white" opacity="0.5" />
+            {/* Eye sparkles - multiple catchlights for life */}
+            <g className="eye-sparkles">
+              {/* Primary catchlight */}
+              <circle cx="126" cy="107" r="2.5" fill="white" opacity="0.95" />
+              {/* Secondary catchlight */}
+              <circle cx="131" cy="113" r="1.2" fill="white" opacity="0.6" />
+              {/* Tertiary micro sparkle */}
+              <circle cx="124" cy="111" r="0.6" fill="white" opacity="0.4" />
+              {/* Window reflection arc */}
+              <path
+                d="M123 106 Q126 104 129 106"
+                fill="none"
+                stroke="white"
+                strokeWidth="0.8"
+                opacity="0.3"
+                strokeLinecap="round"
+              />
+            </g>
           </g>
 
           {/* Right eyelid - blink animation + Duchenne squint */}
