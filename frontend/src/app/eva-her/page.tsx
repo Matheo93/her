@@ -1126,6 +1126,17 @@ export default function EvaHerPage() {
         )}
       </AnimatePresence>
 
+      {/* Screen reader status announcements */}
+      <div
+        id="eva-status"
+        className="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {statusText}
+      </div>
+
       {/* Living ambient background - respects reduced motion */}
       <motion.div
         className="absolute inset-0 pointer-events-none"
@@ -1886,8 +1897,9 @@ export default function EvaHerPage() {
                 stopListening();
               }}
               disabled={!isConnected}
-              aria-label={isListening ? "Relâcher pour envoyer" : "Maintenir pour parler"}
+              aria-label={isListening ? "En cours d'écoute, relâcher pour envoyer" : "Maintenir pour parler à Eva"}
               aria-pressed={isListening}
+              aria-describedby="mic-instructions"
               className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 select-none touch-manipulation"
               style={{
                 backgroundColor: isListening ? colors.coral : colors.cream,
@@ -1989,11 +2001,18 @@ export default function EvaHerPage() {
           </div>
         </div>
 
+        {/* Hidden instructions for screen readers */}
+        <p id="mic-instructions" className="sr-only">
+          Maintenez le bouton ou appuyez sur Espace pour parler. Relâchez pour envoyer votre message.
+        </p>
+
         {/* Keyboard shortcut hints */}
         <AnimatePresence>
           {showKeyboardHint && !isListening && !isSpeaking && (
             <motion.div
               className="flex flex-wrap items-center justify-center gap-3 mt-2"
+              role="region"
+              aria-label="Raccourcis clavier"
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
