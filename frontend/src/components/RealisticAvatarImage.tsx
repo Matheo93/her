@@ -764,14 +764,44 @@ export function RealisticAvatarImage({
             </g>
           )}
 
-          {/* Nose */}
-          <path
-            d="M100 105 L100 135 Q98 142 92 145 Q100 148 108 145 Q102 142 100 135"
-            fill="none"
-            stroke="#D4A090"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
+          {/* Nose with detailed shading */}
+          <g>
+            {/* Nose bridge highlight */}
+            <path
+              d="M100 100 L100 130"
+              fill="none"
+              stroke="#F5D0C5"
+              strokeWidth="2"
+              strokeLinecap="round"
+              opacity="0.4"
+            />
+            {/* Main nose contour */}
+            <path
+              d="M100 105 L100 135 Q98 142 92 145 Q100 148 108 145 Q102 142 100 135"
+              fill="none"
+              stroke="#D4A090"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+            {/* Nostril shadows */}
+            <ellipse cx="94" cy="144" rx="3" ry="2" fill="#C89B8B" opacity="0.35" />
+            <ellipse cx="106" cy="144" rx="3" ry="2" fill="#C89B8B" opacity="0.35" />
+            {/* Nose side shadows */}
+            <path
+              d="M96 125 Q93 135 92 143"
+              fill="none"
+              stroke="#D4A090"
+              strokeWidth="0.8"
+              opacity="0.4"
+            />
+            <path
+              d="M104 125 Q107 135 108 143"
+              fill="none"
+              stroke="#D4A090"
+              strokeWidth="0.8"
+              opacity="0.4"
+            />
+          </g>
 
           {/* Nose wrinkle lines - for intense emotions */}
           {noseWrinkle > 0.05 && (
