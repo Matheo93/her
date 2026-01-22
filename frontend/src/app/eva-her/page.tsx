@@ -35,7 +35,7 @@ interface BioData {
 function AvatarLoadingSkeleton() {
   return (
     <div
-      className="w-full h-full rounded-full flex flex-col items-center justify-center gap-3"
+      className="w-full h-full rounded-full flex flex-col items-center justify-center gap-3 avatar-skeleton-container"
       style={{ backgroundColor: HER_COLORS.cream }}
       role="status"
       aria-label="Chargement de l'avatar"
@@ -88,6 +88,13 @@ function AvatarLoadingSkeleton() {
           0%, 100% { opacity: 0.4; }
           50% { opacity: 0.8; }
         }
+        @keyframes breathe {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.02); }
+        }
+        .avatar-skeleton-container {
+          animation: breathe 4s ease-in-out infinite;
+        }
       `}</style>
     </div>
   );
@@ -104,6 +111,7 @@ const RealisticAvatarImage = dynamic(
 
 export default function EvaHerPage() {
   // State - minimal, essential only
+  const [isPageReady, setIsPageReady] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -212,6 +220,12 @@ export default function EvaHerPage() {
     presence: persistentMemory.restoredWarmth || 0.8,
   });
   const [showWelcome, setShowWelcome] = useState(!persistentMemory.isReturningUser);
+
+  // Page ready after brief delay for smooth fade-in
+  useEffect(() => {
+    const timer = setTimeout(() => setIsPageReady(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Show keyboard hint to new users after 5 seconds of inactivity
   useEffect(() => {
@@ -890,9 +904,12 @@ export default function EvaHerPage() {
   }, [isConnected, isListening, startListening, stopListening]);
 
   return (
-    <div
-      className="fixed inset-0 overflow-hidden flex flex-col items-center justify-center transition-colors duration-500"
+    <motion.div
+      className="fixed inset-0 overflow-hidden flex flex-col items-center justify-center"
       style={{ backgroundColor: colors.warmWhite }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: isPageReady ? 1 : 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
       role="application"
       aria-label="EVA - Assistant vocal"
     >
@@ -1775,7 +1792,7 @@ export default function EvaHerPage() {
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
