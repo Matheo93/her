@@ -659,6 +659,16 @@ export function RealisticAvatarImage({
               <circle cx="35" cy="35" r="0.5" fill="#C89B8B" opacity="0.3" />
             </pattern>
 
+            {/* Subtle pore texture pattern - very fine for realism */}
+            <pattern id="porePattern" x="0" y="0" width="12" height="12" patternUnits="userSpaceOnUse">
+              <circle cx="2" cy="3" r="0.15" fill="#D4A090" opacity="0.15" />
+              <circle cx="7" cy="2" r="0.12" fill="#D4A090" opacity="0.12" />
+              <circle cx="10" cy="6" r="0.15" fill="#D4A090" opacity="0.15" />
+              <circle cx="4" cy="8" r="0.12" fill="#D4A090" opacity="0.12" />
+              <circle cx="9" cy="10" r="0.15" fill="#D4A090" opacity="0.15" />
+              <circle cx="1" cy="11" r="0.12" fill="#D4A090" opacity="0.12" />
+            </pattern>
+
             {/* Eye shine */}
             <radialGradient id="eyeShine" cx="30%" cy="30%" r="50%">
               <stop offset="0%" stopColor="white" stopOpacity="0.9" />
@@ -835,6 +845,13 @@ export function RealisticAvatarImage({
             <circle cx="148" cy="125" r="0.8" fill="#C89B8B" />
             <circle cx="138" cy="133" r="0.6" fill="#C89B8B" />
             <circle cx="145" cy="135" r="0.5" fill="#C89B8B" />
+          </g>
+
+          {/* Subtle skin pore texture overlay - cheeks and nose area */}
+          <g opacity="0.3">
+            <ellipse cx="60" cy="130" rx="18" ry="15" fill="url(#porePattern)" />
+            <ellipse cx="140" cy="130" rx="18" ry="15" fill="url(#porePattern)" />
+            <ellipse cx="100" cy="135" rx="12" ry="10" fill="url(#porePattern)" />
           </g>
 
           {/* Nasolabial folds (smile lines) - appear with smile and cheek rise */}
