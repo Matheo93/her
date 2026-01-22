@@ -2395,6 +2395,21 @@ export default function EvaHerPage() {
                         : "Eva se prépare"
                       }
                     </span>
+                    {/* Progress bar for reconnect attempts */}
+                    {reconnectAttempt > 0 && (
+                      <div
+                        className="w-20 h-1 rounded-full mt-1 overflow-hidden"
+                        style={{ backgroundColor: `${colors.softShadow}30` }}
+                      >
+                        <motion.div
+                          className="h-full rounded-full"
+                          style={{ backgroundColor: colors.coral }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(reconnectAttempt / 5) * 100}%` }}
+                          transition={{ duration: 0.3 }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               )}
