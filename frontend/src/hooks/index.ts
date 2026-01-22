@@ -322,3 +322,32 @@ export {
   type TouchCallbacks,
   type TouchConfig,
 } from "./useTouchAvatarInteraction";
+
+// Mobile Audio Optimizer (Sprint 440)
+export {
+  useMobileAudioOptimizer,
+  useMobileAudioQuality,
+  useMobileAudioBufferConfig,
+  useMobileAudioProcessingConfig,
+  useOptimizedAudioConstraints,
+  type AudioQuality,
+  type ConnectionQuality,
+  type AudioBufferConfig,
+  type AudioProcessingConfig,
+  type AudioLatencyMetrics,
+  type AudioOptimizerControls,
+  type MobileAudioOptimizerResult,
+} from "./useMobileAudioOptimizer";
+
+// Connection-Aware Streaming (Sprint 440)
+export {
+  useConnectionAwareStreaming,
+  useWebSocketConnectionState,
+  useWebSocketQualityScore,
+  type ConnectionState,
+  type StreamingQuality,
+  type ConnectionMetrics,
+  type StreamingConfig,
+  type StreamingControls,
+  type ConnectionAwareStreamingResult,
+} from "./useConnectionAwareStreaming";
