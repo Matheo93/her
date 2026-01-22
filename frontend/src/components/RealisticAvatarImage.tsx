@@ -209,8 +209,17 @@ export function RealisticAvatarImage({
       setTransitioningFrom(prevEmotionRef.current);
       setEmotionIntensity(0);
 
-      // Animate intensity from 0 to 1 over transition period
-      const transitionDuration = 400; // ms
+      // Transition duration varies by emotion intensity change
+      // Bigger emotional shifts = longer transition for naturalness
+      const emotionIntensityMap: Record<string, number> = {
+        joy: 1.2, excitement: 1.3, anger: 1.1, fear: 0.9,
+        sadness: 0.8, tenderness: 1.0, surprise: 1.2,
+        neutral: 0.5, curiosity: 0.9, playful: 1.1,
+      };
+      const fromIntensity = emotionIntensityMap[prevEmotionRef.current || "neutral"] || 1;
+      const toIntensity = emotionIntensityMap[emotion] || 1;
+      const intensityDiff = Math.abs(toIntensity - fromIntensity);
+      const transitionDuration = 300 + intensityDiff * 200; // 300-500ms based on difference
       const startTime = Date.now();
       let animationId: number;
 
