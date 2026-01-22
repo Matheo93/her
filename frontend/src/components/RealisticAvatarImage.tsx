@@ -1600,6 +1600,18 @@ export function RealisticAvatarImage({
                     transition={{ duration: 0.04 }}
                   />
 
+                  {/* Vermilion border - subtle lip outline */}
+                  <motion.path
+                    d={`M${leftX + 1} ${upperY + leftSmileAdj}
+                        Q${leftX + 10} ${upperY - 4 - upperRaise} 100 ${upperY - 6 - upperRaise + roundMod * 2}
+                        Q${rightX - 10} ${upperY - 4 - upperRaise} ${rightX - 1} ${upperY + rightSmileAdj}`}
+                    fill="none"
+                    stroke="#B85858"
+                    strokeWidth="0.4"
+                    opacity="0.4"
+                    transition={{ duration: 0.04 }}
+                  />
+
                   {/* Lower lip - more rounded for O sounds, with asymmetry */}
                   <motion.path
                     d={`M${leftX + 2} ${lowerY - 2 + leftSmileAdj * 0.5}
