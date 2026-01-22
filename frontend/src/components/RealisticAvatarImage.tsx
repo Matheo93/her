@@ -1310,6 +1310,23 @@ export function RealisticAvatarImage({
             transition={{ duration: 0.05 }}
           />
 
+          {/* Neck shadow - gives depth under chin */}
+          <ellipse
+            cx="100"
+            cy="195"
+            rx="35"
+            ry="12"
+            fill="#C89B8B"
+            opacity="0.15"
+          />
+          <path
+            d="M65 192 Q100 198 135 192"
+            fill="none"
+            stroke="#C89B8B"
+            strokeWidth="1"
+            opacity="0.2"
+          />
+
           {/* Hair front wisps */}
           <path
             d="M45 75 Q60 50 75 60 Q65 45 55 50"
