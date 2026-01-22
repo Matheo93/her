@@ -1900,7 +1900,7 @@ export default function EvaHerPage() {
               aria-label={isListening ? "En cours d'écoute, relâcher pour envoyer" : "Maintenir pour parler à Eva"}
               aria-pressed={isListening}
               aria-describedby="mic-instructions"
-              className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 select-none touch-manipulation"
+              className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent select-none touch-manipulation"
               style={{
                 backgroundColor: isListening ? colors.coral : colors.cream,
                 boxShadow: isListening
