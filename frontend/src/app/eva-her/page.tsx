@@ -1662,19 +1662,22 @@ export default function EvaHerPage() {
           )}
         </AnimatePresence>
 
-        {/* Eva's words - subtle, appearing below avatar with typewriter effect */}
+        {/* Eva's words - elegant, appearing below avatar with smooth entrance */}
         <AnimatePresence mode="wait">
           {currentText && (
             <motion.div
-              className="mt-8 max-w-md text-center px-4"
-              initial={{ opacity: 0, y: 10 }}
+              className="mt-8 max-w-lg text-center px-6"
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
             >
               <motion.p
-                className="text-lg leading-relaxed"
-                style={{ color: colors.earth }}
+                className="text-lg sm:text-xl leading-relaxed tracking-wide font-light"
+                style={{
+                  color: colors.earth,
+                  textShadow: `0 1px 2px ${colors.softShadow}20`,
+                }}
                 initial={{ opacity: 0.7 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.2 }}
@@ -1683,10 +1686,10 @@ export default function EvaHerPage() {
                 {/* Typing cursor when still receiving tokens */}
                 {isThinking && (
                   <motion.span
-                    className="inline-block w-0.5 h-5 ml-0.5 align-middle"
+                    className="inline-block w-[2px] h-5 ml-1 align-middle rounded-full"
                     style={{ backgroundColor: colors.coral }}
-                    animate={{ opacity: [1, 0] }}
-                    transition={{ duration: 0.5, repeat: Infinity }}
+                    animate={{ opacity: [1, 0.3] }}
+                    transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut" }}
                   />
                 )}
               </motion.p>
