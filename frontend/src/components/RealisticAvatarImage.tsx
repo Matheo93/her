@@ -142,6 +142,9 @@ export function RealisticAvatarImage({
   const [eyeSquint, setEyeSquint] = useState(0); // 0-1 for genuine smile (Duchenne)
   const [noseWrinkle, setNoseWrinkle] = useState(0); // 0-1 for intense emotions
   const [cheekRise, setCheekRise] = useState(0); // 0-1 for smile cheek lift
+  // Idle animation states for lifelike presence
+  const [idleLipPart, setIdleLipPart] = useState(0); // 0-1 subtle lip parting
+  const [deepBreath, setDeepBreath] = useState(false); // Occasional deeper breath
   const prevEmotionRef = useRef(emotion);
 
   // Smoothed mouth shape for natural lip sync transitions
@@ -432,15 +435,47 @@ export function RealisticAvatarImage({
     return () => clearInterval(interval);
   }, [smoothEmotion]);
 
+  // Idle animations for lifelike presence when not speaking/listening
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+    if (isSpeaking || isListening) {
+      setIdleLipPart(0);
+      return;
+    }
+
+    // Subtle lip parting animation (like about to speak)
+    const lipInterval = setInterval(() => {
+      // 15% chance to briefly part lips
+      if (Math.random() < 0.15) {
+        setIdleLipPart(0.1 + Math.random() * 0.1);
+        setTimeout(() => setIdleLipPart(0), 400 + Math.random() * 300);
+      }
+    }, 5000 + Math.random() * 5000);
+
+    // Occasional deep breath (every 20-40 seconds)
+    const breathInterval = setInterval(() => {
+      setDeepBreath(true);
+      setTimeout(() => setDeepBreath(false), 2000);
+    }, 20000 + Math.random() * 20000);
+
+    return () => {
+      clearInterval(lipInterval);
+      clearInterval(breathInterval);
+    };
+  }, [prefersReducedMotion, isSpeaking, isListening]);
+
   // Breathing values - memoized with state-dependent amplitude
   const breathAmplitude = useMemo(() => {
-    if (isSpeaking) return 0.012; // More visible when speaking
-    if (isListening) return 0.006; // Subtle when listening
+    // Deep breath increases amplitude significantly
+    const deepBreathMultiplier = deepBreath ? 1.8 : 1;
+
+    if (isSpeaking) return 0.012 * deepBreathMultiplier;
+    if (isListening) return 0.006 * deepBreathMultiplier;
     // Idle: natural variation based on emotion
-    if (smoothEmotion === "excitement" || smoothEmotion === "joy") return 0.01;
-    if (smoothEmotion === "sadness") return 0.005;
-    return 0.008; // Default
-  }, [isSpeaking, isListening, smoothEmotion]);
+    if (smoothEmotion === "excitement" || smoothEmotion === "joy") return 0.01 * deepBreathMultiplier;
+    if (smoothEmotion === "sadness") return 0.005 * deepBreathMultiplier;
+    return 0.008 * deepBreathMultiplier; // Default
+  }, [isSpeaking, isListening, smoothEmotion, deepBreath]);
 
   const breathScale = useMemo(() => 1 + Math.sin(breathPhase) * breathAmplitude, [breathPhase, breathAmplitude]);
   const breathY = useMemo(() => Math.sin(breathPhase) * (breathAmplitude * 250), [breathPhase, breathAmplitude]);
@@ -926,7 +961,8 @@ export function RealisticAvatarImage({
               const widthMod = 1 + mouthShape.width * 0.3; // Width modifier
               const roundMod = mouthShape.roundness; // Roundness for O sounds
               const upperRaise = mouthShape.upperLipRaise * 3; // Upper lip raise for F/V
-              const jawDrop = mouthShape.jawDrop * 12; // Jaw drop amount
+              // Combine speaking jaw drop with idle lip parting
+              const jawDrop = mouthShape.jawDrop * 12 + (isSpeaking ? 0 : idleLipPart * 3);
 
               // Asymmetric smile - one corner slightly higher
               const smileAsym = asymmetry.smile * 2;
