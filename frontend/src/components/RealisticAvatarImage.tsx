@@ -195,22 +195,88 @@ export function RealisticAvatarImage({
   // Legacy openness for compatibility
   const mouthOpenness = mouthShape.openness;
 
-  // Smooth emotion transitions
+  // Emotion intensity for smooth transitions (0-1)
+  const [emotionIntensity, setEmotionIntensity] = useState(1);
+  const [transitioningFrom, setTransitioningFrom] = useState<string | null>(null);
+
+  // Smooth emotion transitions with intensity interpolation
   useEffect(() => {
     if (emotion !== prevEmotionRef.current) {
-      // Delayed transition for natural feel
+      // Start transition: remember old emotion, begin fading
+      setTransitioningFrom(prevEmotionRef.current);
+      setEmotionIntensity(0);
+
+      // Animate intensity from 0 to 1 over transition period
+      const transitionDuration = 400; // ms
+      const startTime = Date.now();
+      let animationId: number;
+
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / transitionDuration, 1);
+        // Ease-out curve for natural feel
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setEmotionIntensity(eased);
+
+        if (progress < 1) {
+          animationId = requestAnimationFrame(animate);
+        } else {
+          // Transition complete
+          setSmoothEmotion(emotion);
+          prevEmotionRef.current = emotion;
+          setTransitioningFrom(null);
+        }
+      };
+
+      // Brief delay before starting transition
       const timer = setTimeout(() => {
         setSmoothEmotion(emotion);
-        prevEmotionRef.current = emotion;
-      }, 100);
-      return () => clearTimeout(timer);
+        animationId = requestAnimationFrame(animate);
+      }, 50);
+
+      return () => {
+        clearTimeout(timer);
+        if (animationId) cancelAnimationFrame(animationId);
+      };
     }
   }, [emotion]);
 
-  // Emotion to visual presence - uses smoothed emotion
+  // Emotion to visual presence - interpolates between emotions during transition
   const emotionPresence = useMemo(() => {
-    return EMOTION_PRESENCE[smoothEmotion] || EMOTION_PRESENCE.neutral;
-  }, [smoothEmotion]);
+    const targetPresence = EMOTION_PRESENCE[smoothEmotion] || EMOTION_PRESENCE.neutral;
+
+    // If transitioning, blend between old and new presence
+    if (transitioningFrom && emotionIntensity < 1) {
+      const fromPresence = EMOTION_PRESENCE[transitioningFrom] || EMOTION_PRESENCE.neutral;
+
+      // Parse RGBA values for interpolation
+      const parseRGBA = (rgba: string) => {
+        const match = rgba.match(/[\d.]+/g);
+        return match ? match.map(Number) : [0, 0, 0, 0];
+      };
+
+      const fromGlow = parseRGBA(fromPresence.glow);
+      const toGlow = parseRGBA(targetPresence.glow);
+
+      // Interpolate glow color
+      const blendedGlow = `rgba(${
+        Math.round(fromGlow[0] + (toGlow[0] - fromGlow[0]) * emotionIntensity)
+      }, ${
+        Math.round(fromGlow[1] + (toGlow[1] - fromGlow[1]) * emotionIntensity)
+      }, ${
+        Math.round(fromGlow[2] + (toGlow[2] - fromGlow[2]) * emotionIntensity)
+      }, ${
+        (fromGlow[3] + (toGlow[3] - fromGlow[3]) * emotionIntensity).toFixed(2)
+      })`;
+
+      // Interpolate warmth
+      const blendedWarmth = fromPresence.warmth + (targetPresence.warmth - fromPresence.warmth) * emotionIntensity;
+
+      return { glow: blendedGlow, warmth: blendedWarmth };
+    }
+
+    return targetPresence;
+  }, [smoothEmotion, transitioningFrom, emotionIntensity]);
 
   // Breathing animation - respects reduced motion, varies with state
   useEffect(() => {
