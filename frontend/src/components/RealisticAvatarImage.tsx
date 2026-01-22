@@ -1950,6 +1950,10 @@ export function RealisticAvatarImage({
             />
             {/* Ear highlight */}
             <ellipse cx="34" cy="112" rx="3" ry="4" fill="#F5D0C5" opacity="0.4" />
+            {/* Ear canal shadow - concha */}
+            <ellipse cx="35" cy="115" rx="2.5" ry="3" fill="#C89B8B" opacity="0.5" />
+            {/* Tragus detail */}
+            <ellipse cx="37" cy="115" rx="1.5" ry="2" fill="#E8C5B5" opacity="0.6" />
             {/* Ear lobe detail */}
             <ellipse cx="32" cy="124" rx="4" ry="3" fill="#F0C5B5" opacity="0.6" />
             <path d="M29 123 Q32 126 35 123" fill="none" stroke="#D4A090" strokeWidth="0.3" opacity="0.4" />
@@ -1972,6 +1976,10 @@ export function RealisticAvatarImage({
             />
             {/* Ear highlight */}
             <ellipse cx="166" cy="112" rx="3" ry="4" fill="#F5D0C5" opacity="0.4" />
+            {/* Ear canal shadow - concha */}
+            <ellipse cx="165" cy="115" rx="2.5" ry="3" fill="#C89B8B" opacity="0.5" />
+            {/* Tragus detail */}
+            <ellipse cx="163" cy="115" rx="1.5" ry="2" fill="#E8C5B5" opacity="0.6" />
             {/* Ear lobe detail */}
             <ellipse cx="168" cy="124" rx="4" ry="3" fill="#F0C5B5" opacity="0.6" />
             <path d="M165 123 Q168 126 171 123" fill="none" stroke="#D4A090" strokeWidth="0.3" opacity="0.4" />
