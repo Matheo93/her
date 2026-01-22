@@ -62,6 +62,33 @@ function MemoryIndicatorComponent({ memory, colors, isVisible = true }: MemoryIn
     return "Tu es revenu";
   }, [memory]);
 
+  // Relationship stats for tooltip/display
+  const relationshipInfo = useMemo(() => {
+    const { stats, sessionNumber } = memory;
+    const days = stats.relationshipAgeInDays;
+    const minutes = stats.totalTimeTogetherMinutes;
+
+    if (days === 0 && minutes < 5) return null;
+
+    let timeStr = "";
+    if (minutes >= 60) {
+      const hours = Math.floor(minutes / 60);
+      timeStr = `${hours}h`;
+    } else if (minutes > 0) {
+      timeStr = `${minutes}min`;
+    }
+
+    let daysStr = "";
+    if (days > 30) {
+      const months = Math.floor(days / 30);
+      daysStr = `${months} mois`;
+    } else if (days > 0) {
+      daysStr = `${days}j`;
+    }
+
+    return { timeStr, daysStr, sessions: sessionNumber };
+  }, [memory]);
+
   if (!isVisible || !memory.isReturningUser) return null;
 
   return (
@@ -101,6 +128,22 @@ function MemoryIndicatorComponent({ memory, colors, isVisible = true }: MemoryIn
           >
             {memoryPhrase}
           </motion.span>
+        )}
+
+        {/* Relationship stats - subtle display */}
+        {relationshipInfo && (relationshipInfo.timeStr || relationshipInfo.daysStr) && (
+          <motion.div
+            className="flex items-center gap-1.5 text-xs font-light"
+            style={{ color: colors.earth, opacity: 0.4 }}
+            initial={prefersReducedMotion ? { opacity: 0.4 } : { opacity: 0 }}
+            animate={{ opacity: 0.4 }}
+            transition={prefersReducedMotion ? {} : { delay: 2.5 }}
+          >
+            <span>•</span>
+            {relationshipInfo.daysStr && <span>{relationshipInfo.daysStr}</span>}
+            {relationshipInfo.timeStr && relationshipInfo.daysStr && <span>/</span>}
+            {relationshipInfo.timeStr && <span>{relationshipInfo.timeStr}</span>}
+          </motion.div>
         )}
       </motion.div>
     </AnimatePresence>
