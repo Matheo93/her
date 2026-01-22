@@ -1244,6 +1244,42 @@ export function RealisticAvatarImage({
             <path d="M136 119 L137 121" fill="none" stroke="#5C4033" strokeWidth="0.4" strokeLinecap="round" />
           </g>
 
+          {/* Forehead expression lines - appear when eyebrows raised */}
+          {eyebrowY < -1 && (
+            <motion.g
+              initial={{ opacity: 0 }}
+              animate={{ opacity: Math.min(Math.abs(eyebrowY) * 0.15, 0.35) }}
+              transition={{ duration: 0.2 }}
+            >
+              {/* Horizontal forehead lines */}
+              <path
+                d="M70 72 Q100 70 130 72"
+                fill="none"
+                stroke="#C89B8B"
+                strokeWidth="0.5"
+                strokeLinecap="round"
+              />
+              <path
+                d="M75 78 Q100 76 125 78"
+                fill="none"
+                stroke="#C89B8B"
+                strokeWidth="0.4"
+                strokeLinecap="round"
+              />
+              {/* Third line for strong expressions */}
+              {eyebrowY < -3 && (
+                <path
+                  d="M80 84 Q100 82 120 84"
+                  fill="none"
+                  stroke="#C89B8B"
+                  strokeWidth="0.3"
+                  strokeLinecap="round"
+                  opacity="0.7"
+                />
+              )}
+            </motion.g>
+          )}
+
           {/* Left eyebrow - multi-stroke for natural texture */}
           <g
             style={{
