@@ -157,3 +157,18 @@ export {
   useCopyButton,
   useShare,
 } from "./useClipboard";
+
+// Device Capabilities
+export {
+  useDeviceCapabilities,
+  useRenderingSettings,
+  usePerformanceTier,
+  useShouldReduceEffects,
+} from "./useDeviceCapabilities";
+
+// Frame Rate / Performance
+export {
+  useFrameRate,
+  useAdaptiveQuality,
+  useFrameThrottle,
+} from "./useFrameRate";
