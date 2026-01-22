@@ -41,23 +41,49 @@ interface MouthShape {
   jawDrop: number;       // 0-1: jaw drops down
 }
 
-// Viseme to mouth shape mapping
+// Viseme to mouth shape mapping - includes French-specific sounds
 const VISEME_SHAPES: Record<string, MouthShape> = {
+  // Silence
   sil: { openness: 0, width: 0, roundness: 0, upperLipRaise: 0, jawDrop: 0 },
-  PP: { openness: 0, width: 0.1, roundness: 0, upperLipRaise: 0, jawDrop: 0 },  // P, B, M - lips together
-  FF: { openness: 0.15, width: 0.2, roundness: 0, upperLipRaise: 0.4, jawDrop: 0.1 },  // F, V - teeth on lip
-  TH: { openness: 0.2, width: 0.3, roundness: 0, upperLipRaise: 0, jawDrop: 0.15 },  // TH - tongue through teeth
-  DD: { openness: 0.3, width: 0.2, roundness: 0, upperLipRaise: 0, jawDrop: 0.25 },  // D, T, N - tongue to roof
-  kk: { openness: 0.35, width: 0.1, roundness: 0, upperLipRaise: 0, jawDrop: 0.3 },  // K, G - back of tongue
-  CH: { openness: 0.25, width: 0.4, roundness: 0.2, upperLipRaise: 0, jawDrop: 0.2 },  // CH, J, SH
-  SS: { openness: 0.15, width: 0.5, roundness: 0, upperLipRaise: 0, jawDrop: 0.1 },  // S, Z - teeth close
-  RR: { openness: 0.3, width: 0.2, roundness: 0.3, upperLipRaise: 0, jawDrop: 0.2 },  // R - slight roundness
-  AA: { openness: 0.8, width: 0.3, roundness: 0, upperLipRaise: 0, jawDrop: 0.7 },  // A - wide open
-  EE: { openness: 0.4, width: 0.6, roundness: 0, upperLipRaise: 0, jawDrop: 0.3 },  // E, I - wide smile
-  OO: { openness: 0.5, width: -0.3, roundness: 0.8, upperLipRaise: 0, jawDrop: 0.4 },  // O, U - rounded
+
+  // Bilabials: P, B, M - lips together
+  PP: { openness: 0, width: 0.1, roundness: 0, upperLipRaise: 0, jawDrop: 0 },
+  MM: { openness: 0.02, width: 0.05, roundness: 0, upperLipRaise: 0, jawDrop: 0 },  // M slightly more relaxed
+
+  // Labiodentals: F, V - teeth on lip
+  FF: { openness: 0.15, width: 0.2, roundness: 0, upperLipRaise: 0.4, jawDrop: 0.1 },
+
+  // Dentals: TH, T, D, N, L - tongue touches teeth/roof
+  TH: { openness: 0.2, width: 0.3, roundness: 0, upperLipRaise: 0, jawDrop: 0.15 },
+  DD: { openness: 0.3, width: 0.2, roundness: 0, upperLipRaise: 0, jawDrop: 0.25 },
+  NN: { openness: 0.25, width: 0.15, roundness: 0, upperLipRaise: 0, jawDrop: 0.2 },  // N - more closed
+  LL: { openness: 0.35, width: 0.25, roundness: 0, upperLipRaise: 0, jawDrop: 0.25 }, // L - tongue up
+
+  // Velars: K, G - back of tongue
+  kk: { openness: 0.35, width: 0.1, roundness: 0, upperLipRaise: 0, jawDrop: 0.3 },
+
+  // Affricates: CH, J, SH
+  CH: { openness: 0.25, width: 0.4, roundness: 0.2, upperLipRaise: 0, jawDrop: 0.2 },
+
+  // Sibilants: S, Z - teeth close
+  SS: { openness: 0.15, width: 0.5, roundness: 0, upperLipRaise: 0, jawDrop: 0.1 },
+
+  // R sounds - French R is uvular, slight roundness
+  RR: { openness: 0.3, width: 0.2, roundness: 0.3, upperLipRaise: 0, jawDrop: 0.2 },
+
+  // Vowels
+  AA: { openness: 0.8, width: 0.3, roundness: 0, upperLipRaise: 0, jawDrop: 0.7 },   // A - wide open
+  EE: { openness: 0.4, width: 0.6, roundness: 0, upperLipRaise: 0, jawDrop: 0.3 },   // E, I - wide smile
+  II: { openness: 0.35, width: 0.65, roundness: 0, upperLipRaise: 0, jawDrop: 0.25 }, // I - tighter smile
+  OO: { openness: 0.5, width: -0.3, roundness: 0.8, upperLipRaise: 0, jawDrop: 0.4 }, // O, U - rounded
+  UU: { openness: 0.4, width: -0.4, roundness: 0.9, upperLipRaise: 0, jawDrop: 0.3 }, // U - tight rounded
+
+  // French-specific: nasals (approximations)
+  AN: { openness: 0.6, width: 0.2, roundness: 0.1, upperLipRaise: 0, jawDrop: 0.5 },  // "an" sound
+  ON: { openness: 0.45, width: -0.2, roundness: 0.6, upperLipRaise: 0, jawDrop: 0.4 }, // "on" sound
 };
 
-// Calculate blended mouth shape from viseme weights
+// Calculate blended mouth shape from viseme weights with easing
 function getMouthShape(weights: VisemeWeights): MouthShape {
   const result: MouthShape = { openness: 0, width: 0, roundness: 0, upperLipRaise: 0, jawDrop: 0 };
   let totalWeight = 0;
@@ -65,12 +91,14 @@ function getMouthShape(weights: VisemeWeights): MouthShape {
   for (const [viseme, weight] of Object.entries(weights)) {
     if (weight && weight > 0 && VISEME_SHAPES[viseme]) {
       const shape = VISEME_SHAPES[viseme];
-      result.openness += shape.openness * weight;
-      result.width += shape.width * weight;
-      result.roundness += shape.roundness * weight;
-      result.upperLipRaise += shape.upperLipRaise * weight;
-      result.jawDrop += shape.jawDrop * weight;
-      totalWeight += weight;
+      // Apply slight easing to weight for more natural blending
+      const easedWeight = Math.pow(weight, 0.8); // Softer response curve
+      result.openness += shape.openness * easedWeight;
+      result.width += shape.width * easedWeight;
+      result.roundness += shape.roundness * easedWeight;
+      result.upperLipRaise += shape.upperLipRaise * easedWeight;
+      result.jawDrop += shape.jawDrop * easedWeight;
+      totalWeight += easedWeight;
     }
   }
 
