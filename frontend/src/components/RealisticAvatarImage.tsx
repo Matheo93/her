@@ -111,8 +111,16 @@ export function RealisticAvatarImage({
   const [smoothEmotion, setSmoothEmotion] = useState(emotion);
   const prevEmotionRef = useRef(emotion);
 
-  // Detailed mouth shape from visemes
-  const mouthShape = useMemo(() => {
+  // Smoothed mouth shape for natural lip sync transitions
+  const [smoothMouthShape, setSmoothMouthShape] = useState<MouthShape>({
+    openness: 0, width: 0, roundness: 0, upperLipRaise: 0, jawDrop: 0
+  });
+  const targetMouthRef = useRef<MouthShape>({
+    openness: 0, width: 0, roundness: 0, upperLipRaise: 0, jawDrop: 0
+  });
+
+  // Calculate target mouth shape from visemes
+  const targetMouthShape = useMemo(() => {
     const shape = getMouthShape(visemeWeights);
     // Blend with audio level for fallback when visemes aren't precise
     if (isSpeaking && shape.openness < audioLevel * 0.5) {
@@ -121,6 +129,35 @@ export function RealisticAvatarImage({
     }
     return isSpeaking ? shape : { openness: 0, width: 0, roundness: 0, upperLipRaise: 0, jawDrop: 0 };
   }, [visemeWeights, isSpeaking, audioLevel]);
+
+  // Smooth interpolation for mouth shape (60fps)
+  useEffect(() => {
+    if (prefersReducedMotion) {
+      setSmoothMouthShape(targetMouthShape);
+      return;
+    }
+
+    targetMouthRef.current = targetMouthShape;
+    let animationId: number;
+    const smoothingFactor = 0.25; // Higher = faster transitions
+
+    const animate = () => {
+      setSmoothMouthShape(prev => ({
+        openness: prev.openness + (targetMouthRef.current.openness - prev.openness) * smoothingFactor,
+        width: prev.width + (targetMouthRef.current.width - prev.width) * smoothingFactor,
+        roundness: prev.roundness + (targetMouthRef.current.roundness - prev.roundness) * smoothingFactor,
+        upperLipRaise: prev.upperLipRaise + (targetMouthRef.current.upperLipRaise - prev.upperLipRaise) * smoothingFactor,
+        jawDrop: prev.jawDrop + (targetMouthRef.current.jawDrop - prev.jawDrop) * smoothingFactor,
+      }));
+      animationId = requestAnimationFrame(animate);
+    };
+
+    animationId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationId);
+  }, [targetMouthShape, prefersReducedMotion]);
+
+  // Use smoothed mouth shape
+  const mouthShape = smoothMouthShape;
 
   // Legacy openness for compatibility
   const mouthOpenness = mouthShape.openness;
