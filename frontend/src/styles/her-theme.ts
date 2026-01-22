@@ -27,29 +27,30 @@ export const HER_COLORS = {
 } as const;
 
 // Dark mode palette - warm evening tones (not cold/tech)
+// Improved contrast for WCAG accessibility
 export const HER_COLORS_DARK = {
   // Primary palette - warm dark
-  coral: "#E8846B",       // Keep coral vibrant
+  coral: "#EF9A83",       // Slightly lighter coral for better contrast
   cream: "#3D3530",       // Dark warm cream
-  warmWhite: "#2A2420",   // Dark warm background
-  earth: "#D4C4B0",       // Light earth for contrast
+  warmWhite: "#252120",   // Slightly darker background for contrast
+  earth: "#E8DDD0",       // Higher contrast earth text
   softShadow: "#4A4035",  // Dark shadow
-  blush: "#E8A090",       // Keep blush
+  blush: "#EFB0A0",       // Slightly lighter blush
 
-  // Functional colors
-  success: "#7A9E7E",
-  error: "#C97B7B",
-  warning: "#D4A574",
+  // Functional colors - improved visibility
+  success: "#8CB98F",     // Brighter green
+  error: "#D98B8B",       // Brighter red
+  warning: "#E4B584",     // Brighter amber
 
-  // Text colors - inverted
-  textPrimary: "#E8DDD0",    // Light cream text
-  textSecondary: "#C4B8A8",  // Softer light
-  textMuted: "#6A5D52",      // Muted dark
+  // Text colors - improved contrast ratios (WCAG AA+)
+  textPrimary: "#F0E6DC",    // Lighter for 7:1 contrast
+  textSecondary: "#D8CCC0",  // Improved secondary contrast
+  textMuted: "#7A6D60",      // Slightly lighter muted
 
   // Background gradients
-  bgGradient: "linear-gradient(135deg, #2A2420 0%, #3D3530 100%)",
-  glowCoral: "rgba(232, 132, 107, 0.25)",
-  glowWarm: "rgba(232, 160, 144, 0.3)",
+  bgGradient: "linear-gradient(135deg, #252120 0%, #3D3530 100%)",
+  glowCoral: "rgba(239, 154, 131, 0.25)",
+  glowWarm: "rgba(239, 176, 160, 0.3)",
 } as const;
 
 // Type for color modes

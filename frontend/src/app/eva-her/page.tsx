@@ -119,6 +119,7 @@ export default function EvaHerPage() {
   const [showKeyboardHint, setShowKeyboardHint] = useState(false);
   const [connectionLatency, setConnectionLatency] = useState<number | null>(null);
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
+  const [audioQueueLength, setAudioQueueLength] = useState(0);
   const [isMuted, setIsMuted] = useState(() => {
     // Load muted preference from localStorage on mount
     if (typeof window !== "undefined") {
@@ -521,6 +522,7 @@ export default function EvaHerPage() {
             if (data.audio_base64) {
               const audio = base64ToArrayBuffer(data.audio_base64);
               audioQueueRef.current.push({ audio, emotion: "neutral" });
+              setAudioQueueLength(audioQueueRef.current.length);
               playNextAudioRef.current();
 
               // Send to viseme service
@@ -542,6 +544,7 @@ export default function EvaHerPage() {
             if (data.audio_base64) {
               const audio = base64ToArrayBuffer(data.audio_base64);
               audioQueueRef.current.push({ audio, emotion: data.emotion || "neutral" });
+              setAudioQueueLength(audioQueueRef.current.length);
               playNextAudioRef.current();
 
               // Send to viseme service for lip-sync
@@ -559,11 +562,13 @@ export default function EvaHerPage() {
             if (data.audio_base64) {
               const audio = base64ToArrayBuffer(data.audio_base64);
               audioQueueRef.current.push({ audio, emotion: "neutral" });
+              setAudioQueueLength(audioQueueRef.current.length);
               playNextAudioRef.current();
             }
             break;
 
           case "speaking_end":
+            setAudioQueueLength(0);
             setIsSpeaking(false);
             setIsThinking(false);
             setCurrentText("");
@@ -575,6 +580,7 @@ export default function EvaHerPage() {
             if (data.audio_base64) {
               const audio = base64ToArrayBuffer(data.audio_base64);
               audioQueueRef.current.push({ audio, emotion: "tenderness" });
+              setAudioQueueLength(audioQueueRef.current.length);
               playNextAudioRef.current();
             }
             break;
@@ -600,6 +606,7 @@ export default function EvaHerPage() {
     setIsSpeaking(true);
 
     const { audio: arrayBuffer, emotion } = audioQueueRef.current.shift()!;
+    setAudioQueueLength(audioQueueRef.current.length);
     setEvaEmotion(emotion);
 
     try {
@@ -667,6 +674,11 @@ export default function EvaHerPage() {
   const startListening = useCallback(async () => {
     if (isListening || !wsRef.current) return;
 
+    // Haptic feedback for mobile (vibration API)
+    if ("vibrate" in navigator) {
+      navigator.vibrate(50); // Short vibration on start
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
@@ -732,6 +744,10 @@ export default function EvaHerPage() {
   }, [isListening]);
 
   const stopListening = useCallback(() => {
+    // Haptic feedback for mobile (double pulse on stop)
+    if ("vibrate" in navigator) {
+      navigator.vibrate([30, 50, 30]); // Short-pause-short pattern
+    }
     if (mediaRecorderRef.current?.state === "recording") {
       mediaRecorderRef.current.stop();
     }
@@ -1614,6 +1630,28 @@ export default function EvaHerPage() {
               >
                 {connectionLatency}ms
               </span>
+              {/* Audio buffer indicator */}
+              {audioQueueLength > 0 && (
+                <motion.div
+                  className="flex items-center gap-1 ml-2"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 0.5, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                >
+                  <motion.div
+                    className="w-1 h-1 rounded-full"
+                    style={{ backgroundColor: colors.coral }}
+                    animate={prefersReducedMotion ? {} : { scale: [1, 1.3, 1] }}
+                    transition={{ duration: 0.5, repeat: Infinity }}
+                  />
+                  <span
+                    className="text-xs font-light tabular-nums"
+                    style={{ color: colors.earth, opacity: 0.4 }}
+                  >
+                    {audioQueueLength}
+                  </span>
+                </motion.div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
