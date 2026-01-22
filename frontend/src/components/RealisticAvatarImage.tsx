@@ -175,16 +175,30 @@ export function RealisticAvatarImage({
 
     targetMouthRef.current = targetMouthShape;
     let animationId: number;
-    const smoothingFactor = 0.25; // Higher = faster transitions
 
     const animate = () => {
-      setSmoothMouthShape(prev => ({
-        openness: prev.openness + (targetMouthRef.current.openness - prev.openness) * smoothingFactor,
-        width: prev.width + (targetMouthRef.current.width - prev.width) * smoothingFactor,
-        roundness: prev.roundness + (targetMouthRef.current.roundness - prev.roundness) * smoothingFactor,
-        upperLipRaise: prev.upperLipRaise + (targetMouthRef.current.upperLipRaise - prev.upperLipRaise) * smoothingFactor,
-        jawDrop: prev.jawDrop + (targetMouthRef.current.jawDrop - prev.jawDrop) * smoothingFactor,
-      }));
+      setSmoothMouthShape(prev => {
+        // Adaptive smoothing: faster for big changes, slower for small refinements
+        const getAdaptiveFactor = (delta: number) => {
+          const absDelta = Math.abs(delta);
+          // Big changes (>0.3) use fast factor (0.35), small changes use slow factor (0.15)
+          return absDelta > 0.3 ? 0.35 : absDelta > 0.1 ? 0.25 : 0.18;
+        };
+
+        const deltaOpen = targetMouthRef.current.openness - prev.openness;
+        const deltaWidth = targetMouthRef.current.width - prev.width;
+        const deltaRound = targetMouthRef.current.roundness - prev.roundness;
+        const deltaLip = targetMouthRef.current.upperLipRaise - prev.upperLipRaise;
+        const deltaJaw = targetMouthRef.current.jawDrop - prev.jawDrop;
+
+        return {
+          openness: prev.openness + deltaOpen * getAdaptiveFactor(deltaOpen),
+          width: prev.width + deltaWidth * getAdaptiveFactor(deltaWidth),
+          roundness: prev.roundness + deltaRound * getAdaptiveFactor(deltaRound),
+          upperLipRaise: prev.upperLipRaise + deltaLip * getAdaptiveFactor(deltaLip),
+          jawDrop: prev.jawDrop + deltaJaw * getAdaptiveFactor(deltaJaw),
+        };
+      });
       animationId = requestAnimationFrame(animate);
     };
 
