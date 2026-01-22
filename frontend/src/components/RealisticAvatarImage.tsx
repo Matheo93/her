@@ -1213,9 +1213,43 @@ export function RealisticAvatarImage({
             strokeLinecap="round"
           />
 
-          {/* Ear hints */}
-          <ellipse cx="32" cy="115" rx="8" ry="12" fill="url(#skinGradient)" />
-          <ellipse cx="168" cy="115" rx="8" ry="12" fill="url(#skinGradient)" />
+          {/* Left ear with detail */}
+          <g>
+            {/* Ear base */}
+            <ellipse cx="32" cy="115" rx="8" ry="12" fill="url(#skinGradient)" />
+            {/* Inner ear detail */}
+            <path
+              d="M30 108 Q26 115 30 122"
+              fill="none"
+              stroke="#D4A090"
+              strokeWidth="0.8"
+              opacity="0.6"
+            />
+            {/* Ear highlight */}
+            <ellipse cx="34" cy="112" rx="3" ry="4" fill="#F5D0C5" opacity="0.4" />
+            {/* Small stud earring */}
+            <circle cx="32" cy="122" r="1.5" fill={HER_COLORS.coral} opacity="0.7" />
+            <circle cx="32" cy="122" r="0.8" fill="white" opacity="0.4" />
+          </g>
+
+          {/* Right ear with detail */}
+          <g>
+            {/* Ear base */}
+            <ellipse cx="168" cy="115" rx="8" ry="12" fill="url(#skinGradient)" />
+            {/* Inner ear detail */}
+            <path
+              d="M170 108 Q174 115 170 122"
+              fill="none"
+              stroke="#D4A090"
+              strokeWidth="0.8"
+              opacity="0.6"
+            />
+            {/* Ear highlight */}
+            <ellipse cx="166" cy="112" rx="3" ry="4" fill="#F5D0C5" opacity="0.4" />
+            {/* Small stud earring */}
+            <circle cx="168" cy="122" r="1.5" fill={HER_COLORS.coral} opacity="0.7" />
+            <circle cx="168" cy="122" r="0.8" fill="white" opacity="0.4" />
+          </g>
         </svg>
       </motion.div>
 
