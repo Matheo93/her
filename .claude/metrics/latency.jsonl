@@ -10,3 +10,4 @@
 {"ts": "2026-01-22T07:44:12.303185", "metric": "e2e_latency", "value": 240.59628633161387, "tags": {"endpoint": "/chat"}}
 {"ts": "2026-01-22T07:50:14.188757", "metric": "e2e_latency", "value": 224.5663907378912, "tags": {"endpoint": "/chat"}}
 {"ts": "2026-01-22T07:52:03.759307", "metric": "e2e_latency", "value": 221.36884555220604, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-22T08:13:20.057463", "metric": "e2e_latency", "value": 220.0216973821322, "tags": {"endpoint": "/chat"}}
