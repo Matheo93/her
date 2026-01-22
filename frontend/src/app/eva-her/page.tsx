@@ -59,8 +59,11 @@ export default function EvaHerPage() {
   const [visemeWeights, setVisemeWeights] = useState<VisemeWeights>({ sil: 1 });
   const [messageSent, setMessageSent] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [inputMicLevel, setInputMicLevel] = useState(0);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
+  const inputAnalyzerRef = useRef<AnalyserNode | null>(null);
+  const inputAnimationRef = useRef<number | null>(null);
 
   // HER Feature: Persistent Memory - EVA remembers you
   const persistentMemory = usePersistentMemory();
@@ -497,7 +500,7 @@ export default function EvaHerPage() {
     playNextAudioRef.current = playNextAudio;
   }, [playNextAudio]);
 
-  // Voice recording
+  // Voice recording with real-time volume indicator
   const startListening = useCallback(async () => {
     if (isListening || !wsRef.current) return;
 
@@ -506,10 +509,38 @@ export default function EvaHerPage() {
       const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
       const chunks: Blob[] = [];
 
+      // Setup audio analyzer for real-time volume
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyzer = audioContext.createAnalyser();
+      analyzer.fftSize = 32;
+      analyzer.smoothingTimeConstant = 0.5;
+      source.connect(analyzer);
+      inputAnalyzerRef.current = analyzer;
+
+      // Update input mic level animation
+      const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+      const updateInputLevel = () => {
+        if (!inputAnalyzerRef.current) return;
+        analyzer.getByteFrequencyData(dataArray);
+        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length / 255;
+        setInputMicLevel(avg);
+        inputAnimationRef.current = requestAnimationFrame(updateInputLevel);
+      };
+      inputAnimationRef.current = requestAnimationFrame(updateInputLevel);
+
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
 
       mediaRecorder.onstop = async () => {
+        // Clean up analyzer
+        if (inputAnimationRef.current) {
+          cancelAnimationFrame(inputAnimationRef.current);
+        }
+        inputAnalyzerRef.current = null;
+        setInputMicLevel(0);
+        audioContext.close();
+
         const blob = new Blob(chunks, { type: "audio/webm" });
         stream.getTracks().forEach(t => t.stop());
         setIsListening(false);
@@ -587,6 +618,43 @@ export default function EvaHerPage() {
       setInputText("");
     }
   }, [inputText, sendMessage]);
+
+  // Global keyboard shortcut: Space to talk (push-to-talk)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only trigger if not typing in input field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Space key for push-to-talk
+      if (e.code === "Space" && !e.repeat && isConnected && !isListening) {
+        e.preventDefault();
+        startListening();
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      // Only trigger if not typing in input field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Release Space to send
+      if (e.code === "Space" && isListening) {
+        e.preventDefault();
+        stopListening();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [isConnected, isListening, startListening, stopListening]);
 
   return (
     <div
@@ -856,9 +924,60 @@ export default function EvaHerPage() {
           )}
         </AnimatePresence>
 
+        {/* Listening indicator - shows when user is speaking */}
+        <AnimatePresence>
+          {isListening && (
+            <motion.div
+              className="mt-8 flex items-center gap-2"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              {/* Pulsing ear icon */}
+              <motion.div
+                animate={prefersReducedMotion ? {} : { scale: [1, 1.1, 1] }}
+                transition={{ duration: 1, repeat: Infinity }}
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill={colors.coral}
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 1a9 9 0 00-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7a9 9 0 00-9-9z" />
+                </svg>
+              </motion.div>
+              <span
+                className="text-sm font-light"
+                style={{ color: colors.earth, opacity: 0.7 }}
+              >
+                Je t&apos;écoute...
+              </span>
+              {/* Volume bars */}
+              <div className="flex gap-0.5 items-end h-4">
+                {[0, 1, 2].map((i) => (
+                  <motion.div
+                    key={i}
+                    className="w-1 rounded-full"
+                    style={{ backgroundColor: colors.coral }}
+                    animate={prefersReducedMotion ? { height: 8 } : {
+                      height: [4 + i * 2, 8 + i * 4 + inputMicLevel * 8, 4 + i * 2],
+                    }}
+                    transition={{
+                      duration: 0.3,
+                      repeat: Infinity,
+                      delay: i * 0.1,
+                    }}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Thinking indicator - organic, breathing animation */}
         <AnimatePresence>
-          {isThinking && !currentText && (
+          {isThinking && !currentText && !isListening && (
             <motion.div
               className="mt-8 flex items-center gap-3"
               initial={{ opacity: 0, scale: 0.8 }}
@@ -1045,7 +1164,7 @@ export default function EvaHerPage() {
 
               {/* Listening rings */}
               <AnimatePresence>
-                {isListening && (
+                {isListening && !prefersReducedMotion && (
                   <>
                     {[0, 1].map((i) => (
                       <motion.div
@@ -1063,6 +1182,42 @@ export default function EvaHerPage() {
                       />
                     ))}
                   </>
+                )}
+              </AnimatePresence>
+
+              {/* Real-time mic volume indicator */}
+              <AnimatePresence>
+                {isListening && inputMicLevel > 0.05 && (
+                  <motion.div
+                    className="absolute -bottom-1 left-1/2 -translate-x-1/2"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                  >
+                    <div
+                      className="flex gap-0.5 items-end h-3"
+                      role="meter"
+                      aria-label="Niveau du microphone"
+                      aria-valuenow={Math.round(inputMicLevel * 100)}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    >
+                      {[0.2, 0.4, 0.6, 0.8].map((threshold, i) => (
+                        <motion.div
+                          key={i}
+                          className="w-1 rounded-full"
+                          style={{
+                            backgroundColor: inputMicLevel > threshold ? colors.coral : `${colors.coral}40`,
+                            height: `${(i + 1) * 3}px`,
+                          }}
+                          animate={prefersReducedMotion ? {} : {
+                            scaleY: inputMicLevel > threshold ? [1, 1.2, 1] : 1,
+                          }}
+                          transition={{ duration: 0.1 }}
+                        />
+                      ))}
+                    </div>
+                  </motion.div>
                 )}
               </AnimatePresence>
             </motion.button>
