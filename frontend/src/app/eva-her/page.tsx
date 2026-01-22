@@ -354,12 +354,21 @@ export default function EvaHerPage() {
     return persistentMemory.isReturningUser ? "Rebonjour..." : "Je suis là...";
   }, [persistentMemory.isReunion, persistentMemory.reunionType, persistentMemory.isReturningUser]);
 
-  // Memoized latency color
+  // Memoized latency color and quality
   const latencyColor = useMemo(() => {
     if (connectionLatency === null) return "#4ade80";
     if (connectionLatency < 100) return "#4ade80"; // green - excellent
     if (connectionLatency < 300) return "#fbbf24"; // yellow - good
     return "#f87171"; // red - poor
+  }, [connectionLatency]);
+
+  // Connection quality label for accessibility
+  const connectionQuality = useMemo(() => {
+    if (connectionLatency === null) return { label: "Connecté", emoji: "●" };
+    if (connectionLatency < 100) return { label: "Excellent", emoji: "●" };
+    if (connectionLatency < 200) return { label: "Bon", emoji: "●" };
+    if (connectionLatency < 400) return { label: "Moyen", emoji: "●" };
+    return { label: "Faible", emoji: "●" };
   }, [connectionLatency]);
 
   // JARVIS Feature: Bio-data animation
@@ -2084,16 +2093,20 @@ export default function EvaHerPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.5 }}
               exit={{ opacity: 0 }}
+              role="status"
+              aria-label={`Connexion ${connectionQuality.label}, latence ${connectionLatency} millisecondes`}
             >
               <motion.div
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ backgroundColor: latencyColor }}
                 animate={prefersReducedMotion ? {} : { scale: [1, 1.2, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
+                aria-hidden="true"
               />
               <span
                 className="text-xs font-light tabular-nums"
                 style={{ color: colors.earth, opacity: 0.5 }}
+                aria-hidden="true"
               >
                 {connectionLatency}ms
               </span>
