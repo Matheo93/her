@@ -2131,6 +2131,26 @@ export default function EvaHerPage() {
                 />
               )}
 
+              {/* Active listening outer glow - pulsing border */}
+              {isListening && !prefersReducedMotion && (
+                <motion.div
+                  className="absolute -inset-1 rounded-full pointer-events-none"
+                  style={{
+                    border: `2px solid ${colors.coral}`,
+                    boxShadow: `0 0 ${10 + inputMicLevel * 15}px ${colors.coral}60`,
+                  }}
+                  animate={{
+                    opacity: [0.6, 1, 0.6],
+                    scale: [1, 1.02, 1],
+                  }}
+                  transition={{
+                    duration: 0.8,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                />
+              )}
+
               {/* Real-time mic volume indicator - sound wave bars */}
               <AnimatePresence>
                 {isListening && (
