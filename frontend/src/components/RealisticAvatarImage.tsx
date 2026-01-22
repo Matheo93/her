@@ -1593,12 +1593,23 @@ export function RealisticAvatarImage({
               opacity="0.6"
               transition={{ duration: 0.3 }}
             />
-            {/* Hair texture strokes */}
+            {/* Hair texture strokes - enhanced density */}
             <g opacity="0.4">
               <path d="M62 89 L64 86" stroke="#3D2314" strokeWidth="0.5" />
+              <path d="M65 88 L67 85.5" stroke="#3D2314" strokeWidth="0.4" />
               <path d="M68 87 L70 84" stroke="#3D2314" strokeWidth="0.5" />
+              <path d="M71 86.5 L73 84.5" stroke="#3D2314" strokeWidth="0.4" />
               <path d="M74 86 L76 84" stroke="#3D2314" strokeWidth="0.5" />
+              <path d="M77 86.5 L79 84.5" stroke="#3D2314" strokeWidth="0.4" />
               <path d="M80 87 L82 85" stroke="#3D2314" strokeWidth="0.5" />
+              <path d="M83 88 L85 86" stroke="#3D2314" strokeWidth="0.4" />
+            </g>
+            {/* Fine hair detail layer */}
+            <g opacity="0.25">
+              <path d="M60 90 L62 88" stroke="#4A3728" strokeWidth="0.3" />
+              <path d="M66 88.5 L68 86.5" stroke="#4A3728" strokeWidth="0.3" />
+              <path d="M72 87 L74 85.5" stroke="#4A3728" strokeWidth="0.3" />
+              <path d="M78 87 L80 85.5" stroke="#4A3728" strokeWidth="0.3" />
             </g>
           </g>
 
@@ -1628,12 +1639,23 @@ export function RealisticAvatarImage({
               opacity="0.6"
               transition={{ duration: 0.3 }}
             />
-            {/* Hair texture strokes */}
+            {/* Hair texture strokes - enhanced density */}
             <g opacity="0.4">
+              <path d="M115 88 L117 86" stroke="#3D2314" strokeWidth="0.4" />
               <path d="M118 87 L120 85" stroke="#3D2314" strokeWidth="0.5" />
+              <path d="M121 86.5 L123 84.5" stroke="#3D2314" strokeWidth="0.4" />
               <path d="M124 86 L126 84" stroke="#3D2314" strokeWidth="0.5" />
+              <path d="M127 86.5 L129 84.5" stroke="#3D2314" strokeWidth="0.4" />
               <path d="M130 86 L132 84" stroke="#3D2314" strokeWidth="0.5" />
+              <path d="M133 86.5 L135 85" stroke="#3D2314" strokeWidth="0.4" />
               <path d="M136 87 L138 86" stroke="#3D2314" strokeWidth="0.5" />
+            </g>
+            {/* Fine hair detail layer */}
+            <g opacity="0.25">
+              <path d="M120 87 L122 85.5" stroke="#4A3728" strokeWidth="0.3" />
+              <path d="M126 86 L128 84.5" stroke="#4A3728" strokeWidth="0.3" />
+              <path d="M132 86 L134 84.5" stroke="#4A3728" strokeWidth="0.3" />
+              <path d="M138 87.5 L140 86" stroke="#4A3728" strokeWidth="0.3" />
             </g>
           </g>
 
