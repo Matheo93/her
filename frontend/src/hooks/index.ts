@@ -351,3 +351,36 @@ export {
   type StreamingControls,
   type ConnectionAwareStreamingResult,
 } from "./useConnectionAwareStreaming";
+
+// Offline Resilience (Sprint 510)
+export {
+  useOfflineResilience,
+  useIsOffline,
+  useConnectionStability,
+  useOfflineQueue,
+  type ConnectionState as OfflineConnectionState,
+  type MessagePriority,
+  type QueuedMessage,
+  type CachedState,
+  type OfflineMetrics,
+  type OfflineConfig,
+  type OfflineControls,
+  type FlushResult,
+  type UseOfflineResilienceResult,
+} from "./useOfflineResilience";
+
+// Smart Prefetch (Sprint 510)
+export {
+  useSmartPrefetch,
+  useImagePrefetch,
+  useAudioPrefetch,
+  useCriticalPrefetch,
+  type ResourceType,
+  type PrefetchPriority,
+  type PrefetchStatus,
+  type PrefetchResource,
+  type PrefetchMetrics,
+  type PrefetchConfig,
+  type PrefetchControls,
+  type UseSmartPrefetchResult,
+} from "./useSmartPrefetch";
