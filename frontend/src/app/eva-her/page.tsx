@@ -12,6 +12,7 @@ import { useHerStatus } from "@/hooks/useHerStatus";
 import { useBackendMemory } from "@/hooks/useBackendMemory";
 import { useBackchannel, shouldTriggerBackchannel } from "@/hooks/useBackchannel";
 import { useDarkMode } from "@/hooks/useDarkMode";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { MemoryIndicator } from "@/components/MemoryIndicator";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
@@ -56,6 +57,10 @@ export default function EvaHerPage() {
   const [inputText, setInputText] = useState("");
   const [audioLevel, setAudioLevel] = useState(0);
   const [visemeWeights, setVisemeWeights] = useState<VisemeWeights>({ sil: 1 });
+  const [messageSent, setMessageSent] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 5;
 
   // HER Feature: Persistent Memory - EVA remembers you
   const persistentMemory = usePersistentMemory();
@@ -121,6 +126,9 @@ export default function EvaHerPage() {
   // SPRINT 86: Dark mode support
   const darkMode = useDarkMode();
   const colors = darkMode.colors;
+
+  // SPRINT 89: Accessibility - reduced motion support
+  const prefersReducedMotion = useReducedMotion();
 
   // Ref to track last backchannel time for throttling
   const lastBackchannelTimeRef = useRef<number | null>(null);
@@ -284,33 +292,57 @@ export default function EvaHerPage() {
     return () => visemeWsRef.current?.close();
   }, []);
 
-  // Connect to main WebSocket
+  // Connect to main WebSocket with improved error handling
   useEffect(() => {
     const connect = () => {
-      const ws = new WebSocket(`${BACKEND_URL.replace("http", "ws")}/ws/her`);
+      try {
+        const ws = new WebSocket(`${BACKEND_URL.replace("http", "ws")}/ws/her`);
 
-      ws.onopen = () => {
-        setIsConnected(true);
-        ws.send(JSON.stringify({
-          type: "config",
-          user_id: "eva_her_user",
-          voice: "french",
-          // Voice warmth parameters from hook
-          voice_warmth: {
-            rate: voiceWarmth.params.rate,
-            pitch: voiceWarmth.params.pitch,
-            volume: voiceWarmth.params.volume,
-            mode: voiceWarmth.mode,
+        ws.onopen = () => {
+          setIsConnected(true);
+          setConnectionError(null);
+          reconnectAttemptsRef.current = 0;
+          ws.send(JSON.stringify({
+            type: "config",
+            user_id: "eva_her_user",
+            voice: "french",
+            // Voice warmth parameters from hook
+            voice_warmth: {
+              rate: voiceWarmth.params.rate,
+              pitch: voiceWarmth.params.pitch,
+              volume: voiceWarmth.params.volume,
+              mode: voiceWarmth.mode,
+            }
+          }));
+        };
+
+        ws.onerror = () => {
+          setConnectionError("Erreur de connexion");
+        };
+
+        ws.onclose = (event) => {
+          setIsConnected(false);
+
+          // Handle different close codes
+          if (event.code === 1000) {
+            // Normal closure
+            setConnectionError(null);
+          } else if (event.code === 1006) {
+            // Abnormal closure
+            setConnectionError("Connexion interrompue");
           }
-        }));
-      };
 
-      ws.onclose = () => {
-        setIsConnected(false);
-        setTimeout(connect, 3000);
-      };
+          // Reconnect with exponential backoff
+          reconnectAttemptsRef.current++;
+          if (reconnectAttemptsRef.current <= maxReconnectAttempts) {
+            const delay = Math.min(3000 * Math.pow(1.5, reconnectAttemptsRef.current - 1), 15000);
+            setTimeout(connect, delay);
+          } else {
+            setConnectionError("Impossible de se connecter. Rafraîchissez la page.");
+          }
+        };
 
-      ws.onmessage = async (event) => {
+        ws.onmessage = async (event) => {
         const data = JSON.parse(event.data);
 
         switch (data.type) {
@@ -385,9 +417,13 @@ export default function EvaHerPage() {
             }
             break;
         }
-      };
+        };
 
-      wsRef.current = ws;
+        wsRef.current = ws;
+      } catch (err) {
+        console.error("WebSocket connection error:", err);
+        setConnectionError("Erreur de connexion au serveur");
+      }
     };
 
     connect();
@@ -527,7 +563,7 @@ export default function EvaHerPage() {
     }
   }, [evaEmotion, isConnected, isListening, isSpeaking]);
 
-  // Send text message
+  // Send text message with visual feedback
   const sendMessage = (text: string) => {
     if (!text.trim() || !wsRef.current) return;
 
@@ -538,6 +574,10 @@ export default function EvaHerPage() {
       user_id: "eva_her_user"
     }));
     setIsThinking(true);
+
+    // Visual feedback for message sent
+    setMessageSent(true);
+    setTimeout(() => setMessageSent(false), 1500);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -553,16 +593,19 @@ export default function EvaHerPage() {
       className="fixed inset-0 overflow-hidden flex flex-col items-center justify-center transition-colors duration-500"
       style={{ backgroundColor: colors.warmWhite }}
     >
-      {/* Living ambient background */}
+      {/* Living ambient background - respects reduced motion */}
       <motion.div
         className="absolute inset-0 pointer-events-none"
-        animate={{
+        animate={prefersReducedMotion ? {} : {
           background: [
             `radial-gradient(ellipse at 50% 30%, ${colors.cream} 0%, ${colors.warmWhite} 70%)`,
             `radial-gradient(ellipse at 50% 28%, ${colors.cream} 0%, ${colors.warmWhite} 72%)`,
             `radial-gradient(ellipse at 50% 30%, ${colors.cream} 0%, ${colors.warmWhite} 70%)`,
           ],
         }}
+        style={prefersReducedMotion ? {
+          background: `radial-gradient(ellipse at 50% 30%, ${colors.cream} 0%, ${colors.warmWhite} 70%)`,
+        } : {}}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
 
@@ -578,7 +621,7 @@ export default function EvaHerPage() {
             >
               <motion.div
                 className="flex items-center gap-2"
-                animate={{ scale: [1, 1.05, 1] }}
+                animate={prefersReducedMotion ? {} : { scale: [1, 1.05, 1] }}
                 transition={{
                   duration: 60 / bioData.heartRate,
                   repeat: Infinity,
@@ -726,13 +769,14 @@ export default function EvaHerPage() {
 
       {/* Main content - centered, minimal */}
       <div className="relative flex flex-col items-center justify-center flex-1 px-4">
-        {/* Breathing glow around avatar */}
+        {/* Breathing glow around avatar - respects reduced motion */}
         <motion.div
           className="absolute w-72 h-72 md:w-96 md:h-96 rounded-full"
           style={{
             background: `radial-gradient(circle, ${colors.coral}15 0%, transparent 70%)`,
+            opacity: prefersReducedMotion ? 0.5 : undefined,
           }}
-          animate={{
+          animate={prefersReducedMotion ? {} : {
             scale: [1, 1 + bioData.breathPhase * 0.06, 1],
             opacity: [0.4, 0.6, 0.4],
           }}
@@ -806,34 +850,36 @@ export default function EvaHerPage() {
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.3 }}
             >
-              {/* Breathing circle */}
+              {/* Breathing circle - respects reduced motion */}
               <motion.div
                 className="relative"
-                animate={{ scale: [1, 1.1, 1] }}
+                animate={prefersReducedMotion ? {} : { scale: [1, 1.1, 1] }}
                 transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
               >
                 <motion.div
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: colors.coral }}
-                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  animate={prefersReducedMotion ? {} : { opacity: [0.5, 1, 0.5] }}
                   transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                 />
-                <motion.div
-                  className="absolute inset-0 rounded-full"
-                  style={{ backgroundColor: colors.coral }}
-                  animate={{ scale: [1, 1.8], opacity: [0.4, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
-                />
+                {!prefersReducedMotion && (
+                  <motion.div
+                    className="absolute inset-0 rounded-full"
+                    style={{ backgroundColor: colors.coral }}
+                    animate={{ scale: [1, 1.8], opacity: [0.4, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
+                  />
+                )}
               </motion.div>
 
-              {/* Flowing dots */}
+              {/* Flowing dots - respects reduced motion */}
               <div className="flex gap-1">
                 {[0, 1, 2].map((i) => (
                   <motion.div
                     key={i}
                     className="w-1 h-1 rounded-full"
                     style={{ backgroundColor: colors.coral }}
-                    animate={{
+                    animate={prefersReducedMotion ? {} : {
                       opacity: [0.2, 0.7, 0.2],
                       scale: [0.8, 1.2, 0.8],
                     }}
@@ -864,20 +910,59 @@ export default function EvaHerPage() {
       {/* Input area - minimal, at the bottom - mobile optimized */}
       <div className="w-full max-w-lg px-4 sm:px-6 pb-6 sm:pb-8">
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Text input */}
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={handleKeyPress}
-            placeholder="Dis quelque chose..."
-            className="flex-1 px-4 sm:px-5 py-2.5 sm:py-3 rounded-full border-0 outline-none text-sm sm:text-base"
-            style={{
-              backgroundColor: colors.cream,
-              color: colors.earth,
-              boxShadow: `inset 0 2px 4px ${colors.softShadow}20`,
-            }}
-          />
+          {/* Text input - with accessibility */}
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={handleKeyPress}
+              placeholder="Dis quelque chose..."
+              aria-label="Message pour EVA"
+              aria-describedby="eva-status"
+              autoComplete="off"
+              className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-full border-0 outline-none text-sm sm:text-base focus:ring-2 focus:ring-offset-2 transition-shadow"
+              style={{
+                backgroundColor: colors.cream,
+                color: colors.earth,
+                boxShadow: `inset 0 2px 4px ${colors.softShadow}20`,
+                // @ts-expect-error CSS custom property for focus ring
+                "--tw-ring-color": colors.coral,
+              }}
+            />
+            {/* Message sent feedback */}
+            <AnimatePresence>
+              {messageSent && (
+                <motion.div
+                  className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill={colors.coral}
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+                  </svg>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          {/* Screen reader status */}
+          <span id="eva-status" className="sr-only">
+            {isConnected
+              ? isListening
+                ? "EVA vous écoute"
+                : isSpeaking
+                  ? "EVA parle"
+                  : isThinking
+                    ? "EVA réfléchit"
+                    : "EVA est prête"
+              : "Connexion en cours"}
+          </span>
 
           {/* Microphone button - with breathing ambient ring */}
           <div className="relative">
@@ -900,6 +985,8 @@ export default function EvaHerPage() {
               onTouchStart={startListening}
               onTouchEnd={stopListening}
               disabled={!isConnected}
+              aria-label={isListening ? "Relâcher pour envoyer" : "Maintenir pour parler"}
+              aria-pressed={isListening}
               className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center"
               style={{
                 backgroundColor: isListening ? colors.coral : colors.cream,
@@ -965,40 +1052,66 @@ export default function EvaHerPage() {
         <AnimatePresence>
           {!isConnected && (
             <motion.div
-              className="flex items-center justify-center gap-2 mt-3"
+              className="flex flex-col items-center justify-center gap-2 mt-3"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
+              role="status"
+              aria-live="polite"
             >
-              {/* Connecting animation */}
-              <motion.div
-                className="flex gap-1"
-              >
-                {[0, 1, 2].map((i) => (
-                  <motion.div
-                    key={i}
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: colors.coral }}
-                    animate={{
-                      scale: [1, 1.3, 1],
-                      opacity: [0.3, 0.8, 0.3],
-                    }}
-                    transition={{
-                      duration: 1,
-                      repeat: Infinity,
-                      delay: i * 0.15,
-                    }}
-                  />
-                ))}
-              </motion.div>
-              <motion.span
-                className="text-sm font-light"
-                style={{ color: colors.softShadow }}
-                animate={{ opacity: [0.5, 0.8, 0.5] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-              >
-                Connexion...
-              </motion.span>
+              {connectionError ? (
+                // Error state
+                <motion.div
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+                  style={{ backgroundColor: `${colors.coral}20` }}
+                  initial={{ scale: 0.9 }}
+                  animate={{ scale: 1 }}
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill={colors.coral}
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+                  </svg>
+                  <span
+                    className="text-sm font-light"
+                    style={{ color: colors.coral }}
+                  >
+                    {connectionError}
+                  </span>
+                </motion.div>
+              ) : (
+                // Connecting animation
+                <>
+                  <motion.div className="flex gap-1">
+                    {[0, 1, 2].map((i) => (
+                      <motion.div
+                        key={i}
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: colors.coral }}
+                        animate={prefersReducedMotion ? {} : {
+                          scale: [1, 1.3, 1],
+                          opacity: [0.3, 0.8, 0.3],
+                        }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          delay: i * 0.15,
+                        }}
+                      />
+                    ))}
+                  </motion.div>
+                  <motion.span
+                    className="text-sm font-light"
+                    style={{ color: colors.softShadow }}
+                    animate={prefersReducedMotion ? {} : { opacity: [0.5, 0.8, 0.5] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  >
+                    Connexion...
+                  </motion.span>
+                </>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
