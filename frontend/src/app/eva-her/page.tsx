@@ -302,6 +302,24 @@ export default function EvaHerPage() {
   const isMutedRef = useRef(isMuted);
   const analyzerRef = useRef<AnalyserNode | null>(null);
   const bioAnimationRef = useRef<number | null>(null);
+  const audioContextInitializedRef = useRef(false);
+
+  // Pre-initialize AudioContext on user interaction for lower latency
+  const initAudioContext = useCallback(() => {
+    if (audioContextInitializedRef.current) return;
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext();
+      // Resume if suspended (browser policy)
+      if (audioContextRef.current.state === "suspended") {
+        audioContextRef.current.resume();
+      }
+      audioContextInitializedRef.current = true;
+      logPerformanceMetric("audioContext", "initialized", {
+        sampleRate: audioContextRef.current.sampleRate,
+        state: audioContextRef.current.state,
+      });
+    }
+  }, []);
 
   // Determine current state for bio-data - memoized
   const currentState = useMemo(() =>
@@ -731,10 +749,17 @@ export default function EvaHerPage() {
     });
 
     try {
+      // Use pre-initialized context or create one
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext();
+        audioContextInitializedRef.current = true;
       }
       const audioContext = audioContextRef.current;
+
+      // Ensure context is running (may be suspended by browser policy)
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
 
       // Use pre-decoded buffer if available, otherwise decode now
       let audioBuffer: AudioBuffer;
@@ -1051,6 +1076,8 @@ export default function EvaHerPage() {
       aria-label="EVA - Assistant vocal"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
+      onClick={initAudioContext}
+      onKeyDown={initAudioContext}
     >
       {/* Skip links for keyboard navigation */}
       <nav className="sr-only focus-within:not-sr-only focus-within:absolute focus-within:top-4 focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:z-50 focus-within:flex focus-within:gap-2">
