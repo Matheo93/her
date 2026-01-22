@@ -1737,20 +1737,20 @@ export default function EvaHerPage() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
-              {/* Processing waveform animation */}
-              <div className="flex gap-0.5 items-center h-4">
-                {[0, 1, 2, 3, 4].map((i) => (
+              {/* Processing waveform animation - enhanced visibility */}
+              <div className="flex gap-1 items-center h-5">
+                {[0, 1, 2, 3, 4, 5, 6].map((i) => (
                   <motion.div
                     key={i}
-                    className="w-0.5 rounded-full"
+                    className="w-[3px] rounded-full"
                     style={{ backgroundColor: colors.coral }}
-                    animate={prefersReducedMotion ? { height: 8 } : {
-                      height: [4, 12, 4],
+                    animate={prefersReducedMotion ? { height: 10 } : {
+                      height: [5, 16, 5],
                     }}
                     transition={{
-                      duration: 0.6,
+                      duration: 0.5,
                       repeat: Infinity,
-                      delay: i * 0.1,
+                      delay: i * 0.08,
                       ease: "easeInOut",
                     }}
                   />
