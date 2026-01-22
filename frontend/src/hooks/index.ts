@@ -286,3 +286,39 @@ export {
   BEHAVIOR_ANIMATIONS,
   type IdleBehavior,
 } from "./useAvatarIdleVariation";
+
+// Mobile Avatar Optimizer (Sprint 232)
+export {
+  useMobileAvatarOptimizer,
+  useIsMobileOptimized,
+  useMobileAnimationInterval,
+  useMobileTouchSettings,
+  useMobileAvatarFeatures,
+  type MobileQualityTier,
+  type MobileAvatarSettings,
+  type MobileAvatarMetrics,
+  type MobileAvatarControls,
+  type MobileAvatarOptimization,
+} from "./useMobileAvatarOptimizer";
+
+// Animation Batcher (Sprint 232)
+export {
+  useAnimationBatcher,
+  useBatchedAnimation,
+  useGlobalAnimationBatcher,
+  type AnimationPriority,
+  type BatchedAnimationState,
+  type BatchedAnimationControls,
+} from "./useAnimationBatcher";
+
+// Touch Avatar Interaction (Sprint 232)
+export {
+  useTouchAvatarInteraction,
+  useTouchEyeTracking,
+  useAvatarTap,
+  type TouchGesture,
+  type TouchPosition,
+  type TouchState,
+  type TouchCallbacks,
+  type TouchConfig,
+} from "./useTouchAvatarInteraction";

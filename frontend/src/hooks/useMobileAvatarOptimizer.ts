@@ -538,7 +538,7 @@ export function useMobileAvatarOptimizer(
     forceQuality: setForcedQuality,
     pauseAnimations: () => setIsPaused(true),
     resumeAnimations: () => setIsPaused(false),
-    setLowPowerMode,
+    setLowPowerMode: setIsLowPowerMode,
     preloadAssets: async () => {
       // Placeholder for asset preloading
       // In production, this would trigger prefetching of textures, audio, etc.
