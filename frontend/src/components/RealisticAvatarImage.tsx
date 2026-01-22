@@ -1301,6 +1301,32 @@ export function RealisticAvatarImage({
                     />
                   )}
 
+                  {/* Mouth corner dimples - appear when smiling */}
+                  {smileAmt > 0.2 && (
+                    <>
+                      <motion.path
+                        d={`M${leftX - 2} ${upperY + 3} Q${leftX - 5} ${upperY + 1} ${leftX - 4} ${upperY - 2}`}
+                        fill="none"
+                        stroke="#C89B8B"
+                        strokeWidth="0.5"
+                        strokeLinecap="round"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: smileAmt * 0.4 }}
+                        transition={{ duration: 0.1 }}
+                      />
+                      <motion.path
+                        d={`M${rightX + 2} ${upperY + 3} Q${rightX + 5} ${upperY + 1} ${rightX + 4} ${upperY - 2}`}
+                        fill="none"
+                        stroke="#C89B8B"
+                        strokeWidth="0.5"
+                        strokeLinecap="round"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: smileAmt * 0.4 }}
+                        transition={{ duration: 0.1 }}
+                      />
+                    </>
+                  )}
+
                   {/* Mouth interior when speaking */}
                   {isSpeaking && mouthShape.openness > 0.1 && (
                     <motion.ellipse
