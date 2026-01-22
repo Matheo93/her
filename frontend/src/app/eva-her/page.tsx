@@ -563,8 +563,8 @@ export default function EvaHerPage() {
     }
   }, [evaEmotion, isConnected, isListening, isSpeaking]);
 
-  // Send text message with visual feedback
-  const sendMessage = (text: string) => {
+  // Send text message with visual feedback - memoized
+  const sendMessage = useCallback((text: string) => {
     if (!text.trim() || !wsRef.current) return;
 
     setCurrentText("");
@@ -578,15 +578,15 @@ export default function EvaHerPage() {
     // Visual feedback for message sent
     setMessageSent(true);
     setTimeout(() => setMessageSent(false), 1500);
-  };
+  }, []);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage(inputText);
       setInputText("");
     }
-  };
+  }, [inputText, sendMessage]);
 
   return (
     <div

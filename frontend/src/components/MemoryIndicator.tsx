@@ -1,8 +1,9 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import type { PersistentMemoryState } from "@/hooks/usePersistentMemory";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 interface MemoryIndicatorProps {
   memory: PersistentMemoryState;
@@ -15,7 +16,9 @@ interface MemoryIndicatorProps {
   isVisible?: boolean;
 }
 
-export function MemoryIndicator({ memory, colors, isVisible = true }: MemoryIndicatorProps) {
+function MemoryIndicatorComponent({ memory, colors, isVisible = true }: MemoryIndicatorProps) {
+  const prefersReducedMotion = useReducedMotion();
+
   // Memory strength visualization (0-5 dots)
   const memoryStrength = useMemo(() => {
     const { stats, restoredWarmth, sessionNumber } = memory;
@@ -65,10 +68,10 @@ export function MemoryIndicator({ memory, colors, isVisible = true }: MemoryIndi
     <AnimatePresence>
       <motion.div
         className="flex items-center gap-2"
-        initial={{ opacity: 0, y: -10 }}
+        initial={prefersReducedMotion ? { opacity: 0.7 } : { opacity: 0, y: -10 }}
         animate={{ opacity: 0.7, y: 0 }}
-        exit={{ opacity: 0, y: -10 }}
-        transition={{ delay: 1, duration: 0.5 }}
+        exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -10 }}
+        transition={prefersReducedMotion ? { duration: 0.2 } : { delay: 1, duration: 0.5 }}
       >
         {/* Memory dots */}
         <div className="flex gap-0.5">
@@ -80,9 +83,9 @@ export function MemoryIndicator({ memory, colors, isVisible = true }: MemoryIndi
                 backgroundColor: i < memoryStrength ? colors.coral : colors.softShadow,
                 opacity: i < memoryStrength ? 0.8 : 0.3,
               }}
-              initial={{ scale: 0 }}
+              initial={prefersReducedMotion ? { scale: 1 } : { scale: 0 }}
               animate={{ scale: 1 }}
-              transition={{ delay: 1.2 + i * 0.1, type: "spring" }}
+              transition={prefersReducedMotion ? {} : { delay: 1.2 + i * 0.1, type: "spring" }}
             />
           ))}
         </div>
@@ -92,9 +95,9 @@ export function MemoryIndicator({ memory, colors, isVisible = true }: MemoryIndi
           <motion.span
             className="text-xs font-light italic"
             style={{ color: colors.earth, opacity: 0.5 }}
-            initial={{ opacity: 0 }}
+            initial={prefersReducedMotion ? { opacity: 0.5 } : { opacity: 0 }}
             animate={{ opacity: 0.5 }}
-            transition={{ delay: 2 }}
+            transition={prefersReducedMotion ? {} : { delay: 2 }}
           >
             {memoryPhrase}
           </motion.span>
@@ -103,3 +106,6 @@ export function MemoryIndicator({ memory, colors, isVisible = true }: MemoryIndi
     </AnimatePresence>
   );
 }
+
+// Memoized export to prevent unnecessary re-renders
+export const MemoryIndicator = memo(MemoryIndicatorComponent);
