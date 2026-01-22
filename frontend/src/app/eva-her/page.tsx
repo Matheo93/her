@@ -2069,37 +2069,48 @@ export default function EvaHerPage() {
                 )}
               </AnimatePresence>
 
-              {/* Real-time mic volume indicator */}
+              {/* Real-time mic volume indicator - sound wave bars */}
               <AnimatePresence>
-                {isListening && inputMicLevel > 0.05 && (
+                {isListening && (
                   <motion.div
-                    className="absolute -bottom-1 left-1/2 -translate-x-1/2"
+                    className="absolute -bottom-2 left-1/2 -translate-x-1/2"
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.8 }}
                   >
                     <div
-                      className="flex gap-0.5 items-end h-3"
+                      className="flex gap-[2px] items-center h-4"
                       role="meter"
                       aria-label="Niveau du microphone"
                       aria-valuenow={Math.round(inputMicLevel * 100)}
                       aria-valuemin={0}
                       aria-valuemax={100}
                     >
-                      {[0.2, 0.4, 0.6, 0.8].map((threshold, i) => (
-                        <motion.div
-                          key={i}
-                          className="w-1 rounded-full"
-                          style={{
-                            backgroundColor: inputMicLevel > threshold ? colors.coral : `${colors.coral}40`,
-                            height: `${(i + 1) * 3}px`,
-                          }}
-                          animate={prefersReducedMotion ? {} : {
-                            scaleY: inputMicLevel > threshold ? [1, 1.2, 1] : 1,
-                          }}
-                          transition={{ duration: 0.1 }}
-                        />
-                      ))}
+                      {[0.15, 0.3, 0.5, 0.7, 0.5, 0.3, 0.15].map((baseHeight, i) => {
+                        const isActive = inputMicLevel > 0.05;
+                        const dynamicHeight = isActive
+                          ? Math.max(baseHeight, inputMicLevel * (0.5 + Math.sin(Date.now() / 100 + i) * 0.3))
+                          : baseHeight * 0.3;
+                        return (
+                          <motion.div
+                            key={i}
+                            className="w-[3px] rounded-full"
+                            style={{
+                              backgroundColor: isActive ? colors.coral : `${colors.coral}50`,
+                            }}
+                            animate={prefersReducedMotion ? { height: `${dynamicHeight * 16}px` } : {
+                              height: isActive
+                                ? [`${baseHeight * 8}px`, `${dynamicHeight * 16}px`, `${baseHeight * 8}px`]
+                                : `${baseHeight * 5}px`,
+                            }}
+                            transition={{
+                              duration: isActive ? 0.15 : 0.3,
+                              repeat: isActive && !prefersReducedMotion ? Infinity : 0,
+                              delay: i * 0.05,
+                            }}
+                          />
+                        );
+                      })}
                     </div>
                   </motion.div>
                 )}
