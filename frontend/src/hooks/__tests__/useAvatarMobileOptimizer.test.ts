@@ -606,8 +606,9 @@ describe("branch coverage - battery state estimation", () => {
     // Wait for initial battery check (async) to complete
     await act(async () => {
       await Promise.resolve();
+    });
+    act(() => {
       jest.advanceTimersByTime(100);
-      await Promise.resolve();
     });
 
     // Battery state should have been checked
