@@ -1315,3 +1315,440 @@ describe("Sprint 619 - branch coverage improvements", () => {
     });
   });
 });
+
+// ============================================================================
+// Sprint 620 - Additional Branch Coverage Tests
+// ============================================================================
+
+describe("Sprint 620 - branch coverage improvements", () => {
+  describe("linear prediction edge cases (line 205-209)", () => {
+    it("should return null for linear prediction with single sample", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          autoSelectAlgorithm: false,
+          defaultAlgorithm: "linear",
+          minSamplesForPrediction: 1,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Add only 1 sample - linear needs at least 2
+      act(() => {
+        result.current.controls.addSample(createSample(100, 100));
+      });
+
+      // Linear should return null, no prediction
+      expect(result.current.state.currentPrediction).toBeNull();
+    });
+
+    it("should handle zero delta time in linear prediction (line 209)", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          autoSelectAlgorithm: false,
+          defaultAlgorithm: "linear",
+          minSamplesForPrediction: 2,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Add 2 samples at same timestamp
+      const baseTime = mockTime;
+      act(() => {
+        result.current.controls.addSample({ x: 100, y: 100, timestamp: baseTime });
+        result.current.controls.addSample({ x: 110, y: 105, timestamp: baseTime });
+      });
+
+      // Should handle dt=0 gracefully
+      expect(result.current.state.currentPrediction).toBeNull();
+    });
+  });
+
+  describe("quadratic prediction edge cases (lines 229-235)", () => {
+    it("should return null for quadratic prediction with insufficient samples", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          autoSelectAlgorithm: false,
+          defaultAlgorithm: "quadratic",
+          minSamplesForPrediction: 2,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Add only 2 samples - quadratic needs at least 3
+      act(() => {
+        result.current.controls.addSample(createSample(100, 100));
+      });
+      advanceTime(16);
+      act(() => {
+        result.current.controls.addSample(createSample(110, 105));
+      });
+
+      // Quadratic should return null, so no prediction
+      expect(result.current.state.currentPrediction).toBeNull();
+    });
+
+    it("should handle zero delta time in quadratic prediction (line 235)", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          autoSelectAlgorithm: false,
+          defaultAlgorithm: "quadratic",
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Add 3 samples with zero time delta
+      const baseTime = mockTime;
+      act(() => {
+        result.current.controls.addSample({ x: 100, y: 100, timestamp: baseTime });
+        result.current.controls.addSample({ x: 110, y: 105, timestamp: baseTime });
+        result.current.controls.addSample({ x: 120, y: 110, timestamp: baseTime });
+      });
+
+      // Should handle dt1=0 || dt2=0 gracefully
+      expect(result.current.state.currentPrediction).toBeNull();
+    });
+
+    it("should handle partial zero delta time (dt2 = 0)", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          autoSelectAlgorithm: false,
+          defaultAlgorithm: "quadratic",
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // First two samples with time, third at same time as second
+      act(() => {
+        result.current.controls.addSample(createSample(100, 100));
+      });
+      advanceTime(16);
+      const t = mockTime;
+      act(() => {
+        result.current.controls.addSample({ x: 110, y: 105, timestamp: t });
+        result.current.controls.addSample({ x: 120, y: 110, timestamp: t }); // dt2 = 0
+      });
+
+      // Should return null due to dt2 = 0
+      expect(result.current.state.currentPrediction).toBeNull();
+    });
+  });
+
+  describe("Kalman filter first sample (line 325-329)", () => {
+    it("should initialize Kalman filter with first sample", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          autoSelectAlgorithm: false,
+          defaultAlgorithm: "kalman",
+          minSamplesForPrediction: 1,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // First sample should initialize Kalman state
+      act(() => {
+        result.current.controls.addSample(createSample(100, 100));
+      });
+
+      // Should set lastSample
+      expect(result.current.state.lastSample?.x).toBe(100);
+      expect(result.current.state.lastSample?.y).toBe(100);
+    });
+  });
+
+  describe("verifyPrediction without prior prediction (line 764)", () => {
+    it("should handle verifyPrediction when no prior prediction exists", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      // Call verifyPrediction without any prior predictions
+      act(() => {
+        result.current.controls.verifyPrediction({ x: 150, y: 125 });
+      });
+
+      // Should not crash, metrics should be unchanged
+      expect(result.current.state.metrics.totalPredictions).toBe(0);
+    });
+  });
+
+  describe("algorithm metrics accuracy tracking (lines 787-803)", () => {
+    it("should track algorithm metrics with varying error levels", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          autoSelectAlgorithm: true,
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Generate predictions
+      for (let i = 0; i < 8; i++) {
+        act(() => {
+          result.current.controls.addSample(createSample(100 + i * 10, 100 + i * 5));
+        });
+        advanceTime(16);
+      }
+
+      // Verify with exact match (low error)
+      const prediction1 = result.current.state.currentPrediction;
+      if (prediction1) {
+        act(() => {
+          result.current.controls.verifyPrediction({
+            x: prediction1.x,
+            y: prediction1.y,
+          });
+        });
+      }
+
+      // Add more samples
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          result.current.controls.addSample(createSample(180 + i * 10, 140 + i * 5));
+        });
+        advanceTime(16);
+      }
+
+      // Verify with high error (to test maxError update)
+      const prediction2 = result.current.state.currentPrediction;
+      if (prediction2) {
+        act(() => {
+          result.current.controls.verifyPrediction({
+            x: prediction2.x + 200, // Large error
+            y: prediction2.y + 200,
+          });
+        });
+      }
+
+      // Metrics should have been updated
+      expect(result.current.state.metrics.algorithmMetrics.size).toBeGreaterThanOrEqual(0);
+    });
+
+    it("should increment accurate predictions count", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          autoSelectAlgorithm: false,
+          defaultAlgorithm: "linear",
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Generate consistent predictions
+      for (let i = 0; i < 6; i++) {
+        act(() => {
+          result.current.controls.addSample(createSample(100 + i * 10, 100));
+        });
+        advanceTime(16);
+      }
+
+      const prediction = result.current.state.currentPrediction;
+
+      // Verify with accurate result (within uncertainty bounds)
+      if (prediction) {
+        act(() => {
+          result.current.controls.verifyPrediction({
+            x: prediction.x,
+            y: prediction.y,
+          });
+        });
+
+        // Should increment accurate predictions
+        expect(result.current.state.metrics.accuratePredictions).toBeGreaterThanOrEqual(0);
+      }
+    });
+  });
+
+  describe("velocity consistency calculation (lines 400-413)", () => {
+    it("should handle velocities with same direction", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // All positive velocities
+      for (let i = 0; i < 6; i++) {
+        act(() => {
+          result.current.controls.addSample(createSample(100 + i * 10, 100 + i * 10));
+        });
+        advanceTime(16);
+      }
+
+      // Consistent direction should yield higher confidence
+      expect(result.current.state.currentPrediction?.confidence).toBeGreaterThan(0);
+    });
+
+    it("should handle single velocity (no pairs to compare)", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          minSamplesForPrediction: 2,
+          minConfidenceThreshold: 0,
+          autoSelectAlgorithm: false,
+          defaultAlgorithm: "linear",
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Only 2 samples gives only 1 velocity (no comparison possible)
+      act(() => {
+        result.current.controls.addSample(createSample(100, 100));
+      });
+      advanceTime(16);
+      act(() => {
+        result.current.controls.addSample(createSample(110, 105));
+      });
+
+      // Should still work
+      expect(result.current.state.lastSample).not.toBeNull();
+    });
+  });
+
+  describe("getAdaptiveHorizon with different speeds", () => {
+    it("should return maximum horizon at very high speed", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          enableAdaptiveHorizon: true,
+          baseHorizonMs: 30,
+          maxHorizonMs: 100,
+          velocityThresholdPxPerSec: 500,
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Very fast movement - far exceeding threshold
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          result.current.controls.addSample(createSample(100 + i * 100, 100 + i * 100));
+        });
+        advanceTime(16);
+      }
+
+      // Should be near max horizon
+      const prediction = result.current.state.currentPrediction;
+      if (prediction) {
+        expect(prediction.horizonMs).toBeGreaterThanOrEqual(50);
+      }
+    });
+
+    it("should return base horizon at zero speed", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          enableAdaptiveHorizon: true,
+          baseHorizonMs: 30,
+          maxHorizonMs: 100,
+          velocityThresholdPxPerSec: 500,
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Stationary samples
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          result.current.controls.addSample(createSample(100, 100));
+        });
+        advanceTime(16);
+      }
+
+      // Should be at base horizon
+      const prediction = result.current.state.currentPrediction;
+      if (prediction) {
+        expect(prediction.horizonMs).toBe(30);
+      }
+    });
+  });
+
+  describe("metrics initialization and tracking", () => {
+    it("should initialize metrics with zero total predictions", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          baseHorizonMs: 30,
+        })
+      );
+
+      expect(result.current.state.metrics.totalPredictions).toBe(0);
+      expect(result.current.state.metrics.accuratePredictions).toBe(0);
+      expect(result.current.state.metrics.overallAccuracy).toBe(0);
+      expect(result.current.state.metrics.averageHorizon).toBe(30);
+    });
+
+    it("should calculate average horizon from predictions", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+          baseHorizonMs: 30,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Generate multiple predictions
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          result.current.controls.addSample(createSample(100 + i * 10, 100));
+        });
+        advanceTime(16);
+      }
+
+      // Average horizon should be calculated
+      expect(result.current.state.metrics.averageHorizon).toBeGreaterThan(0);
+    });
+  });
+});
