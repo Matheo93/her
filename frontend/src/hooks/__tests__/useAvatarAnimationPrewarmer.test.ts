@@ -1102,6 +1102,7 @@ describe("branch coverage - warmNext edge cases", () => {
 
     await act(async () => {
       jest.advanceTimersByTime(200);
+      await Promise.resolve();
     });
 
     // All animations are now warming/warm, so warmNext has nothing to do
@@ -1109,7 +1110,11 @@ describe("branch coverage - warmNext edge cases", () => {
 
     await act(async () => {
       await result.current.controls.warmNext();
+    });
+
+    await act(async () => {
       jest.advanceTimersByTime(100);
+      await Promise.resolve();
     });
 
     // Should not change anything
