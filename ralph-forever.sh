@@ -18,7 +18,7 @@ ensure_ralph_window() {
     # Check if ralph window exists
     if ! tmux list-windows -t eva-steroids 2>/dev/null | grep -q "ralph"; then
         log "🔧 Window ralph n'existe pas - CRÉATION"
-        tmux new-window -t eva-steroids -n ralph "cd $PROJECT && claude"
+        tmux new-window -t eva-steroids -n ralph "cd $PROJECT && claude --dangerously-skip-permissions"
         sleep 15  # Wait for Claude to start
         return 1  # Window was created
     fi

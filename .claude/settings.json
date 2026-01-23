@@ -1,4 +1,19 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(pytest *)",
+      "Bash(python3 *)",
+      "Bash(git *)",
+      "Bash(cd *)",
+      "Bash(find *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(rm -rf .next*)",
+      "Bash(curl *)"
+    ]
+  },
   "hooks": {
     "Stop": [
       {
@@ -8,26 +23,6 @@
             "type": "command",
             "command": "python3 /workspace/music-music-ai-training-api/.claude/hooks/eva-gate-steroids.py",
             "timeout": 120000
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit:*.ts|Edit:*.tsx|Edit:*.py",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -c \"import sys; print('\\n⚡ Code modifie - VALIDE avec Puppeteer + Latence!', file=sys.stderr)\""
-          }
-        ]
-      },
-      {
-        "matcher": "Bash:curl*chat*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo \"$(date '+%H:%M:%S') - Latency check\" >> /workspace/music-music-ai-training-api/.claude/metrics/calls.log"
           }
         ]
       }
