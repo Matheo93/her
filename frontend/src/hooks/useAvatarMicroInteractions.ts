@@ -329,7 +329,7 @@ export function useAvatarMicroInteractions(
   });
 
   // Animation frame ref
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
 
   // Process animation

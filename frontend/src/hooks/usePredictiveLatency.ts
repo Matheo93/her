@@ -467,7 +467,7 @@ export function usePredictiveLatency(
         ...prev,
         connectionPool: [
           ...prev.connectionPool.filter((c) => c.url !== baseUrl),
-          { url: baseUrl, status: "warming" },
+          { url: baseUrl, status: "warming" as const },
         ].slice(-mergedConfig.connectionPoolSize),
       }));
 
@@ -611,7 +611,7 @@ export function useTypingPrediction(
 ): { shouldPrefetch: boolean; predictedAction: UserAction | null } {
   const { controls, currentPrediction, shouldPrefetch } = usePredictiveLatency();
   const prevLengthRef = useRef(0);
-  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const currentLength = inputValue.length;

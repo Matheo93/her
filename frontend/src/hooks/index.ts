@@ -384,3 +384,59 @@ export {
   type PrefetchControls,
   type UseSmartPrefetchResult,
 } from "./useSmartPrefetch";
+
+// Avatar Micro-Interactions (Sprint 511)
+export {
+  useAvatarMicroInteractions,
+  useTypingAcknowledgment,
+  usePauseCuriosity,
+  useAttentionShift,
+  useEmpathySignals,
+  type MicroInteractionType,
+  type InteractionIntensity,
+  type MicroInteraction,
+  type MicroInteractionTrigger,
+  type MicroInteractionState,
+  type MicroInteractionMetrics,
+  type MicroInteractionConfig,
+  type MicroInteractionControls,
+  type UseAvatarMicroInteractionsResult,
+} from "./useAvatarMicroInteractions";
+
+// Predictive Latency (Sprint 511)
+export {
+  usePredictiveLatency,
+  useTypingPrediction,
+  useAdaptiveTimeout,
+  usePrewarmedConnection,
+  type UserAction,
+  type PredictedAction,
+  type BehaviorPattern,
+  type LatencyMetrics,
+  type PredictionMetrics,
+  type PredictiveLatencyConfig,
+  type PrefetchRequest,
+  type ConnectionState as PredictiveConnectionState,
+  type PredictiveLatencyState,
+  type PredictiveLatencyControls,
+  type UsePredictiveLatencyResult,
+} from "./usePredictiveLatency";
+
+// Mobile Render Optimizer (Sprint 511)
+export {
+  useMobileRenderOptimizer,
+  useRenderOptimizationStyles,
+  useAdaptiveCanvasSize,
+  useFrameRateAwareAnimation,
+  type RenderQuality,
+  type GPUTier,
+  type GPUInfo,
+  type DeviceProfile,
+  type RenderSettings,
+  type FrameBudget,
+  type RenderMetrics,
+  type MobileRenderConfig,
+  type RenderOptimizationHints,
+  type MobileRenderControls,
+  type UseMobileRenderOptimizerResult,
+} from "./useMobileRenderOptimizer";
