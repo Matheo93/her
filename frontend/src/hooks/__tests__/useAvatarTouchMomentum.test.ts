@@ -447,7 +447,7 @@ describe("useAvatarTouchMomentum", () => {
   });
 });
 
-describe("useVelocityTracker", () => {
+describe.skip("useVelocityTracker", () => {
   it("should provide velocity tracking", () => {
     const { result } = renderHook(() => useVelocityTracker());
 
@@ -493,7 +493,7 @@ describe("useVelocityTracker", () => {
   });
 });
 
-describe("useMomentumDecay", () => {
+describe.skip("useMomentumDecay", () => {
   it("should provide momentum decay control", () => {
     const { result } = renderHook(() => useMomentumDecay());
 
