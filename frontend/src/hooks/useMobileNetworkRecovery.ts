@@ -138,12 +138,12 @@ const DEFAULT_CONFIG: RecoveryConfig = {
 };
 
 // Generate unique ID
-function generateId(): string {
+export function generateId(): string {
   return `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
 // Calculate backoff delay
-function calculateBackoff(
+export function calculateBackoff(
   attempt: number,
   config: RecoveryConfig
 ): number {
@@ -152,7 +152,7 @@ function calculateBackoff(
 }
 
 // Estimate connection type
-function getConnectionType(): ConnectionType {
+export function getConnectionType(): ConnectionType {
   // @ts-ignore - Network Information API
   const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
 

@@ -13,6 +13,10 @@ import {
   NetworkState,
   ConnectionType,
   RecoveryStrategy,
+  RecoveryConfig,
+  calculateBackoff,
+  getConnectionType,
+  generateId,
 } from "../useMobileNetworkRecovery";
 
 // Mock fetch
@@ -517,5 +521,283 @@ describe("useOfflineQueue", () => {
     const { result } = renderHook(() => useOfflineQueue());
 
     expect(typeof result.current.sync).toBe("function");
+  });
+});
+
+// ============================================================================
+// Sprint 628 - Utility Function Tests
+// ============================================================================
+
+describe("Sprint 628 - calculateBackoff utility function (lines 150-151)", () => {
+  const baseConfig: RecoveryConfig = {
+    enabled: true,
+    strategy: "exponential",
+    maxRetries: 5,
+    initialDelayMs: 1000,
+    maxDelayMs: 30000,
+    backoffMultiplier: 2,
+    queueMaxSize: 100,
+    requestTimeoutMs: 10000,
+    requestExpiryMs: 300000,
+    autoSync: true,
+    syncIntervalMs: 30000,
+    qualityCheckIntervalMs: 10000,
+    degradedThreshold: 50,
+  };
+
+  it("should return initial delay for first attempt (attempt 0)", () => {
+    const delay = calculateBackoff(0, baseConfig);
+    // 1000 * 2^0 = 1000
+    expect(delay).toBe(1000);
+  });
+
+  it("should apply exponential multiplier for subsequent attempts", () => {
+    const delay1 = calculateBackoff(1, baseConfig);
+    // 1000 * 2^1 = 2000
+    expect(delay1).toBe(2000);
+
+    const delay2 = calculateBackoff(2, baseConfig);
+    // 1000 * 2^2 = 4000
+    expect(delay2).toBe(4000);
+
+    const delay3 = calculateBackoff(3, baseConfig);
+    // 1000 * 2^3 = 8000
+    expect(delay3).toBe(8000);
+  });
+
+  it("should cap delay at maxDelayMs", () => {
+    // 1000 * 2^5 = 32000 > 30000, should cap at 30000
+    const delay = calculateBackoff(5, baseConfig);
+    expect(delay).toBe(30000);
+
+    // Even higher attempts should still cap
+    const delay10 = calculateBackoff(10, baseConfig);
+    expect(delay10).toBe(30000);
+  });
+
+  it("should work with different config values", () => {
+    const customConfig: RecoveryConfig = {
+      ...baseConfig,
+      initialDelayMs: 500,
+      maxDelayMs: 10000,
+      backoffMultiplier: 3,
+    };
+
+    const delay0 = calculateBackoff(0, customConfig);
+    expect(delay0).toBe(500); // 500 * 3^0 = 500
+
+    const delay1 = calculateBackoff(1, customConfig);
+    expect(delay1).toBe(1500); // 500 * 3^1 = 1500
+
+    const delay2 = calculateBackoff(2, customConfig);
+    expect(delay2).toBe(4500); // 500 * 3^2 = 4500
+
+    const delay3 = calculateBackoff(3, customConfig);
+    expect(delay3).toBe(10000); // 500 * 3^3 = 13500, capped at 10000
+  });
+});
+
+describe("Sprint 628 - getConnectionType utility function (lines 155-169)", () => {
+  it("should return 'wifi' for wifi connection", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: { type: "wifi" },
+      writable: true,
+      configurable: true,
+    });
+
+    expect(getConnectionType()).toBe("wifi");
+  });
+
+  it("should return 'cellular' for cellular connection", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: { type: "cellular" },
+      writable: true,
+      configurable: true,
+    });
+
+    expect(getConnectionType()).toBe("cellular");
+  });
+
+  it("should return 'cellular' for 4g effectiveType", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: { effectiveType: "4g" },
+      writable: true,
+      configurable: true,
+    });
+
+    expect(getConnectionType()).toBe("cellular");
+  });
+
+  it("should return 'cellular' for 3g effectiveType", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: { effectiveType: "3g" },
+      writable: true,
+      configurable: true,
+    });
+
+    expect(getConnectionType()).toBe("cellular");
+  });
+
+  it("should return 'cellular' for 2g effectiveType", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: { effectiveType: "2g" },
+      writable: true,
+      configurable: true,
+    });
+
+    expect(getConnectionType()).toBe("cellular");
+  });
+
+  it("should return 'ethernet' for ethernet connection", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: { type: "ethernet" },
+      writable: true,
+      configurable: true,
+    });
+
+    expect(getConnectionType()).toBe("ethernet");
+  });
+
+  it("should return 'none' for none type", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: { type: "none" },
+      writable: true,
+      configurable: true,
+    });
+
+    expect(getConnectionType()).toBe("none");
+  });
+
+  it("should return 'unknown' for unknown connection type", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: { type: "something-else" },
+      writable: true,
+      configurable: true,
+    });
+
+    expect(getConnectionType()).toBe("unknown");
+  });
+
+  it("should return 'unknown' when connection API is not available", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    });
+
+    expect(getConnectionType()).toBe("unknown");
+  });
+
+  it("should use effectiveType when type is not available", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: { effectiveType: "wifi" },
+      writable: true,
+      configurable: true,
+    });
+
+    expect(getConnectionType()).toBe("wifi");
+  });
+});
+
+describe("Sprint 628 - generateId utility function (line 142)", () => {
+  it("should generate unique IDs", () => {
+    const id1 = generateId();
+    const id2 = generateId();
+    const id3 = generateId();
+
+    expect(id1).not.toBe(id2);
+    expect(id2).not.toBe(id3);
+    expect(id1).not.toBe(id3);
+  });
+
+  it("should generate IDs with correct prefix", () => {
+    const id = generateId();
+    expect(id.startsWith("req-")).toBe(true);
+  });
+
+  it("should generate IDs with timestamp component", () => {
+    const now = Date.now();
+    jest.spyOn(Date, "now").mockReturnValue(now);
+
+    const id = generateId();
+    expect(id).toContain(now.toString());
+  });
+
+  it("should generate IDs with random suffix", () => {
+    const ids = new Set<string>();
+
+    // Generate 10 IDs and ensure they're all unique
+    for (let i = 0; i < 10; i++) {
+      ids.add(generateId());
+    }
+
+    expect(ids.size).toBe(10);
+  });
+});
+
+describe("Sprint 628 - network quality and state transitions", () => {
+  it("should initialize with connection type", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: { type: "wifi" },
+      writable: true,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useMobileNetworkRecovery());
+
+    expect(result.current.state.connectionType).toBe("wifi");
+  });
+
+  it("should handle missing connection API gracefully", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useMobileNetworkRecovery());
+
+    expect(result.current.state.connectionType).toBe("unknown");
+  });
+
+  it("should track sync state", () => {
+    const { result } = renderHook(() => useMobileNetworkRecovery());
+
+    expect(result.current.state.sync).toBeDefined();
+    expect(result.current.state.sync.pendingCount).toBe(0);
+    expect(result.current.state.sync.syncInProgress).toBe(false);
+  });
+
+  it("should expose controls for manual sync via retryFailed", () => {
+    const { result } = renderHook(() => useMobileNetworkRecovery());
+
+    expect(result.current.controls.retryFailed).toBeDefined();
+    expect(typeof result.current.controls.retryFailed).toBe("function");
+  });
+
+  it("should expose controls for pausing and resuming sync", () => {
+    const { result } = renderHook(() => useMobileNetworkRecovery());
+
+    expect(result.current.controls.pauseSync).toBeDefined();
+    expect(result.current.controls.resumeSync).toBeDefined();
+    expect(typeof result.current.controls.pauseSync).toBe("function");
+    expect(typeof result.current.controls.resumeSync).toBe("function");
+  });
+
+  it("should expose controls for clearing queue", () => {
+    const { result } = renderHook(() => useMobileNetworkRecovery());
+
+    expect(result.current.controls.clearQueue).toBeDefined();
+    expect(typeof result.current.controls.clearQueue).toBe("function");
+  });
+
+  it("should provide isOnline and canSync helpers", () => {
+    const { result } = renderHook(() => useMobileNetworkRecovery());
+
+    expect(typeof result.current.isOnline).toBe("boolean");
+    expect(typeof result.current.canSync).toBe("boolean");
+    // isOnline should be true, canSync should be false (no queued requests)
+    expect(result.current.isOnline).toBe(true);
+    expect(result.current.canSync).toBe(false);
   });
 });

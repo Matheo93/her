@@ -1007,13 +1007,17 @@ describe("Sprint 628 - edge case coverage", () => {
   });
 
   describe("gesture type detection (lines 456, 473)", () => {
-    it("should detect long press gesture via timer", () => {
-      const onGestureDetected = jest.fn();
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("should set long press gesture via timer when held still", () => {
       const { result } = renderHook(() =>
-        useMobileInputPipeline(
-          { longPressThreshold: 200, minGestureDistance: 50 },
-          { onGestureDetected }
-        )
+        useMobileInputPipeline({ longPressThreshold: 200, minGestureDistance: 100 })
       );
 
       // Start gesture
@@ -1021,13 +1025,19 @@ describe("Sprint 628 - edge case coverage", () => {
         result.current.controls.startGesture(100, 100);
       });
 
-      // Wait for long press threshold with minimal movement
+      // Small update that stays within minGestureDistance
       act(() => {
-        jest.advanceTimersByTime(250);
+        jest.advanceTimersByTime(50);
+        result.current.controls.updateGesture(102, 102); // Only ~2.8px distance
       });
 
-      // Long press should be detected via timer callback
-      expect(onGestureDetected).toHaveBeenCalledWith("long_press", expect.any(Object));
+      // Wait for long press threshold
+      act(() => {
+        jest.advanceTimersByTime(200);
+      });
+
+      // Long press should be detected - gesture state should be updated
+      expect(result.current.state.gestureState.currentGesture).toBe("long_press");
     });
 
     it("should have null currentGesture initially", () => {

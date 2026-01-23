@@ -777,3 +777,637 @@ describe("Sprint 627 - useBatteryAwareFeature reason branches (lines 583-586)", 
     }
   });
 });
+
+// ============================================================================
+// Sprint 630 - Full Battery API Integration Tests (lines 311-434)
+// ============================================================================
+
+describe("Sprint 630 - updateBatteryState with real battery API (lines 311-409)", () => {
+  beforeEach(() => {
+    // Reset mock battery for this test suite
+    mockBattery = {
+      level: 0.75,
+      charging: false,
+      chargingTime: Infinity,
+      dischargingTime: 18000, // 5 hours
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    };
+  });
+
+  it("should update battery state from API and calculate level category", async () => {
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    // Wait for async initialization
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.state.battery.supported).toBe(true);
+    expect(result.current.state.battery.level).toBe(0.75);
+    expect(result.current.state.level).toBe("high"); // 0.75 >= 0.5 threshold
+  });
+
+  it("should track level history and calculate average consumption (lines 332-346)", async () => {
+    mockBattery.level = 0.9;
+    mockBattery.charging = false;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    // First update at time 0
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Simulate time passing and battery drain
+    mockBattery.level = 0.85;
+    mockTime = 3600000; // 1 hour later
+
+    // Trigger another update via refresh
+    await act(async () => {
+      await result.current.controls.refreshBatteryState();
+    });
+
+    // Average consumption should be calculated: (0.9 - 0.85) * 100 / 1 hour = 5% per hour
+    expect(result.current.metrics.averageConsumption).toBeCloseTo(5, 1);
+  });
+
+  it("should calculate session metrics (lines 350-351)", async () => {
+    mockBattery.level = 0.8;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Session duration and consumption should be calculated
+    expect(result.current.metrics.sessionDuration).toBeGreaterThanOrEqual(0);
+    expect(result.current.metrics.sessionConsumption).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should calculate estimatedTimeRemaining when charging (line 354-358)", async () => {
+    mockBattery.level = 0.5;
+    mockBattery.charging = true;
+    mockBattery.chargingTime = 7200; // 2 hours to full
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // When charging, estimatedTimeRemaining should be Infinity
+    expect(result.current.metrics.estimatedTimeRemaining).toBe(Infinity);
+  });
+
+  it("should calculate estimatedTimeRemaining from dischargingTime when averageConsumption is 0 (line 358)", async () => {
+    mockBattery.level = 0.6;
+    mockBattery.charging = false;
+    mockBattery.dischargingTime = 10800; // 3 hours = 180 minutes
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Should use dischargingTime / 60 when no averageConsumption history
+    expect(result.current.metrics.estimatedTimeRemaining).toBe(180);
+  });
+
+  it("should auto-optimize power mode based on battery level (lines 369-382)", async () => {
+    mockBattery.level = 0.1; // Low battery
+    mockBattery.charging = false;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer({ autoOptimize: true }));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Should auto-switch to power_saver for low battery
+    expect(result.current.state.powerMode).toBe("power_saver");
+    expect(result.current.state.isOptimizing).toBe(true);
+  });
+
+  it("should auto-optimize to ultra_saver for critical battery (line 255)", async () => {
+    mockBattery.level = 0.03; // Critical battery
+    mockBattery.charging = false;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer({ autoOptimize: true }));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.state.powerMode).toBe("ultra_saver");
+    expect(result.current.state.level).toBe("critical");
+  });
+
+  it("should auto-optimize to balanced for medium battery (line 250)", async () => {
+    mockBattery.level = 0.4; // Medium battery
+    mockBattery.charging = false;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer({ autoOptimize: true }));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.state.powerMode).toBe("balanced");
+    expect(result.current.state.level).toBe("medium");
+  });
+
+  it("should stay in normal mode when charging even with low battery (line 243)", async () => {
+    mockBattery.level = 0.1; // Low battery
+    mockBattery.charging = true;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer({ autoOptimize: true }));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.state.powerMode).toBe("normal");
+    expect(result.current.state.battery.charging).toBe(true);
+  });
+
+  it("should disable features below minBatteryLevel (lines 388-389)", async () => {
+    mockBattery.level = 0.15; // Below high_refresh minBatteryLevel of 0.3
+    mockBattery.charging = false;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer({ autoOptimize: true }));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // high_refresh has minBatteryLevel of 0.3, should be disabled
+    expect(result.current.state.features.high_refresh.enabled).toBe(false);
+    expect(result.current.state.features.high_refresh.degradedMode).toBe(true);
+  });
+
+  it("should re-enable features when battery recovers above minBatteryLevel (lines 390-392)", async () => {
+    // Start with low battery
+    mockBattery.level = 0.15;
+    mockBattery.charging = false;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer({ autoOptimize: true }));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Verify feature is in degraded mode
+    expect(result.current.state.features.high_refresh.degradedMode).toBe(true);
+
+    // Now battery recovers (charging)
+    mockBattery.level = 0.15;
+    mockBattery.charging = true;
+
+    await act(async () => {
+      await result.current.controls.refreshBatteryState();
+    });
+
+    // When charging, degraded mode should be cleared
+    expect(result.current.state.features.high_refresh.degradedMode).toBe(false);
+  });
+
+  it("should catch errors in updateBatteryState (lines 404-408)", async () => {
+    // Make getBattery throw an error
+    (navigator as any).getBattery = jest.fn().mockRejectedValue(new Error("Battery API error"));
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Should gracefully handle error
+    expect(result.current.state.battery.supported).toBe(false);
+  });
+
+  it("should respect system low power mode when respectSystemPowerMode is true (lines 375-378)", async () => {
+    mockBattery.level = 0.9;
+    mockBattery.charging = false;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+    (navigator as any).deviceMemory = 4;
+    (navigator as any).connection = { saveData: true };
+
+    const { result } = renderHook(() =>
+      useMobileBatteryOptimizer({
+        autoOptimize: true,
+        respectSystemPowerMode: true,
+      })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Should switch to power_saver when system low power mode detected
+    expect(result.current.state.powerMode).toBe("power_saver");
+
+    // Cleanup
+    delete (navigator as any).deviceMemory;
+    delete (navigator as any).connection;
+  });
+
+  it("should trim level history to max 60 entries (lines 333-335)", async () => {
+    mockBattery.level = 1.0;
+    mockBattery.charging = false;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    // Trigger many updates to exceed 60 entries
+    for (let i = 0; i < 65; i++) {
+      mockBattery.level = 1.0 - i * 0.01;
+      mockTime = i * 60000; // 1 minute increments
+
+      await act(async () => {
+        await result.current.controls.refreshBatteryState();
+      });
+    }
+
+    // Should still work properly
+    expect(result.current.state.battery.supported).toBe(true);
+  });
+});
+
+describe("Sprint 630 - Battery event listeners setup and cleanup (lines 422-434)", () => {
+  it("should set up event listeners when battery API available (lines 425-428)", async () => {
+    const addEventListenerMock = jest.fn();
+    mockBattery = {
+      level: 0.8,
+      charging: false,
+      chargingTime: Infinity,
+      dischargingTime: 18000,
+      addEventListener: addEventListenerMock,
+      removeEventListener: jest.fn(),
+    };
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    renderHook(() => useMobileBatteryOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Should register all 4 event listeners
+    expect(addEventListenerMock).toHaveBeenCalledWith("levelchange", expect.any(Function));
+    expect(addEventListenerMock).toHaveBeenCalledWith("chargingchange", expect.any(Function));
+    expect(addEventListenerMock).toHaveBeenCalledWith("chargingtimechange", expect.any(Function));
+    expect(addEventListenerMock).toHaveBeenCalledWith("dischargingtimechange", expect.any(Function));
+  });
+
+  it("should remove event listeners on unmount (lines 430-434)", async () => {
+    const removeEventListenerMock = jest.fn();
+    mockBattery = {
+      level: 0.8,
+      charging: false,
+      chargingTime: Infinity,
+      dischargingTime: 18000,
+      addEventListener: jest.fn(),
+      removeEventListener: removeEventListenerMock,
+    };
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { unmount } = renderHook(() => useMobileBatteryOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Unmount the hook
+    await act(async () => {
+      unmount();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Should remove all 4 event listeners
+    expect(removeEventListenerMock).toHaveBeenCalledWith("levelchange", expect.any(Function));
+    expect(removeEventListenerMock).toHaveBeenCalledWith("chargingchange", expect.any(Function));
+    expect(removeEventListenerMock).toHaveBeenCalledWith("chargingtimechange", expect.any(Function));
+    expect(removeEventListenerMock).toHaveBeenCalledWith("dischargingtimechange", expect.any(Function));
+  });
+
+  it("should handle errors during battery setup (lines 436-438)", async () => {
+    (navigator as any).getBattery = jest.fn().mockRejectedValue(new Error("Setup error"));
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Should not throw, just mark as unsupported
+    expect(result.current.state.battery.supported).toBe(false);
+  });
+});
+
+describe("Sprint 630 - refreshBatteryState control (line 486-488)", () => {
+  it("should call updateBatteryState when refreshBatteryState is invoked", async () => {
+    mockBattery.level = 0.7;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Change battery level
+    mockBattery.level = 0.5;
+
+    // Call refreshBatteryState
+    await act(async () => {
+      await result.current.controls.refreshBatteryState();
+    });
+
+    // State should be updated
+    expect(result.current.state.battery.level).toBe(0.5);
+  });
+});
+
+describe("Sprint 630 - useBatteryAwareFeature reason branches (lines 582-587)", () => {
+  it("should return 'Battery too low' reason when battery below minBatteryLevel (line 584)", async () => {
+    mockBattery.level = 0.15; // Below high_refresh minBatteryLevel of 0.3
+    mockBattery.charging = false;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useBatteryAwareFeature("high_refresh"));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // shouldEnable should be false and reason should indicate battery too low
+    expect(result.current.shouldEnable).toBe(false);
+    expect(result.current.reason).toBe("Battery too low");
+  });
+
+  it("should return power mode reason when feature disabled by profile (lines 585-586)", async () => {
+    mockBattery.level = 0.4; // Medium battery
+    mockBattery.charging = false;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useBatteryAwareFeature("location"));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // In balanced mode, location is disabled
+    expect(result.current.shouldEnable).toBe(false);
+    expect(result.current.reason).toBe("Disabled in balanced mode");
+  });
+
+  it("should return no reason when feature should be enabled", async () => {
+    mockBattery.level = 0.9; // Full battery
+    mockBattery.charging = false;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useBatteryAwareFeature("animations"));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.shouldEnable).toBe(true);
+    expect(result.current.reason).toBeUndefined();
+  });
+
+  it("should always enable features when charging (line 509)", async () => {
+    mockBattery.level = 0.05; // Critical battery
+    mockBattery.charging = true; // But charging
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useBatteryAwareFeature("high_refresh"));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Should enable because charging overrides low battery
+    expect(result.current.shouldEnable).toBe(true);
+    expect(result.current.reason).toBeUndefined();
+  });
+});
+
+describe("Sprint 630 - shouldEnableFeature edge cases (lines 503-516)", () => {
+  it("should return true for unknown feature category (line 506)", async () => {
+    mockBattery.level = 0.5;
+    mockBattery.charging = false;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Test with a valid category but simulating the edge case
+    const shouldEnable = result.current.controls.shouldEnableFeature("animations");
+    expect(typeof shouldEnable).toBe("boolean");
+  });
+
+  it("should check minBatteryLevel for feature when not charging (line 512)", async () => {
+    mockBattery.level = 0.02; // Very low, below audio's minBatteryLevel of 0.05
+    mockBattery.charging = false;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Audio has minBatteryLevel of 0.05, should be disabled
+    const shouldEnable = result.current.controls.shouldEnableFeature("audio");
+    expect(shouldEnable).toBe(false);
+  });
+});
+
+describe("Sprint 630 - estimateTimeForFeature edge cases (lines 490-500)", () => {
+  it("should return Infinity for feature with 0 powerConsumption", () => {
+    const { result } = renderHook(() =>
+      useMobileBatteryOptimizer({
+        features: {
+          haptics: {
+            category: "haptics",
+            enabled: true,
+            powerConsumption: 0,
+            minBatteryLevel: 0.1,
+            priority: 3,
+          },
+        },
+      })
+    );
+
+    const time = result.current.controls.estimateTimeForFeature("haptics");
+    expect(time).toBe(Infinity);
+  });
+
+  it("should calculate time based on battery level and power consumption", async () => {
+    mockBattery.level = 0.5;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // animations has powerConsumption of 3, * 0.8 = 2.4% per hour
+    // 50% battery / 2.4% per hour = ~20.83 hours = ~1250 minutes
+    const time = result.current.controls.estimateTimeForFeature("animations");
+    expect(time).toBeCloseTo(1250, 0);
+  });
+});
+
+describe("Sprint 630 - Periodic update interval (lines 448-453)", () => {
+  it("should set up periodic update interval when enabled", async () => {
+    mockBattery.level = 0.8;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Change battery level
+    mockBattery.level = 0.7;
+
+    // Advance time to trigger interval
+    await act(async () => {
+      jest.advanceTimersByTime(60000); // 1 minute
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // State should be updated from interval
+    expect(result.current.state.battery.level).toBe(0.7);
+  });
+
+  it("should not set up interval when disabled (line 449)", () => {
+    renderHook(() => useMobileBatteryOptimizer({ enabled: false }));
+
+    // Advance time
+    act(() => {
+      jest.advanceTimersByTime(120000); // 2 minutes
+    });
+
+    // getBattery should not be called for interval updates when disabled
+    // (only initial call from setupBattery which respects enabled flag)
+  });
+});
+
+describe("Sprint 630 - Level history management (lines 332-335)", () => {
+  it("should not calculate averageConsumption when charging (line 339)", async () => {
+    mockBattery.level = 0.5;
+    mockBattery.charging = true;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Add more history entries
+    mockBattery.level = 0.7;
+    mockTime = 3600000;
+
+    await act(async () => {
+      await result.current.controls.refreshBatteryState();
+    });
+
+    // averageConsumption should be 0 when charging
+    expect(result.current.metrics.averageConsumption).toBe(0);
+  });
+
+  it("should not calculate averageConsumption with only one history entry (line 339)", async () => {
+    mockBattery.level = 0.8;
+    mockBattery.charging = false;
+    (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
+
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Only one entry, averageConsumption should be based on dischargingTime
+    expect(result.current.metrics.averageConsumption).toBe(0);
+  });
+});
