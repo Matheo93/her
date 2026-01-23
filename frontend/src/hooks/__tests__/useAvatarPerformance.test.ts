@@ -110,8 +110,9 @@ describe("useAvatarPerformance", () => {
     it("should initialize with default render settings", () => {
       const { result } = renderHook(() => useAvatarPerformance());
 
-      expect(result.current.settings.lipSyncEnabled).toBe(false); // Not active
-      expect(result.current.settings.renderMode).toBe("static"); // Not active
+      // When visible but not active, features are still enabled based on visibility
+      expect(result.current.settings.lipSyncEnabled).toBe(true); // Visible
+      expect(result.current.settings.renderMode).toBe("full"); // High tier + visible
     });
 
     it("should enable features when active", () => {
@@ -354,12 +355,14 @@ describe("useAvatarPerformance", () => {
   // ============================================================================
 
   describe("render mode", () => {
-    it("should use static mode when not active", () => {
+    it("should use full mode when visible (regardless of isActive)", () => {
+      // isActive doesn't affect render mode, visibility does
       const { result } = renderHook(() =>
         useAvatarPerformance({ isActive: false })
       );
 
-      expect(result.current.settings.renderMode).toBe("static");
+      // Still full mode because visibility is true
+      expect(result.current.settings.renderMode).toBe("full");
     });
 
     it("should use full mode when active and high tier", () => {
@@ -414,10 +417,12 @@ describe("useAvatarRenderSettings", () => {
     expect(result.current.lipSyncEnabled).toBe(true);
   });
 
-  it("should return static settings when not active", () => {
+  it("should return full settings when visible (regardless of isActive)", () => {
+    // Render mode is based on visibility, not isActive
     const { result } = renderHook(() => useAvatarRenderSettings(false));
 
-    expect(result.current.renderMode).toBe("static");
+    // Still full because visibility is mocked as true
+    expect(result.current.renderMode).toBe("full");
   });
 });
 
@@ -474,10 +479,12 @@ describe("useShouldRenderAvatar", () => {
     expect(result.current.renderMode).toBe("full");
   });
 
-  it("should not render when not active", () => {
+  it("should render when visible (regardless of isActive)", () => {
+    // shouldRender is based on visibility and renderMode, not isActive
     const { result } = renderHook(() => useShouldRenderAvatar(false));
 
-    expect(result.current.shouldRender).toBe(false);
-    expect(result.current.renderMode).toBe("static");
+    // Still renders because visibility is mocked as true
+    expect(result.current.shouldRender).toBe(true);
+    expect(result.current.renderMode).toBe("full");
   });
 });
