@@ -64,6 +64,15 @@ describe("useAvatarPerceivedLatencyReducer", () => {
         })
       );
 
+      // Motion blur requires both config enabled AND movement speed above threshold
+      // At initialization, movementSpeed is 0, so useMotionBlur is false
+      expect(result.current.state.useMotionBlur).toBe(false);
+
+      // Set movement speed to enable motion blur
+      act(() => {
+        result.current.controls.setMovementSpeed(100);
+      });
+
       expect(result.current.state.useMotionBlur).toBe(true);
     });
   });

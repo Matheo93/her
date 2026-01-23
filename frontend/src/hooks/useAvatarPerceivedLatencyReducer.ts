@@ -1,7 +1,7 @@
 /**
  * useAvatarPerceivedLatencyReducer - Sprint 533
  *
- * Reduces perceived latency in avatar interactions through:
+ * Techniques to reduce perceived latency in avatar interactions:
  * - Anticipatory animations that start before input completes
  * - Motion blur effects to mask frame drops
  * - Skeleton/placeholder states during loading
@@ -15,40 +15,12 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 // ============================================================================
 
 export type LoadingPhase = "idle" | "skeleton" | "lowRes" | "mediumRes" | "highRes" | "complete";
-export type InputType = "hover" | "tap" | "swipe" | "pinch";
-
-export interface PerceivedLatencyConfig {
-  enableMotionBlur: boolean;
-  anticipationThresholdMs: number;
-  progressiveLoadingSteps: number;
-  motionBlurSpeedThreshold: number;
-}
-
-export interface PerceivedLatencyCallbacks {
-  onAnticipationStart?: (inputType: InputType) => void;
-  onLoadingPhaseChange?: (phase: LoadingPhase) => void;
-  onLatencyMeasured?: (actual: number, perceived: number) => void;
-}
-
-export interface PerceivedLatencyState {
-  isActive: boolean;
-  loadingPhase: LoadingPhase;
-  anticipationLevel: number;
-  useMotionBlur: boolean;
-  loadingProgress: number;
-  showSkeleton: boolean;
-}
-
-export interface PerceivedLatencyMetrics {
-  perceivedLatencyMs: number;
-  actualLatencyMs: number;
-  latencyReduction: number;
-}
+export type AnticipationType = "hover" | "tap" | "drag" | "scroll";
 
 export interface AnticipationTransform {
   scale: number;
-  opacity: number;
   translateY: number;
+  opacity: number;
 }
 
 export interface MotionBlurStyles {
@@ -59,10 +31,39 @@ export interface MotionBlurStyles {
 export interface SkeletonStyles {
   opacity: number;
   background: string;
+  animation: string;
+}
+
+export interface PerceivedLatencyConfig {
+  enableMotionBlur: boolean;
+  anticipationThresholdMs: number;
+  progressiveLoadingSteps: number;
+  motionBlurSpeedThreshold: number;
+}
+
+export interface PerceivedLatencyCallbacks {
+  onAnticipationStart?: (type: AnticipationType) => void;
+  onAnticipationComplete?: () => void;
+  onLoadingPhaseChange?: (phase: LoadingPhase) => void;
+}
+
+export interface PerceivedLatencyState {
+  isActive: boolean;
+  loadingPhase: LoadingPhase;
+  loadingProgress: number;
+  anticipationLevel: number;
+  useMotionBlur: boolean;
+  showSkeleton: boolean;
+}
+
+export interface PerceivedLatencyMetrics {
+  perceivedLatencyMs: number;
+  actualLatencyMs: number;
+  latencyReduction: number;
 }
 
 export interface PerceivedLatencyControls {
-  startAnticipation: (inputType: InputType) => void;
+  startAnticipation: (type: AnticipationType) => void;
   updateAnticipation: () => void;
   completeAnticipation: () => void;
   getAnticipationTransform: () => AnticipationTransform;
@@ -106,81 +107,89 @@ export function useAvatarPerceivedLatencyReducer(
   // State
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("idle");
   const [anticipationLevel, setAnticipationLevel] = useState(0);
-  const [useMotionBlur, setUseMotionBlur] = useState(mergedConfig.enableMotionBlur);
-  const [movementSpeed, setMovementSpeedState] = useState(0);
-
-  // Metrics state
+  const [movementSpeed, setMovementSpeed] = useState(0);
   const [perceivedLatencyMs, setPerceivedLatencyMs] = useState(0);
   const [actualLatencyMs, setActualLatencyMs] = useState(0);
-  const [latencyReduction, setLatencyReduction] = useState(0);
 
   // Refs
-  const anticipationStartRef = useRef(0);
-  const latencyStartRef = useRef(0);
-  const currentInputTypeRef = useRef<InputType | null>(null);
+  const anticipationStartTimeRef = useRef(0);
+  const latencyMeasurementStartRef = useRef(0);
+  const anticipationTypeRef = useRef<AnticipationType | null>(null);
 
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      anticipationStartRef.current = 0;
-      latencyStartRef.current = 0;
-    };
-  }, []);
+  // Computed values
+  // Motion blur requires both config enabled AND movement speed above threshold
+  const useMotionBlur = useMemo(
+    () => mergedConfig.enableMotionBlur && movementSpeed >= mergedConfig.motionBlurSpeedThreshold,
+    [mergedConfig.enableMotionBlur, mergedConfig.motionBlurSpeedThreshold, movementSpeed]
+  );
 
-  // Update motion blur state based on config
-  useEffect(() => {
-    setUseMotionBlur(mergedConfig.enableMotionBlur);
-  }, [mergedConfig.enableMotionBlur]);
+  const loadingProgress = useMemo(() => {
+    const phaseIndex = LOADING_PHASES.indexOf(loadingPhase);
+    if (phaseIndex <= 0) return 0;
+    return phaseIndex / (LOADING_PHASES.length - 1);
+  }, [loadingPhase]);
+
+  const showSkeleton = useMemo(
+    () => loadingPhase === "skeleton",
+    [loadingPhase]
+  );
+
+  const latencyReduction = useMemo(() => {
+    if (actualLatencyMs === 0) return 0;
+    return Math.max(0, ((actualLatencyMs - perceivedLatencyMs) / actualLatencyMs) * 100);
+  }, [actualLatencyMs, perceivedLatencyMs]);
 
   // Anticipation controls
-  const startAnticipation = useCallback((inputType: InputType) => {
-    anticipationStartRef.current = performance.now();
-    currentInputTypeRef.current = inputType;
-    setAnticipationLevel(0.3); // Initial anticipation level
-    callbacks.onAnticipationStart?.(inputType);
+  const startAnticipation = useCallback((type: AnticipationType) => {
+    anticipationStartTimeRef.current = performance.now();
+    anticipationTypeRef.current = type;
+
+    // Initial anticipation level based on type
+    const initialLevel = type === "tap" ? 0.3 : type === "hover" ? 0.1 : 0.2;
+    setAnticipationLevel(initialLevel);
+
+    callbacks.onAnticipationStart?.(type);
   }, [callbacks]);
 
   const updateAnticipation = useCallback(() => {
-    if (anticipationStartRef.current === 0) return;
+    if (anticipationStartTimeRef.current === 0) return;
 
-    const elapsed = performance.now() - anticipationStartRef.current;
-    const newLevel = Math.min(1, 0.3 + (elapsed / mergedConfig.anticipationThresholdMs) * 0.7);
-    setAnticipationLevel(newLevel);
+    const elapsed = performance.now() - anticipationStartTimeRef.current;
+    const progress = Math.min(1, elapsed / mergedConfig.anticipationThresholdMs);
+    setAnticipationLevel(prev => Math.min(1, prev + progress * 0.1));
   }, [mergedConfig.anticipationThresholdMs]);
 
   const completeAnticipation = useCallback(() => {
     setAnticipationLevel(0);
-    anticipationStartRef.current = 0;
-    currentInputTypeRef.current = null;
-  }, []);
+    anticipationStartTimeRef.current = 0;
+    anticipationTypeRef.current = null;
+    callbacks.onAnticipationComplete?.();
+  }, [callbacks]);
 
   const getAnticipationTransform = useCallback((): AnticipationTransform => {
     return {
       scale: 1 + anticipationLevel * 0.05,
-      opacity: 1 - anticipationLevel * 0.1,
       translateY: -anticipationLevel * 2,
+      opacity: 1 - anticipationLevel * 0.1,
     };
   }, [anticipationLevel]);
 
   // Motion blur controls
-  const setMovementSpeed = useCallback((speed: number) => {
-    setMovementSpeedState(speed);
-    if (mergedConfig.enableMotionBlur && speed >= mergedConfig.motionBlurSpeedThreshold) {
-      setUseMotionBlur(true);
-    }
-  }, [mergedConfig.enableMotionBlur, mergedConfig.motionBlurSpeedThreshold]);
+  const setMovementSpeedFn = useCallback((speed: number) => {
+    setMovementSpeed(speed);
+  }, []);
 
   const getMotionBlurStyles = useCallback((): MotionBlurStyles => {
-    if (!mergedConfig.enableMotionBlur || movementSpeed < mergedConfig.motionBlurSpeedThreshold) {
+    if (!useMotionBlur || movementSpeed < mergedConfig.motionBlurSpeedThreshold) {
       return { filter: "none", transform: "none" };
     }
 
-    const blurAmount = Math.min(10, (movementSpeed - mergedConfig.motionBlurSpeedThreshold) / 20);
+    const blurAmount = Math.min(10, (movementSpeed - mergedConfig.motionBlurSpeedThreshold) / 10);
     return {
       filter: "blur(" + blurAmount + "px)",
       transform: "translateX(" + (blurAmount * 0.5) + "px)",
     };
-  }, [mergedConfig.enableMotionBlur, mergedConfig.motionBlurSpeedThreshold, movementSpeed]);
+  }, [useMotionBlur, movementSpeed, mergedConfig.motionBlurSpeedThreshold]);
 
   // Loading controls
   const startLoading = useCallback(() => {
@@ -189,14 +198,14 @@ export function useAvatarPerceivedLatencyReducer(
   }, [callbacks]);
 
   const advanceLoading = useCallback(() => {
-    setLoadingPhase(current => {
-      const currentIndex = LOADING_PHASES.indexOf(current);
+    setLoadingPhase(prev => {
+      const currentIndex = LOADING_PHASES.indexOf(prev);
       if (currentIndex < LOADING_PHASES.length - 1) {
         const nextPhase = LOADING_PHASES[currentIndex + 1];
         callbacks.onLoadingPhaseChange?.(nextPhase);
         return nextPhase;
       }
-      return current;
+      return prev;
     });
   }, [callbacks]);
 
@@ -206,59 +215,50 @@ export function useAvatarPerceivedLatencyReducer(
   }, [callbacks]);
 
   const getSkeletonStyles = useCallback((): SkeletonStyles => {
-    const isLoading = loadingPhase === "skeleton" || loadingPhase === "lowRes";
     return {
-      opacity: isLoading ? 0.6 : 1,
-      background: isLoading ? "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)" : "transparent",
+      opacity: showSkeleton ? 1 : 0,
+      background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)",
+      animation: showSkeleton ? "skeleton-pulse 1.5s ease-in-out infinite" : "none",
     };
-  }, [loadingPhase]);
+  }, [showSkeleton]);
 
   // Latency measurement
   const startLatencyMeasurement = useCallback(() => {
-    latencyStartRef.current = performance.now();
+    latencyMeasurementStartRef.current = performance.now();
   }, []);
 
   const endLatencyMeasurement = useCallback(() => {
-    const now = performance.now();
-    const actual = now - latencyStartRef.current;
-
-    // Perceived latency is reduced by anticipation
-    const anticipationReduction = anticipationLevel * actual * 0.3;
-    const perceived = Math.max(0, actual - anticipationReduction);
-
+    const actual = performance.now() - latencyMeasurementStartRef.current;
     setActualLatencyMs(actual);
-    setPerceivedLatencyMs(perceived);
-    setLatencyReduction(actual > 0 ? ((actual - perceived) / actual) * 100 : 0);
 
-    callbacks.onLatencyMeasured?.(actual, perceived);
-  }, [anticipationLevel, callbacks]);
+    // Perceived latency is reduced by anticipation time
+    const anticipationTime = anticipationLevel > 0 ? mergedConfig.anticipationThresholdMs * anticipationLevel : 0;
+    const perceived = Math.max(0, actual - anticipationTime);
+    setPerceivedLatencyMs(perceived);
+  }, [anticipationLevel, mergedConfig.anticipationThresholdMs]);
 
   const resetMetrics = useCallback(() => {
     setPerceivedLatencyMs(0);
     setActualLatencyMs(0);
-    setLatencyReduction(0);
-    latencyStartRef.current = 0;
+    latencyMeasurementStartRef.current = 0;
   }, []);
 
-  // Computed values
-  const loadingProgress = useMemo(() => {
-    const index = LOADING_PHASES.indexOf(loadingPhase);
-    return index / (LOADING_PHASES.length - 1);
-  }, [loadingPhase]);
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      anticipationStartTimeRef.current = 0;
+      latencyMeasurementStartRef.current = 0;
+    };
+  }, []);
 
-  const showSkeleton = useMemo(() => {
-    return loadingPhase === "skeleton" || loadingPhase === "lowRes";
-  }, [loadingPhase]);
-
-  // Return values
   const state: PerceivedLatencyState = useMemo(() => ({
     isActive: true,
     loadingPhase,
+    loadingProgress,
     anticipationLevel,
     useMotionBlur,
-    loadingProgress,
     showSkeleton,
-  }), [loadingPhase, anticipationLevel, useMotionBlur, loadingProgress, showSkeleton]);
+  }), [loadingPhase, loadingProgress, anticipationLevel, useMotionBlur, showSkeleton]);
 
   const metrics: PerceivedLatencyMetrics = useMemo(() => ({
     perceivedLatencyMs,
@@ -271,7 +271,7 @@ export function useAvatarPerceivedLatencyReducer(
     updateAnticipation,
     completeAnticipation,
     getAnticipationTransform,
-    setMovementSpeed,
+    setMovementSpeed: setMovementSpeedFn,
     getMotionBlurStyles,
     startLoading,
     advanceLoading,
@@ -285,7 +285,7 @@ export function useAvatarPerceivedLatencyReducer(
     updateAnticipation,
     completeAnticipation,
     getAnticipationTransform,
-    setMovementSpeed,
+    setMovementSpeedFn,
     getMotionBlurStyles,
     startLoading,
     advanceLoading,
@@ -314,7 +314,7 @@ export function useAnticipatoryAnimation(): {
 
   const start = useCallback(() => {
     setIsAnticipating(true);
-    setLevel(0.5);
+    setLevel(0.3);
   }, []);
 
   const complete = useCallback(() => {
@@ -324,8 +324,8 @@ export function useAnticipatoryAnimation(): {
 
   const transform: AnticipationTransform = useMemo(() => ({
     scale: 1 + level * 0.05,
-    opacity: 1 - level * 0.1,
     translateY: -level * 2,
+    opacity: 1 - level * 0.1,
   }), [level]);
 
   return { start, complete, isAnticipating, transform };
@@ -339,6 +339,12 @@ export function useProgressiveAvatarLoading(): {
 } {
   const [phase, setPhase] = useState<LoadingPhase>("idle");
 
+  const progress = useMemo(() => {
+    const phaseIndex = LOADING_PHASES.indexOf(phase);
+    if (phaseIndex <= 0) return 0;
+    return phaseIndex / (LOADING_PHASES.length - 1);
+  }, [phase]);
+
   const startLoad = useCallback(() => {
     setPhase("skeleton");
   }, []);
@@ -346,11 +352,6 @@ export function useProgressiveAvatarLoading(): {
   const completeLoad = useCallback(() => {
     setPhase("complete");
   }, []);
-
-  const progress = useMemo(() => {
-    const index = LOADING_PHASES.indexOf(phase);
-    return index / (LOADING_PHASES.length - 1);
-  }, [phase]);
 
   return { startLoad, completeLoad, phase, progress };
 }
