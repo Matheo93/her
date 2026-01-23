@@ -513,6 +513,26 @@ describe("useInputQueue", () => {
 
     expect(result.current.size).toBe(0);
   });
+
+  it("should return undefined when peeking empty queue (line 300)", () => {
+    const { result } = renderHook(() => useInputQueue());
+
+    // Queue starts empty
+    expect(result.current.peek()).toBeUndefined();
+  });
+
+  it("should peek the first item without removing it", () => {
+    const { result } = renderHook(() => useInputQueue());
+
+    act(() => {
+      result.current.enqueue({ type: "tap", x: 100, y: 100 });
+      result.current.enqueue({ type: "tap", x: 200, y: 200 });
+    });
+
+    const peeked = result.current.peek();
+    expect(peeked).toEqual({ type: "tap", x: 100, y: 100 });
+    expect(result.current.size).toBe(2); // Size unchanged
+  });
 });
 
 describe("useResponseInterpolator", () => {
@@ -540,11 +560,63 @@ describe("useResponseInterpolator", () => {
     expect(pos.y).toBe(100);
   });
 
-  it("should apply easing", () => {
+  it("should apply easeInOut easing for first half (line 332-333 t < 0.5)", () => {
     const { result } = renderHook(() => useResponseInterpolator());
 
-    const eased = result.current.ease(0.5, "easeInOut");
-    expect(eased).toBeGreaterThanOrEqual(0);
-    expect(eased).toBeLessThanOrEqual(1);
+    // easeInOut when t < 0.5: 2 * t * t
+    const eased = result.current.ease(0.25, "easeInOut");
+    expect(eased).toBe(0.125); // 2 * 0.25 * 0.25 = 0.125
+  });
+
+  it("should apply easeInOut easing for second half (line 334 t >= 0.5)", () => {
+    const { result } = renderHook(() => useResponseInterpolator());
+
+    // easeInOut when t >= 0.5: -1 + (4 - 2*t) * t
+    const eased = result.current.ease(0.75, "easeInOut");
+    // -1 + (4 - 2*0.75) * 0.75 = -1 + 2.5 * 0.75 = -1 + 1.875 = 0.875
+    expect(eased).toBe(0.875);
+  });
+
+  it("should apply easeIn easing (line 328)", () => {
+    const { result } = renderHook(() => useResponseInterpolator());
+
+    // easeIn: t * t
+    const eased = result.current.ease(0.5, "easeIn");
+    expect(eased).toBe(0.25); // 0.5 * 0.5 = 0.25
+    expect(result.current.ease(0, "easeIn")).toBe(0);
+    expect(result.current.ease(1, "easeIn")).toBe(1);
+  });
+
+  it("should apply easeOut easing (lines 329-330)", () => {
+    const { result } = renderHook(() => useResponseInterpolator());
+
+    // easeOut: t * (2 - t)
+    const eased = result.current.ease(0.5, "easeOut");
+    expect(eased).toBe(0.75); // 0.5 * (2 - 0.5) = 0.5 * 1.5 = 0.75
+    expect(result.current.ease(0, "easeOut")).toBe(0);
+    expect(result.current.ease(1, "easeOut")).toBe(1);
+  });
+
+  it("should apply linear easing (line 337)", () => {
+    const { result } = renderHook(() => useResponseInterpolator());
+
+    // linear: just returns clamped value
+    expect(result.current.ease(0.5, "linear")).toBe(0.5);
+    expect(result.current.ease(0, "linear")).toBe(0);
+    expect(result.current.ease(1, "linear")).toBe(1);
+  });
+
+  it("should clamp values for all easing types", () => {
+    const { result } = renderHook(() => useResponseInterpolator());
+
+    // Values below 0 should be clamped to 0
+    expect(result.current.ease(-0.5, "linear")).toBe(0);
+    expect(result.current.ease(-0.5, "easeIn")).toBe(0);
+    expect(result.current.ease(-0.5, "easeOut")).toBe(0);
+
+    // Values above 1 should be clamped to 1
+    expect(result.current.ease(1.5, "linear")).toBe(1);
+    expect(result.current.ease(1.5, "easeIn")).toBe(1);
+    expect(result.current.ease(1.5, "easeOut")).toBe(1);
   });
 });

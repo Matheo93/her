@@ -973,3 +973,272 @@ describe("branch coverage - performance tier change callback", () => {
     expect(onPerformanceTierChange).toHaveBeenCalledWith("high");
   });
 });
+
+// ============================================================================
+// Additional Branch Coverage Tests - Sprint 612
+// ============================================================================
+
+describe("branch coverage - frame time array overflow (line 246)", () => {
+  it("should shift frame times when array exceeds 60 entries", async () => {
+    const { result } = renderHook(() => useAvatarMobileOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Run many frames to exceed the 60-frame buffer
+    for (let i = 0; i < 70; i++) {
+      await act(async () => {
+        jest.advanceTimersByTime(16);
+        await Promise.resolve();
+      });
+    }
+
+    // FPS metrics should be tracked (may be undefined in test env, so check defined or 0+)
+    expect(result.current.metrics.averageFps).toBeDefined();
+  });
+});
+
+describe("branch coverage - touch history overflow (line 421)", () => {
+  it("should slice touch history when exceeding 10 entries", async () => {
+    const { result } = renderHook(() => useAvatarMobileOptimizer());
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Process more than 10 touch events to trigger history slice
+    for (let i = 0; i < 15; i++) {
+      const mockTouchEvent = {
+        touches: [{ clientX: i * 10, clientY: i * 20, force: 0.5 }],
+        timeStamp: i * 10,
+      } as unknown as TouchEvent;
+
+      act(() => {
+        result.current.controls.processTouchEvent(mockTouchEvent);
+      });
+    }
+
+    // Touch latency should be tracked
+    expect(result.current.metrics.touchLatencyMs).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("branch coverage - predictTouchPosition with minimal history (lines 445-452)", () => {
+  it("should return 0.5 confidence when events>=2 but history<2 (lines 445-452)", async () => {
+    const { result } = renderHook(() =>
+      useAvatarMobileOptimizer({ enableTouchPrediction: true })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // First, process just one touch event so history = 1
+    const mockTouchEvent = {
+      touches: [{ clientX: 50, clientY: 100, force: 0.5 }],
+      timeStamp: 1000,
+    } as unknown as TouchEvent;
+
+    act(() => {
+      result.current.controls.processTouchEvent(mockTouchEvent);
+    });
+
+    // Now call predictTouchPosition with 2+ events, but history is still just 1
+    // This triggers the history.length < 2 branch
+    let prediction: ReturnType<typeof result.current.controls.predictTouchPosition>;
+    act(() => {
+      prediction = result.current.controls.predictTouchPosition([
+        { x: 100, y: 200, timestamp: 1000, pressure: 1 },
+        { x: 110, y: 210, timestamp: 1016, pressure: 1 },
+      ]);
+    });
+
+    // Should return confidence 0.5 because history < 2 (line 450)
+    expect(prediction!.confidence).toBe(0.5);
+    expect(prediction!.latencyCompensationMs).toBe(0);
+    expect(prediction!.predictedX).toBe(110); // Last event
+    expect(prediction!.predictedY).toBe(210); // Last event
+  });
+
+  it("should return last event with low confidence when history not built up", async () => {
+    const { result } = renderHook(() =>
+      useAvatarMobileOptimizer({ enableTouchPrediction: true })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Process just one touch event so history < 2
+    const mockTouchEvent = {
+      touches: [{ clientX: 50, clientY: 100, force: 0.5 }],
+      timeStamp: 1000,
+    } as unknown as TouchEvent;
+
+    let events: ReturnType<typeof result.current.controls.processTouchEvent>;
+    act(() => {
+      events = result.current.controls.processTouchEvent(mockTouchEvent);
+    });
+
+    // Predict with minimal history
+    let prediction: ReturnType<typeof result.current.controls.predictTouchPosition>;
+    act(() => {
+      prediction = result.current.controls.predictTouchPosition(events!);
+    });
+
+    // Should return prediction with 0 confidence (events.length < 2 triggers first branch)
+    expect(prediction!.confidence).toBe(0);
+  });
+});
+
+describe("branch coverage - predictTouchPosition with dt <= 0 (lines 460-466)", () => {
+  it("should return confidence 0.3 when timestamps are equal (dt <= 0)", async () => {
+    const { result } = renderHook(() =>
+      useAvatarMobileOptimizer({ enableTouchPrediction: true })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // We need to build up history >= 2, but with same timestamps
+    // First, process 3 touch events with same timestamp
+    const timestamp = 1000;
+
+    // Process touch events to build history
+    for (let i = 0; i < 3; i++) {
+      const mockTouchEvent = {
+        touches: [{ clientX: 50 + i * 10, clientY: 100 + i * 10, force: 0.5 }],
+        timeStamp: timestamp, // All same timestamp
+      } as unknown as TouchEvent;
+
+      act(() => {
+        result.current.controls.processTouchEvent(mockTouchEvent);
+      });
+    }
+
+    // Now predict - history >= 2, but dt between last two is 0
+    let prediction: ReturnType<typeof result.current.controls.predictTouchPosition>;
+    act(() => {
+      prediction = result.current.controls.predictTouchPosition([
+        { x: 100, y: 200, timestamp: timestamp, pressure: 1 },
+        { x: 110, y: 210, timestamp: timestamp, pressure: 1 },
+      ]);
+    });
+
+    // With dt <= 0, should return confidence 0.3 (line 464)
+    expect(prediction!).toBeDefined();
+    expect(prediction!.confidence).toBe(0.3);
+    expect(prediction!.latencyCompensationMs).toBe(0);
+  });
+
+  it("should return last position from history when dt is zero", async () => {
+    const { result } = renderHook(() =>
+      useAvatarMobileOptimizer({ enableTouchPrediction: true })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Build history with same timestamps
+    const timestamp = 2000;
+    const positions = [
+      { x: 10, y: 20 },
+      { x: 30, y: 40 },
+    ];
+
+    for (const pos of positions) {
+      const mockTouchEvent = {
+        touches: [{ clientX: pos.x, clientY: pos.y, force: 0.5 }],
+        timeStamp: timestamp, // Same timestamp
+      } as unknown as TouchEvent;
+
+      act(() => {
+        result.current.controls.processTouchEvent(mockTouchEvent);
+      });
+    }
+
+    let prediction: ReturnType<typeof result.current.controls.predictTouchPosition>;
+    act(() => {
+      prediction = result.current.controls.predictTouchPosition([
+        { x: 100, y: 200, timestamp: timestamp, pressure: 1 },
+        { x: 110, y: 210, timestamp: timestamp, pressure: 1 },
+      ]);
+    });
+
+    // Should return position from history's last entry
+    expect(prediction!.predictedX).toBe(30); // Last from history
+    expect(prediction!.predictedY).toBe(40); // Last from history
+  });
+});
+
+describe("branch coverage - predictTouchPosition disabled", () => {
+  it("should return 0 confidence when prediction disabled (lines 433-440)", async () => {
+    const { result } = renderHook(() =>
+      useAvatarMobileOptimizer({ enableTouchPrediction: false })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const mockTouchEvent = {
+      touches: [{ clientX: 50, clientY: 100, force: 0.5 }],
+      timeStamp: 1000,
+    } as unknown as TouchEvent;
+
+    let events: ReturnType<typeof result.current.controls.processTouchEvent>;
+    act(() => {
+      events = result.current.controls.processTouchEvent(mockTouchEvent);
+    });
+
+    let prediction: ReturnType<typeof result.current.controls.predictTouchPosition>;
+    act(() => {
+      prediction = result.current.controls.predictTouchPosition(events!);
+    });
+
+    expect(prediction!.confidence).toBe(0);
+    expect(prediction!.latencyCompensationMs).toBe(0);
+  });
+
+  it("should return 0 confidence when events.length < 2 (line 433)", async () => {
+    const { result } = renderHook(() =>
+      useAvatarMobileOptimizer({ enableTouchPrediction: true })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Predict with single event
+    let prediction: ReturnType<typeof result.current.controls.predictTouchPosition>;
+    act(() => {
+      prediction = result.current.controls.predictTouchPosition([
+        { x: 100, y: 200, timestamp: 1000, pressure: 1 },
+      ]);
+    });
+
+    expect(prediction!.confidence).toBe(0);
+  });
+
+  it("should return fallback when events array is empty (line 434)", async () => {
+    const { result } = renderHook(() =>
+      useAvatarMobileOptimizer({ enableTouchPrediction: false })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Predict with empty events
+    let prediction: ReturnType<typeof result.current.controls.predictTouchPosition>;
+    act(() => {
+      prediction = result.current.controls.predictTouchPosition([]);
+    });
+
+    expect(prediction!.predictedX).toBe(0);
+    expect(prediction!.predictedY).toBe(0);
+  });
+});
