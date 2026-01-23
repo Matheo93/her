@@ -1528,3 +1528,25 @@ export {
   type RenderTimingMetrics,
   type RenderTimingControls,
 } from "./useAvatarRenderTiming";
+
+// Avatar Touch Feedback Bridge (Sprint 543)
+export {
+  useAvatarTouchFeedbackBridge,
+  useTouchFeedbackStyle,
+  useAvatarPredictedState,
+  useTouchFeedbackActive,
+  useFeedbackLatency,
+  type FeedbackType as TouchBridgeFeedbackType,
+  type AvatarRegion,
+  type GestureAction,
+  type TransitionState as TouchBridgeTransitionState,
+  type TouchPoint as TouchBridgeTouchPoint,
+  type FeedbackStyle,
+  type AvatarFeedback,
+  type PredictedAvatarState,
+  type TouchFeedbackConfig as TouchBridgeConfig,
+  type TouchFeedbackCallbacks as TouchBridgeCallbacks,
+  type TouchFeedbackState as TouchBridgeState,
+  type TouchFeedbackMetrics as TouchBridgeMetrics,
+  type TouchFeedbackControls as TouchBridgeControls,
+} from "./useAvatarTouchFeedbackBridge";
