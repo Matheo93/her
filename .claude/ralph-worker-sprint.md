@@ -1,87 +1,84 @@
 ---
-sprint: 1590
-started_at: 2026-01-23T07:38:00Z
+sprint: 515
+started_at: 2026-01-23T17:37:56Z
 status: ✅ COMPLETED
 ---
 
-# Sprint #1590 - Avatar Head Tracking, Wake Lock & Streaming Text
+# Sprint #515 - Avatar UX & Mobile Latency Improvements
 
 ## OBJECTIVES
 
-1. **Avatar Head Tracking** - Natural head movement and gestures
-2. **Mobile Wake Lock** - Screen wake lock management
-3. **Streaming Text Renderer** - Typewriter effect for responses
+1. **Avatar State Recovery** - Smooth reconnection and state persistence UX
+2. **Request Coalescing** - Reduce mobile latency via intelligent batching
 
 ## COMPLETED TASKS
 
-### 1. ✅ Created useAvatarHeadTracking Hook
-**File:** `frontend/src/hooks/useAvatarHeadTracking.ts` (~520 lines)
+### 1. ✅ Created useAvatarStateRecovery Hook
+**File:** `frontend/src/hooks/useAvatarStateRecovery.ts` (~550 lines)
 
 Features:
-- 3-axis head pose control (pitch, yaw, roll)
-- 8 gestures: nod, shake, tilt_curious, tilt_confused, look_away, look_up, lean_in, lean_back
-- 5 tracking modes: user, target, idle, gesture, locked
-- Natural idle micro-movements (Perlin-like noise)
-- Smooth interpolation with configurable damping
-- Target-based attention system
+- Complete avatar state persistence (pose, expression, animation, lookAt)
+- Graceful state recovery after connection interruptions
+- Smooth interpolation from last known state to current state
+- Auto-checkpoint on visibility change (app backgrounding)
+- Configurable stale age threshold and interpolation duration
+- Session storage backed persistence
 
 Sub-hooks:
-- `useHeadPose` - Simple head pose values
-- `useConversationHeadTracking` - Conversation-aware tracking
+- `useAvatarStatePersistence` - Simple save/load/clear
+- `useConversationAvatarRecovery` - Conversation-aware auto-recovery
 
-### 2. ✅ Created useMobileWakeLock Hook
-**File:** `frontend/src/hooks/useMobileWakeLock.ts` (~460 lines)
+Key Types:
+- `RecoverableAvatarState` - Full avatar state structure
+- `RecoveryStatus` - idle, checking, recovering, interpolating, complete, failed
+- `StateCheckpoint` - Checkpoint with priority levels
+
+### 2. ✅ Created useRequestCoalescer Hook
+**File:** `frontend/src/hooks/useRequestCoalescer.ts` (~680 lines)
 
 Features:
-- 6 wake lock states: released, requesting, active, paused, denied, error
-- 5 lock reasons: conversation, media_playback, user_activity, download, custom
-- Battery-aware management (auto-release on low battery)
-- Automatic reacquisition on visibility change
-- Session tracking with duration metrics
-- Inactivity timeout support
+- Request deduplication (identical requests share responses)
+- Request batching (multiple requests combined into one)
+- Priority-based request ordering (critical, high, normal, low, background)
+- Automatic retry with exponential backoff + jitter
+- Request cancellation on component unmount
+- Offline request queueing with flush on reconnect
+- Response caching with TTL and LRU eviction
+- Comprehensive metrics tracking
 
 Sub-hooks:
-- `useSimpleWakeLock` - Basic acquire/release
-- `useConversationWakeLock` - Auto-manage during conversations
+- `useCoalescedRequest` - Simple deduped request helper
+- `useChatRequestCoalescer` - Chat-specific configuration
 
-### 3. ✅ Created useStreamingTextRenderer Hook
-**File:** `frontend/src/hooks/useStreamingTextRenderer.ts` (~500 lines)
+Key Metrics Tracked:
+- Total, coalesced, batched, failed, cancelled requests
+- Average latency, cache hits/misses
+- Saved requests and bandwidth estimate
 
-Features:
-- 4 streaming modes: character, word, chunk, instant
-- 5 streaming states: idle, buffering, rendering, paused, complete
-- Natural typing speed variation
-- Punctuation pause for natural rhythm
-- Chunk buffering for smooth performance
-- Progress tracking
-
-Sub-hooks:
-- `useStreamingText` - Simple text streaming
-- `useTypewriter` - Typewriter effect for static text
-
-### 4. ✅ Updated Hooks Index
-- Exported all Sprint 1590 hooks and types
-- Resolved type conflicts with aliases
+### 3. ✅ Updated Hooks Index
+- Exported all Sprint 515 hooks and types with proper aliasing
+- Resolved type conflicts with existing hooks
 
 ## VALIDATION
 
 ```
 Frontend Build: ✅ PASS
-Backend Tests: ✅ 202 passed, 1 skipped in 21.07s
+Backend Tests: ✅ 202 passed, 1 skipped in 22.38s
 ```
 
 ## NEW FILES
 
-1. `frontend/src/hooks/useAvatarHeadTracking.ts` - ~520 lines
-2. `frontend/src/hooks/useMobileWakeLock.ts` - ~460 lines
-3. `frontend/src/hooks/useStreamingTextRenderer.ts` - ~500 lines
+1. `frontend/src/hooks/useAvatarStateRecovery.ts` - ~550 lines
+2. `frontend/src/hooks/useRequestCoalescer.ts` - ~680 lines
 
 ## CUMULATIVE MOBILE OPTIMIZATION HOOKS
 
-From Sprints 232 + 440 + 510-513 + 1586-1590:
+From previous sprints + Sprint 515:
 
 | Hook | Purpose | Key Features |
 |------|---------|--------------|
+| useAvatarStateRecovery | State persistence | Smooth reconnection UX |
+| useRequestCoalescer | Request optimization | Batching, deduplication |
 | useMobileAvatarOptimizer | Avatar performance | Quality tiers |
 | useAnimationBatcher | Frame batching | Priority levels |
 | useTouchAvatarInteraction | Touch gestures | Touch tracking |
@@ -114,12 +111,11 @@ From Sprints 232 + 440 + 510-513 + 1586-1590:
 | useMobileWakeLock | Wake lock | Battery-aware |
 | useStreamingTextRenderer | Text streaming | Typewriter effect |
 
-**Total: 31 specialized hooks for mobile/avatar optimization**
+**Total: 33 specialized hooks for mobile/avatar optimization**
 
 ## SUMMARY
 
-Sprint 1590 completed head tracking, wake lock, and streaming text:
-- Avatar head naturally responds to targets with smooth interpolation
-- Screen stays awake during conversations with battery awareness
-- AI responses stream with natural typewriter effect
+Sprint 515 completed avatar state recovery and request coalescing:
+- Avatar smoothly recovers state after disconnection/backgrounding
+- Requests are intelligently batched and deduplicated to reduce latency
 - All code compiles and tests pass
