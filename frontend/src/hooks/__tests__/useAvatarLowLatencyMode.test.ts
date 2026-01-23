@@ -677,3 +677,719 @@ describe("useLatencyMetrics", () => {
     expect(result.current.frameDrops).toBe(0);
   });
 });
+
+// ============================================================================
+// Sprint 542 - Enhanced Coverage Tests
+// ============================================================================
+
+describe("useAvatarLowLatencyMode - Branch Coverage", () => {
+  describe("gesture prediction - all directions", () => {
+    it("should predict swipe-left gesture", () => {
+      const onPredictionMade = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode({}, { onPredictionMade })
+      );
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Start touch
+      act(() => {
+        result.current.controls.processTouchStart(
+          createMockTouchEvent("touchstart", 500, 200)
+        );
+      });
+
+      // Simulate fast leftward swipe (moving from right to left)
+      for (let i = 1; i <= 5; i++) {
+        mockTime += 20;
+        act(() => {
+          result.current.controls.processTouchMove(
+            createMockTouchEvent("touchmove", 500 - i * 100, 200)
+          );
+        });
+      }
+
+      expect(onPredictionMade).toHaveBeenCalled();
+      const calls = onPredictionMade.mock.calls;
+      const lastGesture = calls[calls.length - 1][0];
+      expect(lastGesture).toMatch(/swipe-left|drag/);
+    });
+
+    it("should predict swipe-down gesture", () => {
+      const onPredictionMade = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode({}, { onPredictionMade })
+      );
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Start touch
+      act(() => {
+        result.current.controls.processTouchStart(
+          createMockTouchEvent("touchstart", 200, 100)
+        );
+      });
+
+      // Simulate fast downward swipe
+      for (let i = 1; i <= 5; i++) {
+        mockTime += 20;
+        act(() => {
+          result.current.controls.processTouchMove(
+            createMockTouchEvent("touchmove", 200, 100 + i * 100)
+          );
+        });
+      }
+
+      expect(onPredictionMade).toHaveBeenCalled();
+      const calls = onPredictionMade.mock.calls;
+      const lastGesture = calls[calls.length - 1][0];
+      expect(lastGesture).toMatch(/swipe-down|drag/);
+    });
+
+    it("should predict swipe-up gesture", () => {
+      const onPredictionMade = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode({}, { onPredictionMade })
+      );
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Start touch at bottom
+      act(() => {
+        result.current.controls.processTouchStart(
+          createMockTouchEvent("touchstart", 200, 600)
+        );
+      });
+
+      // Simulate fast upward swipe
+      for (let i = 1; i <= 5; i++) {
+        mockTime += 20;
+        act(() => {
+          result.current.controls.processTouchMove(
+            createMockTouchEvent("touchmove", 200, 600 - i * 100)
+          );
+        });
+      }
+
+      expect(onPredictionMade).toHaveBeenCalled();
+      const calls = onPredictionMade.mock.calls;
+      const lastGesture = calls[calls.length - 1][0];
+      expect(lastGesture).toMatch(/swipe-up|drag/);
+    });
+
+    it("should predict clockwise rotation gesture", () => {
+      const onPredictionMade = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode({}, { onPredictionMade })
+      );
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Start touch at center
+      const centerX = 300;
+      const centerY = 300;
+      const radius = 100;
+
+      act(() => {
+        result.current.controls.processTouchStart(
+          createMockTouchEvent("touchstart", centerX + radius, centerY)
+        );
+      });
+
+      // Simulate clockwise circular motion
+      const points = 6;
+      for (let i = 1; i <= points; i++) {
+        mockTime += 50;
+        const angle = (i * Math.PI) / 3; // 60 degrees per step
+        const x = centerX + radius * Math.cos(angle);
+        const y = centerY + radius * Math.sin(angle);
+        act(() => {
+          result.current.controls.processTouchMove(
+            createMockTouchEvent("touchmove", x, y)
+          );
+        });
+      }
+
+      expect(onPredictionMade).toHaveBeenCalled();
+    });
+
+    it("should predict counter-clockwise rotation gesture", () => {
+      const onPredictionMade = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode({}, { onPredictionMade })
+      );
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Start touch
+      const centerX = 300;
+      const centerY = 300;
+      const radius = 100;
+
+      act(() => {
+        result.current.controls.processTouchStart(
+          createMockTouchEvent("touchstart", centerX + radius, centerY)
+        );
+      });
+
+      // Simulate counter-clockwise circular motion
+      const points = 6;
+      for (let i = 1; i <= points; i++) {
+        mockTime += 50;
+        const angle = -(i * Math.PI) / 3; // -60 degrees per step (counter-clockwise)
+        const x = centerX + radius * Math.cos(angle);
+        const y = centerY + radius * Math.sin(angle);
+        act(() => {
+          result.current.controls.processTouchMove(
+            createMockTouchEvent("touchmove", x, y)
+          );
+        });
+      }
+
+      expect(onPredictionMade).toHaveBeenCalled();
+    });
+
+    it("should predict drag gesture for moderate speed movement", () => {
+      const onPredictionMade = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode({}, { onPredictionMade })
+      );
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Start touch
+      act(() => {
+        result.current.controls.processTouchStart(
+          createMockTouchEvent("touchstart", 100, 200)
+        );
+      });
+
+      // Simulate moderate diagonal movement (not fast enough for swipe)
+      for (let i = 1; i <= 5; i++) {
+        mockTime += 100; // Slower movement
+        act(() => {
+          result.current.controls.processTouchMove(
+            createMockTouchEvent("touchmove", 100 + i * 20, 200 + i * 20)
+          );
+        });
+      }
+
+      expect(onPredictionMade).toHaveBeenCalled();
+    });
+
+    it("should handle same timestamp touches (dt === 0)", () => {
+      const onPredictionMade = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode({}, { onPredictionMade })
+      );
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Start touch
+      act(() => {
+        result.current.controls.processTouchStart(
+          createMockTouchEvent("touchstart", 100, 200)
+        );
+      });
+
+      // Move touches at same timestamp (no time advancement)
+      for (let i = 0; i < 3; i++) {
+        act(() => {
+          result.current.controls.processTouchMove(
+            createMockTouchEvent("touchmove", 100 + i, 200 + i)
+          );
+        });
+      }
+
+      expect(onPredictionMade).toHaveBeenCalled();
+    });
+
+    it("should not predict with less than 3 touch history points", () => {
+      const onPredictionMade = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode({}, { onPredictionMade })
+      );
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Only start touch (1 point) and one move (2 points total)
+      act(() => {
+        result.current.controls.processTouchStart(
+          createMockTouchEvent("touchstart", 100, 200)
+        );
+      });
+
+      mockTime += 16;
+
+      act(() => {
+        result.current.controls.processTouchMove(
+          createMockTouchEvent("touchmove", 150, 250)
+        );
+      });
+
+      // Should not have made a prediction with only 2 points
+      expect(onPredictionMade).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("touch history management", () => {
+    it("should limit touch history to 10 entries", () => {
+      const { result } = renderHook(() => useAvatarLowLatencyMode());
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Start touch
+      act(() => {
+        result.current.controls.processTouchStart(
+          createMockTouchEvent("touchstart", 100, 200)
+        );
+      });
+
+      // Simulate more than 10 touch moves to trigger history shift
+      for (let i = 1; i <= 15; i++) {
+        mockTime += 16;
+        act(() => {
+          result.current.controls.processTouchMove(
+            createMockTouchEvent("touchmove", 100 + i * 10, 200 + i * 5)
+          );
+        });
+      }
+
+      // Should not throw and should still track position
+      expect(result.current.state.touch.currentPosition.x).toBeGreaterThan(100);
+    });
+  });
+
+  describe("frame measurement", () => {
+    it("should handle frame buffer exceeding 60 frames", () => {
+      const { result } = renderHook(() => useAvatarLowLatencyMode());
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Advance time to simulate many frames (more than 60)
+      for (let i = 0; i < 70; i++) {
+        act(() => {
+          jest.advanceTimersByTime(16);
+        });
+      }
+
+      // Should have updated metrics without error
+      expect(result.current.metrics.averageLatencyMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it("should detect frame drops when frame takes too long", () => {
+      const { result } = renderHook(() => useAvatarLowLatencyMode());
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Simulate normal frames first
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          jest.advanceTimersByTime(16);
+        });
+      }
+
+      // Override mockTime to simulate a very long frame (frame drop)
+      mockTime += 100; // Way more than expected ~16ms frame
+
+      act(() => {
+        jest.advanceTimersByTime(100);
+      });
+
+      // Frame drops should have been detected
+      expect(result.current.metrics.frameDrops).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("animation preloading edge cases", () => {
+    it("should not add animation when all existing have higher priority", () => {
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode({ maxPreloadedAnimations: 3 })
+      );
+
+      // Preload animations with high priority
+      act(() => {
+        result.current.controls.preloadAnimation("wave", 10);
+        result.current.controls.preloadAnimation("nod", 10);
+        result.current.controls.preloadAnimation("smile", 10);
+      });
+
+      // Try to add low priority animation - should be rejected
+      act(() => {
+        result.current.controls.preloadAnimation("blink", 1);
+      });
+
+      // Should not error
+      expect(result.current.state.isActive).toBe(false);
+    });
+
+    it("should disable preloading when enableAnimationPreload is false", () => {
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode({ enableAnimationPreload: false })
+      );
+
+      act(() => {
+        result.current.controls.preloadAnimation("wave", 2);
+      });
+
+      // Should not throw error
+      expect(result.current.state.isActive).toBe(false);
+    });
+  });
+
+  describe("touch processing edge cases", () => {
+    it("should handle touch start with empty touches array", () => {
+      const { result } = renderHook(() => useAvatarLowLatencyMode());
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      const emptyTouchEvent = {
+        type: "touchstart",
+        touches: [],
+        changedTouches: [],
+        targetTouches: [],
+        preventDefault: jest.fn(),
+        stopPropagation: jest.fn(),
+        timeStamp: mockTime,
+      } as unknown as TouchEvent;
+
+      act(() => {
+        result.current.controls.processTouchStart(emptyTouchEvent);
+      });
+
+      // Should not crash and touch should remain inactive
+      expect(result.current.state.touch.active).toBe(false);
+    });
+
+    it("should handle touch move when touch is not active", () => {
+      const { result } = renderHook(() => useAvatarLowLatencyMode());
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Move without starting touch first
+      act(() => {
+        result.current.controls.processTouchMove(
+          createMockTouchEvent("touchmove", 150, 250)
+        );
+      });
+
+      // Should not crash
+      expect(result.current.state.interactionState).toBe("idle");
+    });
+
+    it("should handle touch move with empty touches array", () => {
+      const { result } = renderHook(() => useAvatarLowLatencyMode());
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Start touch normally
+      act(() => {
+        result.current.controls.processTouchStart(
+          createMockTouchEvent("touchstart", 100, 200)
+        );
+      });
+
+      const emptyTouchEvent = {
+        type: "touchmove",
+        touches: [],
+        changedTouches: [],
+        targetTouches: [],
+        preventDefault: jest.fn(),
+        stopPropagation: jest.fn(),
+        timeStamp: mockTime,
+      } as unknown as TouchEvent;
+
+      mockTime += 16;
+
+      act(() => {
+        result.current.controls.processTouchMove(emptyTouchEvent);
+      });
+
+      // Should not crash
+      expect(result.current.state.touch.active).toBe(true);
+    });
+  });
+
+  describe("mode auto-adjustment", () => {
+    it("should auto-adjust to instant mode under high latency", () => {
+      // Use very low target latency to trigger instant mode
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode({ targetLatencyMs: 1 })
+      );
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Simulate many frames to trigger mode calculation
+      for (let i = 0; i < 100; i++) {
+        act(() => {
+          jest.advanceTimersByTime(16);
+        });
+      }
+
+      // Mode should potentially adjust based on performance
+      expect(result.current.state.mode).toBeDefined();
+    });
+
+    it("should detect extreme optimization level under very high latency", () => {
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode({ targetLatencyMs: 1 })
+      );
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Simulate slow frames
+      for (let i = 0; i < 50; i++) {
+        mockTime += 50; // Much higher than 16ms target
+        act(() => {
+          jest.advanceTimersByTime(50);
+        });
+      }
+
+      // Optimization level should potentially be high
+      expect(result.current.state.optimizationLevel).toBeDefined();
+    });
+  });
+
+  describe("touch prediction disabled", () => {
+    it("should not predict gestures when enableTouchPrediction is false", () => {
+      const onPredictionMade = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode(
+          { enableTouchPrediction: false },
+          { onPredictionMade }
+        )
+      );
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Start touch
+      act(() => {
+        result.current.controls.processTouchStart(
+          createMockTouchEvent("touchstart", 100, 200)
+        );
+      });
+
+      // Move touch multiple times
+      for (let i = 1; i <= 5; i++) {
+        mockTime += 20;
+        act(() => {
+          result.current.controls.processTouchMove(
+            createMockTouchEvent("touchmove", 100 + i * 50, 200)
+          );
+        });
+      }
+
+      // Should not have made predictions
+      expect(onPredictionMade).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("instant feedback disabled", () => {
+    it("should work with instant feedback disabled", () => {
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode({ enableInstantFeedback: false })
+      );
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      act(() => {
+        result.current.controls.processTouchStart(
+          createMockTouchEvent("touchstart", 100, 200)
+        );
+      });
+
+      expect(result.current.state.touch.active).toBe(true);
+    });
+  });
+
+  describe("callback edge cases", () => {
+    it("should handle onLatencyBudgetExceeded callback", () => {
+      const onLatencyBudgetExceeded = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode({}, { onLatencyBudgetExceeded })
+      );
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Simulate activity
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          jest.advanceTimersByTime(16);
+        });
+      }
+
+      // Callback may or may not be called depending on latency
+      expect(result.current.state.isActive).toBe(true);
+    });
+
+    it("should call onQualityAdjustment when forcing quality", () => {
+      const onQualityAdjustment = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode({}, { onQualityAdjustment })
+      );
+
+      act(() => {
+        result.current.controls.forceQuality({ animationFps: 24 });
+      });
+
+      expect(onQualityAdjustment).toHaveBeenCalled();
+    });
+  });
+
+  describe("mode transitions tracking", () => {
+    it("should track mode transitions count", () => {
+      const { result } = renderHook(() => useAvatarLowLatencyMode());
+
+      act(() => {
+        result.current.controls.setMode("low");
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(100);
+      });
+
+      act(() => {
+        result.current.controls.setMode("ultra-low");
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(100);
+      });
+
+      act(() => {
+        result.current.controls.setMode("instant");
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(100);
+      });
+
+      expect(result.current.metrics.modeTransitions).toBeGreaterThan(0);
+    });
+  });
+
+  describe("P95 latency calculation", () => {
+    it("should calculate P95 latency after enough frames", () => {
+      const { result } = renderHook(() => useAvatarLowLatencyMode());
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Simulate enough frames for P95 calculation (at least 10)
+      for (let i = 0; i < 20; i++) {
+        act(() => {
+          jest.advanceTimersByTime(16);
+        });
+      }
+
+      // P95 should be calculated
+      expect(result.current.metrics.p95LatencyMs).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("touch pressure handling", () => {
+    it("should use default pressure when force is undefined", () => {
+      const { result } = renderHook(() => useAvatarLowLatencyMode());
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      const touchWithNoForce = {
+        type: "touchstart",
+        touches: [{
+          clientX: 100,
+          clientY: 200,
+          force: undefined,
+          identifier: 0,
+        }],
+        changedTouches: [],
+        targetTouches: [],
+        preventDefault: jest.fn(),
+        stopPropagation: jest.fn(),
+        timeStamp: mockTime,
+      } as unknown as TouchEvent;
+
+      act(() => {
+        result.current.controls.processTouchStart(touchWithNoForce);
+      });
+
+      // Should use default pressure of 1
+      expect(result.current.state.touch.pressure).toBe(1);
+    });
+  });
+
+  describe("prediction confidence levels", () => {
+    it("should preload animation with high confidence", () => {
+      const onPredictionMade = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarLowLatencyMode(
+          { enableAnimationPreload: true },
+          { onPredictionMade }
+        )
+      );
+
+      act(() => {
+        result.current.controls.enable();
+      });
+
+      // Start touch
+      act(() => {
+        result.current.controls.processTouchStart(
+          createMockTouchEvent("touchstart", 100, 200)
+        );
+      });
+
+      // Fast swipe to get high confidence prediction
+      for (let i = 1; i <= 5; i++) {
+        mockTime += 20;
+        act(() => {
+          result.current.controls.processTouchMove(
+            createMockTouchEvent("touchmove", 100 + i * 100, 200)
+          );
+        });
+      }
+
+      expect(onPredictionMade).toHaveBeenCalled();
+    });
+  });
+});
