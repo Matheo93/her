@@ -559,21 +559,11 @@ describe("useConnectionSpeed", () => {
 // Convenience Hooks Tests
 // ============================================================================
 
-describe("useAdaptiveAnimationSpeed", () => {
+describe("convenience hooks", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.spyOn(performance, "now").mockImplementation(() => 1000);
     jest.spyOn(Date, "now").mockImplementation(() => 1000);
-
-    (useNetworkStatus as jest.Mock).mockReturnValue({
-      isOnline: true,
-      wasOffline: false,
-      downlink: 10,
-      rtt: 50,
-      effectiveType: "4g",
-      isSlowConnection: false,
-    });
-
     global.fetch = jest.fn().mockResolvedValue({ ok: true });
   });
 
@@ -583,117 +573,115 @@ describe("useAdaptiveAnimationSpeed", () => {
     jest.restoreAllMocks();
   });
 
-  it("should return animation speed", () => {
-    const { result } = renderHook(() => useAdaptiveAnimationSpeed());
+  describe("useAdaptiveAnimationSpeed", () => {
+    it("should return animation speed for good connection", () => {
+      (useNetworkStatus as jest.Mock).mockReturnValue({
+        isOnline: true,
+        wasOffline: false,
+        downlink: 10,
+        rtt: 50,
+        effectiveType: "4g",
+        isSlowConnection: false,
+      });
 
-    expect(typeof result.current).toBe("number");
-    expect(result.current).toBeGreaterThanOrEqual(1);
-  });
-});
+      const { result } = renderHook(() => useAdaptiveAnimationSpeed());
 
-describe("useReducedDataMode", () => {
-  beforeEach(() => {
-    jest.useFakeTimers();
-    jest.spyOn(performance, "now").mockImplementation(() => 1000);
-    jest.spyOn(Date, "now").mockImplementation(() => 1000);
-
-    global.fetch = jest.fn().mockResolvedValue({ ok: true });
-  });
-
-  afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
-    jest.restoreAllMocks();
-  });
-
-  it("should return false for good connection", () => {
-    (useNetworkStatus as jest.Mock).mockReturnValue({
-      isOnline: true,
-      wasOffline: false,
-      downlink: 10,
-      rtt: 50,
-      effectiveType: "4g",
-      isSlowConnection: false,
+      expect(typeof result.current).toBe("number");
+      expect(result.current).toBe(1);
     });
 
-    const { result } = renderHook(() => useReducedDataMode());
+    it("should return slower animation for poor connection", () => {
+      (useNetworkStatus as jest.Mock).mockReturnValue({
+        isOnline: true,
+        wasOffline: false,
+        downlink: 0.5,
+        rtt: 300,
+        effectiveType: "2g",
+        isSlowConnection: true,
+      });
 
-    expect(result.current).toBe(false);
+      const { result } = renderHook(() => useAdaptiveAnimationSpeed());
+
+      expect(result.current).toBe(1.5);
+    });
   });
 
-  it("should return true for poor connection", () => {
-    (useNetworkStatus as jest.Mock).mockReturnValue({
-      isOnline: true,
-      wasOffline: false,
-      downlink: 0.5,
-      rtt: 300,
-      effectiveType: "2g",
-      isSlowConnection: true,
+  describe("useReducedDataMode", () => {
+    it("should return false for good connection", () => {
+      (useNetworkStatus as jest.Mock).mockReturnValue({
+        isOnline: true,
+        wasOffline: false,
+        downlink: 10,
+        rtt: 50,
+        effectiveType: "4g",
+        isSlowConnection: false,
+      });
+
+      const { result } = renderHook(() => useReducedDataMode());
+
+      expect(result.current).toBe(false);
     });
 
-    const { result } = renderHook(() => useReducedDataMode());
+    it("should return true for poor connection", () => {
+      (useNetworkStatus as jest.Mock).mockReturnValue({
+        isOnline: true,
+        wasOffline: false,
+        downlink: 0.5,
+        rtt: 300,
+        effectiveType: "2g",
+        isSlowConnection: true,
+      });
 
-    expect(result.current).toBe(true);
-  });
-});
+      const { result } = renderHook(() => useReducedDataMode());
 
-describe("useImageQuality", () => {
-  beforeEach(() => {
-    jest.useFakeTimers();
-    jest.spyOn(performance, "now").mockImplementation(() => 1000);
-    jest.spyOn(Date, "now").mockImplementation(() => 1000);
-
-    global.fetch = jest.fn().mockResolvedValue({ ok: true });
-  });
-
-  afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
-    jest.restoreAllMocks();
+      expect(result.current).toBe(true);
+    });
   });
 
-  it("should return high for excellent connection", () => {
-    (useNetworkStatus as jest.Mock).mockReturnValue({
-      isOnline: true,
-      wasOffline: false,
-      downlink: 20,
-      rtt: 30,
-      effectiveType: "4g",
-      isSlowConnection: false,
+  describe("useImageQuality", () => {
+    it("should return high for excellent connection", () => {
+      (useNetworkStatus as jest.Mock).mockReturnValue({
+        isOnline: true,
+        wasOffline: false,
+        downlink: 20,
+        rtt: 30,
+        effectiveType: "4g",
+        isSlowConnection: false,
+      });
+
+      const { result } = renderHook(() => useImageQuality());
+
+      expect(result.current).toBe("high");
     });
 
-    const { result } = renderHook(() => useImageQuality());
+    it("should return medium for fair connection", () => {
+      (useNetworkStatus as jest.Mock).mockReturnValue({
+        isOnline: true,
+        wasOffline: false,
+        downlink: 3,
+        rtt: 150,
+        effectiveType: "3g",
+        isSlowConnection: false,
+      });
 
-    expect(result.current).toBe("high");
-  });
+      const { result } = renderHook(() => useImageQuality());
 
-  it("should return medium for fair connection", () => {
-    (useNetworkStatus as jest.Mock).mockReturnValue({
-      isOnline: true,
-      wasOffline: false,
-      downlink: 3,
-      rtt: 150,
-      effectiveType: "3g",
-      isSlowConnection: false,
+      expect(result.current).toBe("medium");
     });
 
-    const { result } = renderHook(() => useImageQuality());
+    it("should return low for poor connection", () => {
+      (useNetworkStatus as jest.Mock).mockReturnValue({
+        isOnline: true,
+        wasOffline: false,
+        downlink: 0.5,
+        rtt: 300,
+        effectiveType: "2g",
+        isSlowConnection: true,
+      });
 
-    expect(result.current).toBe("medium");
-  });
+      const { result } = renderHook(() => useImageQuality());
 
-  it("should return low for poor connection", () => {
-    (useNetworkStatus as jest.Mock).mockReturnValue({
-      isOnline: true,
-      wasOffline: false,
-      downlink: 0.5,
-      rtt: 300,
-      effectiveType: "2g",
-      isSlowConnection: true,
+      expect(result.current).toBe("low");
     });
-
-    const { result } = renderHook(() => useImageQuality());
-
-    expect(result.current).toBe("low");
   });
 });
