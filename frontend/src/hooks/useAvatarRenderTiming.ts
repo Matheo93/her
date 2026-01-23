@@ -390,9 +390,12 @@ export function useAvatarRenderTiming(
 
   const markPhaseEnd = useCallback((phase: RenderPhase) => {
     const startTime = phaseStartTimesRef.current[phase];
-    if (startTime > 0) {
+    if (startTime > 0 && phase !== "idle") {
       const duration = performance.now() - startTime;
-      phaseTimingsRef.current[phase] = duration;
+      // Only update timing for trackable phases
+      if (phase === "input" || phase === "update" || phase === "render" || phase === "composite") {
+        phaseTimingsRef.current[phase] = duration;
+      }
 
       // Update total
       const timings = phaseTimingsRef.current;

@@ -1507,3 +1507,24 @@ export {
   type LowLatencyMetrics,
   type LowLatencyControls,
 } from "./useAvatarLowLatencyMode";
+
+// Avatar Render Timing (Sprint 542)
+export {
+  useAvatarRenderTiming,
+  useFrameDeadline,
+  useRenderPhaseTracker,
+  useRenderQualityScale,
+  useVSyncStatus,
+  type RenderPhase,
+  type VSyncAlignment,
+  type DeadlineStatus,
+  type RecoveryStrategy as RenderRecoveryStrategy,
+  type FrameDeadline,
+  type RenderPhaseTiming,
+  type FrameStats,
+  type RenderTimingConfig,
+  type RenderTimingCallbacks,
+  type RenderTimingState,
+  type RenderTimingMetrics,
+  type RenderTimingControls,
+} from "./useAvatarRenderTiming";
