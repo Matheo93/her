@@ -1,82 +1,84 @@
 ---
-sprint: 1586
-started_at: 2026-01-23T07:08:00Z
+sprint: 1587
+started_at: 2026-01-23T07:15:00Z
 status: ✅ COMPLETED
 ---
 
-# Sprint #1586 - Avatar UX, Latency & Mobile Battery Optimization
+# Sprint #1587 - Avatar Breathing, Voice Detection & Thermal Management
 
 ## OBJECTIVES
 
-1. **Avatar Reactive Animations** - Context-aware animation responses to conversation
-2. **Input Latency Reducer** - Optimistic updates and input prediction
-3. **Mobile Battery Optimizer** - Battery-aware feature management
+1. **Avatar Breathing System** - Natural breathing animations
+2. **Voice Activity Detector** - Real-time speech detection
+3. **Mobile Thermal Manager** - Device temperature management
 
 ## COMPLETED TASKS
 
-### 1. ✅ Created useAvatarReactiveAnimations Hook
-**File:** `frontend/src/hooks/useAvatarReactiveAnimations.ts` (~700 lines)
+### 1. ✅ Created useAvatarBreathingSystem Hook
+**File:** `frontend/src/hooks/useAvatarBreathingSystem.ts` (~500 lines)
 
 Features:
-- 14 animation types: head_nod, head_tilt, thinking_pose, speaking_gesture, etc.
-- Animation triggers: user_input, ai_response, emotion_change, silence, etc.
-- Animation phases: idle, anticipating, playing, blending, recovering
-- Keyframe-based animation with easing curves
-- Animation queue with priority and blending
-- Metrics tracking for animation performance
+- 10 breathing patterns: relaxed, normal, alert, excited, speaking, listening, thinking, holding, sighing, laughing
+- 4 breathing phases: inhale, hold_in, exhale, hold_out
+- Keyframe-based chest/shoulder/abdomen movement
+- Emotional state integration
+- Speaking-aware breathing pauses
+- Natural variation and easing curves
 
 Sub-hooks:
-- `useConversationAnimations` - Simplified conversation-aware animations
+- `useBreathingKeyframe` - Simple keyframe access
+- `useConversationBreathing` - Conversation-aware breathing
 
-### 2. ✅ Created useInputLatencyReducer Hook
-**File:** `frontend/src/hooks/useInputLatencyReducer.ts` (~500 lines)
+### 2. ✅ Created useVoiceActivityDetector Hook
+**File:** `frontend/src/hooks/useVoiceActivityDetector.ts` (~650 lines)
 
 Features:
-- Optimistic update patterns with rollback support
-- Input prediction for text inputs
-- Request batching with configurable intervals
-- Latency statistics tracking (P50, P95, P99)
-- Automatic retry with exponential backoff
+- 5 activity states: silent, noise, maybe_speech, speech, ending
+- Real-time audio level monitoring (RMS, peak, dBFS)
+- Zero-crossing rate analysis
+- Adaptive noise floor estimation
+- Speech segment detection with events
+- Audio quality assessment
 
 Sub-hooks:
-- `useOptimisticTextInput` - Optimistic text input handling
-- `useAutoSaveInput` - Debounced auto-save functionality
+- `useSpeechDetection` - Simple boolean speech detection
+- `useAudioLevels` - Audio level monitoring
 
-### 3. ✅ Created useMobileBatteryOptimizer Hook
-**File:** `frontend/src/hooks/useMobileBatteryOptimizer.ts` (~550 lines)
+### 3. ✅ Created useMobileThermalManager Hook
+**File:** `frontend/src/hooks/useMobileThermalManager.ts` (~630 lines)
 
 Features:
-- Battery level monitoring (full, high, medium, low, critical)
-- 4 power modes: normal, balanced, power_saver, ultra_saver
-- Feature categories: rendering, animation, network, computation, media
-- Power consumption tracking per feature
-- Automatic mode switching based on battery level/charging state
-- Screen brightness and refresh rate adaptation
+- 4 thermal states: nominal, fair, serious, critical
+- Workload profiling (rendering, computation, network, media)
+- Automatic performance scaling based on temperature
+- Thermal budget allocation system
+- Cooldown period management
+- Predictive thermal trend analysis
 
 Sub-hooks:
-- `useBatteryLevel` - Simple battery level/charging state
-- `useBatteryAwareFeature` - Feature enable/disable based on power mode
+- `useThermalState` - Simple thermal state access
+- `useThermalAwareFeature` - Feature-specific thermal management
 
 ### 4. ✅ Updated Hooks Index
-- Exported all Sprint 1586 hooks and types
-- Resolved type conflicts (LatencyStats → InputLatencyStats)
+- Exported all Sprint 1587 hooks and types
+- Resolved type conflicts with aliases
 
 ## VALIDATION
 
 ```
 Frontend Build: ✅ PASS
-Backend Tests: ✅ 202 passed, 1 skipped in 19.72s
+Backend Tests: ✅ 202 passed, 1 skipped in 18.78s
 ```
 
 ## NEW FILES
 
-1. `frontend/src/hooks/useAvatarReactiveAnimations.ts` - ~700 lines
-2. `frontend/src/hooks/useInputLatencyReducer.ts` - ~500 lines
-3. `frontend/src/hooks/useMobileBatteryOptimizer.ts` - ~550 lines
+1. `frontend/src/hooks/useAvatarBreathingSystem.ts` - ~500 lines
+2. `frontend/src/hooks/useVoiceActivityDetector.ts` - ~650 lines
+3. `frontend/src/hooks/useMobileThermalManager.ts` - ~630 lines
 
 ## CUMULATIVE MOBILE OPTIMIZATION HOOKS
 
-From Sprints 232 + 440 + 510-513 + 1586:
+From Sprints 232 + 440 + 510-513 + 1586-1587:
 
 | Hook | Purpose | Key Features |
 |------|---------|--------------|
@@ -99,13 +101,16 @@ From Sprints 232 + 440 + 510-513 + 1586:
 | useAvatarReactiveAnimations | Reactive animations | Conversation flow |
 | useInputLatencyReducer | Input optimization | Optimistic updates |
 | useMobileBatteryOptimizer | Battery management | Power modes |
+| useAvatarBreathingSystem | Natural breathing | Emotion-aware |
+| useVoiceActivityDetector | Voice detection | Noise adaptation |
+| useMobileThermalManager | Thermal management | Performance scaling |
 
-**Total: 19 specialized hooks for mobile/avatar optimization**
+**Total: 22 specialized hooks for mobile/avatar optimization**
 
 ## SUMMARY
 
-Sprint 1586 completed reactive animations, input latency, and battery optimization:
-- Avatar now responds with contextual animations based on conversation flow
-- Input latency reduced through optimistic updates and prediction
-- Battery-aware feature management extends device runtime
+Sprint 1587 completed breathing animations, voice detection, and thermal management:
+- Avatar breathing responds naturally to emotions and conversation
+- Voice activity detection enables responsive avatar behavior
+- Thermal management prevents device overheating during extended use
 - All code compiles and tests pass
