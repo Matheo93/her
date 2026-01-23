@@ -168,7 +168,7 @@ export {
 
 // Frame Rate / Performance
 export {
-  useFrameRate,
+  useFrameRate as useBasicFrameRate,
   useAdaptiveQuality,
   useFrameThrottle,
 } from "./useFrameRate";
@@ -1198,3 +1198,36 @@ export {
   type EngineControls,
   type UseTouchPredictionEngineResult,
 } from "./useTouchPredictionEngine";
+
+// Adaptive Frame Pacing (Sprint 228)
+export {
+  useAdaptiveFramePacing,
+  useFrameRate as usePacingFrameRate,
+  useJudderDetection,
+  type TargetFrameRate,
+  type PacingMode,
+  type FrameDelivery,
+  type JudderMetrics,
+  type PacingConfig,
+  type PacingMetrics,
+  type PacingState,
+  type FrameCallback as PacingFrameCallback,
+  type PacingControls,
+  type UseAdaptiveFramePacingResult,
+} from "./useAdaptiveFramePacing";
+
+// Touch Latency Reducer (Sprint 228)
+export {
+  useTouchLatencyReducer,
+  useLowLatencyTouch,
+  useTouchLatencyMetrics,
+  type TimedTouchEvent,
+  type LatencyBreakdown,
+  type QueueEntry,
+  type ReducerConfig,
+  type ReducerMetrics,
+  type ReducerState,
+  type TouchEventHandler,
+  type ReducerControls,
+  type UseTouchLatencyReducerResult,
+} from "./useTouchLatencyReducer";
