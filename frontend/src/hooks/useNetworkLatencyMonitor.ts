@@ -344,6 +344,9 @@ export function useNetworkLatencyMonitor(
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const prevLatencyRef = useRef<number[]>([]);
 
+  // Update metrics ref for use in ping
+  const updateMetricsRef = useRef<(() => void) | null>(null);
+
   // Ping function
   const ping = useCallback(async (): Promise<number> => {
     const startTime = performance.now();
@@ -375,6 +378,11 @@ export function useNetworkLatencyMonitor(
 
       setLastPingTime(Date.now());
 
+      // Update metrics after ping
+      if (updateMetricsRef.current) {
+        updateMetricsRef.current();
+      }
+
       return latency;
     } catch {
       // Record failed sample
@@ -389,6 +397,11 @@ export function useNetworkLatencyMonitor(
 
       if (samplesRef.current.length > mergedConfig.sampleSize) {
         samplesRef.current.shift();
+      }
+
+      // Update metrics after failed ping
+      if (updateMetricsRef.current) {
+        updateMetricsRef.current();
       }
 
       return -1;
@@ -557,6 +570,11 @@ export function useNetworkLatencyMonitor(
 
     prevLatencyRef.current = latencies;
   }, [mergedConfig]);
+
+  // Keep the ref updated with the latest updateMetrics function
+  useEffect(() => {
+    updateMetricsRef.current = updateMetrics;
+  }, [updateMetrics]);
 
   // Start/stop monitoring
   useEffect(() => {

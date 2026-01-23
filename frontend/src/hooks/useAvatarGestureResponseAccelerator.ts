@@ -170,7 +170,7 @@ const DEFAULT_GESTURE_MAPPING: Record<GestureType, AvatarResponseType> = {
 // ============================================================================
 
 function generateId(): string {
-  return \`response_\${Date.now()}_\${Math.random().toString(36).substr(2, 9)}\`;
+  return "response_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
 }
 
 function getTargetFrameTime(capability: DeviceCapability): number {
@@ -575,7 +575,7 @@ export function useGesturePrioritizedResponse(): {
 
   const schedule = useCallback(
     (type: AvatarResponseType | string, priority: ResponsePriority): string => {
-      const id = \`response_\${Date.now()}_\${Math.random().toString(36).substr(2, 9)}\`;
+      const id = "response_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
       const delay = priority === "high" ? 0 : priority === "normal" ? 16 : 50;
 
       const timerId = setTimeout(() => {

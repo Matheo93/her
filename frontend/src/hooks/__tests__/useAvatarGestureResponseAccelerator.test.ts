@@ -13,8 +13,9 @@ import {
   useAvatarGestureResponseAccelerator,
   useInstantAvatarFeedback,
   useGesturePrioritizedResponse,
-  type GestureIntent,
-  type AvatarResponseType,
+  GestureIntent,
+  AvatarResponseType,
+  ScheduledResponse,
 } from "../useAvatarGestureResponseAccelerator";
 
 // Mock performance.now for consistent timing
@@ -138,6 +139,7 @@ describe("useAvatarGestureResponseAccelerator", () => {
       act(() => {
         intent = result.current.controls.recognizeGesture({
           type: "pinch",
+          position: { x: 200, y: 200 },
           scale: 1.5,
           center: { x: 200, y: 200 },
           timestamp: mockTime,
@@ -228,8 +230,8 @@ describe("useAvatarGestureResponseAccelerator", () => {
         useAvatarGestureResponseAccelerator(
           {},
           {
-            onResponseExecuted: (response) => {
-              processOrder.push(response.type);
+            onResponseExecuted: (response: ScheduledResponse) => {
+              processOrder.push(response.type as AvatarResponseType);
             },
           }
         )
@@ -327,7 +329,9 @@ describe("useAvatarGestureResponseAccelerator", () => {
       });
 
       expect(prediction).not.toBeNull();
-      expect(prediction?.gestureType).toBe("swipe");
+      if (prediction) {
+        expect(prediction.gestureType).toBe("swipe");
+      }
       expect(result.current.state.predictionConfidence).toBeGreaterThan(0);
     });
 
