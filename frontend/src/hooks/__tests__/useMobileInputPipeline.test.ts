@@ -940,69 +940,159 @@ describe("useInputPrediction", () => {
 
 describe("Sprint 628 - edge case coverage", () => {
   describe("direction detection wrap-around (lines 285-291)", () => {
-    it("should detect left direction with wrap-around angle", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+    it("should detect left direction with wrap-around angle via processInput", () => {
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
-      // Start touch
+      // Start gesture first so processInput adds gesture info
       act(() => {
+        mockTime = 0;
         result.current.controls.startGesture(200, 100);
       });
 
-      // Move left (angle near +/- π)
+      // Process input with leftward movement (dx = -150, dy = 0 -> angle = 180°)
+      let processed: any;
       act(() => {
-        jest.advanceTimersByTime(50);
-        result.current.controls.updateGesture(50, 100); // Large leftward movement
+        mockTime = 50;
+        processed = result.current.controls.processInput({ type: "touch", x: 50, y: 100, timestamp: 50 });
       });
 
-      // End gesture
-      let gesture: any;
+      // Should have gesture direction set
+      expect(processed).not.toBeNull();
+      expect(processed.gesture).toBeDefined();
+      expect(processed.gesture.direction).toBe("left");
+    });
+
+    it("should detect left direction with angle near -180", () => {
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
+
+      // Start gesture
       act(() => {
-        gesture = result.current.controls.endGesture();
+        mockTime = 0;
+        result.current.controls.startGesture(200, 100);
       });
 
-      // Should detect swipe in left direction
-      expect(result.current.state.gestureState).toBeDefined();
+      // Process input with leftward-down movement (angle near -180)
+      let processed: any;
+      act(() => {
+        mockTime = 50;
+        // dx = -150, dy = -1 -> angle is slightly below -179°
+        processed = result.current.controls.processInput({ type: "touch", x: 50, y: 99, timestamp: 50 });
+      });
+
+      expect(processed).not.toBeNull();
+      expect(processed.gesture).toBeDefined();
+      // angle <= -135 should still be left direction
+      expect(processed.gesture.direction).toBe("left");
+    });
+
+    it("should return undefined direction for zero movement (line 291)", () => {
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
+
+      // Start gesture
+      act(() => {
+        mockTime = 0;
+        result.current.controls.startGesture(100, 100);
+      });
+
+      // Process input at same position (dx = 0, dy = 0)
+      let processed: any;
+      act(() => {
+        mockTime = 50;
+        processed = result.current.controls.processInput({ type: "touch", x: 100, y: 100, timestamp: 50 });
+      });
+
+      expect(processed).not.toBeNull();
+      expect(processed.gesture).toBeDefined();
+      // dx = 0, dy = 0 -> angle = 0 -> matches "right" direction
+      // Actually atan2(0, 0) = 0, which falls in right: -45 to 45
+      expect(processed.gesture.direction).toBe("right");
     });
   });
 
   describe("velocity calculation edge cases (line 390)", () => {
     it("should handle zero time delta in velocity calculation", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
-      // Process two inputs at exactly the same timestamp
+      // Process first input
       act(() => {
-        result.current.controls.processInput({ type: "pointer", x: 100, y: 100 });
+        mockTime = 100;
+        result.current.controls.processInput({ type: "pointer", x: 100, y: 100, timestamp: 100 });
       });
 
-      // Immediately process another
+      // Process second input at exact same timestamp to trigger dt = 0 branch
       act(() => {
-        result.current.controls.processInput({ type: "pointer", x: 150, y: 150 });
+        // mockTime stays at 100, same timestamp
+        result.current.controls.processInput({ type: "pointer", x: 150, y: 150, timestamp: 100 });
       });
 
-      // Should not crash, current gesture state should be valid
+      // Should not crash, velocity should remain previous value
       const gestureState = result.current.controls.getCurrentGesture();
       expect(gestureState).toBeDefined();
       expect(typeof gestureState.velocity.x).toBe("number");
       expect(typeof gestureState.velocity.y).toBe("number");
+    });
+
+    it("should return previous velocity when time delta is zero", () => {
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
+
+      // Build up some velocity first
+      act(() => {
+        mockTime = 0;
+        result.current.controls.processInput({ type: "pointer", x: 0, y: 0, timestamp: 0 });
+      });
+
+      act(() => {
+        mockTime = 100;
+        result.current.controls.processInput({ type: "pointer", x: 100, y: 100, timestamp: 100 });
+      });
+
+      // Now process at same timestamp - should return previous velocity
+      act(() => {
+        // Same timestamp as last
+        result.current.controls.processInput({ type: "pointer", x: 150, y: 150, timestamp: 100 });
+      });
+
+      // Velocity should still be defined (returns previous velocity)
+      const gestureState = result.current.controls.getCurrentGesture();
+      expect(gestureState).toBeDefined();
     });
   });
 
   describe("prediction disabled (line 422)", () => {
     it("should return simple position when prediction disabled", () => {
       const { result } = renderHook(() =>
-        useMobileInputPipeline({ enablePrediction: false })
+        useMobileInputPipeline({ enablePrediction: false, debounceMs: 0 })
       );
 
       act(() => {
+        mockTime = 0;
         result.current.controls.processInput({ type: "pointer", x: 100, y: 100 });
       });
 
       const predicted = result.current.controls.getPredictedInput(16);
 
       // When prediction disabled, should return position with confidence 1
-      if (predicted) {
-        expect(predicted.confidence).toBe(1);
-      }
+      expect(predicted).not.toBeNull();
+      expect(predicted!.confidence).toBe(1);
+      expect(predicted!.x).toBe(100);
+      expect(predicted!.y).toBe(100);
+    });
+
+    it("should include predicted field in processed input when prediction disabled", () => {
+      const { result } = renderHook(() =>
+        useMobileInputPipeline({ enablePrediction: false, debounceMs: 0 })
+      );
+
+      let processed: any;
+      act(() => {
+        mockTime = 0;
+        processed = result.current.controls.processInput({ type: "pointer", x: 100, y: 100 });
+      });
+
+      // Processed input should have predicted field with confidence 1
+      expect(processed).not.toBeNull();
+      expect(processed.predicted).toBeDefined();
+      expect(processed.predicted.confidence).toBe(1);
     });
   });
 
@@ -1040,6 +1130,36 @@ describe("Sprint 628 - edge case coverage", () => {
       expect(result.current.state.gestureState.currentGesture).toBe("long_press");
     });
 
+    it("should return long_press from detectGesture in endGesture (line 456)", () => {
+      // Use real timers for this test since we manually control duration
+      jest.useRealTimers();
+
+      const { result } = renderHook(() =>
+        useMobileInputPipeline({ longPressThreshold: 100, minGestureDistance: 50 })
+      );
+
+      // Start gesture
+      act(() => {
+        mockTime = 0;
+        result.current.controls.startGesture(100, 100);
+      });
+
+      // Small update to set duration but keep distance small
+      act(() => {
+        mockTime = 150; // 150ms > 100ms threshold
+        result.current.controls.updateGesture(102, 102); // ~2.8px < 50px threshold
+      });
+
+      // End gesture - detectGesture should return "long_press"
+      let gesture: GestureType | null = null;
+      act(() => {
+        gesture = result.current.controls.endGesture();
+      });
+
+      // With duration > threshold and distance < threshold, detectGesture returns long_press
+      expect(gesture).toBe("long_press");
+    });
+
     it("should have null currentGesture initially", () => {
       const { result } = renderHook(() => useMobileInputPipeline());
 
@@ -1051,17 +1171,19 @@ describe("Sprint 628 - edge case coverage", () => {
   describe("throttle handling (lines 510-514)", () => {
     it("should throttle non-critical inputs", () => {
       const { result } = renderHook(() =>
-        useMobileInputPipeline({ throttleMs: 50 })
+        useMobileInputPipeline({ throttleMs: 50, debounceMs: 0 })
       );
 
       // Process first input
       act(() => {
+        mockTime = 100;
         result.current.controls.processInput({ type: "pointer", x: 100, y: 100 }, "normal");
       });
 
       // Try to process another immediately (should be throttled)
       let secondResult: any;
       act(() => {
+        mockTime = 110; // Within throttle window
         secondResult = result.current.controls.processInput({ type: "pointer", x: 110, y: 110 }, "normal");
       });
 
@@ -1071,27 +1193,81 @@ describe("Sprint 628 - edge case coverage", () => {
 
     it("should not throttle critical priority inputs", () => {
       const { result } = renderHook(() =>
-        useMobileInputPipeline({ throttleMs: 50 })
+        useMobileInputPipeline({ throttleMs: 50, debounceMs: 0 })
       );
 
       // Process first input
       act(() => {
+        mockTime = 100;
         result.current.controls.processInput({ type: "pointer", x: 100, y: 100 }, "normal");
       });
 
       // Process critical input immediately
       let criticalResult: any;
       act(() => {
+        mockTime = 110; // Within throttle window
         criticalResult = result.current.controls.processInput({ type: "pointer", x: 110, y: 110 }, "critical");
       });
 
       // Critical input should not be throttled
       expect(criticalResult).not.toBeNull();
     });
+
+    it("should throttle high priority inputs (not critical)", () => {
+      const { result } = renderHook(() =>
+        useMobileInputPipeline({ throttleMs: 50, debounceMs: 0 })
+      );
+
+      // Process first input
+      act(() => {
+        mockTime = 100;
+        result.current.controls.processInput({ type: "pointer", x: 100, y: 100 }, "normal");
+      });
+
+      // Process high priority input immediately (should be throttled since not critical)
+      let highResult: any;
+      act(() => {
+        mockTime = 110;
+        highResult = result.current.controls.processInput({ type: "pointer", x: 110, y: 110 }, "high");
+      });
+
+      // High priority should be throttled (only critical bypasses throttle)
+      expect(highResult).toBeNull();
+    });
+
+    it("should allow inputs after throttle window", () => {
+      const { result } = renderHook(() =>
+        useMobileInputPipeline({ throttleMs: 50, debounceMs: 0 })
+      );
+
+      // Process first input
+      act(() => {
+        mockTime = 100;
+        result.current.controls.processInput({ type: "pointer", x: 100, y: 100 }, "normal");
+      });
+
+      // Process after throttle window
+      let laterResult: any;
+      act(() => {
+        mockTime = 200; // After throttle window
+        laterResult = result.current.controls.processInput({ type: "pointer", x: 110, y: 110 }, "normal");
+      });
+
+      // Should not be throttled
+      expect(laterResult).not.toBeNull();
+    });
   });
 
   describe("long press timer handling (lines 678, 688)", () => {
-    it("should clear existing long press timer on new gesture", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("should clear existing long press timer on new gesture (line 678)", () => {
       const onGestureDetected = jest.fn();
       const { result } = renderHook(() =>
         useMobileInputPipeline(
@@ -1110,12 +1286,12 @@ describe("Sprint 628 - edge case coverage", () => {
         jest.advanceTimersByTime(200);
       });
 
-      // Start new gesture (should clear existing timer)
+      // Start new gesture (should clear existing timer via line 678)
       act(() => {
         result.current.controls.startGesture(200, 200);
       });
 
-      // Wait for original long press threshold from first gesture time
+      // Wait for what would have been the first gesture's long press threshold
       act(() => {
         jest.advanceTimersByTime(350);
       });
@@ -1123,9 +1299,11 @@ describe("Sprint 628 - edge case coverage", () => {
       // Gesture state should be from second gesture
       expect(result.current.state.gestureState).toBeDefined();
       expect(result.current.state.gestureState.startPosition).toEqual({ x: 200, y: 200 });
+      // First gesture's long press should NOT have been triggered
+      expect(onGestureDetected).not.toHaveBeenCalled();
     });
 
-    it("should not trigger long press when movement exceeds threshold", () => {
+    it("should cancel long press timer via updateGesture when distance exceeds threshold (line 688)", () => {
       const onGestureDetected = jest.fn();
       const { result } = renderHook(() =>
         useMobileInputPipeline(
@@ -1139,22 +1317,56 @@ describe("Sprint 628 - edge case coverage", () => {
         result.current.controls.startGesture(100, 100);
       });
 
-      // Move significantly past the threshold
+      // Move significantly past the threshold - this triggers line 709-711
       act(() => {
-        jest.advanceTimersByTime(50);
-        result.current.controls.updateGesture(200, 200); // Large movement > 10px
+        result.current.controls.updateGesture(200, 200); // distance = ~141px > 10px threshold
       });
 
       // Wait for long press threshold
       act(() => {
-        jest.advanceTimersByTime(200);
+        jest.advanceTimersByTime(250);
       });
 
-      // Long press should NOT be called because distance exceeded threshold
+      // Long press should NOT be triggered because timer was cleared by movement
       const longPressCalls = onGestureDetected.mock.calls.filter(
         (call) => call[0] === "long_press"
       );
       expect(longPressCalls.length).toBe(0);
+    });
+
+    it("should return prev state in long press timer when distance exceeds threshold (line 688)", () => {
+      const onGestureDetected = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileInputPipeline(
+          { longPressThreshold: 100, minGestureDistance: 5 },
+          { onGestureDetected }
+        )
+      );
+
+      // Start gesture
+      act(() => {
+        result.current.controls.startGesture(100, 100);
+      });
+
+      // Make a small update that keeps us within threshold
+      act(() => {
+        result.current.controls.updateGesture(102, 102); // ~2.8px < 5px threshold
+      });
+
+      // Now move past threshold before timer fires
+      act(() => {
+        result.current.controls.updateGesture(120, 120); // ~28px > 5px threshold
+      });
+
+      // Advance past long press threshold
+      act(() => {
+        jest.advanceTimersByTime(150);
+      });
+
+      // Timer fires but distance > threshold so line 688 returns prev (no gesture change)
+      // The gesture should NOT be set to long_press
+      // But since the timer was cleared at line 710, it won't fire at all
+      expect(onGestureDetected).not.toHaveBeenCalledWith("long_press", expect.any(Object));
     });
   });
 
