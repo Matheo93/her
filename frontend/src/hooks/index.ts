@@ -1264,3 +1264,43 @@ export {
   type QueueControls,
   type UseMobileRenderQueueResult,
 } from "./useMobileRenderQueue";
+
+// Gesture Latency Bypasser (Sprint 230)
+export {
+  useGestureLatencyBypasser,
+  usePanBypasser,
+  usePinchBypasser,
+  type BypassableGesture,
+  type TimestampedTouch,
+  type GestureVelocity as BypasserGestureVelocity,
+  type PredictedEndState,
+  type SnapPoint,
+  type BypasserConfig,
+  type BypasserMetrics,
+  type GestureState as BypasserGestureState,
+  type BypasserState,
+  type StyleUpdater,
+  type BypasserControls,
+  type UseGestureLatencyBypasserResult,
+} from "./useGestureLatencyBypasser";
+
+// Mobile Animation Scheduler (Sprint 230)
+export {
+  useMobileAnimationScheduler,
+  useScheduledAnimation,
+  useStaggeredAnimation,
+  EASING,
+  type AnimationPriority as SchedulerAnimationPriority,
+  type AnimationState as SchedulerAnimationState,
+  type EasingFunction,
+  type ScheduledAnimation,
+  type AnimationGroup,
+  type FrameBudgetInfo,
+  type DeviceConditions,
+  type SchedulerConfig,
+  type SchedulerMetrics,
+  type SchedulerState,
+  type AnimationOptions,
+  type SchedulerControls,
+  type UseMobileAnimationSchedulerResult,
+} from "./useMobileAnimationScheduler";
