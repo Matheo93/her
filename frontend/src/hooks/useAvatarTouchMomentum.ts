@@ -445,5 +445,13 @@ export function useMomentumDecay(config: DecayConfig = {}) {
     setVelocity({ x: 0, y: 0 });
   }, []);
 
-  return { velocity, isDecaying, startDecay, tick, stopDecay };
+  return {
+    velocity,
+    isDecaying,
+    start: startDecay,
+    stop: stopDecay,
+    tick,
+    startDecay,
+    stopDecay,
+  };
 }

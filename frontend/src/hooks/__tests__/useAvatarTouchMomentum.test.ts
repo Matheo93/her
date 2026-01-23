@@ -497,8 +497,8 @@ describe("useMomentumDecay", () => {
   it("should provide momentum decay control", () => {
     const { result } = renderHook(() => useMomentumDecay());
 
-    expect(typeof result.current.start).toBe("function");
-    expect(typeof result.current.stop).toBe("function");
+    expect(typeof result.current.startDecay).toBe("function");
+    expect(typeof result.current.stopDecay).toBe("function");
     expect(typeof result.current.tick).toBe("function");
     expect(result.current.isDecaying).toBe(false);
   });
@@ -507,7 +507,7 @@ describe("useMomentumDecay", () => {
     const { result } = renderHook(() => useMomentumDecay());
 
     act(() => {
-      result.current.start({ x: 100, y: 50 });
+      result.current.startDecay({ x: 100, y: 50 });
     });
 
     expect(result.current.isDecaying).toBe(true);
@@ -519,8 +519,8 @@ describe("useMomentumDecay", () => {
     const { result } = renderHook(() => useMomentumDecay());
 
     act(() => {
-      result.current.start({ x: 100, y: 50 });
-      result.current.stop();
+      result.current.startDecay({ x: 100, y: 50 });
+      result.current.stopDecay();
     });
 
     expect(result.current.isDecaying).toBe(false);
@@ -529,11 +529,11 @@ describe("useMomentumDecay", () => {
 
   it("should apply friction on tick", () => {
     const { result } = renderHook(() =>
-      useMomentumDecay({ x: 0, y: 0 }, 0.9, 0.1)
+      useMomentumDecay({ friction: 0.9, minVelocity: 0.1 })
     );
 
     act(() => {
-      result.current.start({ x: 100, y: 50 });
+      result.current.startDecay({ x: 100, y: 50 });
     });
 
     const initialX = result.current.velocity.x;
