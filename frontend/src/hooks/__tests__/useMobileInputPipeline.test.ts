@@ -90,7 +90,7 @@ describe("useMobileInputPipeline", () => {
 
       const input = createRawInput();
 
-      let processed: ReturnType<typeof result.current.controls.processInput>;
+      let processed: ReturnType<typeof result.current.controls.processInput> = null;
       act(() => {
         processed = result.current.controls.processInput(input);
       });
@@ -589,7 +589,7 @@ describe("useMobileInputPipeline", () => {
         result.current.controls.processInput(createRawInput());
       });
 
-      let flushed: ReturnType<typeof result.current.controls.flushBuffer>;
+      let flushed: ReturnType<typeof result.current.controls.flushBuffer> = [];
       act(() => {
         flushed = result.current.controls.flushBuffer();
       });

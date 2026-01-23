@@ -1069,3 +1069,23 @@ export {
   type InterpolatorControls,
   type UseFrameInterpolatorResult,
 } from "./useFrameInterpolator";
+
+// Adaptive Render Quality (Sprint 524)
+export {
+  useAdaptiveRenderQuality,
+  useQualityTier,
+  useResolutionScale,
+  usePerformanceScore,
+  type QualityTier,
+  type QualityFactor,
+  type AdjustmentReason,
+  type QualitySettings,
+  type PerformanceSample,
+  type DeviceConditions,
+  type QualityAdjustment,
+  type QualityMetrics,
+  type QualityState,
+  type QualityConfig,
+  type QualityControls,
+  type UseAdaptiveRenderQualityResult,
+} from "./useAdaptiveRenderQuality";

@@ -128,7 +128,7 @@ describe("useGestureMotionPredictor", () => {
         result.current.controls.addPoint(100, 0); // 1000 px/s velocity
       });
 
-      let predicted: ReturnType<typeof result.current.controls.predict>;
+      let predicted: ReturnType<typeof result.current.controls.predict> = null;
       act(() => {
         predicted = result.current.controls.predict(50); // 50ms ahead
       });
@@ -149,7 +149,7 @@ describe("useGestureMotionPredictor", () => {
         result.current.controls.addPoint(100, 100);
       });
 
-      let predicted: ReturnType<typeof result.current.controls.predict>;
+      let predicted: ReturnType<typeof result.current.controls.predict> = null;
       act(() => {
         predicted = result.current.controls.predict(50);
       });
@@ -177,7 +177,7 @@ describe("useGestureMotionPredictor", () => {
         result.current.controls.addPoint(100, 0);
       });
 
-      let predicted: ReturnType<typeof result.current.controls.predict>;
+      let predicted: ReturnType<typeof result.current.controls.predict> = null;
       act(() => {
         predicted = result.current.controls.predict(500); // Request 500ms, should clamp to 100ms
       });
@@ -235,7 +235,7 @@ describe("useGestureMotionPredictor", () => {
         result.current.controls.addPoint(100, 0);
       });
 
-      let trajectory: ReturnType<typeof result.current.controls.predictTrajectory>;
+      let trajectory: ReturnType<typeof result.current.controls.predictTrajectory> = null;
       act(() => {
         trajectory = result.current.controls.predictTrajectory(100);
       });
@@ -254,7 +254,7 @@ describe("useGestureMotionPredictor", () => {
         result.current.controls.addPoint(100, 100);
       });
 
-      let trajectory: ReturnType<typeof result.current.controls.predictTrajectory>;
+      let trajectory: ReturnType<typeof result.current.controls.predictTrajectory> = null;
       act(() => {
         trajectory = result.current.controls.predictTrajectory(100);
       });
@@ -279,7 +279,7 @@ describe("useGestureMotionPredictor", () => {
         result.current.controls.addPoint(105, 105); // Small movement = slow speed
       });
 
-      let gesture: ReturnType<typeof result.current.controls.recognizeGesture>;
+      let gesture: ReturnType<typeof result.current.controls.recognizeGesture> = null;
       act(() => {
         gesture = result.current.controls.recognizeGesture();
       });
@@ -303,7 +303,7 @@ describe("useGestureMotionPredictor", () => {
         result.current.controls.addPoint(500, 100); // 500px right = 5000 px/s
       });
 
-      let gesture: ReturnType<typeof result.current.controls.recognizeGesture>;
+      let gesture: ReturnType<typeof result.current.controls.recognizeGesture> = null;
       act(() => {
         gesture = result.current.controls.recognizeGesture();
       });
@@ -328,7 +328,7 @@ describe("useGestureMotionPredictor", () => {
         result.current.controls.addPoint(0, 100); // Move left
       });
 
-      let gesture: ReturnType<typeof result.current.controls.recognizeGesture>;
+      let gesture: ReturnType<typeof result.current.controls.recognizeGesture> = null;
       act(() => {
         gesture = result.current.controls.recognizeGesture();
       });
@@ -352,7 +352,7 @@ describe("useGestureMotionPredictor", () => {
         result.current.controls.addPoint(100, 500); // Move down
       });
 
-      let gesture: ReturnType<typeof result.current.controls.recognizeGesture>;
+      let gesture: ReturnType<typeof result.current.controls.recognizeGesture> = null;
       act(() => {
         gesture = result.current.controls.recognizeGesture();
       });
@@ -376,7 +376,7 @@ describe("useGestureMotionPredictor", () => {
         result.current.controls.addPoint(100, 0); // Move up
       });
 
-      let gesture: ReturnType<typeof result.current.controls.recognizeGesture>;
+      let gesture: ReturnType<typeof result.current.controls.recognizeGesture> = null;
       act(() => {
         gesture = result.current.controls.recognizeGesture();
       });
@@ -482,7 +482,7 @@ describe("useGestureMotionPredictor", () => {
         result.current.controls.addPoint(100, 0);
       });
 
-      let predicted: ReturnType<typeof result.current.controls.predict>;
+      let predicted: ReturnType<typeof result.current.controls.predict> = null;
       act(() => {
         predicted = result.current.controls.predict(50);
       });
@@ -552,7 +552,7 @@ describe("useGestureMotionPredictor", () => {
         result.current.controls.addPoint(100, 0);
       });
 
-      let predicted: ReturnType<typeof result.current.controls.predict>;
+      let predicted: ReturnType<typeof result.current.controls.predict> = null;
       act(() => {
         predicted = result.current.controls.predict(50);
       });

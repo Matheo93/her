@@ -350,7 +350,7 @@ describe("useMobileAvatarLatencyMitigator", () => {
         { ...createMockPose(16), position: { x: 10, y: 0, z: 0 } },
       ];
 
-      let predicted: ReturnType<typeof result.current.controls.predictPose>;
+      let predicted: ReturnType<typeof result.current.controls.predictPose> = null;
       act(() => {
         predicted = result.current.controls.predictPose(history, 16);
       });
