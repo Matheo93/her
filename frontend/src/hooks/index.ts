@@ -756,3 +756,50 @@ export {
   type AudioBufferControls,
   type UseAdaptiveAudioBufferResult,
 } from "./useAdaptiveAudioBuffer";
+
+// Avatar Head Tracking (Sprint 1590)
+export {
+  useAvatarHeadTracking,
+  useHeadPose,
+  useConversationHeadTracking,
+  type HeadPose,
+  type HeadGesture,
+  type TrackingMode as HeadTrackingMode,
+  type AttentionTarget as HeadAttentionTarget,
+  type HeadTrackingState,
+  type HeadTrackingMetrics,
+  type HeadTrackingConfig,
+  type HeadTrackingControls,
+  type UseAvatarHeadTrackingResult,
+} from "./useAvatarHeadTracking";
+
+// Mobile Wake Lock (Sprint 1590)
+export {
+  useMobileWakeLock,
+  useSimpleWakeLock,
+  useConversationWakeLock,
+  type WakeLockState,
+  type WakeLockReason,
+  type WakeLockSession,
+  type WakeLockStatus,
+  type WakeLockMetrics,
+  type WakeLockConfig,
+  type WakeLockControls,
+  type UseMobileWakeLockResult,
+} from "./useMobileWakeLock";
+
+// Streaming Text Renderer (Sprint 1590)
+export {
+  useStreamingTextRenderer,
+  useStreamingText,
+  useTypewriter,
+  type StreamingMode as TextStreamingMode,
+  type StreamingState as TextStreamingState,
+  type TextChunk,
+  type StreamingProgress,
+  type StreamingTextState,
+  type StreamingMetrics as TextStreamingMetrics,
+  type StreamingConfig as TextStreamingConfig,
+  type StreamingControls as TextStreamingControls,
+  type UseStreamingTextRendererResult,
+} from "./useStreamingTextRenderer";
