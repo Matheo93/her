@@ -782,10 +782,10 @@ describe("Sprint 627 - useBatteryAwareFeature reason branches (lines 583-586)", 
 // Sprint 630 - Full Battery API Integration Tests (lines 311-434)
 // ============================================================================
 
-// TODO: These async battery API tests timeout with jest fake timers + async/await
-// Need to refactor to use proper async patterns or mock timers differently
-describe.skip("Sprint 630 - updateBatteryState with real battery API (lines 311-409)", () => {
+describe("Sprint 630 - updateBatteryState with real battery API (lines 311-409)", () => {
   beforeEach(() => {
+    // Use real timers for async battery API tests
+    jest.useRealTimers();
     // Reset mock battery for this test suite
     mockBattery = {
       level: 0.75,
@@ -797,16 +797,20 @@ describe.skip("Sprint 630 - updateBatteryState with real battery API (lines 311-
     };
   });
 
+  afterEach(() => {
+    // Restore fake timers for other tests
+    jest.useFakeTimers();
+    jest.spyOn(Date, "now").mockImplementation(() => mockTime);
+  });
+
   it("should update battery state from API and calculate level category", async () => {
     (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
 
     const { result } = renderHook(() => useMobileBatteryOptimizer());
 
     // Wait for async initialization
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(result.current.state.battery.supported).toBe(true);
     });
 
     expect(result.current.state.battery.supported).toBe(true);
