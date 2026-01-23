@@ -898,10 +898,11 @@ describe("Sprint 617 - branch coverage improvements", () => {
         useMobileAvatarLatencyMitigator({ monitorFrameTiming: false })
       );
 
-      expect(result.current.predictionConfidence.overall).toBe(0);
-      expect(result.current.predictionConfidence.position).toBe(0);
-      expect(result.current.predictionConfidence.rotation).toBe(0);
-      expect(result.current.predictionConfidence.blendShapes).toBe(0);
+      // predictionConfidence is in state
+      expect(result.current.state.predictionConfidence.overall).toBe(0);
+      expect(result.current.state.predictionConfidence.position).toBe(0);
+      expect(result.current.state.predictionConfidence.rotation).toBe(0);
+      expect(result.current.state.predictionConfidence.blendShapes).toBe(0);
     });
 
     it("should calculate confidence based on pose variance", () => {
