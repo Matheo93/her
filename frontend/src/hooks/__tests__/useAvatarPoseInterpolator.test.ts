@@ -34,15 +34,15 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-const createTestPose = (x: number = 0, y: number = 0, z: number = 0): AvatarPose => ({
-  position: { x, y, z },
-  rotation: { x: 0, y: 0, z: 0, w: 1 },
-  scale: { x: 1, y: 1, z: 1 },
-  blendShapes: {},
-  timestamp: mockTime,
-});
-
 describe("useAvatarPoseInterpolator", () => {
+  const createTestPose = (x: number = 0, y: number = 0, z: number = 0): AvatarPose => ({
+    position: { x, y, z },
+    rotation: { x: 0, y: 0, z: 0, w: 1 },
+    scale: { x: 1, y: 1, z: 1 },
+    blendShapes: {},
+    timestamp: mockTime,
+  });
+
   describe("initialization", () => {
     it("should initialize with default state", () => {
       const { result } = renderHook(() => useAvatarPoseInterpolator());
@@ -225,13 +225,13 @@ describe("useAvatarPoseInterpolator", () => {
         });
       });
 
-      let pose: ReturnType<typeof result.current.controls.getPoseAt> = null;
+      let pose: AvatarPose | null = null;
       act(() => {
         pose = result.current.controls.getPoseAt(500);
       });
 
       expect(pose).not.toBeNull();
-      expect(pose?.position.x).toBeCloseTo(50);
+      expect(pose!.position.x).toBeCloseTo(50);
     });
 
     it("should return null for empty keyframes", () => {
@@ -322,6 +322,14 @@ describe("useAvatarPoseInterpolator", () => {
 });
 
 describe("usePoseTransition", () => {
+  const createTestPose = (x: number = 0, y: number = 0, z: number = 0): AvatarPose => ({
+    position: { x, y, z },
+    rotation: { x: 0, y: 0, z: 0, w: 1 },
+    scale: { x: 1, y: 1, z: 1 },
+    blendShapes: {},
+    timestamp: mockTime,
+  });
+
   it("should provide transition interface", () => {
     const { result } = renderHook(() => usePoseTransition());
 
