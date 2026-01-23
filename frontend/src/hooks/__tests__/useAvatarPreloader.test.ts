@@ -468,12 +468,10 @@ describe("useAvatarPreloader", () => {
 
 // ============================================================================
 // Sub-Hooks Tests
-// Note: useAvatarModelPreload and useAvatarAssetsPreload have known infinite
-// update loop issues due to Date.now() in useEffect dependencies.
-// These tests are skipped until the hooks are fixed.
+// Fixed: Removed Date.now() from asset IDs and added stable key tracking
 // ============================================================================
 
-describe.skip("useAvatarModelPreload", () => {
+describe("useAvatarModelPreload", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     mockFetch.mockResolvedValue({
@@ -483,6 +481,7 @@ describe.skip("useAvatarModelPreload", () => {
   });
 
   afterEach(() => {
+    jest.clearAllTimers();
     jest.useRealTimers();
     jest.clearAllMocks();
   });
@@ -503,9 +502,27 @@ describe.skip("useAvatarModelPreload", () => {
 
     expect(typeof result.current.reload).toBe("function");
   });
+
+  it("should provide error and data state", () => {
+    const { result } = renderHook(() =>
+      useAvatarModelPreload("/avatar/model.glb")
+    );
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.data).toBeNull();
+  });
+
+  it("should not autoStart when disabled", () => {
+    const { result } = renderHook(() =>
+      useAvatarModelPreload("/avatar/model.glb", { autoStart: false })
+    );
+
+    // Should not be loading if autoStart is false
+    expect(result.current.isLoaded).toBe(false);
+  });
 });
 
-describe.skip("useAvatarAssetsPreload", () => {
+describe("useAvatarAssetsPreload", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     mockFetch.mockResolvedValue({
@@ -516,6 +533,7 @@ describe.skip("useAvatarAssetsPreload", () => {
   });
 
   afterEach(() => {
+    jest.clearAllTimers();
     jest.useRealTimers();
     jest.clearAllMocks();
   });
@@ -529,5 +547,26 @@ describe.skip("useAvatarAssetsPreload", () => {
     const { result } = renderHook(() => useAvatarAssetsPreload(assets));
 
     expect(result.current.progress.total).toBe(2);
+  });
+
+  it("should not preload empty assets array", () => {
+    const assets: { type: "model"; url: string }[] = [];
+
+    const { result } = renderHook(() => useAvatarAssetsPreload(assets));
+
+    expect(result.current.progress.total).toBe(0);
+  });
+
+  it("should provide full preloader result", () => {
+    const assets = [
+      { type: "model" as const, url: "/avatar/model.glb" },
+    ];
+
+    const { result } = renderHook(() => useAvatarAssetsPreload(assets));
+
+    expect(result.current.state).toBeDefined();
+    expect(result.current.progress).toBeDefined();
+    expect(result.current.metrics).toBeDefined();
+    expect(result.current.controls).toBeDefined();
   });
 });

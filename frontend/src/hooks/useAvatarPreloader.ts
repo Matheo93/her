@@ -992,28 +992,43 @@ export function useAvatarModelPreload(
   const [error, setError] = useState<Error | null>(null);
   const [data, setData] = useState<unknown | null>(null);
 
+  // Generate stable asset ID based on URL
+  const assetId = useMemo(() => `model-${modelUrl}`, [modelUrl]);
+
   useEffect(() => {
     if (modelUrl && (options?.autoStart ?? true)) {
       controls.preload([
-        { type: "model", url: modelUrl, priority: "critical", critical: true },
+        {
+          id: assetId,
+          type: "model",
+          url: modelUrl,
+          priority: "critical",
+          critical: true,
+        },
       ]);
     }
-  }, [modelUrl, options?.autoStart, controls]);
+  }, [modelUrl, options?.autoStart, controls, assetId]);
 
   useEffect(() => {
-    const asset = controls.getAsset(`model-${modelUrl}-${Date.now()}`);
+    const asset = controls.getAsset(assetId);
     if (asset) {
       setError(asset.error);
       setData(asset.data);
     }
-  }, [controls, modelUrl, progress]);
+  }, [controls, assetId, progress.loaded, progress.failed]);
 
   const reload = useCallback(() => {
     controls.reset();
     controls.preload([
-      { type: "model", url: modelUrl, priority: "critical", critical: true },
+      {
+        id: assetId,
+        type: "model",
+        url: modelUrl,
+        priority: "critical",
+        critical: true,
+      },
     ]);
-  }, [controls, modelUrl]);
+  }, [controls, modelUrl, assetId]);
 
   return {
     isLoaded: progress.criticalReady && progress.loaded > 0,
@@ -1033,11 +1048,26 @@ export function useAvatarAssetsPreload(
 ): UseAvatarPreloaderResult {
   const result = useAvatarPreloader(config);
 
+  // Track if we've already preloaded this set of assets
+  const preloadedRef = useRef(false);
+
+  // Create a stable key for the assets array
+  const assetsKey = useMemo(
+    () => assets.map((a) => a.url).join(","),
+    [assets]
+  );
+
   useEffect(() => {
-    if (assets.length > 0) {
+    // Reset preloaded state when assets change
+    preloadedRef.current = false;
+  }, [assetsKey]);
+
+  useEffect(() => {
+    if (assets.length > 0 && !preloadedRef.current) {
+      preloadedRef.current = true;
       result.controls.preload(assets);
     }
-  }, [assets, result.controls]);
+  }, [assets, result.controls, assetsKey]);
 
   return result;
 }
