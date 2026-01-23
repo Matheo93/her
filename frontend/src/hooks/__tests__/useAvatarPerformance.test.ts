@@ -37,17 +37,24 @@ jest.mock("../useDeviceCapabilities", () => ({
   }),
 }));
 
+// Store callback reference for testing
+let storedOnLowFpsCallback: ((fps: number) => void) | undefined;
+
 jest.mock("../useFrameRate", () => ({
-  useFrameRate: ({ onLowFps }: { onLowFps?: (fps: number) => void }) => ({
-    fps: 58,
-    averageFps: 59,
-    frameTime: 16.7,
-    droppedFrames: 2,
-    isPerformanceDegraded: false,
-    start: jest.fn(),
-    stop: jest.fn(),
-    reset: jest.fn(),
-  }),
+  useFrameRate: ({ onLowFps }: { onLowFps?: (fps: number) => void }) => {
+    // Store the callback so tests can trigger it
+    storedOnLowFpsCallback = onLowFps;
+    return {
+      fps: 58,
+      averageFps: 59,
+      frameTime: 16.7,
+      droppedFrames: 2,
+      isPerformanceDegraded: false,
+      start: jest.fn(),
+      stop: jest.fn(),
+      reset: jest.fn(),
+    };
+  },
   useAdaptiveQuality: () => ({
     quality: 0.9,
     adjustQuality: jest.fn(),
