@@ -1231,3 +1231,19 @@ export {
   type ReducerControls,
   type UseTouchLatencyReducerResult,
 } from "./useTouchLatencyReducer";
+
+// Visual Feedback Accelerator (Sprint 229)
+export {
+  useVisualFeedbackAccelerator,
+  useAcceleratedTransform,
+  useAcceleratedOpacity,
+  type AcceleratedProperty,
+  type TransformState,
+  type AcceleratedStyle,
+  type UpdateBatch,
+  type AcceleratorConfig,
+  type AcceleratorMetrics,
+  type AcceleratorState,
+  type AcceleratorControls,
+  type UseVisualFeedbackAcceleratorResult,
+} from "./useVisualFeedbackAccelerator";
