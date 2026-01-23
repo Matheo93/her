@@ -1,84 +1,84 @@
 ---
-sprint: 1589
-started_at: 2026-01-23T07:30:00Z
+sprint: 1590
+started_at: 2026-01-23T07:38:00Z
 status: ✅ COMPLETED
 ---
 
-# Sprint #1589 - Avatar Blink, Frame Scheduling & Audio Buffering
+# Sprint #1590 - Avatar Head Tracking, Wake Lock & Streaming Text
 
 ## OBJECTIVES
 
-1. **Avatar Blink Controller** - Natural blinking animations
-2. **Mobile Frame Scheduler** - Intelligent frame scheduling
-3. **Adaptive Audio Buffer** - Dynamic audio buffering
+1. **Avatar Head Tracking** - Natural head movement and gestures
+2. **Mobile Wake Lock** - Screen wake lock management
+3. **Streaming Text Renderer** - Typewriter effect for responses
 
 ## COMPLETED TASKS
 
-### 1. ✅ Created useAvatarBlinkController Hook
-**File:** `frontend/src/hooks/useAvatarBlinkController.ts` (~550 lines)
+### 1. ✅ Created useAvatarHeadTracking Hook
+**File:** `frontend/src/hooks/useAvatarHeadTracking.ts` (~520 lines)
 
 Features:
-- 9 blink types: normal, slow, rapid, double, half, long, flutter, wink_left, wink_right
-- 4 blink phases: open, closing, closed, opening
-- Keyframe-based animation with natural easing
-- Emotional state integration (adjusts blink rate)
-- Conversation-aware timing (speaking/listening)
-- Forced blinks for eye strain prevention
+- 3-axis head pose control (pitch, yaw, roll)
+- 8 gestures: nod, shake, tilt_curious, tilt_confused, look_away, look_up, lean_in, lean_back
+- 5 tracking modes: user, target, idle, gesture, locked
+- Natural idle micro-movements (Perlin-like noise)
+- Smooth interpolation with configurable damping
+- Target-based attention system
 
 Sub-hooks:
-- `useEyeClosure` - Simple left/right eye closure values
-- `useConversationBlink` - Conversation-aware blinking
+- `useHeadPose` - Simple head pose values
+- `useConversationHeadTracking` - Conversation-aware tracking
 
-### 2. ✅ Created useMobileFrameScheduler Hook
-**File:** `frontend/src/hooks/useMobileFrameScheduler.ts` (~550 lines)
+### 2. ✅ Created useMobileWakeLock Hook
+**File:** `frontend/src/hooks/useMobileWakeLock.ts` (~460 lines)
 
 Features:
-- 5 priority levels: critical, high, normal, low, idle
-- 4 frame phases: input, animation, render, idle
-- Adaptive frame rate based on budget usage
-- Battery-aware FPS reduction
-- Thermal throttling integration
-- Task batching and coalescing
+- 6 wake lock states: released, requesting, active, paused, denied, error
+- 5 lock reasons: conversation, media_playback, user_activity, download, custom
+- Battery-aware management (auto-release on low battery)
+- Automatic reacquisition on visibility change
+- Session tracking with duration metrics
+- Inactivity timeout support
 
 Sub-hooks:
-- `useFpsMonitor` - Simple FPS monitoring
-- `useScheduledCallback` - Easy callback scheduling
+- `useSimpleWakeLock` - Basic acquire/release
+- `useConversationWakeLock` - Auto-manage during conversations
 
-### 3. ✅ Created useAdaptiveAudioBuffer Hook
-**File:** `frontend/src/hooks/useAdaptiveAudioBuffer.ts` (~480 lines)
+### 3. ✅ Created useStreamingTextRenderer Hook
+**File:** `frontend/src/hooks/useStreamingTextRenderer.ts` (~500 lines)
 
 Features:
-- 6 buffer states: empty, buffering, ready, playing, stalled, overflow
-- 4 quality levels: high, medium, low, adaptive
-- Dynamic buffer sizing based on network
-- Starvation prevention and detection
-- Memory-efficient segment management
-- Quality-based buffer thresholds
+- 4 streaming modes: character, word, chunk, instant
+- 5 streaming states: idle, buffering, rendering, paused, complete
+- Natural typing speed variation
+- Punctuation pause for natural rhythm
+- Chunk buffering for smooth performance
+- Progress tracking
 
 Sub-hooks:
-- `useBufferHealth` - Buffer health monitoring
-- `useAdaptiveAudioStream` - Simplified streaming interface
+- `useStreamingText` - Simple text streaming
+- `useTypewriter` - Typewriter effect for static text
 
 ### 4. ✅ Updated Hooks Index
-- Exported all Sprint 1589 hooks and types
+- Exported all Sprint 1590 hooks and types
 - Resolved type conflicts with aliases
 
 ## VALIDATION
 
 ```
 Frontend Build: ✅ PASS
-Backend Tests: ✅ 202 passed, 1 skipped in 20.18s
+Backend Tests: ✅ 202 passed, 1 skipped in 21.07s
 ```
 
 ## NEW FILES
 
-1. `frontend/src/hooks/useAvatarBlinkController.ts` - ~550 lines
-2. `frontend/src/hooks/useMobileFrameScheduler.ts` - ~550 lines
-3. `frontend/src/hooks/useAdaptiveAudioBuffer.ts` - ~480 lines
+1. `frontend/src/hooks/useAvatarHeadTracking.ts` - ~520 lines
+2. `frontend/src/hooks/useMobileWakeLock.ts` - ~460 lines
+3. `frontend/src/hooks/useStreamingTextRenderer.ts` - ~500 lines
 
 ## CUMULATIVE MOBILE OPTIMIZATION HOOKS
 
-From Sprints 232 + 440 + 510-513 + 1586-1589:
+From Sprints 232 + 440 + 510-513 + 1586-1590:
 
 | Hook | Purpose | Key Features |
 |------|---------|--------------|
@@ -110,13 +110,16 @@ From Sprints 232 + 440 + 510-513 + 1586-1589:
 | useAvatarBlinkController | Natural blinking | Emotion-aware |
 | useMobileFrameScheduler | Frame scheduling | Priority-based |
 | useAdaptiveAudioBuffer | Audio buffering | Quality adaptation |
+| useAvatarHeadTracking | Head movement | Gesture support |
+| useMobileWakeLock | Wake lock | Battery-aware |
+| useStreamingTextRenderer | Text streaming | Typewriter effect |
 
-**Total: 28 specialized hooks for mobile/avatar optimization**
+**Total: 31 specialized hooks for mobile/avatar optimization**
 
 ## SUMMARY
 
-Sprint 1589 completed blink animations, frame scheduling, and audio buffering:
-- Avatar blinking responds naturally to conversation and emotional state
-- Frame scheduling optimizes performance with priority-based execution
-- Audio buffering adapts dynamically to network conditions
+Sprint 1590 completed head tracking, wake lock, and streaming text:
+- Avatar head naturally responds to targets with smooth interpolation
+- Screen stays awake during conversations with battery awareness
+- AI responses stream with natural typewriter effect
 - All code compiles and tests pass
