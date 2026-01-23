@@ -91,7 +91,7 @@ export interface LowLatencyMetrics {
   p95LatencyMs: number;
   touchToRenderMs: number;
   predictionAccuracy: number;
-  frameDops: number;
+  frameDrops: number;
   qualityAdjustments: number;
   modeTransitions: number;
 }
@@ -625,7 +625,7 @@ export function useAvatarLowLatencyMode(
     p95LatencyMs,
     touchToRenderMs,
     predictionAccuracy,
-    frameDops: frameDrops,
+    frameDrops,
     qualityAdjustments,
     modeTransitions,
   }), [
@@ -722,7 +722,7 @@ export function useLatencyMetrics(): {
     average: metrics.averageLatencyMs,
     p95: metrics.p95LatencyMs,
     touchToRender: metrics.touchToRenderMs,
-    frameDrops: metrics.frameDops,
+    frameDrops: metrics.frameDrops,
   };
 }
 

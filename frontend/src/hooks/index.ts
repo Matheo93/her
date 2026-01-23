@@ -1486,3 +1486,24 @@ export {
   type MobileOptimizerMetrics,
   type MobileOptimizerControls,
 } from "./useAvatarMobileOptimizer";
+
+// Avatar Low Latency Mode (Sprint 541)
+export {
+  useAvatarLowLatencyMode,
+  useLowLatencyTouch as useAvatarLowLatencyTouch,
+  useLatencyAdaptiveQuality,
+  useLatencyMetrics as useAvatarLatencyMetrics,
+  type LatencyMode,
+  type InteractionState as LowLatencyInteractionState,
+  type OptimizationLevel,
+  type PredictionConfidence as LowLatencyPredictionConfidence,
+  type TouchState as LowLatencyTouchState,
+  type AnimationPreload,
+  type QualitySettings as LowLatencyQualitySettings,
+  type LatencyBudget,
+  type LowLatencyConfig,
+  type LowLatencyCallbacks,
+  type LowLatencyState,
+  type LowLatencyMetrics,
+  type LowLatencyControls,
+} from "./useAvatarLowLatencyMode";
