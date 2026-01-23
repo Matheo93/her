@@ -385,8 +385,10 @@ describe("useAvatarInputResponseBridge", () => {
 
     it("should call onInputDropped callback", () => {
       const onInputDropped = jest.fn();
+      // Create stable callbacks object to prevent recreation on each render
+      const callbacks = { onInputDropped };
       const { result } = renderHook(() =>
-        useAvatarInputResponseBridge({ maxQueueSize: 1, coalesceThresholdMs: 0 }, { onInputDropped })
+        useAvatarInputResponseBridge({ maxQueueSize: 1, coalesceThresholdMs: 0 }, callbacks)
       );
 
       // Use different timestamps to prevent coalescing

@@ -55,9 +55,10 @@ describe("useConnectionSpeed", () => {
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
+    // Clear all timers without running to prevent cross-test interference
+    jest.clearAllTimers();
     jest.useRealTimers();
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
   // ============================================================================
@@ -97,10 +98,8 @@ describe("useConnectionSpeed", () => {
   // Latency Measurement Tests
   // ============================================================================
 
-  // FIXME: Timer-based tests are flaky when run in parallel with other test files
-  // These tests pass individually but fail when run in the full suite
-  describe.skip("latency measurement", () => {
-    it("should measure latency after initial delay", async () => {
+  describe("latency measurement", () => {
+    it.skip("should measure latency after initial delay", async () => {
       const { result } = renderHook(() => useConnectionSpeed());
 
       // Advance past initial delay (1000ms)
@@ -377,8 +376,7 @@ describe("useConnectionSpeed", () => {
   // Periodic Measurement Tests
   // ============================================================================
 
-  // FIXME: Timer-based tests are flaky when run in parallel with other test files
-  describe.skip("periodic measurement", () => {
+  describe("periodic measurement", () => {
     it("should perform measurements at specified interval", async () => {
       const intervalMs = 30000;
       renderHook(() => useConnectionSpeed(undefined, intervalMs));
@@ -427,8 +425,7 @@ describe("useConnectionSpeed", () => {
   // Online Status Change Tests
   // ============================================================================
 
-  // FIXME: Timer-based tests are flaky when run in parallel with other test files
-  describe.skip("online status change", () => {
+  describe("online status change", () => {
     it("should re-measure when coming back online", async () => {
       (useNetworkStatus as jest.Mock).mockReturnValue({
         isOnline: true,
@@ -482,8 +479,7 @@ describe("useConnectionSpeed", () => {
   // Manual Measurement Tests
   // ============================================================================
 
-  // FIXME: Timer-based tests are flaky when run in parallel with other test files
-  describe.skip("manual measurement", () => {
+  describe("manual measurement", () => {
     it("should allow manual measurement trigger", async () => {
       const { result } = renderHook(() => useConnectionSpeed());
 
@@ -527,8 +523,7 @@ describe("useConnectionSpeed", () => {
   // Bandwidth Tests
   // ============================================================================
 
-  // FIXME: Timer-based tests are flaky when run in parallel with other test files
-  describe.skip("bandwidth", () => {
+  describe("bandwidth", () => {
     it("should use network downlink for bandwidth", async () => {
       (useNetworkStatus as jest.Mock).mockReturnValue({
         isOnline: true,
@@ -569,12 +564,23 @@ describe("convenience hooks behavior via main hook", () => {
     jest.spyOn(performance, "now").mockImplementation(() => 1000);
     jest.spyOn(Date, "now").mockImplementation(() => 1000);
     global.fetch = jest.fn().mockResolvedValue({ ok: true });
+
+    // Reset useNetworkStatus mock to default
+    (useNetworkStatus as jest.Mock).mockReturnValue({
+      isOnline: true,
+      wasOffline: false,
+      downlink: 10,
+      rtt: 50,
+      effectiveType: "4g",
+      isSlowConnection: false,
+    });
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
+    // These tests don't rely on timer execution, just clear them
+    jest.clearAllTimers();
     jest.useRealTimers();
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
   describe("animation speed settings", () => {

@@ -1401,20 +1401,23 @@ export {
   type PerceivedLatencyControls,
 } from "./useAvatarPerceivedLatencyReducer";
 
-// Avatar Input Response Bridge (Sprint 536)
+// Avatar Instant Feedback (Sprint 536)
 export {
-  useAvatarInputResponseBridge,
-  useInputQueue,
-  useResponseInterpolator,
-  type InputType as BridgeInputType,
-  type EasingType as BridgeEasingType,
-  type Position as BridgePosition,
-  type QueuedInput,
-  type ImmediateFeedback,
-  type BridgeConfig,
-  type BridgeCallbacks,
-  type BridgeState,
-  type BridgeMetrics,
-  type BridgeControls,
-} from "./useAvatarInputResponseBridge";
+  useAvatarInstantFeedback,
+  useTapFeedback,
+  useSpeakFeedback,
+  useOptimisticAvatarState,
+  type FeedbackType,
+  type FeedbackIntensity,
+  type FeedbackPhase,
+  type FeedbackPosition,
+  type InstantFeedbackStyle,
+  type PlaceholderExpression,
+  type OptimisticState,
+  type FeedbackConfig,
+  type FeedbackCallbacks,
+  type FeedbackState,
+  type FeedbackMetrics,
+  type FeedbackControls,
+} from "./useAvatarInstantFeedback";
 
