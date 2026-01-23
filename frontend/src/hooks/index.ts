@@ -1436,3 +1436,33 @@ export {
   type MomentumControls,
 } from "./useAvatarTouchMomentum";
 
+// Avatar Input Response Bridge (Sprint 536)
+export {
+  useAvatarInputResponseBridge,
+  useInputQueue,
+  useResponseInterpolator,
+  type InputType as InputResponseBridgeInputType,
+  type EasingType as InputResponseBridgeEasingType,
+  type Position as InputResponseBridgePosition,
+  type QueuedInput,
+  type ImmediateFeedback as InputResponseBridgeImmediateFeedback,
+  type BridgeConfig as InputResponseBridgeConfig,
+  type BridgeCallbacks as InputResponseBridgeCallbacks,
+  type BridgeState as InputResponseBridgeState,
+  type BridgeMetrics as InputResponseBridgeMetrics,
+  type BridgeControls as InputResponseBridgeControls,
+} from "./useAvatarInputResponseBridge";
+
+// Avatar Frame Budget (Sprint 538)
+export {
+  useAvatarFrameBudget,
+  useWorkScheduler,
+  useBudgetMonitor,
+  type WorkItem,
+  type QualitySuggestion,
+  type BudgetConfig,
+  type BudgetCallbacks,
+  type BudgetState,
+  type BudgetMetrics,
+  type BudgetControls,
+} from "./useAvatarFrameBudget";
