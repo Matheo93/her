@@ -932,3 +932,41 @@ export {
   type CompensatorStateInfo,
   type UseMobileLatencyCompensatorResult,
 } from "./useMobileLatencyCompensator";
+
+// Mobile Avatar Latency Mitigator (Sprint 520)
+export {
+  useMobileAvatarLatencyMitigator,
+  usePoseInterpolation,
+  useTouchLatencyMeasurement,
+  type AvatarPose as MitigatorAvatarPose,
+  type LatencyPoint,
+  type FrameTiming,
+  type TouchLatency,
+  type InterpolationMode,
+  type MitigationStrategy,
+  type PredictionConfidence,
+  type MitigatorState,
+  type MitigatorMetrics,
+  type MitigatorConfig,
+  type MitigatorControls,
+  type UseMobileAvatarLatencyMitigatorResult,
+} from "./useMobileAvatarLatencyMitigator";
+
+// Touch Response Optimizer (Sprint 516)
+export {
+  useTouchResponseOptimizer,
+  useOptimizedTouchHandler,
+  useTouchFeedbackPosition,
+  useTouchVelocity,
+  type TouchPriority,
+  type TouchEventType,
+  type TrackedTouch,
+  type OptimizedTouchEvent,
+  type ImmediateFeedback,
+  type ResponseTiming,
+  type OptimizerState,
+  type OptimizerMetrics,
+  type OptimizerConfig,
+  type OptimizerControls,
+  type UseTouchResponseOptimizerResult,
+} from "./useTouchResponseOptimizer";
