@@ -357,6 +357,227 @@ describe("useAvatarPerceivedLatencyReducer", () => {
     });
   });
 
+  // ============================================================================
+  // Branch Coverage Tests - Sprint 617
+  // ============================================================================
+
+  describe("branch coverage - updateAnticipation early return (lines 156-158)", () => {
+    it("should return early when no anticipation has started (line 154)", () => {
+      const { result } = renderHook(() => useAvatarPerceivedLatencyReducer());
+
+      // updateAnticipation without starting anticipation first
+      // This should hit the early return at line 154
+      act(() => {
+        result.current.controls.updateAnticipation();
+      });
+
+      // Anticipation level should remain 0
+      expect(result.current.state.anticipationLevel).toBe(0);
+    });
+
+    it("should update anticipation after starting (for comparison)", () => {
+      const { result } = renderHook(() => useAvatarPerceivedLatencyReducer());
+
+      mockTime = 0;
+      act(() => {
+        result.current.controls.startAnticipation("tap");
+      });
+
+      const initialLevel = result.current.state.anticipationLevel;
+
+      mockTime = 50;
+      act(() => {
+        result.current.controls.updateAnticipation();
+      });
+
+      // Should update when anticipation has started
+      expect(result.current.state.anticipationLevel).toBeGreaterThanOrEqual(initialLevel);
+    });
+  });
+
+  describe("branch coverage - advanceLoading at complete phase (line 207)", () => {
+    it("should not advance beyond complete phase (line 207)", () => {
+      const { result } = renderHook(() => useAvatarPerceivedLatencyReducer());
+
+      // Get to complete phase
+      act(() => {
+        result.current.controls.completeLoading();
+      });
+
+      expect(result.current.state.loadingPhase).toBe("complete");
+
+      // Try to advance - should stay at complete
+      act(() => {
+        result.current.controls.advanceLoading();
+      });
+
+      // Should still be at complete
+      expect(result.current.state.loadingPhase).toBe("complete");
+    });
+
+    it("should not advance when already at last phase after advancing through all phases", () => {
+      const onLoadingPhaseChange = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarPerceivedLatencyReducer({}, { onLoadingPhaseChange })
+      );
+
+      // Advance through all phases
+      act(() => {
+        result.current.controls.startLoading(); // skeleton
+      });
+
+      act(() => {
+        result.current.controls.advanceLoading(); // lowRes
+      });
+
+      act(() => {
+        result.current.controls.advanceLoading(); // mediumRes
+      });
+
+      act(() => {
+        result.current.controls.advanceLoading(); // highRes
+      });
+
+      act(() => {
+        result.current.controls.advanceLoading(); // complete
+      });
+
+      expect(result.current.state.loadingPhase).toBe("complete");
+      onLoadingPhaseChange.mockClear();
+
+      // Try to advance beyond complete - should not call callback
+      act(() => {
+        result.current.controls.advanceLoading();
+      });
+
+      // Callback should NOT be called since we're already at complete
+      expect(onLoadingPhaseChange).not.toHaveBeenCalled();
+      expect(result.current.state.loadingPhase).toBe("complete");
+    });
+  });
+
+  describe("branch coverage - onAnticipationComplete callback (line 165)", () => {
+    it("should call onAnticipationComplete callback", () => {
+      const onAnticipationComplete = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarPerceivedLatencyReducer({}, { onAnticipationComplete })
+      );
+
+      act(() => {
+        result.current.controls.startAnticipation("tap");
+      });
+
+      act(() => {
+        result.current.controls.completeAnticipation();
+      });
+
+      expect(onAnticipationComplete).toHaveBeenCalled();
+    });
+
+    it("should not error when onAnticipationComplete is not provided", () => {
+      const { result } = renderHook(() => useAvatarPerceivedLatencyReducer());
+
+      act(() => {
+        result.current.controls.startAnticipation("tap");
+      });
+
+      // Should not throw when completing without callback
+      expect(() => {
+        act(() => {
+          result.current.controls.completeAnticipation();
+        });
+      }).not.toThrow();
+
+      expect(result.current.state.anticipationLevel).toBe(0);
+    });
+  });
+
+  describe("branch coverage - anticipation types (lines 147-148)", () => {
+    it("should set initial level for drag type", () => {
+      const { result } = renderHook(() => useAvatarPerceivedLatencyReducer());
+
+      act(() => {
+        result.current.controls.startAnticipation("drag");
+      });
+
+      // drag type should have initial level of 0.2
+      expect(result.current.state.anticipationLevel).toBe(0.2);
+    });
+
+    it("should set initial level for scroll type", () => {
+      const { result } = renderHook(() => useAvatarPerceivedLatencyReducer());
+
+      act(() => {
+        result.current.controls.startAnticipation("scroll");
+      });
+
+      // scroll type should have initial level of 0.2 (same as drag - else branch)
+      expect(result.current.state.anticipationLevel).toBe(0.2);
+    });
+
+    it("should set initial level for hover type", () => {
+      const { result } = renderHook(() => useAvatarPerceivedLatencyReducer());
+
+      act(() => {
+        result.current.controls.startAnticipation("hover");
+      });
+
+      // hover type should have initial level of 0.1
+      expect(result.current.state.anticipationLevel).toBe(0.1);
+    });
+
+    it("should set initial level for tap type", () => {
+      const { result } = renderHook(() => useAvatarPerceivedLatencyReducer());
+
+      act(() => {
+        result.current.controls.startAnticipation("tap");
+      });
+
+      // tap type should have initial level of 0.3
+      expect(result.current.state.anticipationLevel).toBe(0.3);
+    });
+  });
+
+  describe("branch coverage - latency reduction calculation (lines 136-138)", () => {
+    it("should calculate positive latency reduction when perceived < actual", () => {
+      const { result } = renderHook(() => useAvatarPerceivedLatencyReducer());
+
+      mockTime = 0;
+      act(() => {
+        result.current.controls.startLatencyMeasurement();
+        result.current.controls.startAnticipation("tap"); // Start anticipation to reduce perceived latency
+      });
+
+      mockTime = 200;
+      act(() => {
+        result.current.controls.endLatencyMeasurement();
+      });
+
+      // With anticipation, perceived should be less than actual
+      expect(result.current.metrics.actualLatencyMs).toBe(200);
+      expect(result.current.metrics.perceivedLatencyMs).toBeLessThan(200);
+      expect(result.current.metrics.latencyReduction).toBeGreaterThan(0);
+    });
+
+    it("should cap latency reduction at 0 when perceived >= actual (line 138)", () => {
+      const { result } = renderHook(() => useAvatarPerceivedLatencyReducer());
+
+      mockTime = 0;
+      act(() => {
+        result.current.controls.startLatencyMeasurement();
+        // No anticipation - perceived should equal actual
+      });
+
+      mockTime = 100;
+      act(() => {
+        result.current.controls.endLatencyMeasurement();
+      });
+
+      // Without anticipation, reduction should be 0
+      expect(result.current.metrics.latencyReduction).toBe(0);
+    });
+  });
+
   describe("cleanup", () => {
     it("should cleanup on unmount", () => {
       const { unmount } = renderHook(() => useAvatarPerceivedLatencyReducer());
