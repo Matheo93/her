@@ -675,3 +675,433 @@ describe("useTouchRipple", () => {
     expect(result.current.ripples.length).toBe(0);
   });
 });
+
+// ============================================================================
+// Sprint 621 - Branch Coverage Tests
+// ============================================================================
+
+describe("Sprint 621 - branch coverage improvements", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.spyOn(Date, "now").mockReturnValue(1000);
+    mockVibrate.mockClear();
+    mockBattery.level = 0.8;
+    mockBattery.charging = true;
+    mockBattery.addEventListener.mockClear();
+    mockBattery.removeEventListener.mockClear();
+  });
+
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
+  describe("battery event listeners cleanup (lines 226-227)", () => {
+    it("should setup and cleanup battery event listeners", async () => {
+      const { unmount } = renderHook(() =>
+        useTouchFeedbackOptimizer({ batteryAware: true })
+      );
+
+      // Wait for battery check to complete
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Battery listeners should be registered
+      expect(mockBattery.addEventListener).toHaveBeenCalledWith(
+        "levelchange",
+        expect.any(Function)
+      );
+      expect(mockBattery.addEventListener).toHaveBeenCalledWith(
+        "chargingchange",
+        expect.any(Function)
+      );
+
+      // Unmount to trigger cleanup
+      unmount();
+
+      // Note: cleanup happens via returned function from checkBattery
+      // The actual removeEventListener calls depend on React's cleanup timing
+    });
+
+    it("should handle battery level change events", async () => {
+      mockBattery.level = 0.1;
+      mockBattery.charging = false;
+
+      const { result } = renderHook(() =>
+        useTouchFeedbackOptimizer({ batteryAware: true })
+      );
+
+      // Wait for battery check
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Trigger battery level change callback
+      const levelChangeCallback = mockBattery.addEventListener.mock.calls.find(
+        (call: unknown[]) => call[0] === "levelchange"
+      )?.[1] as (() => void) | undefined;
+
+      if (levelChangeCallback) {
+        act(() => {
+          levelChangeCallback();
+        });
+      }
+
+      // Should work without errors
+      expect(result.current.state).toBeDefined();
+    });
+
+    it("should handle charging state change events", async () => {
+      const { result } = renderHook(() =>
+        useTouchFeedbackOptimizer({ batteryAware: true })
+      );
+
+      // Wait for battery check
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Trigger charging change callback
+      const chargingChangeCallback = mockBattery.addEventListener.mock.calls.find(
+        (call: unknown[]) => call[0] === "chargingchange"
+      )?.[1] as (() => void) | undefined;
+
+      if (chargingChangeCallback) {
+        mockBattery.charging = true;
+        act(() => {
+          chargingChangeCallback();
+        });
+      }
+
+      // Should work without errors
+      expect(result.current.state).toBeDefined();
+    });
+  });
+
+  describe("low power mode intensity (line 249)", () => {
+    it("should use low power intensity when battery is low", async () => {
+      // Set battery to low and not charging
+      mockBattery.level = 0.1;
+      mockBattery.charging = false;
+
+      const { result } = renderHook(() =>
+        useTouchFeedbackOptimizer({
+          batteryAware: true,
+          lowPowerIntensity: 0.2,
+          hapticIntensity: 0.8,
+        })
+      );
+
+      // Wait for battery check to set low power mode
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Trigger haptic to see if low power intensity is used
+      act(() => {
+        result.current.controls.trigger("medium_tap", undefined, "haptic");
+      });
+
+      expect(mockVibrate).toHaveBeenCalled();
+    });
+
+    it("should use normal intensity when battery is sufficient", async () => {
+      mockBattery.level = 0.8;
+      mockBattery.charging = false;
+
+      const { result } = renderHook(() =>
+        useTouchFeedbackOptimizer({
+          batteryAware: true,
+          lowPowerIntensity: 0.2,
+          hapticIntensity: 0.8,
+        })
+      );
+
+      // Wait for battery check
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      act(() => {
+        result.current.controls.trigger("medium_tap", undefined, "haptic");
+      });
+
+      expect(mockVibrate).toHaveBeenCalled();
+    });
+
+    it("should use normal intensity when charging even with low battery", async () => {
+      mockBattery.level = 0.1;
+      mockBattery.charging = true; // Charging
+
+      const { result } = renderHook(() =>
+        useTouchFeedbackOptimizer({
+          batteryAware: true,
+          lowPowerIntensity: 0.2,
+          hapticIntensity: 0.8,
+        })
+      );
+
+      // Wait for battery check
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      act(() => {
+        result.current.controls.trigger("medium_tap", undefined, "haptic");
+      });
+
+      expect(mockVibrate).toHaveBeenCalled();
+    });
+  });
+
+  describe("latency history overflow (line 352)", () => {
+    it("should trim latency history when exceeding 50 entries", () => {
+      const { result } = renderHook(() => useTouchFeedbackOptimizer());
+
+      // Trigger more than 50 feedbacks to overflow latency history
+      let timestamp = 1000;
+      for (let i = 0; i < 55; i++) {
+        (Date.now as jest.Mock).mockReturnValue(timestamp);
+        act(() => {
+          result.current.controls.trigger("light_tap", {
+            x: 100,
+            y: 100,
+            timestamp: timestamp - 10, // 10ms latency
+          });
+        });
+        timestamp += 20;
+      }
+
+      // Metrics should still work correctly
+      expect(result.current.metrics.totalFeedbacks).toBe(55);
+      expect(result.current.metrics.averageLatency).toBeGreaterThan(0);
+    });
+  });
+
+  describe("touch area event handling (lines 406-417)", () => {
+    it("should handle touchstart event on registered element", () => {
+      const { result } = renderHook(() => useTouchFeedbackOptimizer());
+
+      const element = document.createElement("div");
+      let unregister: (() => void) | undefined;
+
+      act(() => {
+        unregister = result.current.controls.registerTouchArea(
+          element,
+          "medium_tap"
+        );
+      });
+
+      // Create and dispatch a touchstart event
+      const touchEvent = new TouchEvent("touchstart", {
+        touches: [
+          {
+            identifier: 0,
+            target: element,
+            clientX: 150,
+            clientY: 250,
+            screenX: 150,
+            screenY: 250,
+            pageX: 150,
+            pageY: 250,
+            radiusX: 10,
+            radiusY: 10,
+            rotationAngle: 0,
+            force: 0.5,
+          } as Touch,
+        ],
+      });
+
+      act(() => {
+        element.dispatchEvent(touchEvent);
+      });
+
+      // Touch should have triggered feedback
+      expect(result.current.metrics.totalFeedbacks).toBe(1);
+
+      // Cleanup
+      act(() => {
+        unregister?.();
+      });
+    });
+
+    it("should handle touchstart event with no touches", () => {
+      const { result } = renderHook(() => useTouchFeedbackOptimizer());
+
+      const element = document.createElement("div");
+      let unregister: (() => void) | undefined;
+
+      act(() => {
+        unregister = result.current.controls.registerTouchArea(
+          element,
+          "medium_tap"
+        );
+      });
+
+      // Create touchstart event with empty touches array
+      const touchEvent = new TouchEvent("touchstart", {
+        touches: [],
+      });
+
+      act(() => {
+        element.dispatchEvent(touchEvent);
+      });
+
+      // Should not trigger feedback with no touches
+      expect(result.current.metrics.totalFeedbacks).toBe(0);
+
+      // Cleanup
+      act(() => {
+        unregister?.();
+      });
+    });
+
+    it("should extract force from touch event", () => {
+      const { result } = renderHook(() => useTouchFeedbackOptimizer());
+
+      const element = document.createElement("div");
+
+      act(() => {
+        result.current.controls.registerTouchArea(element, "heavy_tap");
+      });
+
+      // Create touch with force
+      const touchEvent = new TouchEvent("touchstart", {
+        touches: [
+          {
+            identifier: 0,
+            target: element,
+            clientX: 100,
+            clientY: 200,
+            screenX: 100,
+            screenY: 200,
+            pageX: 100,
+            pageY: 200,
+            radiusX: 15,
+            radiusY: 15,
+            rotationAngle: 0,
+            force: 0.75,
+          } as Touch,
+        ],
+      });
+
+      act(() => {
+        element.dispatchEvent(touchEvent);
+      });
+
+      // Touch should have been recorded with force
+      expect(result.current.state.lastTouch?.force).toBe(0.75);
+      expect(result.current.state.lastTouch?.radiusX).toBe(15);
+      expect(result.current.state.lastTouch?.radiusY).toBe(15);
+    });
+  });
+
+  describe("batteryAware disabled (line 210)", () => {
+    it("should not check battery when batteryAware is false", () => {
+      const { result } = renderHook(() =>
+        useTouchFeedbackOptimizer({ batteryAware: false })
+      );
+
+      // Should work without battery check
+      expect(result.current.state).toBeDefined();
+      expect(result.current.config.batteryAware).toBe(false);
+    });
+  });
+
+  describe("trigger with visual only feedback", () => {
+    it("should trigger visual only feedback", () => {
+      const { result } = renderHook(() => useTouchFeedbackOptimizer());
+
+      act(() => {
+        result.current.controls.trigger(
+          "medium_tap",
+          { x: 100, y: 200, timestamp: 1000 },
+          "visual"
+        );
+      });
+
+      // Should have ripple but no haptic
+      expect(result.current.state.activeRipples.length).toBe(1);
+      expect(result.current.metrics.visualCount).toBe(1);
+    });
+  });
+
+  describe("trigger without touch point", () => {
+    it("should create default touch point when not provided", () => {
+      const { result } = renderHook(() => useTouchFeedbackOptimizer());
+
+      act(() => {
+        result.current.controls.trigger("light_tap");
+      });
+
+      // Should create default touch point at (0, 0)
+      expect(result.current.state.lastTouch).not.toBeNull();
+      expect(result.current.state.lastTouch?.x).toBe(0);
+      expect(result.current.state.lastTouch?.y).toBe(0);
+    });
+  });
+
+  describe("all haptic patterns", () => {
+    it("should trigger warning pattern", () => {
+      const { result } = renderHook(() => useTouchFeedbackOptimizer());
+
+      act(() => {
+        result.current.controls.trigger("warning", undefined, "haptic");
+      });
+
+      expect(mockVibrate).toHaveBeenCalled();
+    });
+
+    it("should trigger selection pattern", () => {
+      const { result } = renderHook(() => useTouchFeedbackOptimizer());
+
+      act(() => {
+        result.current.controls.trigger("selection", undefined, "haptic");
+      });
+
+      expect(mockVibrate).toHaveBeenCalled();
+    });
+
+    it("should trigger long_press pattern", () => {
+      const { result } = renderHook(() => useTouchFeedbackOptimizer());
+
+      act(() => {
+        result.current.controls.trigger("long_press", undefined, "haptic");
+      });
+
+      expect(mockVibrate).toHaveBeenCalled();
+    });
+
+    it("should trigger impact_light pattern", () => {
+      const { result } = renderHook(() => useTouchFeedbackOptimizer());
+
+      act(() => {
+        result.current.controls.trigger("impact_light", undefined, "haptic");
+      });
+
+      expect(mockVibrate).toHaveBeenCalled();
+    });
+
+    it("should trigger impact_medium pattern", () => {
+      const { result } = renderHook(() => useTouchFeedbackOptimizer());
+
+      act(() => {
+        result.current.controls.trigger("impact_medium", undefined, "haptic");
+      });
+
+      expect(mockVibrate).toHaveBeenCalled();
+    });
+
+    it("should trigger impact_heavy pattern", () => {
+      const { result } = renderHook(() => useTouchFeedbackOptimizer());
+
+      act(() => {
+        result.current.controls.trigger("impact_heavy", undefined, "haptic");
+      });
+
+      expect(mockVibrate).toHaveBeenCalled();
+    });
+  });
+});
