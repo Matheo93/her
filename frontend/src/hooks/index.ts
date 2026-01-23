@@ -701,7 +701,7 @@ export {
   type RecoveryStrategy,
   type QueuedRequest,
   type NetworkQuality as RecoveryNetworkQuality,
-  type SyncState,
+  type SyncState as NetworkSyncState,
   type RecoveryState,
   type RecoveryMetrics,
   type RecoveryConfig,
@@ -1330,6 +1330,22 @@ export {
   type UseAvatarGestureResponseAcceleratorResult,
 } from "./useAvatarGestureResponseAccelerator";
 
+// Avatar Touch Animation Sync (Sprint 533)
+export {
+  useAvatarTouchAnimationSync,
+  useTouchAlignedAnimation,
+  useAnimationFrameSync,
+  type SyncMode as TouchAnimationSyncMode,
+  type AnimationPriority as TouchAnimationPriority,
+  type Position as TouchSyncPosition,
+  type ScheduledAnimation as TouchScheduledAnimation,
+  type SyncConfig as TouchAnimationSyncConfig,
+  type SyncCallbacks as TouchAnimationSyncCallbacks,
+  type SyncState as TouchAnimationSyncState,
+  type SyncMetrics as TouchAnimationSyncMetrics,
+  type SyncControls as TouchAnimationSyncControls,
+} from "./useAvatarTouchAnimationSync";
+
 // Avatar Pose Interpolator (Sprint 231)
 export {
   useAvatarPoseInterpolator,
@@ -1367,20 +1383,4 @@ export {
   type PredictorControls as TouchPredictorControls,
   type UseTouchResponsePredictorResult,
 } from "./useTouchResponsePredictor";
-
-// Avatar Touch Animation Sync (Sprint 533)
-export {
-  useAvatarTouchAnimationSync,
-  useTouchAlignedAnimation,
-  useAnimationFrameSync,
-  type SyncMode as TouchSyncMode,
-  type AnimationPriority as TouchAnimationPriority,
-  type Position as TouchSyncPosition,
-  type ScheduledAnimation as TouchScheduledAnimation,
-  type SyncConfig as TouchSyncConfig,
-  type SyncCallbacks as TouchSyncCallbacks,
-  type SyncState as TouchSyncState,
-  type SyncMetrics as TouchSyncMetrics,
-  type SyncControls as TouchSyncControls,
-} from "./useAvatarTouchAnimationSync";
 

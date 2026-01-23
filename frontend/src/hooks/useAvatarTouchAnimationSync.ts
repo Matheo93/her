@@ -108,12 +108,12 @@ export function useAvatarTouchAnimationSync(
   const [touchEventsProcessed, setTouchEventsProcessed] = useState(0);
   const [droppedFrames, setDroppedFrames] = useState(0);
   const [jitterSampleCount, setJitterSampleCount] = useState(0);
+  const [lastSyncDelayMs, setLastSyncDelayMs] = useState(0);
 
   const animQueueRef = useRef<ScheduledAnimation[]>([]);
   const lastFrameTimeRef = useRef(0);
   const touchStartTimeRef = useRef(0);
   const syncDelaysRef = useRef<number[]>([]);
-  const lastSyncDelayRef = useRef(0);
   const previousPositionRef = useRef<Position | null>(null);
 
   const frameBudgetMs = useMemo(
@@ -234,7 +234,7 @@ export function useAvatarTouchAnimationSync(
   const markAnimationStarted = useCallback(() => {
     const now = performance.now();
     const delay = now - touchStartTimeRef.current;
-    lastSyncDelayRef.current = delay;
+    setLastSyncDelayMs(delay);
     syncDelaysRef.current.push(delay);
     if (syncDelaysRef.current.length > 20) {
       syncDelaysRef.current.shift();
@@ -255,8 +255,8 @@ export function useAvatarTouchAnimationSync(
     setTouchEventsProcessed(0);
     setDroppedFrames(0);
     setJitterSampleCount(0);
+    setLastSyncDelayMs(0);
     syncDelaysRef.current = [];
-    lastSyncDelayRef.current = 0;
   }, []);
 
   const averageSyncDelayMs = useMemo(() => {
@@ -278,10 +278,10 @@ export function useAvatarTouchAnimationSync(
     framesProcessed,
     touchEventsProcessed,
     averageSyncDelayMs,
-    lastSyncDelayMs: lastSyncDelayRef.current,
+    lastSyncDelayMs,
     droppedFrames,
     jitterSampleCount,
-  }), [framesProcessed, touchEventsProcessed, averageSyncDelayMs, droppedFrames, jitterSampleCount]);
+  }), [framesProcessed, touchEventsProcessed, averageSyncDelayMs, lastSyncDelayMs, droppedFrames, jitterSampleCount]);
 
   const controls: SyncControls = useMemo(() => ({
     onTouchStart,
