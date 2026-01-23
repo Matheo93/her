@@ -47,6 +47,20 @@ beforeEach(() => {
     disconnect: jest.fn(),
   });
   window.IntersectionObserver = mockIntersectionObserver;
+
+  // Mock navigator.getBattery with default values to prevent act() warnings
+  // Individual tests can override this mock as needed
+  const mockBattery = {
+    level: 0.8, // 80% - high state
+    charging: false,
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+  };
+  Object.defineProperty(navigator, "getBattery", {
+    value: jest.fn().mockResolvedValue(mockBattery),
+    writable: true,
+    configurable: true,
+  });
 });
 
 afterEach(() => {
@@ -56,8 +70,13 @@ afterEach(() => {
 
 describe("useAvatarMobileOptimizer", () => {
   describe("initialization", () => {
-    it("should initialize with default state", () => {
+    it("should initialize with default state", async () => {
       const { result } = renderHook(() => useAvatarMobileOptimizer());
+
+      // Wait for async battery check to complete
+      await act(async () => {
+        await Promise.resolve();
+      });
 
       expect(result.current.state.isActive).toBe(true);
       expect(result.current.state.performanceTier).toBe("high");
@@ -66,25 +85,37 @@ describe("useAvatarMobileOptimizer", () => {
       expect(result.current.state.isPaused).toBe(false);
     });
 
-    it("should initialize with high battery state", () => {
+    it("should initialize with high battery state", async () => {
       const { result } = renderHook(() => useAvatarMobileOptimizer());
+
+      await act(async () => {
+        await Promise.resolve();
+      });
 
       expect(result.current.state.batteryState).toBe("high");
     });
 
-    it("should have zero memory pressure initially", () => {
+    it("should have zero memory pressure initially", async () => {
       const { result } = renderHook(() => useAvatarMobileOptimizer());
+
+      await act(async () => {
+        await Promise.resolve();
+      });
 
       expect(result.current.state.memoryPressure).toBe(0);
     });
 
-    it("should accept custom config", () => {
+    it("should accept custom config", async () => {
       const { result } = renderHook(() =>
         useAvatarMobileOptimizer({
           enableTouchPrediction: false,
           predictionHorizonMs: 32,
         })
       );
+
+      await act(async () => {
+        await Promise.resolve();
+      });
 
       expect(result.current.state.isActive).toBe(true);
     });
@@ -572,8 +603,11 @@ describe("branch coverage - battery state estimation", () => {
 
     const { result } = renderHook(() => useAvatarMobileOptimizer());
 
+    // Wait for initial battery check (async) to complete
     await act(async () => {
+      await Promise.resolve();
       jest.advanceTimersByTime(100);
+      await Promise.resolve();
     });
 
     // Battery state should have been checked
@@ -597,7 +631,9 @@ describe("branch coverage - battery state estimation", () => {
     const { result } = renderHook(() => useAvatarMobileOptimizer());
 
     await act(async () => {
+      await Promise.resolve();
       jest.advanceTimersByTime(100);
+      await Promise.resolve();
     });
 
     expect(result.current.state).toBeDefined();
@@ -620,7 +656,9 @@ describe("branch coverage - battery state estimation", () => {
     const { result } = renderHook(() => useAvatarMobileOptimizer());
 
     await act(async () => {
+      await Promise.resolve();
       jest.advanceTimersByTime(100);
+      await Promise.resolve();
     });
 
     expect(result.current.state).toBeDefined();
@@ -643,7 +681,9 @@ describe("branch coverage - battery state estimation", () => {
     const { result } = renderHook(() => useAvatarMobileOptimizer());
 
     await act(async () => {
+      await Promise.resolve();
       jest.advanceTimersByTime(100);
+      await Promise.resolve();
     });
 
     expect(result.current.state).toBeDefined();
@@ -755,9 +795,11 @@ describe("branch coverage - battery callbacks", () => {
       useAvatarMobileOptimizer({ batteryCheckIntervalMs: 100 }, { onBatteryStateChange })
     );
 
-    // First check
+    // First check - wait for async battery check to complete
     await act(async () => {
+      await Promise.resolve();
       jest.advanceTimersByTime(100);
+      await Promise.resolve();
     });
 
     // Change battery level
@@ -765,7 +807,9 @@ describe("branch coverage - battery callbacks", () => {
 
     // Second check should detect change
     await act(async () => {
+      await Promise.resolve();
       jest.advanceTimersByTime(100);
+      await Promise.resolve();
     });
 
     // Callback may have been called
