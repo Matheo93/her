@@ -803,3 +803,56 @@ export {
   type StreamingControls as TextStreamingControls,
   type UseStreamingTextRendererResult,
 } from "./useStreamingTextRenderer";
+
+// Avatar Eyebrow Controller (Sprint 1591)
+export {
+  useAvatarEyebrowController,
+  useEyebrowExpression,
+  useEmotionSyncedEyebrows,
+  type EyebrowExpression,
+  type EyebrowSide,
+  type EyebrowPose,
+  type EyebrowKeyframe,
+  type EyebrowAnimation,
+  type EyebrowState,
+  type EyebrowMetrics,
+  type EyebrowConfig,
+  type EyebrowControls,
+  type UseAvatarEyebrowControllerResult,
+} from "./useAvatarEyebrowController";
+
+// Mobile Viewport Optimizer (Sprint 1591)
+export {
+  useMobileViewportOptimizer,
+  useViewportDimensions,
+  useKeyboardAwareHeight,
+  useSafeAreaInsets,
+  type ViewportOrientation,
+  type KeyboardState as ViewportKeyboardState,
+  type SafeAreaInsets,
+  type ViewportDimensions,
+  type ViewportState,
+  type ViewportMetrics,
+  type ViewportConfig,
+  type ViewportControls,
+  type UseMobileViewportOptimizerResult,
+} from "./useMobileViewportOptimizer";
+
+// Conversation Context Manager (Sprint 1591)
+export {
+  useConversationContextManager,
+  useConversationPhase,
+  useMessageHistory,
+  type ConversationPhase,
+  type TurnOwner,
+  type MessageRole,
+  type ConversationMessage,
+  type ConversationTopic,
+  type ContextWindow,
+  type ConversationState as ConversationContextState,
+  type ConversationMetrics as ConversationContextMetrics,
+  type ConversationConfig,
+  type CachedResponse,
+  type ConversationControls,
+  type UseConversationContextManagerResult,
+} from "./useConversationContextManager";

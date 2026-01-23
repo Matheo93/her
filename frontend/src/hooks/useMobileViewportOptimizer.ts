@@ -283,7 +283,13 @@ export function useMobileViewportOptimizer(
     if (typeof screen === "undefined" || !screen.orientation) return;
 
     try {
-      await screen.orientation.lock(orientation);
+      // Screen orientation lock API - not available in all browsers
+      const screenOrientation = screen.orientation as ScreenOrientation & {
+        lock?: (orientation: string) => Promise<void>;
+      };
+      if (screenOrientation.lock) {
+        await screenOrientation.lock(orientation);
+      }
     } catch (err) {
       console.error("Orientation lock failed:", err);
     }
@@ -294,7 +300,12 @@ export function useMobileViewportOptimizer(
     if (typeof screen === "undefined" || !screen.orientation) return;
 
     try {
-      screen.orientation.unlock();
+      const screenOrientation = screen.orientation as ScreenOrientation & {
+        unlock?: () => void;
+      };
+      if (screenOrientation.unlock) {
+        screenOrientation.unlock();
+      }
     } catch (err) {
       console.error("Orientation unlock failed:", err);
     }
