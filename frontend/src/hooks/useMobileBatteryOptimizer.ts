@@ -227,7 +227,7 @@ const POWER_PROFILES: Record<PowerMode, Omit<PowerProfile, "mode">> = {
 // Utility Functions
 // ============================================================================
 
-function getBatteryLevel(level: number, thresholds: BatteryOptimizerConfig["thresholds"]): BatteryLevel {
+export function getBatteryLevel(level: number, thresholds: BatteryOptimizerConfig["thresholds"]): BatteryLevel {
   if (level >= thresholds.full) return "full";
   if (level >= thresholds.high) return "high";
   if (level >= thresholds.medium) return "medium";
@@ -235,7 +235,7 @@ function getBatteryLevel(level: number, thresholds: BatteryOptimizerConfig["thre
   return "critical";
 }
 
-function getRecommendedPowerMode(
+export function getRecommendedPowerMode(
   batteryLevel: BatteryLevel,
   isCharging: boolean,
   systemLowPower: boolean
@@ -256,7 +256,7 @@ function getRecommendedPowerMode(
   }
 }
 
-function estimateConsumption(features: Record<FeatureCategory, FeatureConfig>): number {
+export function estimateConsumption(features: Record<FeatureCategory, FeatureConfig>): number {
   let total = 0;
   for (const feature of Object.values(features)) {
     if (feature.enabled) {

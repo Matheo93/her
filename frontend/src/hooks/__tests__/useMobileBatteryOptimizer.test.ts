@@ -13,6 +13,10 @@ import {
   BatteryLevel,
   PowerMode,
   FeatureCategory,
+  FeatureConfig,
+  getBatteryLevel,
+  getRecommendedPowerMode,
+  estimateConsumption,
 } from "../useMobileBatteryOptimizer";
 
 // Mock battery API
