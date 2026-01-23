@@ -531,10 +531,11 @@ describe("useMobileInputPipeline", () => {
 
   describe("buffer management", () => {
     it("should add inputs to buffer", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
       act(() => {
         result.current.controls.processInput(createRawInput());
+        mockTime = 10;
         result.current.controls.processInput(createRawInput());
       });
 
@@ -545,7 +546,7 @@ describe("useMobileInputPipeline", () => {
 
     it("should respect buffer capacity", () => {
       const { result } = renderHook(() =>
-        useMobileInputPipeline({ bufferCapacity: 5 })
+        useMobileInputPipeline({ bufferCapacity: 5, debounceMs: 0 })
       );
 
       act(() => {
@@ -564,7 +565,7 @@ describe("useMobileInputPipeline", () => {
       const onInputDropped = jest.fn();
       const { result } = renderHook(() =>
         useMobileInputPipeline(
-          { bufferCapacity: 3, dropLowPriorityOnBusy: true },
+          { bufferCapacity: 3, dropLowPriorityOnBusy: true, debounceMs: 0 },
           { onInputDropped }
         )
       );
@@ -586,10 +587,12 @@ describe("useMobileInputPipeline", () => {
     });
 
     it("should flush buffer", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
       act(() => {
+        mockTime = 0;
         result.current.controls.processInput(createRawInput());
+        mockTime = 10;
         result.current.controls.processInput(createRawInput());
       });
 
@@ -603,7 +606,7 @@ describe("useMobileInputPipeline", () => {
     });
 
     it("should clear buffer", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
       act(() => {
         result.current.controls.processInput(createRawInput());
@@ -616,7 +619,7 @@ describe("useMobileInputPipeline", () => {
     it("should call onBufferFull callback", () => {
       const onBufferFull = jest.fn();
       const { result } = renderHook(() =>
-        useMobileInputPipeline({ bufferCapacity: 2 }, { onBufferFull })
+        useMobileInputPipeline({ bufferCapacity: 2, debounceMs: 0 }, { onBufferFull })
       );
 
       act(() => {
@@ -673,7 +676,7 @@ describe("useMobileInputPipeline", () => {
 
   describe("metrics", () => {
     it("should reset metrics", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
       act(() => {
         result.current.controls.processInput(createRawInput());
@@ -693,7 +696,7 @@ describe("useMobileInputPipeline", () => {
 
     it("should calculate percentile latencies", () => {
       const { result } = renderHook(() =>
-        useMobileInputPipeline({ metricsSampleWindow: 100 })
+        useMobileInputPipeline({ metricsSampleWindow: 100, debounceMs: 0 })
       );
 
       act(() => {
@@ -708,7 +711,7 @@ describe("useMobileInputPipeline", () => {
     });
 
     it("should calculate average latency", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
       act(() => {
         for (let i = 0; i < 5; i++) {
@@ -725,7 +728,7 @@ describe("useMobileInputPipeline", () => {
     it("should call onInputProcessed callback", () => {
       const onInputProcessed = jest.fn();
       const { result } = renderHook(() =>
-        useMobileInputPipeline({}, { onInputProcessed })
+        useMobileInputPipeline({ debounceMs: 0 }, { onInputProcessed })
       );
 
       act(() => {
@@ -743,7 +746,7 @@ describe("useMobileInputPipeline", () => {
     it("should call onGestureDetected callback", () => {
       const onGestureDetected = jest.fn();
       const { result } = renderHook(() =>
-        useMobileInputPipeline({ minGestureDistance: 10 }, { onGestureDetected })
+        useMobileInputPipeline({ minGestureDistance: 10, debounceMs: 0 }, { onGestureDetected })
       );
 
       act(() => {
