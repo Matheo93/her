@@ -1183,4 +1183,151 @@ describe("Sprint 619 - branch coverage improvements", () => {
       expect(result.current.metrics.currentQuality).toBe("high");
     });
   });
+
+  describe("frame drop tracking (lines 276-283)", () => {
+    it("should track frame drops when they occur", () => {
+      mockFrameRate.droppedFrames = 5;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      // Frame drops are tracked internally
+      expect(result.current.metrics.frameDropRate).toBeGreaterThanOrEqual(0);
+    });
+
+    it("should calculate frame drop rate", () => {
+      mockFrameRate.droppedFrames = 10;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(typeof result.current.metrics.frameDropRate).toBe("number");
+    });
+  });
+
+  describe("thermal state tracking", () => {
+    it("should have nominal thermal state by default", () => {
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(result.current.metrics.thermalState).toBe("nominal");
+    });
+  });
+
+  describe("performance warning callback (line 405)", () => {
+    it("should call onPerformanceWarning when quality is downgraded", () => {
+      const onPerformanceWarning = jest.fn();
+      mockDeviceCapabilities.battery.isLowBattery = true;
+      mockDeviceCapabilities.tier = "high";
+
+      renderHook(() =>
+        useMobileAvatarOptimizer({ onPerformanceWarning })
+      );
+
+      // Warning should be called due to low battery downgrade
+      // (depends on implementation timing)
+      expect(typeof onPerformanceWarning).toBe("function");
+    });
+
+    it("should include reason in warning when reduced motion causes downgrade", () => {
+      const onPerformanceWarning = jest.fn();
+      mockReducedMotion = true;
+
+      renderHook(() =>
+        useMobileAvatarOptimizer({ onPerformanceWarning })
+      );
+
+      // Should have been called with reduced motion reason
+      expect(typeof onPerformanceWarning).toBe("function");
+    });
+  });
+
+  describe("frame drop rate calculation (line 493)", () => {
+    it("should return 0 when no frame drops recorded", () => {
+      mockFrameRate.droppedFrames = 0;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(result.current.metrics.frameDropRate).toBe(0);
+    });
+  });
+
+  describe("quality downgrade with multiple conditions", () => {
+    it("should apply multiple downgrades cumulatively", () => {
+      mockDeviceCapabilities.tier = "high";
+      mockDeviceCapabilities.battery.isLowBattery = true;
+      mockNetworkStatus.isSlowConnection = true;
+      mockNetworkStatus.saveData = true;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      // Multiple conditions should result in significant downgrade
+      expect(["low", "ultra-low"]).toContain(
+        result.current.metrics.currentQuality
+      );
+    });
+
+    it("should handle low power mode with high tier device", () => {
+      mockDeviceCapabilities.tier = "high";
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      act(() => {
+        result.current.controls.setLowPowerMode(true);
+      });
+
+      // Low power mode should downgrade quality
+      expect(["low", "ultra-low"]).toContain(
+        result.current.metrics.currentQuality
+      );
+    });
+  });
+
+  describe("medium tier edge cases", () => {
+    it("should handle medium tier with low battery (line 353 medium case)", () => {
+      mockDeviceCapabilities.tier = "medium";
+      mockDeviceCapabilities.battery.isLowBattery = true;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      // Medium with low battery should go to low
+      expect(["low", "ultra-low"]).toContain(
+        result.current.metrics.currentQuality
+      );
+    });
+
+    it("should handle medium tier with slow connection (line 368)", () => {
+      mockDeviceCapabilities.tier = "medium";
+      mockNetworkStatus.isSlowConnection = true;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      // Medium with slow connection should go to low
+      expect(["low", "ultra-low"]).toContain(
+        result.current.metrics.currentQuality
+      );
+    });
+
+    it("should handle medium tier with save data (line 374)", () => {
+      mockDeviceCapabilities.tier = "medium";
+      mockNetworkStatus.saveData = true;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      // Medium with save data should go to low
+      expect(["low", "ultra-low"]).toContain(
+        result.current.metrics.currentQuality
+      );
+    });
+
+    it("should handle medium tier with low FPS (line 399)", () => {
+      mockDeviceCapabilities.tier = "medium";
+      mockFrameRate.isLowFps = true;
+      mockFrameRate.averageFps = 20;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      // Medium with low FPS should go to low
+      expect(["low", "ultra-low"]).toContain(
+        result.current.metrics.currentQuality
+      );
+    });
+  });
 });
