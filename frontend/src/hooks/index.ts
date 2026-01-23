@@ -856,3 +856,42 @@ export {
   type ConversationControls,
   type UseConversationContextManagerResult,
 } from "./useConversationContextManager";
+
+// Avatar State Recovery (Sprint 515)
+export {
+  useAvatarStateRecovery,
+  useAvatarStatePersistence,
+  useConversationAvatarRecovery,
+  type AvatarPose,
+  type AvatarExpressionState,
+  type AvatarAnimationState,
+  type AvatarLookAtState,
+  type RecoverableAvatarState,
+  type RecoveryStatus as AvatarRecoveryStatus,
+  type RecoveryResult as AvatarRecoveryResult,
+  type StateCheckpoint as AvatarStateCheckpoint,
+  type RecoveryMetrics as AvatarRecoveryMetrics,
+  type RecoveryConfig as AvatarRecoveryConfig,
+  type RecoveryControls as AvatarRecoveryControls,
+  type RecoveryState as AvatarRecoveryState,
+  type UseAvatarStateRecoveryResult,
+} from "./useAvatarStateRecovery";
+
+// Request Coalescer (Sprint 515)
+export {
+  useRequestCoalescer,
+  useCoalescedRequest,
+  useChatRequestCoalescer,
+  type RequestPriority,
+  type RequestStatus,
+  type RequestConfig,
+  type TrackedRequest,
+  type RequestBatch as CoalescerRequestBatch,
+  type CoalescedResponse,
+  type BatchResponse,
+  type CoalescerMetrics,
+  type CoalescerConfig,
+  type CoalescerControls,
+  type CoalescerState,
+  type UseRequestCoalescerResult,
+} from "./useRequestCoalescer";
