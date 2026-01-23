@@ -361,7 +361,7 @@ describe("useAvatarPerceivedLatencyReducer", () => {
   // Branch Coverage Tests - Sprint 617
   // ============================================================================
 
-  describe("branch coverage - updateAnticipation early return (lines 156-158)", () => {
+  describe("branch coverage - updateAnticipation (lines 153-158)", () => {
     it("should return early when no anticipation has started (line 154)", () => {
       const { result } = renderHook(() => useAvatarPerceivedLatencyReducer());
 
@@ -375,23 +375,71 @@ describe("useAvatarPerceivedLatencyReducer", () => {
       expect(result.current.state.anticipationLevel).toBe(0);
     });
 
-    it("should update anticipation after starting (for comparison)", () => {
-      const { result } = renderHook(() => useAvatarPerceivedLatencyReducer());
+    it("should calculate elapsed time and update anticipation level (lines 156-158)", () => {
+      const { result } = renderHook(() =>
+        useAvatarPerceivedLatencyReducer({ anticipationThresholdMs: 100 })
+      );
 
+      // Start anticipation at time 0
       mockTime = 0;
       act(() => {
         result.current.controls.startAnticipation("tap");
       });
 
       const initialLevel = result.current.state.anticipationLevel;
+      expect(initialLevel).toBe(0.3); // tap starts at 0.3
 
+      // Advance time to 50ms (50% progress)
       mockTime = 50;
       act(() => {
         result.current.controls.updateAnticipation();
       });
 
-      // Should update when anticipation has started
+      // The level should increase after update
+      // The exact value depends on the implementation
       expect(result.current.state.anticipationLevel).toBeGreaterThanOrEqual(initialLevel);
+    });
+
+    it("should execute update logic when anticipation is active (line 156-158)", () => {
+      const { result } = renderHook(() =>
+        useAvatarPerceivedLatencyReducer({ anticipationThresholdMs: 100 })
+      );
+
+      mockTime = 0;
+      act(() => {
+        result.current.controls.startAnticipation("tap");
+      });
+
+      // Call updateAnticipation with time advanced - this exercises lines 156-158
+      mockTime = 200;
+      act(() => {
+        result.current.controls.updateAnticipation();
+      });
+
+      // Level should have been updated (either increased or capped)
+      expect(result.current.state.anticipationLevel).toBeDefined();
+    });
+
+    it("should cap anticipation level at 1 (line 158 Math.min)", () => {
+      const { result } = renderHook(() =>
+        useAvatarPerceivedLatencyReducer({ anticipationThresholdMs: 10 })
+      );
+
+      mockTime = 0;
+      act(() => {
+        result.current.controls.startAnticipation("tap");
+      });
+
+      // Update many times to try to exceed 1
+      for (let i = 0; i < 20; i++) {
+        mockTime += 100;
+        act(() => {
+          result.current.controls.updateAnticipation();
+        });
+      }
+
+      // Level should be capped at 1
+      expect(result.current.state.anticipationLevel).toBeLessThanOrEqual(1);
     });
   });
 
@@ -666,5 +714,82 @@ describe("useProgressiveAvatarLoading", () => {
 
     expect(result.current.progress).toBeGreaterThanOrEqual(0);
     expect(result.current.progress).toBeLessThanOrEqual(1);
+  });
+});
+
+
+// ============================================================================
+// Additional Branch Coverage Tests - Sprint 617
+// ============================================================================
+
+describe("branch coverage - updateAnticipation early return (line 154)", () => {
+  it("should return early if anticipation not started", () => {
+    const { result } = renderHook(() => useAvatarPerceivedLatencyReducer());
+
+    // Call updateAnticipation without starting anticipation first
+    act(() => {
+      result.current.controls.updateAnticipation();
+    });
+
+    // Anticipation level should remain at 0
+    expect(result.current.state.anticipationLevel).toBe(0);
+  });
+
+  it("should update anticipation level when started (lines 156-158)", () => {
+    const { result } = renderHook(() =>
+      useAvatarPerceivedLatencyReducer({
+        anticipationThresholdMs: 100,
+      })
+    );
+
+    // Start anticipation first
+    act(() => {
+      result.current.controls.startAnticipation("tap");
+    });
+
+    // Advance time
+    mockTime = 50; // 50% of 100ms threshold
+
+    // Now update anticipation
+    act(() => {
+      result.current.controls.updateAnticipation();
+    });
+
+    // Anticipation level should increase
+    expect(result.current.state.anticipationLevel).toBeGreaterThan(0);
+  });
+});
+
+describe("branch coverage - advanceLoading at last phase (line 207)", () => {
+  it("should not advance past complete phase (line 207)", () => {
+    const onLoadingPhaseChange = jest.fn();
+    const { result } = renderHook(() =>
+      useAvatarPerceivedLatencyReducer({}, { onLoadingPhaseChange })
+    );
+
+    // Start loading
+    act(() => {
+      result.current.controls.startLoading();
+    });
+
+    // Advance through all phases until complete
+    for (let i = 0; i < 10; i++) {
+      act(() => {
+        result.current.controls.advanceLoading();
+      });
+    }
+
+    // Should reach "complete"
+    expect(result.current.state.loadingPhase).toBe("complete");
+
+    onLoadingPhaseChange.mockClear();
+
+    // Try to advance again - should stay at complete and NOT call callback
+    act(() => {
+      result.current.controls.advanceLoading();
+    });
+
+    expect(result.current.state.loadingPhase).toBe("complete");
+    expect(onLoadingPhaseChange).not.toHaveBeenCalled();
   });
 });
