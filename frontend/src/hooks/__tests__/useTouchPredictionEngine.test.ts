@@ -274,7 +274,7 @@ describe("useTouchPredictionEngine", () => {
       });
 
       expect(prediction).not.toBeNull();
-      expect(prediction?.horizonMs).toBe(50);
+      expect(prediction!.horizonMs).toBe(50);
     });
 
     it("should return null with insufficient confidence", () => {
