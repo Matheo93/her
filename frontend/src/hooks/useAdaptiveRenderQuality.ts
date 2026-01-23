@@ -358,12 +358,26 @@ export function useAdaptiveRenderQuality(
   const tierStartTimeRef = useRef<number>(Date.now());
   const isStableRef = useRef<boolean>(true);
 
+  // Store callbacks in ref to avoid dependency issues
+  const callbacksRef = useRef(callbacks);
+  callbacksRef.current = callbacks;
+
   /**
    * Update device conditions
    */
   useEffect(() => {
+    let isMounted = true;
+
     const updateConditions = async () => {
-      const newConditions: DeviceConditions = { ...conditions };
+      if (!isMounted) return;
+
+      const newConditions: DeviceConditions = {
+        batteryLevel: 100,
+        isCharging: true,
+        thermalState: "nominal",
+        memoryPressure: "none",
+        networkType: "wifi",
+      };
 
       // Battery API
       if ("getBattery" in navigator) {
@@ -399,14 +413,19 @@ export function useAdaptiveRenderQuality(
         }
       }
 
-      setConditions(newConditions);
-      callbacks?.onConditionsChanged?.(newConditions);
+      if (isMounted) {
+        setConditions(newConditions);
+        callbacksRef.current?.onConditionsChanged?.(newConditions);
+      }
     };
 
     updateConditions();
     const interval = setInterval(updateConditions, 5000);
-    return () => clearInterval(interval);
-  }, [callbacks]);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []); // Empty dependency array - only run once on mount
 
   /**
    * Adjust quality based on conditions

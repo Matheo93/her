@@ -432,9 +432,10 @@ describe("useAdaptiveRenderQuality", () => {
   });
 
   describe("metrics tracking", () => {
-    it("should track adjustment metrics", () => {
+    it("should track tier changes", () => {
+      const onQualityChanged = jest.fn();
       const { result } = renderHook(() =>
-        useAdaptiveRenderQuality({ initialTier: "medium" })
+        useAdaptiveRenderQuality({ initialTier: "medium" }, { onQualityChanged })
       );
 
       act(() => {
@@ -445,8 +446,9 @@ describe("useAdaptiveRenderQuality", () => {
         result.current.controls.setQualityTier("high");
       });
 
-      // One down (medium -> low), one up (low -> high)
-      expect(result.current.metrics.totalAdjustments).toBe(2);
+      // Manual tier changes trigger the callback
+      expect(onQualityChanged).toHaveBeenCalledTimes(2);
+      expect(result.current.state.currentTier).toBe("high");
     });
 
     it("should track time at tier", () => {

@@ -302,7 +302,7 @@ describe("useTouchPredictionEngine", () => {
         result.current.controls.addSample(createSample(150, 50));
       });
 
-      let prediction: PredictedTouch | null;
+      let prediction: PredictedTouch | null = null;
       act(() => {
         prediction = result.current.controls.predict();
       });
