@@ -655,7 +655,7 @@ describe("useMobileInputPipeline", () => {
     });
 
     it("should resume pipeline", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
       act(() => {
         result.current.controls.pause();
@@ -750,7 +750,16 @@ describe("useMobileInputPipeline", () => {
       );
 
       act(() => {
+        mockTime = 0;
         result.current.controls.startGesture(100, 100);
+      });
+
+      act(() => {
+        mockTime = 50;
+        result.current.controls.updateGesture(101, 101); // Small movement to update duration
+      });
+
+      act(() => {
         mockTime = 100;
         result.current.controls.endGesture();
       });
@@ -831,11 +840,21 @@ describe("useGestureDetection", () => {
     const { result } = renderHook(() => useGestureDetection(onGesture));
 
     act(() => {
+      mockTime = 0;
       result.current.startTouch(100, 100);
+      mockTime = 50;
       result.current.moveTouch(102, 102);
-      result.current.endTouch();
+      mockTime = 100;
     });
 
+    let gesture: GestureType | null = null;
+    act(() => {
+      gesture = result.current.endTouch() as GestureType | null;
+    });
+
+    // A small movement in short time should be detected as "tap" or "double_tap"
+    // (double_tap happens when two taps occur within the threshold)
+    expect(gesture === "tap" || gesture === "double_tap").toBe(true);
     expect(onGesture).toHaveBeenCalled();
   });
 });
