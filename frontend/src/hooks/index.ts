@@ -1421,3 +1421,18 @@ export {
   type FeedbackControls,
 } from "./useAvatarInstantFeedback";
 
+// Avatar Touch Momentum (Sprint 537)
+export {
+  useAvatarTouchMomentum,
+  useVelocityTracker,
+  useMomentumDecay,
+  type Position as MomentumPosition,
+  type Velocity,
+  type Bounds,
+  type MomentumConfig,
+  type MomentumCallbacks,
+  type MomentumState,
+  type MomentumMetrics,
+  type MomentumControls,
+} from "./useAvatarTouchMomentum";
+
