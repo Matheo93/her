@@ -1384,3 +1384,21 @@ export {
   type UseTouchResponsePredictorResult,
 } from "./useTouchResponsePredictor";
 
+// Avatar Perceived Latency Reducer (Sprint 535)
+export {
+  useAvatarPerceivedLatencyReducer,
+  useAnticipatoryAnimation,
+  useProgressiveAvatarLoading,
+  type InputType as PerceivedLatencyInputType,
+  type LoadingPhase,
+  type PerceivedLatencyConfig,
+  type PerceivedLatencyCallbacks,
+  type PerceivedLatencyState,
+  type PerceivedLatencyMetrics,
+  type AnticipationTransform,
+  type MotionBlurStyles,
+  type SkeletonStyles,
+  type PerceivedLatencyControls,
+  type UseAvatarPerceivedLatencyReducerResult,
+} from "./useAvatarPerceivedLatencyReducer";
+
