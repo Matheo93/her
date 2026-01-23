@@ -553,3 +553,55 @@ export {
   type MemoryOptimizerControls,
   type UseMobileMemoryOptimizerResult,
 } from "./useMobileMemoryOptimizer";
+
+// Avatar Reactive Animations (Sprint 1586)
+export {
+  useAvatarReactiveAnimations,
+  useConversationAnimations,
+  type ReactiveAnimationType,
+  type AnimationTrigger,
+  type AnimationIntensity,
+  type ReactiveAnimation,
+  type AnimationKeyframe,
+  type AnimationLibrary,
+  type AnimationQueue,
+  type AnimationBlend,
+  type ReactiveAnimationsConfig,
+  type ReactiveAnimationsState,
+  type ReactiveAnimationsControls,
+  type UseAvatarReactiveAnimationsResult,
+} from "./useAvatarReactiveAnimations";
+
+// Input Latency Reducer (Sprint 1586)
+export {
+  useInputLatencyReducer,
+  useOptimisticTextInput,
+  useAutoSaveInput,
+  type OptimisticUpdateState,
+  type PendingUpdate,
+  type UpdateRollback,
+  type InputPrediction,
+  type BatchedRequest,
+  type LatencyMetrics as InputLatencyMetrics,
+  type InputLatencyConfig,
+  type InputLatencyState,
+  type InputLatencyControls,
+  type UseInputLatencyReducerResult,
+} from "./useInputLatencyReducer";
+
+// Mobile Battery Optimizer (Sprint 1586)
+export {
+  useMobileBatteryOptimizer,
+  useBatteryLevel,
+  useBatteryAwareFeature,
+  type BatteryState,
+  type PowerMode,
+  type FeaturePowerConfig,
+  type PowerConsumption,
+  type BatteryPrediction,
+  type PowerSavingAction,
+  type BatteryOptimizerConfig,
+  type BatteryOptimizerState,
+  type BatteryOptimizerControls,
+  type UseMobileBatteryOptimizerResult,
+} from "./useMobileBatteryOptimizer";
