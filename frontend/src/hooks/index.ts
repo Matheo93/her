@@ -440,3 +440,62 @@ export {
   type MobileRenderControls,
   type UseMobileRenderOptimizerResult,
 } from "./useMobileRenderOptimizer";
+
+// Avatar Emotional Transitions (Sprint 512)
+export {
+  useAvatarEmotionalTransitions,
+  useSentimentEmotions,
+  useConversationEmotions,
+  type EmotionType,
+  type TransitionEasing,
+  type EmotionBlendShapes,
+  type TransitionConfig,
+  type EmotionTransition,
+  type MicroExpressionOverlay,
+  type EmotionalMemory,
+  type EmotionalTransitionState,
+  type EmotionalTransitionMetrics,
+  type EmotionalTransitionConfig,
+  type EmotionalTransitionControls,
+  type UseAvatarEmotionalTransitionsResult,
+} from "./useAvatarEmotionalTransitions";
+
+// Network Latency Monitor (Sprint 512)
+export {
+  useNetworkLatencyMonitor,
+  useCurrentLatency,
+  useNetworkAlerts,
+  useAdaptiveNetworkSettings,
+  type NetworkQuality,
+  type ConnectionType,
+  type LatencySample,
+  type LatencyStats,
+  type NetworkMetrics,
+  type QualityAssessment,
+  type RecommendedSettings,
+  type LatencyAlert,
+  type NetworkLatencyConfig,
+  type NetworkLatencyControls,
+  type UseNetworkLatencyMonitorResult,
+} from "./useNetworkLatencyMonitor";
+
+// Mobile Gesture Optimizer (Sprint 512)
+export {
+  useMobileGestureOptimizer,
+  useTapGesture,
+  useSwipeGesture,
+  usePinchGesture,
+  type GestureType as MobileGestureType,
+  type GesturePhase,
+  type TouchPoint,
+  type GestureVelocity,
+  type Gesture as MobileGesture,
+  type GesturePrediction,
+  type GestureFilter,
+  type GestureOptimizerState,
+  type GestureOptimizerMetrics,
+  type GestureOptimizerConfig,
+  type GestureCallbacks,
+  type GestureOptimizerControls,
+  type UseMobileGestureOptimizerResult,
+} from "./useMobileGestureOptimizer";
