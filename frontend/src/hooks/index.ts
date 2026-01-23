@@ -1239,7 +1239,9 @@ export {
   useAcceleratedOpacity,
   type AcceleratedProperty,
   type TransformState,
+  type FilterState,
   type AcceleratedStyle,
+  type PartialAcceleratedStyle,
   type UpdateBatch,
   type AcceleratorConfig,
   type AcceleratorMetrics,
@@ -1247,3 +1249,18 @@ export {
   type AcceleratorControls,
   type UseVisualFeedbackAcceleratorResult,
 } from "./useVisualFeedbackAccelerator";
+
+// Mobile Render Queue (Sprint 229)
+export {
+  useMobileRenderQueue,
+  useRenderScheduler,
+  useCoalescedRender,
+  type RenderPriority as QueueRenderPriority,
+  type RenderTask,
+  type FrameBudget as QueueFrameBudget,
+  type QueueConfig,
+  type QueueMetrics,
+  type QueueState,
+  type QueueControls,
+  type UseMobileRenderQueueResult,
+} from "./useMobileRenderQueue";
