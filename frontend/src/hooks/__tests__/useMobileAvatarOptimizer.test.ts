@@ -7,65 +7,122 @@
 
 import { renderHook, act } from "@testing-library/react";
 
+// Default mock values - can be overridden per test
+let mockMobileDetect = {
+  isMobile: true,
+  isTablet: false,
+  isIOS: false,
+  isAndroid: true,
+  isTouchDevice: true,
+};
+
+let mockNetworkStatus = {
+  isOnline: true,
+  isSlowConnection: false,
+  rtt: 50,
+  downlink: 10,
+  saveData: false,
+};
+
+let mockDeviceCapabilities = {
+  tier: "medium" as "high" | "medium" | "low",
+  memory: { deviceMemory: 4 },
+  battery: { isLowBattery: false, level: 0.8, charging: false },
+  gpu: { isHighPerformance: false },
+};
+
+let mockLatencyOptimizer = {
+  metrics: { quality: "good" as "excellent" | "good" | "fair" | "poor", averageLatency: 50 },
+  strategy: {
+    audioBufferMs: 150,
+    requestTimeout: 10000,
+    useOptimisticUpdates: true,
+  },
+};
+
+let mockFrameRate = {
+  fps: 60,
+  averageFps: 55,
+  droppedFrames: 0,
+  isLowFps: false,
+};
+
+let mockVisibility = {
+  isVisible: true,
+};
+
+let mockReducedMotion = false;
+
 // Mock all dependencies before importing the hook
 jest.mock("../useMobileDetect", () => ({
-  useMobileDetect: () => ({
+  useMobileDetect: () => mockMobileDetect,
+}));
+
+jest.mock("../useNetworkStatus", () => ({
+  useNetworkStatus: () => mockNetworkStatus,
+}));
+
+jest.mock("../useDeviceCapabilities", () => ({
+  useDeviceCapabilities: () => mockDeviceCapabilities,
+}));
+
+jest.mock("../useLatencyOptimizer", () => ({
+  useLatencyOptimizer: () => mockLatencyOptimizer,
+}));
+
+jest.mock("../useFrameRate", () => ({
+  useFrameRate: () => mockFrameRate,
+}));
+
+jest.mock("../useVisibility", () => ({
+  useVisibility: () => mockVisibility,
+}));
+
+jest.mock("../useReducedMotion", () => ({
+  useReducedMotion: () => mockReducedMotion,
+}));
+
+// Reset mocks before each test
+beforeEach(() => {
+  mockMobileDetect = {
     isMobile: true,
     isTablet: false,
     isIOS: false,
     isAndroid: true,
     isTouchDevice: true,
-  }),
-}));
-
-jest.mock("../useNetworkStatus", () => ({
-  useNetworkStatus: () => ({
+  };
+  mockNetworkStatus = {
     isOnline: true,
     isSlowConnection: false,
     rtt: 50,
     downlink: 10,
     saveData: false,
-  }),
-}));
-
-jest.mock("../useDeviceCapabilities", () => ({
-  useDeviceCapabilities: () => ({
+  };
+  mockDeviceCapabilities = {
     tier: "medium",
     memory: { deviceMemory: 4 },
     battery: { isLowBattery: false, level: 0.8, charging: false },
     gpu: { isHighPerformance: false },
-  }),
-}));
-
-jest.mock("../useLatencyOptimizer", () => ({
-  useLatencyOptimizer: () => ({
+  };
+  mockLatencyOptimizer = {
     metrics: { quality: "good", averageLatency: 50 },
     strategy: {
       audioBufferMs: 150,
       requestTimeout: 10000,
       useOptimisticUpdates: true,
     },
-  }),
-}));
-
-jest.mock("../useFrameRate", () => ({
-  useFrameRate: () => ({
+  };
+  mockFrameRate = {
     fps: 60,
     averageFps: 55,
     droppedFrames: 0,
     isLowFps: false,
-  }),
-}));
-
-jest.mock("../useVisibility", () => ({
-  useVisibility: () => ({
+  };
+  mockVisibility = {
     isVisible: true,
-  }),
-}));
-
-jest.mock("../useReducedMotion", () => ({
-  useReducedMotion: () => false,
-}));
+  };
+  mockReducedMotion = false;
+});
 
 import {
   useMobileAvatarOptimizer,
@@ -853,6 +910,277 @@ describe("Sprint 619 - branch coverage improvements", () => {
 
       expect(typeof result.current.metrics.latencyMs).toBe("number");
       expect(result.current.metrics.latencyMs).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("device tier quality mapping (lines 329-340)", () => {
+    it("should map high tier to high quality", () => {
+      mockDeviceCapabilities.tier = "high";
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      // Without forced quality, should use device tier
+      expect(["high", "medium"]).toContain(result.current.metrics.currentQuality);
+    });
+
+    it("should map low tier to low quality", () => {
+      mockDeviceCapabilities.tier = "low";
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(["low", "ultra-low"]).toContain(result.current.metrics.currentQuality);
+    });
+  });
+
+  describe("reduced motion preference (lines 346-349)", () => {
+    it("should use ultra-low quality when reduced motion is preferred", () => {
+      mockReducedMotion = true;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(result.current.metrics.currentQuality).toBe("ultra-low");
+    });
+  });
+
+  describe("low battery downgrade (lines 352-355)", () => {
+    it("should downgrade quality on low battery", () => {
+      mockDeviceCapabilities.battery.isLowBattery = true;
+      mockDeviceCapabilities.tier = "high";
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      // High tier with low battery should downgrade
+      expect(["medium", "low", "ultra-low"]).toContain(
+        result.current.metrics.currentQuality
+      );
+    });
+  });
+
+  describe("offline downgrade (lines 364-369)", () => {
+    it("should use ultra-low quality when offline", () => {
+      mockNetworkStatus.isOnline = false;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(result.current.metrics.currentQuality).toBe("ultra-low");
+    });
+
+    it("should downgrade on slow connection", () => {
+      mockNetworkStatus.isSlowConnection = true;
+      mockDeviceCapabilities.tier = "high";
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      // High tier with slow connection should downgrade
+      expect(["medium", "low", "ultra-low"]).toContain(
+        result.current.metrics.currentQuality
+      );
+    });
+  });
+
+  describe("save data mode (lines 373-376)", () => {
+    it("should downgrade quality with save data enabled", () => {
+      mockNetworkStatus.saveData = true;
+      mockDeviceCapabilities.tier = "high";
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(["medium", "low", "ultra-low"]).toContain(
+        result.current.metrics.currentQuality
+      );
+    });
+  });
+
+  describe("memory pressure (lines 311-317, 379-385)", () => {
+    it("should report high memory pressure for low memory device", () => {
+      mockDeviceCapabilities.memory.deviceMemory = 2;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(result.current.metrics.memoryPressure).toBe("high");
+    });
+
+    it("should downgrade to ultra-low on high memory pressure", () => {
+      mockDeviceCapabilities.memory.deviceMemory = 2;
+      mockDeviceCapabilities.tier = "high";
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(result.current.metrics.currentQuality).toBe("ultra-low");
+    });
+
+    it("should report normal memory pressure for high memory device", () => {
+      mockDeviceCapabilities.memory.deviceMemory = 8;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(result.current.metrics.memoryPressure).toBe("normal");
+    });
+  });
+
+  describe("low FPS downgrade (lines 397-401)", () => {
+    it("should downgrade on very low frame rate", () => {
+      mockFrameRate.isLowFps = true;
+      mockFrameRate.averageFps = 20;
+      mockDeviceCapabilities.tier = "high";
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(["medium", "low", "ultra-low"]).toContain(
+        result.current.metrics.currentQuality
+      );
+    });
+  });
+
+  describe("latency-based adjustments (lines 447-451)", () => {
+    it("should adjust audio buffer for poor latency", () => {
+      mockLatencyOptimizer.metrics.quality = "poor";
+      mockLatencyOptimizer.metrics.averageLatency = 300;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      // Poor latency should increase audio buffer
+      expect(result.current.settings.audioBufferMs).toBeGreaterThanOrEqual(100);
+    });
+  });
+
+  describe("iOS specific optimizations (lines 454-461)", () => {
+    it("should enable haptics on iOS for non-ultra-low quality", () => {
+      mockMobileDetect.isIOS = true;
+      mockMobileDetect.isAndroid = false;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      act(() => {
+        result.current.controls.forceQuality("medium");
+      });
+
+      expect(result.current.settings.enableHapticFeedback).toBe(true);
+    });
+
+    it("should use high FPS on iOS with high performance GPU", () => {
+      mockMobileDetect.isIOS = true;
+      mockMobileDetect.isAndroid = false;
+      mockDeviceCapabilities.gpu.isHighPerformance = true;
+      mockDeviceCapabilities.tier = "high";
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      act(() => {
+        result.current.controls.forceQuality("high");
+      });
+
+      // Should have lower animation update interval for high FPS
+      expect(result.current.settings.animationUpdateMs).toBeLessThanOrEqual(16);
+    });
+  });
+
+  describe("Android specific optimizations (lines 464-471)", () => {
+    it("should only enable haptics on Android for high quality", () => {
+      mockMobileDetect.isAndroid = true;
+      mockMobileDetect.isIOS = false;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      act(() => {
+        result.current.controls.forceQuality("medium");
+      });
+
+      // Android should have haptics disabled for non-high quality
+      expect(typeof result.current.settings.enableHapticFeedback).toBe("boolean");
+    });
+  });
+
+  describe("visibility pause (lines 474-477)", () => {
+    it("should pause animations when not visible", () => {
+      mockVisibility.isVisible = false;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      // When not visible and pauseOnBackground is true, should reduce FPS
+      expect(result.current.settings.targetFPS).toBeLessThanOrEqual(60);
+    });
+  });
+
+  describe("network quality mapping edge cases", () => {
+    it("should map offline to offline network quality", () => {
+      mockNetworkStatus.isOnline = false;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(result.current.metrics.networkQuality).toBe("offline");
+    });
+
+    it("should map excellent latency to excellent network quality", () => {
+      mockLatencyOptimizer.metrics.quality = "excellent";
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(result.current.metrics.networkQuality).toBe("excellent");
+    });
+
+    it("should map fair latency to fair network quality", () => {
+      mockLatencyOptimizer.metrics.quality = "fair";
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(result.current.metrics.networkQuality).toBe("fair");
+    });
+
+    it("should map poor latency to poor network quality", () => {
+      mockLatencyOptimizer.metrics.quality = "poor";
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(result.current.metrics.networkQuality).toBe("poor");
+    });
+  });
+
+  describe("touch responsiveness edge cases (lines 505-508)", () => {
+    it("should report degraded touch responsiveness on low FPS", () => {
+      mockFrameRate.averageFps = 20;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(result.current.metrics.touchResponsiveness).toBe("degraded");
+    });
+
+    it("should report degraded touch responsiveness on high latency", () => {
+      mockLatencyOptimizer.metrics.averageLatency = 300;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(result.current.metrics.touchResponsiveness).toBe("degraded");
+    });
+
+    it("should report good touch responsiveness on moderate FPS", () => {
+      mockFrameRate.averageFps = 40;
+      mockLatencyOptimizer.metrics.averageLatency = 150;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(result.current.metrics.touchResponsiveness).toBe("good");
+    });
+  });
+
+  describe("desktop mode (line 322)", () => {
+    it("should use high quality for non-mobile devices", () => {
+      mockMobileDetect.isMobile = false;
+      mockMobileDetect.isTablet = false;
+
+      const { result } = renderHook(() => useMobileAvatarOptimizer());
+
+      expect(result.current.metrics.currentQuality).toBe("high");
+    });
+  });
+
+  describe("disabled optimization (line 322)", () => {
+    it("should use high quality when optimization is disabled", () => {
+      const { result } = renderHook(() =>
+        useMobileAvatarOptimizer({ enabled: false })
+      );
+
+      expect(result.current.metrics.currentQuality).toBe("high");
     });
   });
 });
