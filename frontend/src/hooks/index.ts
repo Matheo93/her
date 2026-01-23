@@ -1131,3 +1131,39 @@ export {
   type AdapterControls,
   type UseNetworkLatencyAdapterResult,
 } from "./useNetworkLatencyAdapter";
+
+// Touch-to-Visual Bridge (Sprint 226)
+export {
+  useTouchToVisualBridge,
+  useTouchTranslate,
+  useTouchScale,
+  useTouchOpacity,
+  type TouchPoint as BridgeTouchPoint,
+  type VisualState,
+  type VisualPrediction,
+  type BridgeConfig,
+  type TouchToVisualMapper,
+  type BridgeMetrics,
+  type BridgeState,
+  type BridgeControls,
+  type UseTouchToVisualBridgeResult,
+} from "./useTouchToVisualBridge";
+
+// Mobile Render Predictor (Sprint 226)
+export {
+  useMobileRenderPredictor,
+  useInteractionRecorder,
+  useGpuCompositing,
+  type InteractionType,
+  type InteractionEvent,
+  type InteractionPattern,
+  type PredictedInteraction,
+  type PreRenderFrame,
+  type CacheEntry,
+  type PredictorConfig as RenderPredictorConfig,
+  type PredictorMetrics as RenderPredictorMetrics,
+  type PredictorState as RenderPredictorState,
+  type FrameRenderer,
+  type PredictorControls as RenderPredictorControls,
+  type UseMobileRenderPredictorResult,
+} from "./useMobileRenderPredictor";

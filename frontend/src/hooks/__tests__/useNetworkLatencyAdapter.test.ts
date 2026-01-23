@@ -13,9 +13,14 @@ import {
 
 // Mock navigator.onLine and connection API
 let mockOnLine = true;
-let mockConnectionInfo = {
-  effectiveType: "4g" as const,
-  type: "wifi" as const,
+let mockConnectionInfo: {
+  effectiveType: "slow-2g" | "2g" | "3g" | "4g";
+  type: "wifi" | "cellular" | "bluetooth" | "ethernet" | "other" | "none" | "unknown";
+  downlink: number;
+  rtt: number;
+} = {
+  effectiveType: "4g",
+  type: "wifi",
   downlink: 10,
   rtt: 50,
 };
@@ -27,8 +32,8 @@ let mockFetchSuccess = true;
 beforeEach(() => {
   mockOnLine = true;
   mockConnectionInfo = {
-    effectiveType: "4g" as const,
-    type: "wifi" as const,
+    effectiveType: "4g",
+    type: "wifi",
     downlink: 10,
     rtt: 50,
   };

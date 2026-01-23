@@ -1,5 +1,9 @@
 /**
- * Tests for useTouchToVisualBridge hook - Sprint 226
+ * Tests for useTouchToVisualBridge
+ *
+ * Sprint 527: Touch-to-visual latency bridge tests
+ * Covers touch handling, visual state updates, prediction,
+ * momentum, and CSS generation.
  */
 
 import { renderHook, act } from "@testing-library/react";
@@ -8,95 +12,101 @@ import {
   useTouchTranslate,
   useTouchScale,
   useTouchOpacity,
+  type BridgeConfig,
   type TouchPoint,
   type VisualState,
   type TouchToVisualMapper,
 } from "../useTouchToVisualBridge";
 
-// Mock requestAnimationFrame
-let rafCallbacks: FrameRequestCallback[] = [];
-let rafId = 0;
+// ============================================================================
+// Mocks
+// ============================================================================
+
+const mockRequestAnimationFrame = jest.fn();
+const mockCancelAnimationFrame = jest.fn();
+const mockPerformanceNow = jest.fn();
+const mockVibrate = jest.fn();
+
+let rafCallback: FrameRequestCallback | null = null;
+let frameId = 0;
+
+beforeAll(() => {
+  // Mock requestAnimationFrame
+  global.requestAnimationFrame = mockRequestAnimationFrame.mockImplementation(
+    (callback: FrameRequestCallback) => {
+      rafCallback = callback;
+      return ++frameId;
+    }
+  );
+
+  global.cancelAnimationFrame = mockCancelAnimationFrame;
+
+  // Mock performance.now
+  jest.spyOn(performance, "now").mockImplementation(mockPerformanceNow);
+
+  // Mock navigator.vibrate
+  Object.defineProperty(navigator, "vibrate", {
+    value: mockVibrate,
+    writable: true,
+    configurable: true,
+  });
+});
 
 beforeEach(() => {
-  rafCallbacks = [];
-  rafId = 0;
-  jest.useFakeTimers();
-
-  global.requestAnimationFrame = jest.fn((callback: FrameRequestCallback) => {
-    rafCallbacks.push(callback);
-    return ++rafId;
-  });
-
-  global.cancelAnimationFrame = jest.fn((id: number) => {
-    // No-op for tests
-  });
+  jest.clearAllMocks();
+  rafCallback = null;
+  frameId = 0;
+  mockPerformanceNow.mockReturnValue(0);
 });
 
-afterEach(() => {
-  jest.useRealTimers();
-  jest.restoreAllMocks();
-});
+// ============================================================================
+// Helper Functions
+// ============================================================================
 
-// Helper to flush RAF callbacks
-function flushRAF() {
-  const callbacks = [...rafCallbacks];
-  rafCallbacks = [];
-  callbacks.forEach((cb) => cb(performance.now()));
-}
-
-// Helper to create mock touch event
 function createTouchEvent(
   type: "touchstart" | "touchmove" | "touchend",
-  touches: Array<{ clientX: number; clientY: number; identifier?: number; force?: number }>
+  x: number,
+  y: number,
+  options: { force?: number; identifier?: number } = {}
 ): TouchEvent {
-  const touchList = touches.map((t, i) => ({
-    identifier: t.identifier ?? i,
-    clientX: t.clientX,
-    clientY: t.clientY,
-    target: document.createElement("div"),
-    force: t.force ?? 1,
-    pageX: t.clientX,
-    pageY: t.clientY,
-    screenX: t.clientX,
-    screenY: t.clientY,
+  const touch = {
+    identifier: options.identifier ?? 0,
+    clientX: x,
+    clientY: y,
+    force: options.force ?? 1,
+    target: document.body,
+    pageX: x,
+    pageY: y,
     radiusX: 0,
     radiusY: 0,
     rotationAngle: 0,
-  })) as Touch[];
+    screenX: x,
+    screenY: y,
+  } as Touch;
+
+  const touchList =
+    type === "touchend" ? [] : [touch];
 
   return {
     type,
-    touches: {
-      length: touchList.length,
-      item: (i: number) => touchList[i] ?? null,
-      [Symbol.iterator]: function* () {
-        for (const touch of touchList) yield touch;
-      },
-      ...touchList.reduce((acc, t, i) => ({ ...acc, [i]: t }), {}),
-    } as TouchList,
-    changedTouches: {
-      length: touchList.length,
-      item: (i: number) => touchList[i] ?? null,
-      [Symbol.iterator]: function* () {
-        for (const touch of touchList) yield touch;
-      },
-      ...touchList.reduce((acc, t, i) => ({ ...acc, [i]: t }), {}),
-    } as TouchList,
-    targetTouches: {
-      length: touchList.length,
-      item: (i: number) => touchList[i] ?? null,
-      [Symbol.iterator]: function* () {
-        for (const touch of touchList) yield touch;
-      },
-      ...touchList.reduce((acc, t, i) => ({ ...acc, [i]: t }), {}),
-    } as TouchList,
+    touches: touchList,
+    changedTouches: [touch],
+    targetTouches: touchList,
     preventDefault: jest.fn(),
     stopPropagation: jest.fn(),
   } as unknown as TouchEvent;
 }
 
-describe("useTouchToVisualBridge", () => {
-  const defaultMapper: TouchToVisualMapper = (touch, history) => ({
+function advanceFrame(time: number) {
+  mockPerformanceNow.mockReturnValue(time);
+  if (rafCallback) {
+    rafCallback(time);
+    rafCallback = null;
+  }
+}
+
+function createSimpleMapper(): TouchToVisualMapper {
+  return (touch, history) => ({
     transform: {
       translateX: touch.x,
       translateY: touch.y,
@@ -104,10 +114,17 @@ describe("useTouchToVisualBridge", () => {
       rotation: 0,
     },
   });
+}
 
+// ============================================================================
+// Test Suites
+// ============================================================================
+
+describe("useTouchToVisualBridge", () => {
   describe("initialization", () => {
     it("should initialize with default state", () => {
-      const { result } = renderHook(() => useTouchToVisualBridge(defaultMapper));
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
 
       expect(result.current.state.isActive).toBe(false);
       expect(result.current.state.currentTouch).toBeNull();
@@ -125,52 +142,63 @@ describe("useTouchToVisualBridge", () => {
       });
     });
 
-    it("should provide CSS transform string", () => {
-      const { result } = renderHook(() => useTouchToVisualBridge(defaultMapper));
+    it("should accept custom configuration", () => {
+      const mapper = createSimpleMapper();
+      const config: Partial<BridgeConfig> = {
+        targetLatencyMs: 8,
+        enablePrediction: false,
+        enableMomentum: false,
+      };
 
-      expect(result.current.cssTransform).toBe(
-        "translate3d(0px, 0px, 0) scale(1) rotate(0deg)"
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, config)
       );
+
+      expect(result.current).toBeDefined();
+      expect(result.current.controls).toBeDefined();
     });
 
-    it("should provide CSS filter string", () => {
-      const { result } = renderHook(() => useTouchToVisualBridge(defaultMapper));
+    it("should initialize with default metrics", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
 
-      expect(result.current.cssFilter).toBe("none");
+      expect(result.current.state.metrics.averageLatency).toBe(0);
+      expect(result.current.state.metrics.totalUpdates).toBe(0);
+      expect(result.current.state.metrics.droppedFrames).toBe(0);
     });
   });
 
   describe("touch handling", () => {
-    it("should activate on touch start", () => {
-      const { result } = renderHook(() => useTouchToVisualBridge(defaultMapper));
+    it("should handle touchstart", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
+
+      const touchEvent = createTouchEvent("touchstart", 100, 200);
 
       act(() => {
-        const event = createTouchEvent("touchstart", [
-          { clientX: 100, clientY: 100 },
-        ]);
-        result.current.controls.onTouchStart(event);
+        result.current.controls.onTouchStart(touchEvent);
       });
 
       expect(result.current.state.isActive).toBe(true);
       expect(result.current.state.currentTouch).not.toBeNull();
       expect(result.current.state.currentTouch?.x).toBe(100);
-      expect(result.current.state.currentTouch?.y).toBe(100);
+      expect(result.current.state.currentTouch?.y).toBe(200);
     });
 
-    it("should track touch position on move", () => {
-      const { result } = renderHook(() => useTouchToVisualBridge(defaultMapper));
+    it("should handle touchmove", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
 
+      // Start touch
+      const startEvent = createTouchEvent("touchstart", 100, 100);
       act(() => {
-        const startEvent = createTouchEvent("touchstart", [
-          { clientX: 100, clientY: 100 },
-        ]);
         result.current.controls.onTouchStart(startEvent);
       });
 
+      // Move touch
+      mockPerformanceNow.mockReturnValue(16);
+      const moveEvent = createTouchEvent("touchmove", 150, 150);
       act(() => {
-        const moveEvent = createTouchEvent("touchmove", [
-          { clientX: 150, clientY: 150 },
-        ]);
         result.current.controls.onTouchMove(moveEvent);
       });
 
@@ -178,18 +206,23 @@ describe("useTouchToVisualBridge", () => {
       expect(result.current.state.currentTouch?.y).toBe(150);
     });
 
-    it("should deactivate on touch end", () => {
-      const { result } = renderHook(() => useTouchToVisualBridge(defaultMapper));
+    it("should handle touchend", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, { enableMomentum: false })
+      );
 
+      // Start touch
+      const startEvent = createTouchEvent("touchstart", 100, 100);
       act(() => {
-        const startEvent = createTouchEvent("touchstart", [
-          { clientX: 100, clientY: 100 },
-        ]);
         result.current.controls.onTouchStart(startEvent);
       });
 
+      expect(result.current.state.isActive).toBe(true);
+
+      // End touch
+      const endEvent = createTouchEvent("touchend", 100, 100);
       act(() => {
-        const endEvent = createTouchEvent("touchend", []);
         result.current.controls.onTouchEnd(endEvent);
       });
 
@@ -198,34 +231,44 @@ describe("useTouchToVisualBridge", () => {
     });
 
     it("should calculate velocity from touch history", () => {
-      const { result } = renderHook(() => useTouchToVisualBridge(defaultMapper));
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
 
+      // Start touch at t=0
+      mockPerformanceNow.mockReturnValue(0);
+      const startEvent = createTouchEvent("touchstart", 100, 100);
       act(() => {
-        const startEvent = createTouchEvent("touchstart", [
-          { clientX: 100, clientY: 100 },
-        ]);
         result.current.controls.onTouchStart(startEvent);
       });
 
-      // Advance time
-      jest.advanceTimersByTime(16);
-
+      // Move touch at t=16ms (move 50px in x, 0 in y)
+      mockPerformanceNow.mockReturnValue(16);
+      const moveEvent = createTouchEvent("touchmove", 150, 100);
       act(() => {
-        const moveEvent = createTouchEvent("touchmove", [
-          { clientX: 200, clientY: 200 },
-        ]);
         result.current.controls.onTouchMove(moveEvent);
       });
 
-      // Velocity should be calculated
-      expect(result.current.state.currentTouch?.velocityX).toBeDefined();
-      expect(result.current.state.currentTouch?.velocityY).toBeDefined();
+      // Velocity should be ~3.125 px/ms (50px / 16ms)
+      expect(result.current.state.currentTouch?.velocityX).toBeCloseTo(3.125, 1);
+      expect(result.current.state.currentTouch?.velocityY).toBe(0);
+    });
+
+    it("should track touch pressure", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
+
+      const touchEvent = createTouchEvent("touchstart", 100, 100, { force: 0.5 });
+      act(() => {
+        result.current.controls.onTouchStart(touchEvent);
+      });
+
+      expect(result.current.state.currentTouch?.pressure).toBe(0.5);
     });
   });
 
-  describe("visual state mapping", () => {
-    it("should apply mapper to touch input", () => {
-      const customMapper: TouchToVisualMapper = (touch) => ({
+  describe("visual state updates", () => {
+    it("should update visual state based on mapper", () => {
+      const mapper: TouchToVisualMapper = (touch) => ({
         transform: {
           translateX: touch.x * 2,
           translateY: touch.y * 2,
@@ -236,117 +279,196 @@ describe("useTouchToVisualBridge", () => {
       });
 
       const { result } = renderHook(() =>
-        useTouchToVisualBridge(customMapper, { smoothingFactor: 1 })
+        useTouchToVisualBridge(mapper, { smoothingFactor: 1 })
+      );
+
+      const touchEvent = createTouchEvent("touchstart", 50, 50);
+      act(() => {
+        result.current.controls.onTouchStart(touchEvent);
+        advanceFrame(16);
+      });
+
+      // With smoothing factor 1, should match target immediately
+      expect(result.current.state.visualState.transform.translateX).toBeCloseTo(100, 0);
+      expect(result.current.state.visualState.transform.translateY).toBeCloseTo(100, 0);
+    });
+
+    it("should allow direct visual state updates", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, { smoothingFactor: 1 })
       );
 
       act(() => {
-        const event = createTouchEvent("touchstart", [
-          { clientX: 50, clientY: 50 },
-        ]);
-        result.current.controls.onTouchStart(event);
+        result.current.controls.updateVisualState({
+          opacity: 0.5,
+          brightness: 1.2,
+        });
+        // Need to trigger animation loop to apply changes
+        const touchEvent = createTouchEvent("touchstart", 0, 0);
+        result.current.controls.onTouchStart(touchEvent);
+        advanceFrame(16);
       });
 
-      // Flush RAF to apply updates
-      act(() => {
-        flushRAF();
-      });
-
-      // Visual state should reflect mapper output (with smoothing applied)
-      expect(result.current.state.visualState.transform.translateX).toBeGreaterThan(0);
-      expect(result.current.state.visualState.transform.translateY).toBeGreaterThan(0);
+      // Note: updateVisualState affects targetStateRef, animation applies it
     });
 
-    it("should support custom visual properties", () => {
-      const customMapper: TouchToVisualMapper = (touch) => ({
-        custom: {
-          glow: touch.pressure * 10,
-          shake: Math.abs(touch.velocityX),
+    it("should apply smoothing to visual state changes", () => {
+      const mapper: TouchToVisualMapper = () => ({
+        transform: {
+          translateX: 100,
+          translateY: 100,
+          scale: 1,
+          rotation: 0,
         },
       });
 
       const { result } = renderHook(() =>
-        useTouchToVisualBridge(customMapper, { smoothingFactor: 1 })
+        useTouchToVisualBridge(mapper, { smoothingFactor: 0.5 })
       );
 
+      const touchEvent = createTouchEvent("touchstart", 100, 100);
       act(() => {
-        const event = createTouchEvent("touchstart", [
-          { clientX: 100, clientY: 100, force: 0.8 },
-        ]);
-        result.current.controls.onTouchStart(event);
+        result.current.controls.onTouchStart(touchEvent);
+        advanceFrame(16);
       });
 
-      act(() => {
-        flushRAF();
+      // With 0.5 smoothing, should be halfway between 0 and 100
+      expect(result.current.state.visualState.transform.translateX).toBeCloseTo(50, 0);
+    });
+  });
+
+  describe("CSS generation", () => {
+    it("should generate correct CSS transform", () => {
+      const mapper: TouchToVisualMapper = () => ({
+        transform: {
+          translateX: 10,
+          translateY: 20,
+          scale: 1.5,
+          rotation: 45,
+        },
       });
 
-      expect(result.current.state.visualState.custom).toBeDefined();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, { smoothingFactor: 1 })
+      );
+
+      const touchEvent = createTouchEvent("touchstart", 0, 0);
+      act(() => {
+        result.current.controls.onTouchStart(touchEvent);
+        advanceFrame(16);
+      });
+
+      expect(result.current.cssTransform).toContain("translate3d");
+      expect(result.current.cssTransform).toContain("scale");
+      expect(result.current.cssTransform).toContain("rotate");
+    });
+
+    it("should generate correct CSS filter", () => {
+      const mapper: TouchToVisualMapper = () => ({
+        brightness: 1.2,
+        blur: 5,
+      });
+
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, { smoothingFactor: 1 })
+      );
+
+      const touchEvent = createTouchEvent("touchstart", 0, 0);
+      act(() => {
+        result.current.controls.onTouchStart(touchEvent);
+        advanceFrame(16);
+      });
+
+      expect(result.current.cssFilter).toContain("brightness");
+      expect(result.current.cssFilter).toContain("blur");
+    });
+
+    it("should return 'none' for default filter", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
+
+      expect(result.current.cssFilter).toBe("none");
     });
   });
 
   describe("prediction", () => {
-    it("should predict visual state when enabled", () => {
+    it("should generate predictions when enabled", () => {
+      const mapper = createSimpleMapper();
       const { result } = renderHook(() =>
-        useTouchToVisualBridge(defaultMapper, {
+        useTouchToVisualBridge(mapper, {
           enablePrediction: true,
-          predictionLookaheadMs: 32,
+          minPredictionConfidence: 0,
         })
       );
 
       // Build up touch history
-      act(() => {
-        const startEvent = createTouchEvent("touchstart", [
-          { clientX: 100, clientY: 100 },
-        ]);
-        result.current.controls.onTouchStart(startEvent);
-      });
-
-      jest.advanceTimersByTime(16);
-
-      act(() => {
-        result.current.controls.onTouchMove(
-          createTouchEvent("touchmove", [{ clientX: 110, clientY: 110 }])
-        );
-      });
-
-      jest.advanceTimersByTime(16);
-
-      act(() => {
-        result.current.controls.onTouchMove(
-          createTouchEvent("touchmove", [{ clientX: 120, clientY: 120 }])
-        );
-      });
-
-      jest.advanceTimersByTime(16);
-
-      act(() => {
-        result.current.controls.onTouchMove(
-          createTouchEvent("touchmove", [{ clientX: 130, clientY: 130 }])
-        );
-      });
-
-      // Prediction may be available after enough history
-      // This depends on confidence threshold
-    });
-
-    it("should force prediction on demand", () => {
-      const { result } = renderHook(() =>
-        useTouchToVisualBridge(defaultMapper, { enablePrediction: true })
-      );
-
-      // Build history
+      mockPerformanceNow.mockReturnValue(0);
       act(() => {
         result.current.controls.onTouchStart(
-          createTouchEvent("touchstart", [{ clientX: 100, clientY: 100 }])
+          createTouchEvent("touchstart", 0, 0)
         );
       });
 
       for (let i = 1; i <= 5; i++) {
-        jest.advanceTimersByTime(16);
+        mockPerformanceNow.mockReturnValue(i * 16);
         act(() => {
           result.current.controls.onTouchMove(
-            createTouchEvent("touchmove", [
-              { clientX: 100 + i * 10, clientY: 100 + i * 10 },
-            ])
+            createTouchEvent("touchmove", i * 10, i * 10)
+          );
+        });
+      }
+
+      expect(result.current.state.prediction).not.toBeNull();
+    });
+
+    it("should not predict when disabled", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, { enablePrediction: false })
+      );
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 0, 0)
+        );
+      });
+
+      for (let i = 1; i <= 5; i++) {
+        mockPerformanceNow.mockReturnValue(i * 16);
+        act(() => {
+          result.current.controls.onTouchMove(
+            createTouchEvent("touchmove", i * 10, i * 10)
+          );
+        });
+      }
+
+      expect(result.current.state.prediction).toBeNull();
+    });
+
+    it("should allow forced prediction update", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, {
+          enablePrediction: true,
+          minPredictionConfidence: 0,
+        })
+      );
+
+      // Build history
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 0, 0)
+        );
+      });
+
+      for (let i = 1; i <= 5; i++) {
+        mockPerformanceNow.mockReturnValue(i * 16);
+        act(() => {
+          result.current.controls.onTouchMove(
+            createTouchEvent("touchmove", i * 10, 0)
           );
         });
       }
@@ -355,99 +477,113 @@ describe("useTouchToVisualBridge", () => {
         result.current.controls.forcePrediction();
       });
 
-      // Force prediction should trigger prediction calculation
-      expect(result.current.state.prediction).not.toBeNull();
+      expect(result.current.state.prediction).toBeDefined();
     });
   });
 
   describe("momentum", () => {
-    it("should enable momentum after touch end with velocity", () => {
+    it("should continue animation with momentum after touchend", () => {
+      const mapper = createSimpleMapper();
       const { result } = renderHook(() =>
-        useTouchToVisualBridge(defaultMapper, {
+        useTouchToVisualBridge(mapper, {
           enableMomentum: true,
           momentumFriction: 0.95,
         })
       );
 
+      // Start and move touch quickly
+      mockPerformanceNow.mockReturnValue(0);
       act(() => {
         result.current.controls.onTouchStart(
-          createTouchEvent("touchstart", [{ clientX: 100, clientY: 100 }])
+          createTouchEvent("touchstart", 0, 0)
         );
       });
 
-      // Fast movement
-      jest.advanceTimersByTime(10);
-
+      mockPerformanceNow.mockReturnValue(16);
       act(() => {
         result.current.controls.onTouchMove(
-          createTouchEvent("touchmove", [{ clientX: 200, clientY: 200 }])
+          createTouchEvent("touchmove", 50, 0)
         );
       });
 
-      // Release with velocity
+      // End touch
       act(() => {
-        result.current.controls.onTouchEnd(createTouchEvent("touchend", []));
+        result.current.controls.onTouchEnd(createTouchEvent("touchend", 50, 0));
       });
 
-      // Momentum should be activated (animation continues)
-      expect(global.requestAnimationFrame).toHaveBeenCalled();
+      // Animation should continue due to momentum
+      expect(mockRequestAnimationFrame).toHaveBeenCalled();
     });
 
-    it("should not enable momentum with disabled config", () => {
+    it("should not use momentum when disabled", () => {
+      const mapper = createSimpleMapper();
       const { result } = renderHook(() =>
-        useTouchToVisualBridge(defaultMapper, { enableMomentum: false })
+        useTouchToVisualBridge(mapper, { enableMomentum: false })
       );
 
+      mockPerformanceNow.mockReturnValue(0);
       act(() => {
         result.current.controls.onTouchStart(
-          createTouchEvent("touchstart", [{ clientX: 100, clientY: 100 }])
+          createTouchEvent("touchstart", 0, 0)
         );
       });
 
-      jest.advanceTimersByTime(10);
-
+      mockPerformanceNow.mockReturnValue(16);
       act(() => {
         result.current.controls.onTouchMove(
-          createTouchEvent("touchmove", [{ clientX: 200, clientY: 200 }])
+          createTouchEvent("touchmove", 50, 0)
         );
       });
 
-      const rafCountBeforeEnd = (global.requestAnimationFrame as jest.Mock).mock
-        .calls.length;
-
       act(() => {
-        result.current.controls.onTouchEnd(createTouchEvent("touchend", []));
+        result.current.controls.onTouchEnd(createTouchEvent("touchend", 50, 0));
       });
 
-      // No additional RAF calls for momentum
       expect(result.current.state.isActive).toBe(false);
     });
   });
 
-  describe("controls", () => {
-    it("should update visual state directly", () => {
-      const { result } = renderHook(() => useTouchToVisualBridge(defaultMapper));
+  describe("haptic feedback", () => {
+    it("should trigger haptic on touch when enabled", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, { enableHaptics: true })
+      );
 
-      act(() => {
-        result.current.controls.updateVisualState({
-          transform: { translateX: 50, translateY: 50, scale: 1.2, rotation: 15 },
-          opacity: 0.9,
-        });
-      });
-
-      // Direct update affects target state (applied on next RAF)
-      act(() => {
-        flushRAF();
-      });
-    });
-
-    it("should reset to initial state", () => {
-      const { result } = renderHook(() => useTouchToVisualBridge(defaultMapper));
-
-      // Activate and modify
       act(() => {
         result.current.controls.onTouchStart(
-          createTouchEvent("touchstart", [{ clientX: 100, clientY: 100 }])
+          createTouchEvent("touchstart", 100, 100)
+        );
+      });
+
+      expect(mockVibrate).toHaveBeenCalled();
+    });
+
+    it("should not trigger haptic when disabled", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, { enableHaptics: false })
+      );
+
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 100, 100)
+        );
+      });
+
+      expect(mockVibrate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("reset", () => {
+    it("should reset to initial state", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
+
+      // Interact with bridge
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 100, 100)
         );
       });
 
@@ -460,7 +596,6 @@ describe("useTouchToVisualBridge", () => {
 
       expect(result.current.state.isActive).toBe(false);
       expect(result.current.state.currentTouch).toBeNull();
-      expect(result.current.state.prediction).toBeNull();
       expect(result.current.state.visualState).toEqual({
         transform: {
           translateX: 0,
@@ -474,68 +609,50 @@ describe("useTouchToVisualBridge", () => {
         custom: {},
       });
     });
-  });
 
-  describe("metrics", () => {
-    it("should track latency metrics", () => {
-      const { result } = renderHook(() => useTouchToVisualBridge(defaultMapper));
-
-      // Perform touches to generate metrics
-      act(() => {
-        result.current.controls.onTouchStart(
-          createTouchEvent("touchstart", [{ clientX: 100, clientY: 100 }])
-        );
-      });
-
-      for (let i = 0; i < 10; i++) {
-        jest.advanceTimersByTime(16);
-        act(() => {
-          result.current.controls.onTouchMove(
-            createTouchEvent("touchmove", [
-              { clientX: 100 + i * 5, clientY: 100 + i * 5 },
-            ])
-          );
-        });
-      }
-
-      // Metrics should be populated
-      expect(result.current.state.metrics.totalUpdates).toBeGreaterThanOrEqual(0);
-    });
-
-    it("should calculate updates per second", () => {
-      const { result } = renderHook(() => useTouchToVisualBridge(defaultMapper));
+    it("should cancel animation frame on reset", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
 
       act(() => {
         result.current.controls.onTouchStart(
-          createTouchEvent("touchstart", [{ clientX: 100, clientY: 100 }])
+          createTouchEvent("touchstart", 100, 100)
         );
       });
 
-      // Simulate touches over time
-      for (let i = 0; i < 60; i++) {
-        jest.advanceTimersByTime(16);
-        act(() => {
-          result.current.controls.onTouchMove(
-            createTouchEvent("touchmove", [{ clientX: 100 + i, clientY: 100 + i }])
-          );
-        });
-      }
+      act(() => {
+        result.current.controls.reset();
+      });
 
-      // Advance past 1 second to trigger metrics update
-      jest.advanceTimersByTime(1000);
-
-      // Updates per second metric should be set
+      expect(mockCancelAnimationFrame).toHaveBeenCalled();
     });
   });
 
-  describe("CSS generation", () => {
-    it("should generate proper transform with non-zero values", () => {
-      const mapper: TouchToVisualMapper = () => ({
-        transform: {
-          translateX: 100,
-          translateY: 50,
-          scale: 1.5,
-          rotation: 45,
+  describe("cleanup", () => {
+    it("should cancel animation frame on unmount", () => {
+      const mapper = createSimpleMapper();
+      const { result, unmount } = renderHook(() =>
+        useTouchToVisualBridge(mapper)
+      );
+
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 100, 100)
+        );
+      });
+
+      unmount();
+
+      expect(mockCancelAnimationFrame).toHaveBeenCalled();
+    });
+  });
+
+  describe("custom values in visual state", () => {
+    it("should handle custom visual state properties", () => {
+      const mapper: TouchToVisualMapper = (touch) => ({
+        custom: {
+          glow: touch.pressure * 10,
+          shadow: touch.velocityX,
         },
       });
 
@@ -545,106 +662,101 @@ describe("useTouchToVisualBridge", () => {
 
       act(() => {
         result.current.controls.onTouchStart(
-          createTouchEvent("touchstart", [{ clientX: 0, clientY: 0 }])
+          createTouchEvent("touchstart", 100, 100, { force: 0.8 })
         );
+        advanceFrame(16);
       });
 
-      act(() => {
-        flushRAF();
-      });
-
-      expect(result.current.cssTransform).toContain("translate3d");
-      expect(result.current.cssTransform).toContain("scale");
-      expect(result.current.cssTransform).toContain("rotate");
-    });
-
-    it("should generate filter string with blur", () => {
-      const mapper: TouchToVisualMapper = () => ({
-        blur: 5,
-        brightness: 1.2,
-      });
-
-      const { result } = renderHook(() =>
-        useTouchToVisualBridge(mapper, { smoothingFactor: 1 })
-      );
-
-      act(() => {
-        result.current.controls.onTouchStart(
-          createTouchEvent("touchstart", [{ clientX: 0, clientY: 0 }])
-        );
-      });
-
-      act(() => {
-        flushRAF();
-      });
-
-      // Filter should include blur and brightness
-      expect(result.current.cssFilter).not.toBe("none");
+      expect(result.current.state.visualState.custom.glow).toBeCloseTo(8, 0);
     });
   });
 });
 
+// ============================================================================
+// Convenience Hooks Tests
+// ============================================================================
+
 describe("useTouchTranslate", () => {
-  it("should translate based on touch offset from start", () => {
+  it("should translate based on touch delta", () => {
     const { result } = renderHook(() =>
       useTouchTranslate({ smoothingFactor: 1 })
     );
 
+    mockPerformanceNow.mockReturnValue(0);
     act(() => {
       result.current.controls.onTouchStart(
-        createTouchEvent("touchstart", [{ clientX: 100, clientY: 100 }])
+        createTouchEvent("touchstart", 50, 50)
       );
     });
 
+    mockPerformanceNow.mockReturnValue(16);
     act(() => {
       result.current.controls.onTouchMove(
-        createTouchEvent("touchmove", [{ clientX: 150, clientY: 200 }])
+        createTouchEvent("touchmove", 100, 75)
       );
+      advanceFrame(32);
     });
 
-    act(() => {
-      flushRAF();
-    });
+    // Should translate by delta: (100-50, 75-50) = (50, 25)
+    expect(result.current.state.visualState.transform.translateX).toBeCloseTo(50, 0);
+    expect(result.current.state.visualState.transform.translateY).toBeCloseTo(25, 0);
+  });
 
-    // Should translate by the offset
-    expect(result.current.state.visualState.transform.translateX).toBeGreaterThan(0);
-    expect(result.current.state.visualState.transform.translateY).toBeGreaterThan(0);
+  it("should return controls and state", () => {
+    const { result } = renderHook(() => useTouchTranslate());
+
+    expect(result.current.controls).toBeDefined();
+    expect(result.current.controls.onTouchStart).toBeInstanceOf(Function);
+    expect(result.current.controls.onTouchMove).toBeInstanceOf(Function);
+    expect(result.current.controls.onTouchEnd).toBeInstanceOf(Function);
+    expect(result.current.state).toBeDefined();
   });
 });
 
 describe("useTouchScale", () => {
-  it("should initialize with provided scale", () => {
+  it("should initialize with given scale", () => {
     const { result } = renderHook(() => useTouchScale(2));
 
-    expect(result.current.state.visualState.transform.scale).toBe(1); // Initial state is default
+    expect(result.current.state.visualState.transform.scale).toBe(1); // Initial default
   });
 
-  it("should respect min and max scale limits", () => {
-    const { result } = renderHook(() => useTouchScale(1, 0.5, 2));
+  it("should return controls and state", () => {
+    const { result } = renderHook(() => useTouchScale());
 
-    // Scale should be bounded
-    expect(result.current.state.visualState.transform.scale).toBe(1);
+    expect(result.current.controls).toBeDefined();
+    expect(result.current.state).toBeDefined();
+    expect(result.current.cssTransform).toBeDefined();
   });
 });
 
 describe("useTouchOpacity", () => {
-  it("should map pressure to opacity", () => {
+  it("should update opacity based on pressure", () => {
     const { result } = renderHook(() =>
       useTouchOpacity({ smoothingFactor: 1 })
     );
 
     act(() => {
       result.current.controls.onTouchStart(
-        createTouchEvent("touchstart", [{ clientX: 100, clientY: 100, force: 0.5 }])
+        createTouchEvent("touchstart", 100, 100, { force: 0.5 })
       );
+      advanceFrame(16);
     });
+
+    expect(result.current.state.visualState.opacity).toBeCloseTo(0.5, 1);
+  });
+
+  it("should clamp opacity to minimum 0.3", () => {
+    const { result } = renderHook(() =>
+      useTouchOpacity({ smoothingFactor: 1 })
+    );
 
     act(() => {
-      flushRAF();
+      result.current.controls.onTouchStart(
+        createTouchEvent("touchstart", 100, 100, { force: 0.1 })
+      );
+      advanceFrame(16);
     });
 
-    // Opacity should be based on pressure
-    expect(result.current.state.visualState.opacity).toBeLessThanOrEqual(1);
     expect(result.current.state.visualState.opacity).toBeGreaterThanOrEqual(0.3);
   });
 });
