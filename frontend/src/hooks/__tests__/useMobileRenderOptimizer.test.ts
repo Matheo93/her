@@ -354,7 +354,9 @@ describe("useMobileRenderOptimizer", () => {
 
   describe("optimization hints", () => {
     it("should provide optimization hints", () => {
-      const { result } = renderHook(() => useMobileRenderOptimizer());
+      const { result } = renderHook(() =>
+        useMobileRenderOptimizer({ autoAdjust: false })
+      );
 
       const hints = result.current.controls.getOptimizationHints();
 
@@ -369,7 +371,9 @@ describe("useMobileRenderOptimizer", () => {
     });
 
     it("should always use transform3d for GPU acceleration", () => {
-      const { result } = renderHook(() => useMobileRenderOptimizer());
+      const { result } = renderHook(() =>
+        useMobileRenderOptimizer({ autoAdjust: false })
+      );
 
       const hints = result.current.controls.getOptimizationHints();
 
@@ -377,7 +381,9 @@ describe("useMobileRenderOptimizer", () => {
     });
 
     it("should always use lazy loading", () => {
-      const { result } = renderHook(() => useMobileRenderOptimizer());
+      const { result } = renderHook(() =>
+        useMobileRenderOptimizer({ autoAdjust: false })
+      );
 
       const hints = result.current.controls.getOptimizationHints();
 
@@ -386,7 +392,7 @@ describe("useMobileRenderOptimizer", () => {
 
     it("should disable pointer events for low-end quality", () => {
       const { result } = renderHook(() =>
-        useMobileRenderOptimizer({ initialQuality: "minimal" })
+        useMobileRenderOptimizer({ initialQuality: "minimal", autoAdjust: false })
       );
 
       const hints = result.current.controls.getOptimizationHints();
@@ -397,7 +403,9 @@ describe("useMobileRenderOptimizer", () => {
 
   describe("metrics reset", () => {
     it("should reset metrics", () => {
-      const { result } = renderHook(() => useMobileRenderOptimizer());
+      const { result } = renderHook(() =>
+        useMobileRenderOptimizer({ autoAdjust: false })
+      );
 
       // Record some frames
       act(() => {
@@ -418,7 +426,9 @@ describe("useMobileRenderOptimizer", () => {
 
   describe("controls API", () => {
     it("should provide all control functions", () => {
-      const { result } = renderHook(() => useMobileRenderOptimizer());
+      const { result } = renderHook(() =>
+        useMobileRenderOptimizer({ autoAdjust: false })
+      );
 
       expect(typeof result.current.controls.setQuality).toBe("function");
       expect(typeof result.current.controls.forceQuality).toBe("function");
@@ -432,7 +442,9 @@ describe("useMobileRenderOptimizer", () => {
 
   describe("device profile", () => {
     it("should provide GPU info", () => {
-      const { result } = renderHook(() => useMobileRenderOptimizer());
+      const { result } = renderHook(() =>
+        useMobileRenderOptimizer({ autoAdjust: false })
+      );
 
       expect(result.current.deviceProfile.gpu).toBeDefined();
       expect(result.current.deviceProfile.gpu.vendor).toBeDefined();
@@ -443,7 +455,9 @@ describe("useMobileRenderOptimizer", () => {
     });
 
     it("should provide screen dimensions", () => {
-      const { result } = renderHook(() => useMobileRenderOptimizer());
+      const { result } = renderHook(() =>
+        useMobileRenderOptimizer({ autoAdjust: false })
+      );
 
       expect(result.current.deviceProfile.viewportWidth).toBe(375);
       expect(result.current.deviceProfile.viewportHeight).toBe(812);
@@ -454,7 +468,7 @@ describe("useMobileRenderOptimizer", () => {
   describe("frame budget", () => {
     it("should calculate target frame time", () => {
       const { result } = renderHook(() =>
-        useMobileRenderOptimizer({ targetFPS: 60 })
+        useMobileRenderOptimizer({ targetFPS: 60, autoAdjust: false })
       );
 
       // 60fps = 16.67ms per frame
@@ -462,7 +476,9 @@ describe("useMobileRenderOptimizer", () => {
     });
 
     it("should track consecutive drops", () => {
-      const { result } = renderHook(() => useMobileRenderOptimizer());
+      const { result } = renderHook(() =>
+        useMobileRenderOptimizer({ autoAdjust: false })
+      );
 
       expect(result.current.frameBudget.consecutiveDrops).toBe(0);
     });
@@ -471,14 +487,18 @@ describe("useMobileRenderOptimizer", () => {
 
 describe("useRenderOptimizationStyles", () => {
   it("should return CSS properties object", () => {
-    const { result } = renderHook(() => useRenderOptimizationStyles());
+    const { result } = renderHook(() =>
+      useRenderOptimizationStyles({ autoAdjust: false })
+    );
 
     expect(result.current).toBeDefined();
     expect(typeof result.current).toBe("object");
   });
 
   it("should include transform for GPU acceleration", () => {
-    const { result } = renderHook(() => useRenderOptimizationStyles());
+    const { result } = renderHook(() =>
+      useRenderOptimizationStyles({ autoAdjust: false })
+    );
 
     expect(result.current.transform).toBe("translateZ(0)");
   });
@@ -486,7 +506,9 @@ describe("useRenderOptimizationStyles", () => {
 
 describe("useAdaptiveCanvasSize", () => {
   it("should return canvas dimensions", () => {
-    const { result } = renderHook(() => useAdaptiveCanvasSize(100, 100));
+    const { result } = renderHook(() =>
+      useAdaptiveCanvasSize(100, 100, { autoAdjust: false })
+    );
 
     expect(result.current).toBeDefined();
     expect(typeof result.current.width).toBe("number");
@@ -496,7 +518,7 @@ describe("useAdaptiveCanvasSize", () => {
 
   it("should scale based on quality", () => {
     const { result } = renderHook(() =>
-      useAdaptiveCanvasSize(100, 100, { initialQuality: "medium" })
+      useAdaptiveCanvasSize(100, 100, { initialQuality: "medium", autoAdjust: false })
     );
 
     // Medium quality has 0.85 resolution scale
@@ -505,7 +527,7 @@ describe("useAdaptiveCanvasSize", () => {
 
   it("should cap DPR at 2x", () => {
     const { result } = renderHook(() =>
-      useAdaptiveCanvasSize(100, 100, { initialQuality: "ultra" })
+      useAdaptiveCanvasSize(100, 100, { initialQuality: "ultra", autoAdjust: false })
     );
 
     // Ultra has 1.0 scale, capped at 2x DPR
@@ -515,7 +537,9 @@ describe("useAdaptiveCanvasSize", () => {
 
 describe("useFrameRateAwareAnimation", () => {
   it("should return animation info", () => {
-    const { result } = renderHook(() => useFrameRateAwareAnimation());
+    const { result } = renderHook(() =>
+      useFrameRateAwareAnimation({ autoAdjust: false })
+    );
 
     expect(result.current).toBeDefined();
     expect(typeof result.current.shouldAnimate).toBe("boolean");
@@ -524,14 +548,16 @@ describe("useFrameRateAwareAnimation", () => {
   });
 
   it("should allow animation when not paused", () => {
-    const { result } = renderHook(() => useFrameRateAwareAnimation());
+    const { result } = renderHook(() =>
+      useFrameRateAwareAnimation({ autoAdjust: false })
+    );
 
     expect(result.current.shouldAnimate).toBe(true);
   });
 
   it("should calculate correct frame interval", () => {
     const { result } = renderHook(() =>
-      useFrameRateAwareAnimation({ targetFPS: 60 })
+      useFrameRateAwareAnimation({ targetFPS: 60, autoAdjust: false })
     );
 
     // 60fps = 16.67ms interval
