@@ -708,3 +708,51 @@ export {
   type RecoveryControls,
   type UseMobileNetworkRecoveryResult,
 } from "./useMobileNetworkRecovery";
+
+// Avatar Blink Controller (Sprint 1589)
+export {
+  useAvatarBlinkController,
+  useEyeClosure,
+  useConversationBlink,
+  type BlinkType,
+  type BlinkPhase,
+  type BlinkKeyframe,
+  type BlinkAnimation,
+  type BlinkState,
+  type BlinkMetrics,
+  type BlinkConfig,
+  type BlinkControls,
+  type UseAvatarBlinkControllerResult,
+} from "./useAvatarBlinkController";
+
+// Mobile Frame Scheduler (Sprint 1589)
+export {
+  useMobileFrameScheduler,
+  useFpsMonitor,
+  useScheduledCallback,
+  type TaskPriority,
+  type FramePhase,
+  type ScheduledTask,
+  type FrameInfo,
+  type SchedulerState,
+  type SchedulerMetrics,
+  type SchedulerConfig,
+  type SchedulerControls,
+  type UseMobileFrameSchedulerResult,
+} from "./useMobileFrameScheduler";
+
+// Adaptive Audio Buffer (Sprint 1589)
+export {
+  useAdaptiveAudioBuffer,
+  useBufferHealth as useAudioBufferHealth,
+  useAdaptiveAudioStream,
+  type BufferState as AudioBufferPlaybackState,
+  type AudioStreamQuality,
+  type BufferSegment,
+  type BufferHealth as AudioBufferHealth,
+  type AudioBufferState,
+  type BufferMetrics as AudioBufferMetrics,
+  type AudioBufferConfig as AdaptiveAudioBufferConfig,
+  type AudioBufferControls,
+  type UseAdaptiveAudioBufferResult,
+} from "./useAdaptiveAudioBuffer";
