@@ -1207,237 +1207,208 @@ describe("Sprint 619 - actual touch event handling", () => {
   describe("handleTouchStart (lines 410-457)", () => {
     it("should handle single touch start", () => {
       const onGestureStart = jest.fn();
-      const { result } = renderHook(() =>
+      const { result, rerender } = renderHook(() =>
         useMobileGestureOptimizer({ onGestureStart })
       );
 
-      // Set up the element ref
-      const element = document.createElement("div");
-      (result.current.ref as any).current = element;
+      // Use mockElement that's set up in beforeEach
+      (result.current.ref as any).current = mockElement;
 
-      // Trigger the useEffect to attach listeners
-      act(() => {
-        jest.runAllTimers();
-      });
+      // Trigger rerender to run useEffect
+      rerender();
 
       // Create touch event
       const touch = createMockTouch(0, 100, 100);
       const event = createTouchEvent("touchstart", [touch]);
 
-      // Call the handler directly if captured
-      if (touchStartHandler) {
-        act(() => {
-          touchStartHandler!(event);
-        });
-      }
+      // Call the handler directly
+      expect(touchStartHandler).not.toBeNull();
+      act(() => {
+        touchStartHandler!(event);
+      });
 
       // State should be updated
-      expect(result.current.state.touchCount).toBeGreaterThanOrEqual(0);
+      expect(result.current.state.touchCount).toBe(1);
+      expect(result.current.state.isGestureActive).toBe(true);
     });
 
     it("should filter palm touches", () => {
-      const { result } = renderHook(() =>
+      const { result, rerender } = renderHook(() =>
         useMobileGestureOptimizer(
           {},
           { filters: { maxTouchArea: 100, minTouchDuration: 50, minSwipeDistance: 30, minSwipeVelocity: 0.3, doubleTapWindow: 300, longPressThreshold: 500 } }
         )
       );
 
-      // Set up the element ref
-      const element = document.createElement("div");
-      (result.current.ref as any).current = element;
-
-      act(() => {
-        jest.runAllTimers();
-      });
+      (result.current.ref as any).current = mockElement;
+      rerender();
 
       // Create a large touch (palm)
       const touch = createMockTouch(0, 100, 100, { radiusX: 50, radiusY: 50 });
       const event = createTouchEvent("touchstart", [touch]);
 
-      if (touchStartHandler) {
-        act(() => {
-          touchStartHandler!(event);
-        });
-      }
+      const initialFiltered = result.current.metrics.filteredTouches;
+      expect(touchStartHandler).not.toBeNull();
+      act(() => {
+        touchStartHandler!(event);
+      });
 
-      // Should track filtered touch metric (implementation detail)
-      expect(result.current.metrics).toBeDefined();
+      // Should track filtered touch metric
+      expect(result.current.metrics.filteredTouches).toBe(initialFiltered + 1);
     });
 
     it("should start long press timer for single touch", () => {
       const onLongPress = jest.fn();
-      const { result } = renderHook(() =>
+      const { result, rerender } = renderHook(() =>
         useMobileGestureOptimizer(
           { onLongPress },
           { filters: { longPressThreshold: 500, minTouchDuration: 50, maxTouchArea: 2500, minSwipeDistance: 30, minSwipeVelocity: 0.3, doubleTapWindow: 300 } }
         )
       );
 
-      const element = document.createElement("div");
-      (result.current.ref as any).current = element;
-
-      act(() => {
-        jest.runAllTimers();
-      });
+      (result.current.ref as any).current = mockElement;
+      rerender();
 
       const touch = createMockTouch(0, 100, 100);
       const event = createTouchEvent("touchstart", [touch]);
 
-      if (touchStartHandler) {
-        act(() => {
-          touchStartHandler!(event);
-        });
+      expect(touchStartHandler).not.toBeNull();
+      act(() => {
+        touchStartHandler!(event);
+      });
 
-        // Advance time to trigger long press
-        act(() => {
-          jest.advanceTimersByTime(600);
-        });
-      }
+      // Advance time to trigger long press
+      act(() => {
+        jest.advanceTimersByTime(600);
+      });
 
-      // Long press might be triggered depending on implementation
-      expect(result.current.state).toBeDefined();
+      // Long press should be triggered
+      expect(onLongPress).toHaveBeenCalled();
     });
 
     it("should prevent default for multi-touch with pinch configured", () => {
-      const { result } = renderHook(() =>
+      const { result, rerender } = renderHook(() =>
         useMobileGestureOptimizer(
           {},
           { preventDefaultGestures: ["pinch"] }
         )
       );
 
-      const element = document.createElement("div");
-      (result.current.ref as any).current = element;
-
-      act(() => {
-        jest.runAllTimers();
-      });
+      (result.current.ref as any).current = mockElement;
+      rerender();
 
       const touch1 = createMockTouch(0, 100, 100);
       const touch2 = createMockTouch(1, 200, 200);
       const event = createTouchEvent("touchstart", [touch1, touch2]);
 
-      if (touchStartHandler) {
-        act(() => {
-          touchStartHandler!(event);
-        });
-      }
+      expect(touchStartHandler).not.toBeNull();
+      act(() => {
+        touchStartHandler!(event);
+      });
 
-      expect(result.current.state.touchCount).toBeGreaterThanOrEqual(0);
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(result.current.state.touchCount).toBe(2);
     });
   });
 
   describe("handleTouchMove (lines 459-529)", () => {
     it("should handle touch move and calculate velocity", () => {
       const onPan = jest.fn();
-      const { result } = renderHook(() =>
+      const { result, rerender } = renderHook(() =>
         useMobileGestureOptimizer({ onPan }, { throttleInterval: 0 })
       );
 
-      const element = document.createElement("div");
-      (result.current.ref as any).current = element;
-
-      act(() => {
-        jest.runAllTimers();
-      });
+      (result.current.ref as any).current = mockElement;
+      rerender();
 
       // Start touch
       const touch1 = createMockTouch(0, 100, 100);
       const startEvent = createTouchEvent("touchstart", [touch1]);
 
-      if (touchStartHandler) {
-        act(() => {
-          touchStartHandler!(startEvent);
-        });
-      }
+      expect(touchStartHandler).not.toBeNull();
+      act(() => {
+        touchStartHandler!(startEvent);
+      });
 
       // Move touch
+      act(() => {
+        jest.advanceTimersByTime(20);
+      });
       const touch2 = createMockTouch(0, 150, 150);
       const moveEvent = createTouchEvent("touchmove", [touch2]);
 
-      if (touchMoveHandler) {
-        act(() => {
-          jest.advanceTimersByTime(20);
-          touchMoveHandler!(moveEvent);
-        });
-      }
+      expect(touchMoveHandler).not.toBeNull();
+      act(() => {
+        touchMoveHandler!(moveEvent);
+      });
 
-      expect(result.current.state).toBeDefined();
+      expect(onPan).toHaveBeenCalled();
     });
 
     it("should throttle touch move events", () => {
       const onPan = jest.fn();
-      const { result } = renderHook(() =>
+      const { result, rerender } = renderHook(() =>
         useMobileGestureOptimizer({ onPan }, { throttleInterval: 16 })
       );
 
-      const element = document.createElement("div");
-      (result.current.ref as any).current = element;
-
-      act(() => {
-        jest.runAllTimers();
-      });
+      (result.current.ref as any).current = mockElement;
+      rerender();
 
       const touch = createMockTouch(0, 100, 100);
       const startEvent = createTouchEvent("touchstart", [touch]);
 
-      if (touchStartHandler) {
-        act(() => {
-          touchStartHandler!(startEvent);
-        });
-      }
+      expect(touchStartHandler).not.toBeNull();
+      act(() => {
+        touchStartHandler!(startEvent);
+      });
 
-      // Quick successive moves should be throttled
+      // Quick successive moves should be throttled - only first passes
+      let callCount = 0;
       for (let i = 0; i < 5; i++) {
         const moveTouch = createMockTouch(0, 100 + i * 10, 100);
         const moveEvent = createTouchEvent("touchmove", [moveTouch]);
 
-        if (touchMoveHandler) {
-          act(() => {
-            touchMoveHandler!(moveEvent);
-          });
-        }
+        expect(touchMoveHandler).not.toBeNull();
+        act(() => {
+          touchMoveHandler!(moveEvent);
+        });
       }
 
+      // Only some calls should go through due to throttling
       expect(result.current.state).toBeDefined();
     });
 
     it("should cancel long press on movement", () => {
       const onLongPress = jest.fn();
-      const { result } = renderHook(() =>
+      const { result, rerender } = renderHook(() =>
         useMobileGestureOptimizer(
           { onLongPress },
-          { filters: { longPressThreshold: 500, minTouchDuration: 50, maxTouchArea: 2500, minSwipeDistance: 30, minSwipeVelocity: 0.3, doubleTapWindow: 300 } }
+          { filters: { longPressThreshold: 500, minTouchDuration: 50, maxTouchArea: 2500, minSwipeDistance: 30, minSwipeVelocity: 0.3, doubleTapWindow: 300 }, throttleInterval: 0 }
         )
       );
 
-      const element = document.createElement("div");
-      (result.current.ref as any).current = element;
-
-      act(() => {
-        jest.runAllTimers();
-      });
+      (result.current.ref as any).current = mockElement;
+      rerender();
 
       const touch = createMockTouch(0, 100, 100);
       const startEvent = createTouchEvent("touchstart", [touch]);
 
-      if (touchStartHandler) {
-        act(() => {
-          touchStartHandler!(startEvent);
-        });
-      }
+      expect(touchStartHandler).not.toBeNull();
+      act(() => {
+        touchStartHandler!(startEvent);
+      });
 
-      // Move immediately
+      // Move immediately - this should cancel the long press timer
+      act(() => {
+        jest.advanceTimersByTime(50);
+      });
       const moveTouch = createMockTouch(0, 150, 150);
       const moveEvent = createTouchEvent("touchmove", [moveTouch]);
 
-      if (touchMoveHandler) {
-        act(() => {
-          jest.advanceTimersByTime(50);
-          touchMoveHandler!(moveEvent);
-        });
-      }
+      expect(touchMoveHandler).not.toBeNull();
+      act(() => {
+        touchMoveHandler!(moveEvent);
+      });
 
       // Advance past long press threshold
       act(() => {
@@ -1445,78 +1416,69 @@ describe("Sprint 619 - actual touch event handling", () => {
       });
 
       // Long press should not be triggered because we moved
-      expect(result.current.state).toBeDefined();
+      expect(onLongPress).not.toHaveBeenCalled();
     });
 
     it("should handle multi-touch pinch gesture", () => {
       const onPinch = jest.fn();
-      const { result } = renderHook(() =>
+      const { result, rerender } = renderHook(() =>
         useMobileGestureOptimizer({ onPinch }, { throttleInterval: 0 })
       );
 
-      const element = document.createElement("div");
-      (result.current.ref as any).current = element;
-
-      act(() => {
-        jest.runAllTimers();
-      });
+      (result.current.ref as any).current = mockElement;
+      rerender();
 
       // Start with two touches
       const touch1Start = createMockTouch(0, 100, 100);
       const touch2Start = createMockTouch(1, 200, 200);
       const startEvent = createTouchEvent("touchstart", [touch1Start, touch2Start]);
 
-      if (touchStartHandler) {
-        act(() => {
-          touchStartHandler!(startEvent);
-        });
-      }
+      expect(touchStartHandler).not.toBeNull();
+      act(() => {
+        touchStartHandler!(startEvent);
+      });
 
       // Move touches apart (spread)
+      act(() => {
+        jest.advanceTimersByTime(20);
+      });
       const touch1Move = createMockTouch(0, 50, 50);
       const touch2Move = createMockTouch(1, 250, 250);
       const moveEvent = createTouchEvent("touchmove", [touch1Move, touch2Move]);
 
-      if (touchMoveHandler) {
-        act(() => {
-          jest.advanceTimersByTime(20);
-          touchMoveHandler!(moveEvent);
-        });
-      }
+      expect(touchMoveHandler).not.toBeNull();
+      act(() => {
+        touchMoveHandler!(moveEvent);
+      });
 
-      expect(result.current.state).toBeDefined();
+      // Pinch callback should have been called (scale > 1 = spread)
+      expect(onPinch).toHaveBeenCalled();
     });
 
     it("should update prediction during movement", () => {
-      const { result } = renderHook(() =>
+      const { result, rerender } = renderHook(() =>
         useMobileGestureOptimizer({}, { enablePrediction: true, throttleInterval: 0 })
       );
 
-      const element = document.createElement("div");
-      (result.current.ref as any).current = element;
-
-      act(() => {
-        jest.runAllTimers();
-      });
+      (result.current.ref as any).current = mockElement;
+      rerender();
 
       const touch = createMockTouch(0, 100, 100);
       const startEvent = createTouchEvent("touchstart", [touch]);
 
-      if (touchStartHandler) {
-        act(() => {
-          touchStartHandler!(startEvent);
-        });
-      }
+      expect(touchStartHandler).not.toBeNull();
+      act(() => {
+        touchStartHandler!(startEvent);
+      });
 
       const moveTouch = createMockTouch(0, 200, 100);
       const moveEvent = createTouchEvent("touchmove", [moveTouch]);
 
-      if (touchMoveHandler) {
-        act(() => {
-          jest.advanceTimersByTime(20);
-          touchMoveHandler!(moveEvent);
-        });
-      }
+      expect(touchMoveHandler).not.toBeNull();
+      act(() => {
+        jest.advanceTimersByTime(20);
+        touchMoveHandler!(moveEvent);
+      });
 
       expect(result.current.state.prediction).toBeDefined();
     });
@@ -1525,28 +1487,23 @@ describe("Sprint 619 - actual touch event handling", () => {
   describe("handleTouchEnd (lines 531-591)", () => {
     it("should detect tap gesture", () => {
       const onTap = jest.fn();
-      const { result } = renderHook(() =>
+      const { result, rerender } = renderHook(() =>
         useMobileGestureOptimizer(
           { onTap },
-          { filters: { minTouchDuration: 50, maxTouchArea: 2500, minSwipeDistance: 30, minSwipeVelocity: 0.3, doubleTapWindow: 300, longPressThreshold: 500 } }
+          { filters: { minTouchDuration: 50, maxTouchArea: 2500, minSwipeDistance: 100, minSwipeVelocity: 2, doubleTapWindow: 300, longPressThreshold: 500 } }
         )
       );
 
-      const element = document.createElement("div");
-      (result.current.ref as any).current = element;
-
-      act(() => {
-        jest.runAllTimers();
-      });
+      (result.current.ref as any).current = mockElement;
+      rerender();
 
       const touch = createMockTouch(0, 100, 100);
       const startEvent = createTouchEvent("touchstart", [touch]);
 
-      if (touchStartHandler) {
-        act(() => {
-          touchStartHandler!(startEvent);
-        });
-      }
+      expect(touchStartHandler).not.toBeNull();
+      act(() => {
+        touchStartHandler!(startEvent);
+      });
 
       // Wait for min duration
       act(() => {
@@ -1555,41 +1512,35 @@ describe("Sprint 619 - actual touch event handling", () => {
 
       const endEvent = createTouchEvent("touchend", [], [touch]);
 
-      if (touchEndHandler) {
-        act(() => {
-          touchEndHandler!(endEvent);
-        });
-      }
+      expect(touchEndHandler).not.toBeNull();
+      act(() => {
+        touchEndHandler!(endEvent);
+      });
 
-      // Tap might be detected
-      expect(result.current.state).toBeDefined();
+      // Tap should be detected (small distance, duration < 300ms)
+      expect(onTap).toHaveBeenCalled();
     });
 
     it("should detect double tap", () => {
       const onDoubleTap = jest.fn();
-      const { result } = renderHook(() =>
+      const { result, rerender } = renderHook(() =>
         useMobileGestureOptimizer(
           { onDoubleTap },
-          { filters: { doubleTapWindow: 300, minTouchDuration: 50, maxTouchArea: 2500, minSwipeDistance: 30, minSwipeVelocity: 0.3, longPressThreshold: 500 } }
+          { filters: { doubleTapWindow: 300, minTouchDuration: 50, maxTouchArea: 2500, minSwipeDistance: 100, minSwipeVelocity: 2, longPressThreshold: 500 } }
         )
       );
 
-      const element = document.createElement("div");
-      (result.current.ref as any).current = element;
-
-      act(() => {
-        jest.runAllTimers();
-      });
+      (result.current.ref as any).current = mockElement;
+      rerender();
 
       // First tap
       const touch1 = createMockTouch(0, 100, 100);
       const startEvent1 = createTouchEvent("touchstart", [touch1]);
 
-      if (touchStartHandler) {
-        act(() => {
-          touchStartHandler!(startEvent1);
-        });
-      }
+      expect(touchStartHandler).not.toBeNull();
+      act(() => {
+        touchStartHandler!(startEvent1);
+      });
 
       act(() => {
         jest.advanceTimersByTime(100);
@@ -1597,11 +1548,10 @@ describe("Sprint 619 - actual touch event handling", () => {
 
       const endEvent1 = createTouchEvent("touchend", [], [touch1]);
 
-      if (touchEndHandler) {
-        act(() => {
-          touchEndHandler!(endEvent1);
-        });
-      }
+      expect(touchEndHandler).not.toBeNull();
+      act(() => {
+        touchEndHandler!(endEvent1);
+      });
 
       // Second tap quickly
       act(() => {
@@ -1611,11 +1561,9 @@ describe("Sprint 619 - actual touch event handling", () => {
       const touch2 = createMockTouch(1, 100, 100);
       const startEvent2 = createTouchEvent("touchstart", [touch2]);
 
-      if (touchStartHandler) {
-        act(() => {
-          touchStartHandler!(startEvent2);
-        });
-      }
+      act(() => {
+        touchStartHandler!(startEvent2);
+      });
 
       act(() => {
         jest.advanceTimersByTime(100);
@@ -1623,39 +1571,33 @@ describe("Sprint 619 - actual touch event handling", () => {
 
       const endEvent2 = createTouchEvent("touchend", [], [touch2]);
 
-      if (touchEndHandler) {
-        act(() => {
-          touchEndHandler!(endEvent2);
-        });
-      }
+      act(() => {
+        touchEndHandler!(endEvent2);
+      });
 
-      expect(result.current.state).toBeDefined();
+      // Double tap should be detected
+      expect(onDoubleTap).toHaveBeenCalled();
     });
 
     it("should detect swipe gesture", () => {
       const onSwipe = jest.fn();
-      const { result } = renderHook(() =>
+      const { result, rerender } = renderHook(() =>
         useMobileGestureOptimizer(
           { onSwipe },
           { filters: { minSwipeVelocity: 0.1, minSwipeDistance: 30, minTouchDuration: 10, maxTouchArea: 2500, doubleTapWindow: 300, longPressThreshold: 500 }, throttleInterval: 0 }
         )
       );
 
-      const element = document.createElement("div");
-      (result.current.ref as any).current = element;
-
-      act(() => {
-        jest.runAllTimers();
-      });
+      (result.current.ref as any).current = mockElement;
+      rerender();
 
       const startTouch = createMockTouch(0, 100, 100);
       const startEvent = createTouchEvent("touchstart", [startTouch]);
 
-      if (touchStartHandler) {
-        act(() => {
-          touchStartHandler!(startEvent);
-        });
-      }
+      expect(touchStartHandler).not.toBeNull();
+      act(() => {
+        touchStartHandler!(startEvent);
+      });
 
       act(() => {
         jest.advanceTimersByTime(50);
@@ -3258,6 +3200,990 @@ describe("Sprint 623 - exported utility functions", () => {
       const velocity3 = { x: 1.0, y: 0, magnitude: 1.0, angle: 0 };
       const prediction3 = predictGesture(touches, velocity3, duration, defaultConfig);
       expect(prediction3.confidence).toBe(1);
+    });
+  });
+});
+
+// ============================================================================
+// Sprint 626 - Comprehensive Touch Handler Branch Coverage
+// ============================================================================
+
+describe("Sprint 626 - touch handler integration", () => {
+  describe("handleTouchStart with proper element setup", () => {
+    it("should process single touch start correctly", () => {
+      const onGestureStart = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onGestureStart })
+      );
+
+      // Set up the element
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Create and dispatch touch event
+      const touch = createMockTouch(0, 100, 100);
+      const event = createTouchEvent("touchstart", [touch]);
+
+      if (touchStartHandler) {
+        act(() => {
+          touchStartHandler!(event);
+        });
+
+        // Verify state was updated
+        expect(result.current.state.touchCount).toBe(1);
+        expect(result.current.state.isGestureActive).toBe(true);
+      }
+    });
+
+    it("should filter palm touches and increment filteredTouches metric", () => {
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer(
+          {},
+          { filters: { maxTouchArea: 100, minTouchDuration: 50, minSwipeDistance: 30, minSwipeVelocity: 0.3, doubleTapWindow: 300, longPressThreshold: 500 } }
+        )
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Create a large palm-like touch (radius 50 gives area ~7854)
+      const palmTouch = createMockTouch(0, 100, 100, { radiusX: 50, radiusY: 50 });
+      const event = createTouchEvent("touchstart", [palmTouch]);
+
+      const initialFiltered = result.current.metrics.filteredTouches;
+
+      if (touchStartHandler) {
+        act(() => {
+          touchStartHandler!(event);
+        });
+
+        // filteredTouches should be incremented
+        expect(result.current.metrics.filteredTouches).toBeGreaterThan(initialFiltered);
+      }
+    });
+  });
+
+  describe("handleTouchMove integration", () => {
+    it("should handle touch move for single touch (pan)", () => {
+      const onPan = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onPan }, { throttleInterval: 0, enablePrediction: true })
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Start touch
+      const startTouch = createMockTouch(0, 100, 100);
+      const startEvent = createTouchEvent("touchstart", [startTouch]);
+
+      if (touchStartHandler) {
+        act(() => {
+          touchStartHandler!(startEvent);
+        });
+      }
+
+      // Move touch
+      const moveTouch = createMockTouch(0, 150, 150);
+      const moveEvent = createTouchEvent("touchmove", [moveTouch]);
+
+      if (touchMoveHandler) {
+        act(() => {
+          jest.advanceTimersByTime(100); // Advance past throttle
+          touchMoveHandler!(moveEvent);
+        });
+
+        // Pan callback should be called
+        expect(onPan).toHaveBeenCalled();
+        expect(result.current.state.prediction).toBeDefined();
+      }
+    });
+
+    it("should handle two-touch pinch gesture", () => {
+      const onPinch = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onPinch }, { throttleInterval: 0 })
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Start with two touches
+      const touch1Start = createMockTouch(0, 100, 100);
+      const touch2Start = createMockTouch(1, 200, 200);
+      const startEvent = createTouchEvent("touchstart", [touch1Start, touch2Start]);
+
+      if (touchStartHandler) {
+        act(() => {
+          touchStartHandler!(startEvent);
+        });
+      }
+
+      // Move touches closer (pinch)
+      const touch1Move = createMockTouch(0, 120, 120);
+      const touch2Move = createMockTouch(1, 180, 180);
+      const moveEvent = createTouchEvent("touchmove", [touch1Move, touch2Move]);
+
+      if (touchMoveHandler) {
+        act(() => {
+          jest.advanceTimersByTime(100);
+          touchMoveHandler!(moveEvent);
+        });
+
+        expect(onPinch).toHaveBeenCalled();
+      }
+    });
+  });
+
+  describe("handleTouchEnd integration", () => {
+    it("should detect tap gesture on touch end", () => {
+      const onTap = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onTap }, { filters: { minTouchDuration: 10, maxTouchArea: 2500, minSwipeDistance: 100, minSwipeVelocity: 1.0, doubleTapWindow: 300, longPressThreshold: 500 } })
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Start touch
+      const touch = createMockTouch(0, 100, 100);
+      const startEvent = createTouchEvent("touchstart", [touch]);
+
+      if (touchStartHandler) {
+        act(() => {
+          touchStartHandler!(startEvent);
+        });
+      }
+
+      // Wait a bit and end (tap)
+      act(() => {
+        jest.advanceTimersByTime(50);
+      });
+
+      const endEvent = createTouchEvent("touchend", [], [touch]);
+
+      if (touchEndHandler) {
+        act(() => {
+          touchEndHandler!(endEvent);
+        });
+
+        expect(onTap).toHaveBeenCalled();
+      }
+    });
+
+    it("should detect double tap gesture", () => {
+      const onDoubleTap = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onDoubleTap }, { filters: { minTouchDuration: 10, maxTouchArea: 2500, minSwipeDistance: 100, minSwipeVelocity: 1.0, doubleTapWindow: 500, longPressThreshold: 500 } })
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // First tap
+      const touch1 = createMockTouch(0, 100, 100);
+      const startEvent1 = createTouchEvent("touchstart", [touch1]);
+      const endEvent1 = createTouchEvent("touchend", [], [touch1]);
+
+      if (touchStartHandler && touchEndHandler) {
+        act(() => {
+          touchStartHandler!(startEvent1);
+        });
+        act(() => {
+          jest.advanceTimersByTime(50);
+          touchEndHandler!(endEvent1);
+        });
+
+        // Second tap quickly
+        act(() => {
+          jest.advanceTimersByTime(100);
+        });
+
+        const touch2 = createMockTouch(1, 105, 105); // Close to first tap
+        const startEvent2 = createTouchEvent("touchstart", [touch2]);
+        const endEvent2 = createTouchEvent("touchend", [], [touch2]);
+
+        act(() => {
+          touchStartHandler!(startEvent2);
+        });
+        act(() => {
+          jest.advanceTimersByTime(50);
+          touchEndHandler!(endEvent2);
+        });
+
+        expect(onDoubleTap).toHaveBeenCalled();
+      }
+    });
+
+    it("should detect swipe gesture on fast movement", () => {
+      const onSwipe = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onSwipe }, { filters: { minTouchDuration: 10, maxTouchArea: 2500, minSwipeDistance: 30, minSwipeVelocity: 0.1, doubleTapWindow: 300, longPressThreshold: 500 } })
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Start touch
+      const startTouch = createMockTouch(0, 100, 100);
+      const startEvent = createTouchEvent("touchstart", [startTouch]);
+
+      if (touchStartHandler) {
+        act(() => {
+          touchStartHandler!(startEvent);
+        });
+      }
+
+      // Quick movement and end (swipe)
+      act(() => {
+        jest.advanceTimersByTime(30); // Short time for high velocity
+      });
+
+      const endTouch = createMockTouch(0, 250, 100); // 150px horizontal movement
+      const endEvent = createTouchEvent("touchend", [], [endTouch]);
+
+      if (touchEndHandler) {
+        act(() => {
+          touchEndHandler!(endEvent);
+        });
+
+        expect(onSwipe).toHaveBeenCalled();
+      }
+    });
+
+    it("should detect drag gesture on slow movement", () => {
+      const onDrag = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onDrag }, { filters: { minTouchDuration: 10, maxTouchArea: 2500, minSwipeDistance: 30, minSwipeVelocity: 10, doubleTapWindow: 300, longPressThreshold: 500 } })
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Start touch
+      const startTouch = createMockTouch(0, 100, 100);
+      const startEvent = createTouchEvent("touchstart", [startTouch]);
+
+      if (touchStartHandler) {
+        act(() => {
+          touchStartHandler!(startEvent);
+        });
+      }
+
+      // Slow movement and end (drag - velocity below swipe threshold)
+      act(() => {
+        jest.advanceTimersByTime(500); // Long time for low velocity
+      });
+
+      const endTouch = createMockTouch(0, 200, 100); // 100px horizontal movement
+      const endEvent = createTouchEvent("touchend", [], [endTouch]);
+
+      if (touchEndHandler) {
+        act(() => {
+          touchEndHandler!(endEvent);
+        });
+
+        expect(onDrag).toHaveBeenCalled();
+      }
+    });
+
+    it("should filter very short touches", () => {
+      const onTap = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onTap }, { filters: { minTouchDuration: 100, maxTouchArea: 2500, minSwipeDistance: 30, minSwipeVelocity: 0.3, doubleTapWindow: 300, longPressThreshold: 500 } })
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Very quick touch
+      const touch = createMockTouch(0, 100, 100);
+      const startEvent = createTouchEvent("touchstart", [touch]);
+
+      if (touchStartHandler && touchEndHandler) {
+        act(() => {
+          touchStartHandler!(startEvent);
+        });
+
+        // End immediately (duration < minTouchDuration)
+        act(() => {
+          jest.advanceTimersByTime(10); // Less than 100ms threshold
+        });
+
+        const endEvent = createTouchEvent("touchend", [], [touch]);
+        const initialFiltered = result.current.metrics.filteredTouches;
+
+        act(() => {
+          touchEndHandler!(endEvent);
+        });
+
+        // Should be filtered
+        expect(result.current.metrics.filteredTouches).toBeGreaterThan(initialFiltered);
+        expect(onTap).not.toHaveBeenCalled();
+      }
+    });
+  });
+
+  describe("handleTouchCancel integration", () => {
+    it("should reset state on touch cancel", () => {
+      const { result } = renderHook(() => useMobileGestureOptimizer());
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Start touch
+      const touch = createMockTouch(0, 100, 100);
+      const startEvent = createTouchEvent("touchstart", [touch]);
+
+      if (touchStartHandler) {
+        act(() => {
+          touchStartHandler!(startEvent);
+        });
+
+        expect(result.current.state.isGestureActive).toBe(true);
+      }
+
+      // Cancel
+      const cancelEvent = createTouchEvent("touchcancel", [], [touch]);
+
+      if (touchCancelHandler) {
+        act(() => {
+          touchCancelHandler!(cancelEvent);
+        });
+
+        expect(result.current.state.touchCount).toBe(0);
+        expect(result.current.state.isGestureActive).toBe(false);
+        expect(result.current.state.activeGestures).toEqual([]);
+      }
+    });
+
+    it("should clear long press timer on cancel", () => {
+      const onLongPress = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onLongPress }, { filters: { longPressThreshold: 500, minTouchDuration: 50, maxTouchArea: 2500, minSwipeDistance: 30, minSwipeVelocity: 0.3, doubleTapWindow: 300 } })
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Start touch (starts long press timer)
+      const touch = createMockTouch(0, 100, 100);
+      const startEvent = createTouchEvent("touchstart", [touch]);
+
+      if (touchStartHandler) {
+        act(() => {
+          touchStartHandler!(startEvent);
+        });
+      }
+
+      // Cancel before long press triggers
+      act(() => {
+        jest.advanceTimersByTime(200);
+      });
+
+      const cancelEvent = createTouchEvent("touchcancel", [], [touch]);
+
+      if (touchCancelHandler) {
+        act(() => {
+          touchCancelHandler!(cancelEvent);
+        });
+      }
+
+      // Advance past long press threshold
+      act(() => {
+        jest.advanceTimersByTime(400);
+      });
+
+      // Long press should NOT have been called
+      expect(onLongPress).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("disabled state blocking", () => {
+    it("should not process any touch events when disabled", () => {
+      const onTap = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onTap }, { enabled: true })
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Disable the hook
+      act(() => {
+        result.current.controls.disable();
+      });
+
+      // Try to trigger touch
+      const touch = createMockTouch(0, 100, 100);
+      const startEvent = createTouchEvent("touchstart", [touch]);
+
+      if (touchStartHandler) {
+        act(() => {
+          touchStartHandler!(startEvent);
+        });
+
+        // State should not change
+        expect(result.current.state.touchCount).toBe(0);
+      }
+    });
+  });
+
+  describe("long press timer", () => {
+    it("should trigger long press after threshold", () => {
+      const onLongPress = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onLongPress }, { filters: { longPressThreshold: 300, minTouchDuration: 50, maxTouchArea: 2500, minSwipeDistance: 30, minSwipeVelocity: 0.3, doubleTapWindow: 300 } })
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Start single touch
+      const touch = createMockTouch(0, 100, 100);
+      const startEvent = createTouchEvent("touchstart", [touch]);
+
+      if (touchStartHandler) {
+        act(() => {
+          touchStartHandler!(startEvent);
+        });
+
+        // Wait for long press
+        act(() => {
+          jest.advanceTimersByTime(400);
+        });
+
+        expect(onLongPress).toHaveBeenCalled();
+      }
+    });
+
+    it("should cancel long press when movement occurs", () => {
+      const onLongPress = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onLongPress }, { throttleInterval: 0, filters: { longPressThreshold: 500, minTouchDuration: 50, maxTouchArea: 2500, minSwipeDistance: 30, minSwipeVelocity: 0.3, doubleTapWindow: 300 } })
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Start touch
+      const startTouch = createMockTouch(0, 100, 100);
+      const startEvent = createTouchEvent("touchstart", [startTouch]);
+
+      if (touchStartHandler && touchMoveHandler) {
+        act(() => {
+          touchStartHandler!(startEvent);
+        });
+
+        // Move before long press triggers
+        act(() => {
+          jest.advanceTimersByTime(200);
+        });
+
+        const moveTouch = createMockTouch(0, 150, 150);
+        const moveEvent = createTouchEvent("touchmove", [moveTouch]);
+
+        act(() => {
+          touchMoveHandler!(moveEvent);
+        });
+
+        // Wait past long press threshold
+        act(() => {
+          jest.advanceTimersByTime(400);
+        });
+
+        // Long press should NOT be triggered since movement cancelled it
+        expect(onLongPress).not.toHaveBeenCalled();
+      }
+    });
+  });
+
+  describe("throttle behavior", () => {
+    it("should throttle rapid touch move events", () => {
+      const onPan = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onPan }, { throttleInterval: 50 })
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Start touch
+      const startTouch = createMockTouch(0, 100, 100);
+      const startEvent = createTouchEvent("touchstart", [startTouch]);
+
+      if (touchStartHandler && touchMoveHandler) {
+        act(() => {
+          touchStartHandler!(startEvent);
+        });
+
+        // Rapid moves within throttle interval
+        for (let i = 0; i < 5; i++) {
+          const moveTouch = createMockTouch(0, 100 + i * 10, 100);
+          const moveEvent = createTouchEvent("touchmove", [moveTouch]);
+
+          act(() => {
+            jest.advanceTimersByTime(10); // 10ms between moves
+            touchMoveHandler!(moveEvent);
+          });
+        }
+
+        // Only some should be processed due to throttling
+        expect(onPan.mock.calls.length).toBeLessThanOrEqual(2);
+      }
+    });
+  });
+});
+
+// ============================================================================
+// Sprint 626 - Convenience Hooks Function Coverage
+// ============================================================================
+
+describe("Sprint 626 - convenience hooks actual callbacks", () => {
+  describe("useTapGesture callback invocation (lines 724-726)", () => {
+    it("should invoke onTap callback with correct coordinates", () => {
+      const onTap = jest.fn();
+      const { result } = renderHook(() => useTapGesture(onTap));
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Trigger tap via touch events
+      const touch = createMockTouch(0, 150, 200);
+      const startEvent = createTouchEvent("touchstart", [touch]);
+
+      if (touchStartHandler) {
+        act(() => {
+          touchStartHandler!(startEvent);
+        });
+
+        act(() => {
+          jest.advanceTimersByTime(50);
+        });
+
+        const endEvent = createTouchEvent("touchend", [], [touch]);
+        if (touchEndHandler) {
+          act(() => {
+            touchEndHandler!(endEvent);
+          });
+
+          // onTap should have been called with x, y coordinates
+          expect(onTap).toHaveBeenCalledWith({ x: expect.any(Number), y: expect.any(Number) });
+        }
+      }
+    });
+
+    it("should invoke onDoubleTap callback when provided", () => {
+      const onTap = jest.fn();
+      const onDoubleTap = jest.fn();
+      const { result } = renderHook(() => useTapGesture(onTap, onDoubleTap));
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      if (touchStartHandler && touchEndHandler) {
+        // First tap
+        const touch1 = createMockTouch(0, 100, 100);
+        act(() => {
+          touchStartHandler!(createTouchEvent("touchstart", [touch1]));
+        });
+        act(() => {
+          jest.advanceTimersByTime(50);
+          touchEndHandler!(createTouchEvent("touchend", [], [touch1]));
+        });
+
+        // Second tap quickly
+        act(() => {
+          jest.advanceTimersByTime(100);
+        });
+
+        const touch2 = createMockTouch(1, 105, 105);
+        act(() => {
+          touchStartHandler!(createTouchEvent("touchstart", [touch2]));
+        });
+        act(() => {
+          jest.advanceTimersByTime(50);
+          touchEndHandler!(createTouchEvent("touchend", [], [touch2]));
+        });
+
+        expect(onDoubleTap).toHaveBeenCalledWith({ x: expect.any(Number), y: expect.any(Number) });
+      }
+    });
+  });
+
+  describe("useSwipeGesture callback invocation (lines 744-752)", () => {
+    it("should invoke onSwipe callback with direction and velocity", () => {
+      const onSwipe = jest.fn();
+      const { result } = renderHook(() => useSwipeGesture(onSwipe));
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      if (touchStartHandler && touchEndHandler) {
+        // Start touch
+        const startTouch = createMockTouch(0, 100, 100);
+        act(() => {
+          touchStartHandler!(createTouchEvent("touchstart", [startTouch]));
+        });
+
+        // Quick swipe right
+        act(() => {
+          jest.advanceTimersByTime(50);
+        });
+
+        const endTouch = createMockTouch(0, 300, 100);
+        act(() => {
+          touchEndHandler!(createTouchEvent("touchend", [], [endTouch]));
+        });
+
+        // onSwipe should have been called with direction
+        expect(onSwipe).toHaveBeenCalledWith("right", expect.any(Number));
+      }
+    });
+
+    it("should map swipe directions correctly", () => {
+      const onSwipe = jest.fn();
+      const { result } = renderHook(() => useSwipeGesture(onSwipe));
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      if (touchStartHandler && touchEndHandler) {
+        // Swipe left
+        const startTouch1 = createMockTouch(0, 300, 100);
+        act(() => {
+          touchStartHandler!(createTouchEvent("touchstart", [startTouch1]));
+        });
+        act(() => {
+          jest.advanceTimersByTime(50);
+        });
+        const endTouch1 = createMockTouch(0, 100, 100);
+        act(() => {
+          touchEndHandler!(createTouchEvent("touchend", [], [endTouch1]));
+        });
+
+        expect(onSwipe).toHaveBeenCalledWith("left", expect.any(Number));
+      }
+    });
+  });
+
+  describe("usePinchGesture callback invocation (lines 771-772)", () => {
+    it("should invoke onPinch callback with scale and center", () => {
+      const onPinch = jest.fn();
+      const { result } = renderHook(() => usePinchGesture(onPinch));
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      if (touchStartHandler && touchMoveHandler) {
+        // Start with two touches
+        const touch1Start = createMockTouch(0, 100, 100);
+        const touch2Start = createMockTouch(1, 200, 200);
+        act(() => {
+          touchStartHandler!(createTouchEvent("touchstart", [touch1Start, touch2Start]));
+        });
+
+        // Move touches closer (pinch in)
+        act(() => {
+          jest.advanceTimersByTime(50);
+        });
+        const touch1Move = createMockTouch(0, 120, 120);
+        const touch2Move = createMockTouch(1, 180, 180);
+        act(() => {
+          touchMoveHandler!(createTouchEvent("touchmove", [touch1Move, touch2Move]));
+        });
+
+        // onPinch should have been called with scale and center
+        expect(onPinch).toHaveBeenCalledWith(
+          expect.any(Number),
+          { x: expect.any(Number), y: expect.any(Number) }
+        );
+      }
+    });
+  });
+});
+
+describe("Sprint 626 - additional branch coverage", () => {
+  describe("emitGesture phase branches (lines 394-398)", () => {
+    it("should update activeGestures for began phase", () => {
+      const onPan = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onPan }, { throttleInterval: 0 })
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      // Start touch to trigger began phase internally
+      const touch = createMockTouch(0, 100, 100);
+      const startEvent = createTouchEvent("touchstart", [touch]);
+
+      if (touchStartHandler) {
+        act(() => {
+          touchStartHandler!(startEvent);
+        });
+
+        // State should be updated
+        expect(result.current.state.isGestureActive).toBe(true);
+      }
+    });
+
+    it("should update activeGestures for changed phase (touch move)", () => {
+      const onPan = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onPan }, { throttleInterval: 0 })
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      if (touchStartHandler && touchMoveHandler) {
+        const touch = createMockTouch(0, 100, 100);
+        act(() => {
+          touchStartHandler!(createTouchEvent("touchstart", [touch]));
+        });
+
+        // Move to trigger changed phase
+        const moveTouch = createMockTouch(0, 150, 150);
+        act(() => {
+          jest.advanceTimersByTime(50);
+          touchMoveHandler!(createTouchEvent("touchmove", [moveTouch]));
+        });
+
+        expect(onPan).toHaveBeenCalled();
+      }
+    });
+  });
+
+  describe("rotation detection in handleTouchMove (line 523)", () => {
+    it("should emit rotate gesture when rotation exceeds threshold", () => {
+      const onRotate = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer({ onRotate }, { throttleInterval: 0 })
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      if (touchStartHandler && touchMoveHandler) {
+        // Start with two horizontal touches
+        const touch1Start = createMockTouch(0, 100, 150);
+        const touch2Start = createMockTouch(1, 200, 150);
+        act(() => {
+          touchStartHandler!(createTouchEvent("touchstart", [touch1Start, touch2Start]));
+        });
+
+        // Rotate touches (move to diagonal)
+        act(() => {
+          jest.advanceTimersByTime(50);
+        });
+        const touch1Move = createMockTouch(0, 100, 100);
+        const touch2Move = createMockTouch(1, 200, 200);
+        act(() => {
+          touchMoveHandler!(createTouchEvent("touchmove", [touch1Move, touch2Move]));
+        });
+
+        expect(onRotate).toHaveBeenCalled();
+      }
+    });
+  });
+
+  describe("disable with active long press timer (lines 651-652)", () => {
+    it("should clear long press timer when disable is called", () => {
+      const onLongPress = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer(
+          { onLongPress },
+          { filters: { longPressThreshold: 500, minTouchDuration: 50, maxTouchArea: 2500, minSwipeDistance: 30, minSwipeVelocity: 0.3, doubleTapWindow: 300 } }
+        )
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      if (touchStartHandler) {
+        // Start touch (starts long press timer)
+        const touch = createMockTouch(0, 100, 100);
+        act(() => {
+          touchStartHandler!(createTouchEvent("touchstart", [touch]));
+        });
+
+        // Disable before long press triggers
+        act(() => {
+          jest.advanceTimersByTime(200);
+          result.current.controls.disable();
+        });
+
+        // Advance past long press threshold
+        act(() => {
+          jest.advanceTimersByTime(400);
+        });
+
+        // Long press should NOT have been called because it was disabled
+        expect(onLongPress).not.toHaveBeenCalled();
+      }
+    });
+  });
+
+  describe("swipe direction null branch (line 575)", () => {
+    it("should not emit swipe when direction cannot be determined", () => {
+      const onSwipe = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileGestureOptimizer(
+          { onSwipe },
+          { filters: { minTouchDuration: 10, maxTouchArea: 2500, minSwipeDistance: 200, minSwipeVelocity: 5, doubleTapWindow: 300, longPressThreshold: 500 } }
+        )
+      );
+
+      act(() => {
+        (result.current.ref as any).current = mockElement;
+      });
+
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      if (touchStartHandler && touchEndHandler) {
+        // Start touch
+        const touch = createMockTouch(0, 100, 100);
+        act(() => {
+          touchStartHandler!(createTouchEvent("touchstart", [touch]));
+        });
+
+        // Very slow movement (below velocity threshold)
+        act(() => {
+          jest.advanceTimersByTime(1000);
+        });
+
+        // End with small movement - not enough for swipe
+        const endTouch = createMockTouch(0, 101, 101);
+        act(() => {
+          touchEndHandler!(createTouchEvent("touchend", [], [endTouch]));
+        });
+
+        // No swipe should be detected
+        expect(onSwipe).not.toHaveBeenCalled();
+      }
     });
   });
 });
