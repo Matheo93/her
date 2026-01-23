@@ -408,11 +408,16 @@ export function useVisualFeedbackAccelerator(
     // Merge all updates
     let merged: Partial<AcceleratedStyle> = {};
     for (const batch of queue) {
+      const mergedTransform = merged.transform ?? {} as Partial<TransformState>;
+      const batchTransform = batch.updates.transform ?? {} as Partial<TransformState>;
+      const mergedFilter = merged.filter ?? {};
+      const batchFilter = batch.updates.filter ?? {};
+
       merged = {
         ...merged,
         ...batch.updates,
-        transform: { ...merged.transform, ...batch.updates.transform },
-        filter: { ...merged.filter, ...batch.updates.filter },
+        transform: { ...mergedTransform, ...batchTransform } as TransformState,
+        filter: { ...mergedFilter, ...batchFilter } as AcceleratedStyle["filter"],
         customVars: { ...merged.customVars, ...batch.updates.customVars },
       };
     }

@@ -1,12 +1,34 @@
 ---
 active: true
-iteration: 5
+iteration: 6
 max_iterations: 0
 completion_promise: null
 started_at: "2026-01-23T19:22:17Z"
 ---
 
-Sprint 529 Ameliore avatar UX latence mobile. Code teste valide. Boucle infinie.
+Sprint 527 Ameliore avatar UX latence mobile. Code teste valide. Boucle infinie.
+
+## Sprint 527 - Iteration 6 ✅
+
+### This Iteration:
+- Fixed Jest/Babel type import compatibility (removed `type` keyword from imports)
+- Fixed `setTargetFps` in useAdaptiveFramePacing to update metrics.targetFps
+- Added new hooks for mobile latency optimization
+
+#### Key Hooks Created/Fixed:
+- useNetworkLatencyAdapter - Network-aware avatar adaptation with RTT measurement
+- useTouchToVisualBridge - Touch-to-visual latency bridge with prediction
+- useTouchLatencyReducer - Optimized touch response with batching
+- useVisualFeedbackAccelerator - Instant visual response
+- useAdaptiveFramePacing - Dynamic frame rate targeting (30/60/90/120 Hz)
+
+### Test Results:
+- 30 test files ✅
+- 940 total tests passing ✅
+- TypeScript: No errors ✅
+- Jest config fixed for ts-jest compatibility ✅
+
+---
 
 ## Sprint 529 - Iteration 5 ✅
 

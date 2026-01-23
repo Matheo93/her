@@ -61,7 +61,7 @@ describe("useInputLatencyReducer", () => {
     it("should initialize with default latency stats", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       expect(result.current.state.latencyStats).toEqual({
@@ -77,7 +77,7 @@ describe("useInputLatencyReducer", () => {
     it("should initialize metrics", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       expect(result.current.metrics.optimisticUpdates).toBe(0);
@@ -96,7 +96,7 @@ describe("useInputLatencyReducer", () => {
         predictionEnabled: false,
       };
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit, config)
+        useInputLatencyReducer<string>("initial", onCommit, config)
       );
 
       expect(result.current.state.currentValue).toBe("initial");
@@ -105,7 +105,7 @@ describe("useInputLatencyReducer", () => {
     it("should work with different value types", () => {
       const onCommit = jest.fn().mockResolvedValue({ name: "updated" });
       const { result } = renderHook(() =>
-        useInputLatencyReducer({ name: "initial" }, onCommit)
+        useInputLatencyReducer<{ name: string }>({ name: "initial" }, onCommit)
       );
 
       expect(result.current.state.currentValue).toEqual({ name: "initial" });
@@ -120,7 +120,7 @@ describe("useInputLatencyReducer", () => {
     it("should set value optimistically", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       act(() => {
@@ -136,7 +136,7 @@ describe("useInputLatencyReducer", () => {
     it("should track optimistic updates in metrics", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       act(() => {
@@ -155,7 +155,7 @@ describe("useInputLatencyReducer", () => {
     it("should add pending update", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       act(() => {
@@ -175,7 +175,7 @@ describe("useInputLatencyReducer", () => {
     it("should not be optimistic when optimisticEnabled is false", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit, { optimisticEnabled: false })
+        useInputLatencyReducer<string>("initial", onCommit, { optimisticEnabled: false })
       );
 
       act(() => {
@@ -190,7 +190,7 @@ describe("useInputLatencyReducer", () => {
     it("should update directly when disabled", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit, { enabled: false })
+        useInputLatencyReducer<string>("initial", onCommit, { enabled: false })
       );
 
       act(() => {
@@ -205,7 +205,7 @@ describe("useInputLatencyReducer", () => {
     it("should trigger batch when commit is true", async () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit, { batchDelayMs: 100 })
+        useInputLatencyReducer<string>("initial", onCommit, { batchDelayMs: 100 })
       );
 
       act(() => {
@@ -237,7 +237,7 @@ describe("useInputLatencyReducer", () => {
         return "committed-result";
       });
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       act(() => {
@@ -258,7 +258,7 @@ describe("useInputLatencyReducer", () => {
     it("should update pending updates status to confirmed", async () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       act(() => {
@@ -278,7 +278,7 @@ describe("useInputLatencyReducer", () => {
     it("should rollback on commit failure", async () => {
       const onCommit = jest.fn().mockRejectedValue(new Error("Commit failed"));
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       act(() => {
@@ -302,7 +302,7 @@ describe("useInputLatencyReducer", () => {
     it("should mark pending updates as failed on commit failure", async () => {
       const onCommit = jest.fn().mockRejectedValue(new Error("Commit failed"));
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       act(() => {
@@ -330,7 +330,7 @@ describe("useInputLatencyReducer", () => {
       });
 
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       act(() => {
@@ -354,7 +354,7 @@ describe("useInputLatencyReducer", () => {
     it("should rollback to current value", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       act(() => {
@@ -374,7 +374,7 @@ describe("useInputLatencyReducer", () => {
     it("should increment rollbacks metric", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       act(() => {
@@ -391,7 +391,7 @@ describe("useInputLatencyReducer", () => {
     it("should mark pending updates as rolled_back", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       act(() => {
@@ -412,7 +412,7 @@ describe("useInputLatencyReducer", () => {
     it("should auto-rollback after timeout", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit, { rollbackDelayMs: 1000 })
+        useInputLatencyReducer<string>("initial", onCommit, { rollbackDelayMs: 1000 })
       );
 
       act(() => {
@@ -434,7 +434,7 @@ describe("useInputLatencyReducer", () => {
     it("should clear rollback timer on manual rollback", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit, { rollbackDelayMs: 5000 })
+        useInputLatencyReducer<string>("initial", onCommit, { rollbackDelayMs: 5000 })
       );
 
       act(() => {
@@ -467,7 +467,7 @@ describe("useInputLatencyReducer", () => {
     it("should return predictions for partial input", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("", onCommit)
+        useInputLatencyReducer<string>("", onCommit)
       );
 
       let predictions: PredictedInput[] = [];
@@ -483,7 +483,7 @@ describe("useInputLatencyReducer", () => {
     it("should not return predictions for short input", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("", onCommit)
+        useInputLatencyReducer<string>("", onCommit)
       );
 
       let predictions: PredictedInput[] = [];
@@ -497,7 +497,7 @@ describe("useInputLatencyReducer", () => {
     it("should not return predictions when disabled", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("", onCommit, { predictionEnabled: false })
+        useInputLatencyReducer<string>("", onCommit, { predictionEnabled: false })
       );
 
       let predictions: PredictedInput[] = [];
@@ -511,7 +511,7 @@ describe("useInputLatencyReducer", () => {
     it("should update state.predictions", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("", onCommit)
+        useInputLatencyReducer<string>("", onCommit)
       );
 
       act(() => {
@@ -524,7 +524,7 @@ describe("useInputLatencyReducer", () => {
     it("should sort predictions by confidence", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("", onCommit)
+        useInputLatencyReducer<string>("", onCommit)
       );
 
       let predictions: PredictedInput[] = [];
@@ -542,7 +542,7 @@ describe("useInputLatencyReducer", () => {
     it("should return max 5 predictions", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("", onCommit)
+        useInputLatencyReducer<string>("", onCommit)
       );
 
       let predictions: PredictedInput[] = [];
@@ -562,7 +562,7 @@ describe("useInputLatencyReducer", () => {
     it("should accept prediction above confidence threshold", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("", onCommit, {
+        useInputLatencyReducer<string>("", onCommit, {
           predictionConfidenceThreshold: 0.5,
         })
       );
@@ -584,7 +584,7 @@ describe("useInputLatencyReducer", () => {
     it("should not accept prediction below confidence threshold", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit, {
+        useInputLatencyReducer<string>("initial", onCommit, {
           predictionConfidenceThreshold: 0.8,
         })
       );
@@ -612,7 +612,7 @@ describe("useInputLatencyReducer", () => {
     it("should batch multiple setValue calls with commit=true", async () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit, {
+        useInputLatencyReducer<string>("initial", onCommit, {
           batchDelayMs: 100,
           batchingEnabled: true,
         })
@@ -645,7 +645,7 @@ describe("useInputLatencyReducer", () => {
       });
 
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit, {
+        useInputLatencyReducer<string>("initial", onCommit, {
           batchDelayMs: 50,
           maxBatchSize: 2,
           batchingEnabled: true,
@@ -681,7 +681,7 @@ describe("useInputLatencyReducer", () => {
       const onCommit = jest.fn().mockRejectedValue(new Error("Batch failed"));
 
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit, {
+        useInputLatencyReducer<string>("initial", onCommit, {
           batchDelayMs: 50,
           batchingEnabled: true,
         })
@@ -705,7 +705,7 @@ describe("useInputLatencyReducer", () => {
     it("should not batch when batchingEnabled is false", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit, {
+        useInputLatencyReducer<string>("initial", onCommit, {
           batchingEnabled: false,
         })
       );
@@ -732,7 +732,7 @@ describe("useInputLatencyReducer", () => {
     it("should measure latency with measureLatency", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       const startTime = mockTime;
@@ -749,7 +749,7 @@ describe("useInputLatencyReducer", () => {
     it("should calculate average latency", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       // Add multiple latency samples
@@ -778,7 +778,7 @@ describe("useInputLatencyReducer", () => {
     it("should calculate p50 and p95 percentiles", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       // Add 10 samples
@@ -799,7 +799,7 @@ describe("useInputLatencyReducer", () => {
     it("should detect improving trend", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       // Add declining latencies (improving)
@@ -819,7 +819,7 @@ describe("useInputLatencyReducer", () => {
     it("should detect degrading trend", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       // Add increasing latencies (degrading)
@@ -839,7 +839,7 @@ describe("useInputLatencyReducer", () => {
     it("should cap samples at 100", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       // Add 120 samples
@@ -857,7 +857,7 @@ describe("useInputLatencyReducer", () => {
     it("should set perceived latency to 0 when optimistic is enabled", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit, { optimisticEnabled: true })
+        useInputLatencyReducer<string>("initial", onCommit, { optimisticEnabled: true })
       );
 
       act(() => {
@@ -872,7 +872,7 @@ describe("useInputLatencyReducer", () => {
     it("should set perceived latency to average when optimistic is disabled", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit, { optimisticEnabled: false })
+        useInputLatencyReducer<string>("initial", onCommit, { optimisticEnabled: false })
       );
 
       act(() => {
@@ -893,7 +893,7 @@ describe("useInputLatencyReducer", () => {
     it("should reset to initial state", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       act(() => {
@@ -914,7 +914,7 @@ describe("useInputLatencyReducer", () => {
     it("should clear latency stats on reset", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit)
+        useInputLatencyReducer<string>("initial", onCommit)
       );
 
       act(() => {
@@ -937,7 +937,7 @@ describe("useInputLatencyReducer", () => {
     it("should clear pending batch queue on reset", async () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit, { batchDelayMs: 1000 })
+        useInputLatencyReducer<string>("initial", onCommit, { batchDelayMs: 1000 })
       );
 
       act(() => {
@@ -968,7 +968,7 @@ describe("useInputLatencyReducer", () => {
     it("should clear timers on unmount", () => {
       const onCommit = jest.fn().mockResolvedValue("committed");
       const { result, unmount } = renderHook(() =>
-        useInputLatencyReducer("initial", onCommit, { rollbackDelayMs: 5000 })
+        useInputLatencyReducer<string>("initial", onCommit, { rollbackDelayMs: 5000 })
       );
 
       act(() => {
@@ -1079,7 +1079,7 @@ describe("useAutoSaveInput", () => {
   it("should initialize with initial value", () => {
     const onSave = jest.fn().mockResolvedValue("saved");
     const { result } = renderHook(() =>
-      useAutoSaveInput("initial", onSave)
+      useAutoSaveInput<string>("initial", onSave)
     );
 
     expect(result.current.value).toBe("initial");
@@ -1090,7 +1090,7 @@ describe("useAutoSaveInput", () => {
   it("should auto-save after debounce delay", async () => {
     const onSave = jest.fn().mockResolvedValue("saved");
     const { result } = renderHook(() =>
-      useAutoSaveInput("initial", onSave, 500)
+      useAutoSaveInput<string>("initial", onSave, 500)
     );
 
     act(() => {
@@ -1111,7 +1111,7 @@ describe("useAutoSaveInput", () => {
   it("should debounce multiple setValue calls", async () => {
     const onSave = jest.fn().mockResolvedValue("saved");
     const { result } = renderHook(() =>
-      useAutoSaveInput("initial", onSave, 500)
+      useAutoSaveInput<string>("initial", onSave, 500)
     );
 
     act(() => {
