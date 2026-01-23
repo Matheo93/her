@@ -604,3 +604,56 @@ export {
   type BatteryOptimizerControls,
   type UseMobileBatteryOptimizerResult,
 } from "./useMobileBatteryOptimizer";
+
+// Avatar Breathing System (Sprint 1587)
+export {
+  useAvatarBreathingSystem,
+  useBreathingKeyframe,
+  useConversationBreathing,
+  type BreathingPattern as AvatarBreathingPattern,
+  type BreathingPhase,
+  type BreathingKeyframe,
+  type BreathingCycle,
+  type BreathingState,
+  type BreathingMetrics as AvatarBreathingMetrics,
+  type BreathingConfig as AvatarBreathingConfig,
+  type BreathingControls,
+  type UseAvatarBreathingSystemResult,
+} from "./useAvatarBreathingSystem";
+
+// Voice Activity Detector (Sprint 1587)
+export {
+  useVoiceActivityDetector,
+  useSpeechDetection,
+  useAudioLevels,
+  type VoiceActivityState,
+  type AudioQuality as VADAudioQuality,
+  type AudioLevels as VADAudioLevels,
+  type VoiceActivityEvent,
+  type SpeechSegment,
+  type NoiseProfile,
+  type VADState,
+  type VADMetrics,
+  type VADConfig,
+  type VADControls,
+  type UseVoiceActivityDetectorResult,
+} from "./useVoiceActivityDetector";
+
+// Mobile Thermal Manager (Sprint 1587)
+export {
+  useMobileThermalManager,
+  useThermalState,
+  useThermalAwareFeature,
+  type ThermalState,
+  type WorkloadType,
+  type ThermalTrend,
+  type ThermalReading,
+  type WorkloadProfile,
+  type ThermalBudget,
+  type CooldownPeriod,
+  type ThermalManagerState,
+  type ThermalMetrics,
+  type ThermalConfig,
+  type ThermalControls,
+  type UseMobileThermalManagerResult,
+} from "./useMobileThermalManager";
