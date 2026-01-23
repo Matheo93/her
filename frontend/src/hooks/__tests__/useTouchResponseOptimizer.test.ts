@@ -731,3 +731,186 @@ describe("useTouchVelocity", () => {
     expect(result.current).toBeNull();
   });
 });
+
+// ============================================================================
+// Sprint 621: Branch coverage improvements
+// ============================================================================
+
+describe("useTouchResponseOptimizer - branch coverage", () => {
+  describe("pointer event handling branches", () => {
+    it("should process pointer up event (line 473)", () => {
+      const { result } = renderHook(() => useTouchResponseOptimizer());
+
+      const pointerStart = createMockPointerEvent("pointerdown", {
+        pointerId: 42,
+        clientX: 100,
+        clientY: 100,
+      });
+
+      act(() => {
+        result.current.controls.processTouchStart(pointerStart);
+      });
+
+      expect(result.current.state.activeTouches).toHaveLength(1);
+
+      const pointerEnd = createMockPointerEvent("pointerup", {
+        pointerId: 42,
+        clientX: 100,
+        clientY: 100,
+      });
+
+      act(() => {
+        result.current.controls.processTouchEnd(pointerEnd);
+      });
+
+      expect(result.current.state.activeTouches).toHaveLength(0);
+    });
+
+    it("should handle pointer cancel event", () => {
+      const handler = jest.fn();
+      const { result } = renderHook(() => useTouchResponseOptimizer());
+
+      const wrappedHandler = result.current.controls.wrapTouchHandler(handler);
+
+      const pointerStart = createMockPointerEvent("pointerdown", {
+        pointerId: 1,
+        clientX: 100,
+        clientY: 100,
+      });
+
+      act(() => {
+        wrappedHandler(pointerStart);
+      });
+
+      const pointerCancel = createMockPointerEvent("pointercancel", {
+        pointerId: 1,
+        clientX: 100,
+        clientY: 100,
+      });
+
+      act(() => {
+        wrappedHandler(pointerCancel);
+      });
+
+      expect(result.current.state.activeTouches).toHaveLength(0);
+    });
+
+    it("should handle touch cancel event", () => {
+      const handler = jest.fn();
+      const { result } = renderHook(() => useTouchResponseOptimizer());
+
+      const wrappedHandler = result.current.controls.wrapTouchHandler(handler);
+
+      act(() => {
+        wrappedHandler(
+          createMockTouchEvent("touchstart", [{ identifier: 1, clientX: 100, clientY: 100 }])
+        );
+      });
+
+      act(() => {
+        wrappedHandler(
+          createMockTouchEvent("touchcancel", [{ identifier: 1, clientX: 100, clientY: 100 }])
+        );
+      });
+
+      expect(result.current.state.activeTouches).toHaveLength(0);
+    });
+  });
+
+  describe("coalesced events handling", () => {
+    it("should handle coalesced events with multiple items (lines 596-599)", () => {
+      const handler = jest.fn();
+      const { result } = renderHook(() =>
+        useTouchResponseOptimizer({ enableCoalescing: true })
+      );
+
+      const wrappedHandler = result.current.controls.wrapTouchHandler(handler);
+
+      const coalescedEvents = [
+        { clientX: 100, clientY: 100 },
+        { clientX: 110, clientY: 110 },
+        { clientX: 120, clientY: 120 },
+      ];
+
+      const pointerEvent = {
+        type: "pointermove",
+        pointerId: 1,
+        clientX: 120,
+        clientY: 120,
+        pressure: 0.5,
+        getCoalescedEvents: jest.fn().mockReturnValue(coalescedEvents),
+        preventDefault: jest.fn(),
+        stopPropagation: jest.fn(),
+      } as unknown as PointerEvent;
+
+      act(() => {
+        wrappedHandler(
+          createMockPointerEvent("pointerdown", {
+            pointerId: 1,
+            clientX: 100,
+            clientY: 100,
+          })
+        );
+      });
+
+      const initialCoalesced = result.current.metrics.coalescedEvents;
+
+      act(() => {
+        wrappedHandler(pointerEvent);
+      });
+
+      expect(result.current.metrics.coalescedEvents).toBeGreaterThan(initialCoalesced);
+    });
+  });
+
+  describe("velocity calculation edge cases", () => {
+    it("should handle zero time delta in velocity calculation", () => {
+      const { result } = renderHook(() => useTouchResponseOptimizer());
+
+      mockTime = 100;
+
+      act(() => {
+        result.current.controls.processTouchStart(
+          createMockTouchEvent("touchstart", [{ identifier: 1, clientX: 100, clientY: 100 }])
+        );
+      });
+
+      act(() => {
+        result.current.controls.processTouchMove(
+          createMockTouchEvent("touchmove", [{ identifier: 1, clientX: 200, clientY: 200 }])
+        );
+      });
+
+      const touch = result.current.state.activeTouches[0];
+      expect(touch.velocityX).toBe(0);
+      expect(touch.velocityY).toBe(0);
+    });
+  });
+
+  describe("prioritization disabled path", () => {
+    it("should not drop events when prioritization is disabled", () => {
+      const handler = jest.fn();
+      const { result } = renderHook(() =>
+        useTouchResponseOptimizer({
+          enablePrioritization: false,
+          dropLowPriority: true,
+        })
+      );
+
+      act(() => {
+        result.current.controls.setPriority("critical");
+      });
+
+      const wrappedHandler = result.current.controls.wrapTouchHandler(handler, "deferred");
+
+      act(() => {
+        wrappedHandler(
+          createMockTouchEvent("touchstart", [{ identifier: 1, clientX: 100, clientY: 100 }])
+        );
+      });
+
+      expect(handler).toHaveBeenCalled();
+      expect(result.current.metrics.droppedLowPriority).toBe(0);
+    });
+  });
+});
