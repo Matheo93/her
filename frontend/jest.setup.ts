@@ -34,10 +34,11 @@ const mockWebGLContext = {
   deleteProgram: jest.fn(),
 };
 
-// Store original getContext
-const originalGetContext = HTMLCanvasElement.prototype.getContext;
+// Store original getContext - use any to handle overloaded signatures
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const originalGetContext = HTMLCanvasElement.prototype.getContext as any;
 
-// Mock canvas getContext with proper typing - use any to avoid complex overload matching
+// Mock canvas getContext with proper typing
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (HTMLCanvasElement.prototype as any).getContext = function(
   contextId: string,

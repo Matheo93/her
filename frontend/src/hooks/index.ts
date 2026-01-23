@@ -331,7 +331,7 @@ export {
   useMobileAudioProcessingConfig,
   useOptimizedAudioConstraints,
   type AudioQuality,
-  type ConnectionQuality,
+  type ConnectionQuality as AudioConnectionQuality,
   type AudioBufferConfig,
   type AudioProcessingConfig,
   type AudioLatencyMetrics,
@@ -527,7 +527,7 @@ export {
   type QualityTrend,
   type QualityProfile,
   type BufferState,
-  type BandwidthEstimate,
+  type BandwidthEstimate as StreamBandwidthEstimate,
   type QualityTransition,
   type StreamingMetrics,
   type AdaptiveStreamingConfig,
@@ -1089,3 +1089,45 @@ export {
   type QualityControls,
   type UseAdaptiveRenderQualityResult,
 } from "./useAdaptiveRenderQuality";
+
+// Avatar Animation Smoothing (Sprint 526)
+export {
+  useAvatarAnimationSmoothing,
+  useSmoothedValue,
+  usePoseBlending,
+  useJankDetection,
+  type SmoothingAlgorithm,
+  type AnimationPriority as SmoothingAnimationPriority,
+  type SmoothedValue,
+  type BlendShapeWeights,
+  type AvatarPose as SmoothingAvatarPose,
+  type JankEvent,
+  type QueuedAnimation,
+  type SmoothingMetrics,
+  type SmoothingState,
+  type SmoothingConfig,
+  type SmoothingControls,
+  type BlendControls,
+  type UseAvatarAnimationSmoothingResult,
+} from "./useAvatarAnimationSmoothing";
+
+// Network Latency Adapter (Sprint 526)
+export {
+  useNetworkLatencyAdapter,
+  useConnectionQuality,
+  useIsNetworkOnline,
+  useConnectionHealth,
+  useRecommendedQualityTier,
+  type ConnectionQuality,
+  type NetworkType,
+  type LatencySample as NetworkLatencySample,
+  type BandwidthEstimate as NetworkBandwidthEstimate,
+  type ConnectionStats,
+  type NetworkEvent,
+  type AdaptationRecommendations,
+  type AdapterMetrics,
+  type AdapterState,
+  type AdapterConfig,
+  type AdapterControls,
+  type UseNetworkLatencyAdapterResult,
+} from "./useNetworkLatencyAdapter";
