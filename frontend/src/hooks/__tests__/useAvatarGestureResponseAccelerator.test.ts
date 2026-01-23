@@ -329,9 +329,7 @@ describe("useAvatarGestureResponseAccelerator", () => {
       });
 
       expect(prediction).not.toBeNull();
-      if (prediction) {
-        expect(prediction.gestureType).toBe("swipe");
-      }
+      expect(prediction!.gestureType).toBe("swipe");
       expect(result.current.state.predictionConfidence).toBeGreaterThan(0);
     });
 

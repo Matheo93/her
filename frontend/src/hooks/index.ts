@@ -1367,3 +1367,29 @@ export {
   type PredictorControls as TouchPredictorControls,
   type UseTouchResponsePredictorResult,
 } from "./useTouchResponsePredictor";
+
+// Avatar Gesture Response Accelerator (Sprint 533)
+export {
+  useAvatarGestureResponseAccelerator,
+  useInstantAvatarFeedback,
+  useGesturePrioritizedResponse,
+  type GestureType as AcceleratorGestureType,
+  type AvatarResponseType,
+  type ResponsePriority,
+  type FeedbackMode,
+  type DeviceCapability,
+  type Position as AcceleratorPosition,
+  type GestureInput,
+  type GestureIntent as AcceleratorGestureIntent,
+  type PartialGestureData,
+  type AvatarResponseRequest,
+  type ScheduledResponse,
+  type InstantFeedback,
+  type ExecutedResponse,
+  type AcceleratorConfig as GestureAcceleratorConfig,
+  type AcceleratorCallbacks,
+  type AcceleratorState as GestureAcceleratorState,
+  type AcceleratorMetrics as GestureAcceleratorMetrics,
+  type AcceleratorControls as GestureAcceleratorControls,
+  type UseAvatarGestureResponseAcceleratorResult,
+} from "./useAvatarGestureResponseAccelerator";
