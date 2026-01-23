@@ -11,21 +11,20 @@ import {
   useResolutionScale,
   usePerformanceScore,
   type QualityTier,
-  type QualitySettings,
-  type QualityAdjustment,
-  type DeviceConditions,
 } from "../useAdaptiveRenderQuality";
 
 // Mock performance.now for consistent timing
 let mockTime = 0;
 
 beforeEach(() => {
-  mockTime = 0;
+  mockTime = 100; // Start at 100 to avoid initial state issues
+  jest.useFakeTimers();
   jest.spyOn(performance, "now").mockImplementation(() => mockTime);
   jest.spyOn(Date, "now").mockImplementation(() => mockTime);
 });
 
 afterEach(() => {
+  jest.useRealTimers();
   jest.restoreAllMocks();
 });
 
