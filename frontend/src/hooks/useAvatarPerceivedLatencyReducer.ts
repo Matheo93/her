@@ -117,10 +117,9 @@ export function useAvatarPerceivedLatencyReducer(
   const anticipationTypeRef = useRef<AnticipationType | null>(null);
 
   // Computed values
-  // Motion blur requires both config enabled AND movement speed above threshold
   const useMotionBlur = useMemo(
-    () => mergedConfig.enableMotionBlur && movementSpeed >= mergedConfig.motionBlurSpeedThreshold,
-    [mergedConfig.enableMotionBlur, mergedConfig.motionBlurSpeedThreshold, movementSpeed]
+    () => mergedConfig.enableMotionBlur,
+    [mergedConfig.enableMotionBlur]
   );
 
   const loadingProgress = useMemo(() => {
