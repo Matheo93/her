@@ -9,8 +9,8 @@ import {
   useMobileThermalManager,
   useThermalState,
   useThermalAwareFeature,
-  type ThermalState,
-  type WorkloadType,
+  ThermalState,
+  WorkloadType,
 } from "../useMobileThermalManager";
 
 // Mock timers

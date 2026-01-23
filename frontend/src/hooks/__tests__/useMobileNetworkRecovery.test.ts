@@ -10,9 +10,9 @@ import {
   useMobileNetworkRecovery,
   useOnlineStatus,
   useOfflineQueue,
-  type NetworkState,
-  type ConnectionType,
-  type RecoveryStrategy,
+  NetworkState,
+  ConnectionType,
+  RecoveryStrategy,
 } from "../useMobileNetworkRecovery";
 
 // Mock fetch

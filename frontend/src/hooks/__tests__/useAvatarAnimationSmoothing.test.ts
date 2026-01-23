@@ -10,9 +10,9 @@ import {
   useSmoothedValue,
   usePoseBlending,
   useJankDetection,
-  type SmoothingAlgorithm,
-  type AvatarPose,
-  type BlendShapeWeights,
+  SmoothingAlgorithm,
+  AvatarPose,
+  BlendShapeWeights,
 } from "../useAvatarAnimationSmoothing";
 
 // Mock performance.now

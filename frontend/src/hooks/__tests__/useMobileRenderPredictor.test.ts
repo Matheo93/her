@@ -7,10 +7,10 @@ import {
   useMobileRenderPredictor,
   useInteractionRecorder,
   useGpuCompositing,
-  type InteractionType,
-  type InteractionEvent,
-  type PreRenderFrame,
-  type FrameRenderer,
+  InteractionType,
+  InteractionEvent,
+  PreRenderFrame,
+  FrameRenderer,
 } from "../useMobileRenderPredictor";
 
 // Mock performance.now for consistent timing

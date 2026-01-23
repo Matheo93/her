@@ -9,7 +9,7 @@ import {
   useMobileAvatarLatencyMitigator,
   usePoseInterpolation,
   useTouchLatencyMeasurement,
-  type AvatarPose,
+  AvatarPose,
 } from "../useMobileAvatarLatencyMitigator";
 
 // Mock performance.now for consistent timing

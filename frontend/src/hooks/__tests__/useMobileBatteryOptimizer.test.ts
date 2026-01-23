@@ -10,9 +10,9 @@ import {
   useMobileBatteryOptimizer,
   useBatteryLevel,
   useBatteryAwareFeature,
-  type BatteryLevel,
-  type PowerMode,
-  type FeatureCategory,
+  BatteryLevel,
+  PowerMode,
+  FeatureCategory,
 } from "../useMobileBatteryOptimizer";
 
 // Mock battery API

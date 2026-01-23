@@ -10,7 +10,7 @@ import {
   useQualityTier,
   useResolutionScale,
   usePerformanceScore,
-  type QualityTier,
+  QualityTier,
 } from "../useAdaptiveRenderQuality";
 
 // Mock performance.now for consistent timing

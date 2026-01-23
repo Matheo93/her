@@ -10,8 +10,8 @@ import {
   useFrameBudget,
   useRenderPriority,
   useAdaptiveFPS,
-  type RenderPriority,
-  type VisibilityState,
+  RenderPriority,
+  VisibilityState,
 } from "../useAvatarRenderScheduler";
 
 // Mock performance.now for consistent timing

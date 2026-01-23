@@ -10,7 +10,7 @@ import {
   useValueInterpolator,
   useSubFrameProgress,
   useStutterDetection,
-  type InterpolationMethod,
+  InterpolationMethod,
 } from "../useFrameInterpolator";
 
 // Mock performance.now for consistent timing

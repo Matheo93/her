@@ -10,8 +10,8 @@ import {
   useOptimizedTouchHandler,
   useTouchFeedbackPosition,
   useTouchVelocity,
-  type TouchPriority,
-  type TrackedTouch,
+  TouchPriority,
+  TrackedTouch,
 } from "../useTouchResponseOptimizer";
 
 // Mock performance.now for consistent timing

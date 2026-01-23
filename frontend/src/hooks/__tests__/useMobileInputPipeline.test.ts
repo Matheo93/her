@@ -9,10 +9,10 @@ import {
   useMobileInputPipeline,
   useGestureDetection,
   useInputPrediction,
-  type InputType,
-  type GestureType,
-  type InputPriority,
-  type RawInput,
+  InputType,
+  GestureType,
+  InputPriority,
+  RawInput,
 } from "../useMobileInputPipeline";
 
 // Mock performance.now for consistent timing

@@ -10,7 +10,7 @@ import {
   useSimpleMotionPredictor,
   useGestureRecognition,
   useKalmanPosition,
-  type GestureType,
+  GestureType,
 } from "../useGestureMotionPredictor";
 
 // Mock performance.now for consistent timing

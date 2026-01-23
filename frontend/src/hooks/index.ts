@@ -1167,3 +1167,34 @@ export {
   type PredictorControls as RenderPredictorControls,
   type UseMobileRenderPredictorResult,
 } from "./useMobileRenderPredictor";
+
+// Frame Latency Compensator (Sprint 227)
+export {
+  useFrameLatencyCompensator,
+  useFrameTiming,
+  useCompensatedPosition,
+  type FrameTiming,
+  type CompensationState,
+  type CompensatedTransform,
+  type CompensatorConfig,
+  type CompensatorMetrics,
+  type CompensatorState,
+  type CompensatorControls,
+  type UseFrameLatencyCompensatorResult,
+} from "./useFrameLatencyCompensator";
+
+// Touch Prediction Engine (Sprint 227)
+export {
+  useTouchPredictionEngine,
+  useSimpleTouchPredictor,
+  type TouchSample,
+  type PredictedTouch,
+  type PredictionAlgorithm,
+  type AlgorithmMetrics,
+  type KalmanFilterState,
+  type PredictionEngineConfig,
+  type EngineMetrics,
+  type EngineState,
+  type EngineControls,
+  type UseTouchPredictionEngineResult,
+} from "./useTouchPredictionEngine";

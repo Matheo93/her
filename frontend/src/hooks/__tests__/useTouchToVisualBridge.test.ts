@@ -12,10 +12,10 @@ import {
   useTouchTranslate,
   useTouchScale,
   useTouchOpacity,
-  type BridgeConfig,
-  type TouchPoint,
-  type VisualState,
-  type TouchToVisualMapper,
+  BridgeConfig,
+  TouchPoint,
+  VisualState,
+  TouchToVisualMapper,
 } from "../useTouchToVisualBridge";
 
 // ============================================================================

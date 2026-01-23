@@ -8,7 +8,7 @@
 import { renderHook, act } from "@testing-library/react";
 import {
   useNetworkLatencyAdapter,
-  type ConnectionQuality,
+  ConnectionQuality,
 } from "../useNetworkLatencyAdapter";
 
 // Mock navigator.onLine and connection API

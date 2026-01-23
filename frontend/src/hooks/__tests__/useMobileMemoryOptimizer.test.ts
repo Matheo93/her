@@ -9,8 +9,8 @@ import {
   useMobileMemoryOptimizer,
   useImageMemoryManager,
   useMemoryPressureAlert,
-  type ResourceType,
-  type CacheEvictionStrategy,
+  ResourceType,
+  CacheEvictionStrategy,
 } from "../useMobileMemoryOptimizer";
 
 beforeEach(() => {

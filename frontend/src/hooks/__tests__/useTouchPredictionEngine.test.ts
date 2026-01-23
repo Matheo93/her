@@ -6,10 +6,10 @@ import { renderHook, act } from "@testing-library/react";
 import {
   useTouchPredictionEngine,
   useSimpleTouchPredictor,
-  type PredictionEngineConfig,
-  type TouchSample,
-  type PredictedTouch,
-  type PredictionAlgorithm,
+  PredictionEngineConfig,
+  TouchSample,
+  PredictedTouch,
+  PredictionAlgorithm,
 } from "../useTouchPredictionEngine";
 
 // Mock performance.now

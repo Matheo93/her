@@ -9,8 +9,8 @@ import {
   useMobileLatencyCompensator,
   useOptimisticUpdate,
   useLatencyAwareLoading,
-  type LatencyLevel,
-  type UIHint,
+  LatencyLevel,
+  UIHint,
 } from "../useMobileLatencyCompensator";
 
 // Mock timers

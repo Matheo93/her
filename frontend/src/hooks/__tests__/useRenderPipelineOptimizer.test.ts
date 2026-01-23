@@ -10,8 +10,8 @@ import {
   useFrameBudget,
   useLODManager,
   useGPUInfo,
-  type LODLevel,
-  type RenderPriority,
+  LODLevel,
+  RenderPriority,
 } from "../useRenderPipelineOptimizer";
 
 // Mock performance.now for consistent timing

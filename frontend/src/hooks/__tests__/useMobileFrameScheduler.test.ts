@@ -8,7 +8,7 @@ import { renderHook, act } from "@testing-library/react";
 import {
   useMobileFrameScheduler,
   useFpsMonitor,
-  type TaskPriority,
+  TaskPriority,
 } from "../useMobileFrameScheduler";
 
 // Mock timers and animation frames
