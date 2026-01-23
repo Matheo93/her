@@ -119,40 +119,43 @@ describe("useMobileInputPipeline", () => {
     });
 
     it("should handle missing coordinates", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
       const input: RawInput = { type: "touch" };
 
-      let processed: ReturnType<typeof result.current.controls.processInput>;
+      let processed: ReturnType<typeof result.current.controls.processInput> = null;
       act(() => {
         processed = result.current.controls.processInput(input);
       });
 
+      expect(processed).not.toBeNull();
       expect(processed!.normalized.x).toBe(0);
       expect(processed!.normalized.y).toBe(0);
       expect(processed!.normalized.pressure).toBe(0.5);
     });
 
     it("should assign priority to input", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
       const input = createRawInput();
 
-      let processed: ReturnType<typeof result.current.controls.processInput>;
+      let processed: ReturnType<typeof result.current.controls.processInput> = null;
       act(() => {
         processed = result.current.controls.processInput(input, "critical");
       });
 
+      expect(processed).not.toBeNull();
       expect(processed!.priority).toBe("critical");
     });
 
     it("should generate unique IDs for inputs", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
       const ids: string[] = [];
 
       act(() => {
         for (let i = 0; i < 5; i++) {
+          mockTime = i * 100; // Unique timestamps
           const processed = result.current.controls.processInput(createRawInput());
           if (processed) ids.push(processed.id);
         }
@@ -163,15 +166,16 @@ describe("useMobileInputPipeline", () => {
     });
 
     it("should measure processing latency", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
       const input = createRawInput();
 
-      let processed: ReturnType<typeof result.current.controls.processInput>;
+      let processed: ReturnType<typeof result.current.controls.processInput> = null;
       act(() => {
         processed = result.current.controls.processInput(input);
       });
 
+      expect(processed).not.toBeNull();
       expect(processed!.latencyMs).toBeGreaterThanOrEqual(0);
       expect(processed!.receivedAt).toBeGreaterThanOrEqual(0);
       expect(processed!.processedAt).toBeGreaterThanOrEqual(processed!.receivedAt);
@@ -254,7 +258,7 @@ describe("useMobileInputPipeline", () => {
   describe("input prediction", () => {
     it("should predict next input position", () => {
       const { result } = renderHook(() =>
-        useMobileInputPipeline({ enablePrediction: true })
+        useMobileInputPipeline({ enablePrediction: true, debounceMs: 0 })
       );
 
       // Process inputs to build velocity history
@@ -267,7 +271,7 @@ describe("useMobileInputPipeline", () => {
       });
 
       // Get prediction
-      let predicted: ReturnType<typeof result.current.controls.getPredictedInput>;
+      let predicted: ReturnType<typeof result.current.controls.getPredictedInput> = null;
       act(() => {
         predicted = result.current.controls.getPredictedInput(50);
       });
@@ -279,7 +283,7 @@ describe("useMobileInputPipeline", () => {
 
     it("should include confidence in prediction", () => {
       const { result } = renderHook(() =>
-        useMobileInputPipeline({ enablePrediction: true })
+        useMobileInputPipeline({ enablePrediction: true, debounceMs: 0 })
       );
 
       act(() => {
@@ -294,7 +298,7 @@ describe("useMobileInputPipeline", () => {
     });
 
     it("should return null when no inputs processed", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
       const predicted = result.current.controls.getPredictedInput(16);
 
@@ -303,7 +307,7 @@ describe("useMobileInputPipeline", () => {
 
     it("should track predicted inputs metric", () => {
       const { result } = renderHook(() =>
-        useMobileInputPipeline({ enablePrediction: true })
+        useMobileInputPipeline({ enablePrediction: true, debounceMs: 0 })
       );
 
       act(() => {
@@ -754,51 +758,55 @@ describe("useMobileInputPipeline", () => {
 
   describe("different input types", () => {
     it("should process touch input", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
-      let processed: ReturnType<typeof result.current.controls.processInput>;
+      let processed: ReturnType<typeof result.current.controls.processInput> = null;
       act(() => {
         processed = result.current.controls.processInput(createRawInput({ type: "touch" }));
       });
 
+      expect(processed).not.toBeNull();
       expect(processed!.raw.type).toBe("touch");
     });
 
     it("should process pointer input", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
-      let processed: ReturnType<typeof result.current.controls.processInput>;
+      let processed: ReturnType<typeof result.current.controls.processInput> = null;
       act(() => {
         processed = result.current.controls.processInput(createRawInput({ type: "pointer" }));
       });
 
+      expect(processed).not.toBeNull();
       expect(processed!.raw.type).toBe("pointer");
     });
 
     it("should process gesture input", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
-      let processed: ReturnType<typeof result.current.controls.processInput>;
+      let processed: ReturnType<typeof result.current.controls.processInput> = null;
       act(() => {
         processed = result.current.controls.processInput(
           createRawInput({ type: "gesture", gestureType: "swipe" })
         );
       });
 
+      expect(processed).not.toBeNull();
       expect(processed!.raw.type).toBe("gesture");
       expect(processed!.raw.gestureType).toBe("swipe");
     });
 
     it("should process keyboard input", () => {
-      const { result } = renderHook(() => useMobileInputPipeline());
+      const { result } = renderHook(() => useMobileInputPipeline({ debounceMs: 0 }));
 
-      let processed: ReturnType<typeof result.current.controls.processInput>;
+      let processed: ReturnType<typeof result.current.controls.processInput> = null;
       act(() => {
         processed = result.current.controls.processInput(
           createRawInput({ type: "keyboard", key: "Enter" })
         );
       });
 
+      expect(processed).not.toBeNull();
       expect(processed!.raw.type).toBe("keyboard");
       expect(processed!.raw.key).toBe("Enter");
     });

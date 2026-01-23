@@ -146,15 +146,13 @@ describe("useRenderPipelineOptimizer", () => {
       const { result } = renderHook(() => useRenderPipelineOptimizer());
 
       const callback = jest.fn();
-      let id = "";
 
       act(() => {
-        id = result.current.controls.scheduleRenderWork("test", callback, "normal");
+        result.current.controls.scheduleRenderWork("test", callback, "normal");
       });
 
       act(() => {
-        const cancelled = result.current.controls.cancelRenderWork("test");
-        // Note: cancelRenderWork uses id, not name. Let's check both.
+        result.current.controls.cancelRenderWork("test");
       });
 
       // Queue should still have the item if we didn't use exact id

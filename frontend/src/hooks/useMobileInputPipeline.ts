@@ -978,7 +978,9 @@ export function useInputPrediction(
     processInputRef.current({ type: "pointer", x, y });
   }, [x, y]);
 
-  return getPredictedInputRef.current(deltaMs);
+  const predicted = getPredictedInputRef.current(deltaMs);
+  if (!predicted) return null;
+  return predicted;
 }
 
 export default useMobileInputPipeline;
