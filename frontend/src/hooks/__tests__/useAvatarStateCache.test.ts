@@ -302,6 +302,255 @@ describe("useAvatarStateCache", () => {
   });
 });
 
+// ============================================================================
+// Branch Coverage Tests - Sprint 614
+// ============================================================================
+
+describe("branch coverage - visemesChanged function (lines 56-76)", () => {
+  it("should detect change when key count differs (line 65)", async () => {
+    const { result } = renderHook(() =>
+      useAvatarStateCache({ debounceMs: 10, visemeChangeThreshold: 0.01 })
+    );
+
+    // Set initial visemes with 2 keys
+    act(() => {
+      result.current.updateVisemeWeights({ AA: 0.5, sil: 0.5 });
+      jest.advanceTimersByTime(20);
+    });
+
+    // Update with different number of keys (3 keys)
+    act(() => {
+      result.current.updateVisemeWeights({ AA: 0.5, sil: 0.4, EE: 0.1 });
+      jest.advanceTimersByTime(20);
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.visemeWeights.EE).toBe(0.1);
+    });
+  });
+
+  it("should detect change when viseme values differ significantly (lines 68-73)", async () => {
+    const { result } = renderHook(() =>
+      useAvatarStateCache({ debounceMs: 10, visemeChangeThreshold: 0.1 })
+    );
+
+    // Set initial visemes
+    act(() => {
+      result.current.updateVisemeWeights({ AA: 0.3, sil: 0.7 });
+      jest.advanceTimersByTime(20);
+    });
+
+    // Update with significant change (> threshold)
+    act(() => {
+      result.current.updateVisemeWeights({ AA: 0.6, sil: 0.4 }); // AA changed by 0.3 > 0.1 threshold
+      jest.advanceTimersByTime(20);
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.visemeWeights.AA).toBe(0.6);
+    });
+  });
+
+  it("should not change when viseme values differ insignificantly (line 76)", async () => {
+    const { result } = renderHook(() =>
+      useAvatarStateCache({ debounceMs: 10, visemeChangeThreshold: 0.1 })
+    );
+
+    // Set initial visemes
+    act(() => {
+      result.current.updateVisemeWeights({ AA: 0.5, sil: 0.5 });
+      jest.advanceTimersByTime(20);
+    });
+
+    // Update with tiny change (< threshold)
+    act(() => {
+      result.current.updateVisemeWeights({ AA: 0.52, sil: 0.48 }); // Changes < 0.1 threshold
+      jest.advanceTimersByTime(20);
+    });
+
+    // Should not update
+    await waitFor(() => {
+      expect(result.current.state.visemeWeights.AA).toBe(0.5);
+    });
+  });
+});
+
+describe("branch coverage - flushUpdates conditions (lines 112-136)", () => {
+  it("should detect emotion change (line 112-113)", async () => {
+    const { result } = renderHook(() =>
+      useAvatarStateCache({ debounceMs: 10 })
+    );
+
+    act(() => {
+      result.current.updateEmotion("joy");
+      jest.advanceTimersByTime(20);
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.emotion).toBe("joy");
+    });
+  });
+
+  it("should detect isSpeaking change in batch update (line 116-117)", async () => {
+    const { result } = renderHook(() =>
+      useAvatarStateCache({ debounceMs: 10 })
+    );
+
+    act(() => {
+      result.current.batchUpdate({ isSpeaking: true });
+      jest.advanceTimersByTime(20);
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.isSpeaking).toBe(true);
+    });
+  });
+
+  it("should detect isListening change in batch update (line 120-121)", async () => {
+    const { result } = renderHook(() =>
+      useAvatarStateCache({ debounceMs: 10 })
+    );
+
+    act(() => {
+      result.current.batchUpdate({ isListening: true });
+      jest.advanceTimersByTime(20);
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.isListening).toBe(true);
+    });
+  });
+
+  it("should not update when no actual changes (line 138-139)", async () => {
+    const { result } = renderHook(() =>
+      useAvatarStateCache({ debounceMs: 10 })
+    );
+
+    const initialState = result.current.state;
+
+    act(() => {
+      result.current.batchUpdate({
+        emotion: "neutral",
+        isSpeaking: false,
+        isListening: false,
+      });
+      jest.advanceTimersByTime(20);
+    });
+
+    expect(result.current.state).toBe(initialState);
+  });
+});
+
+describe("branch coverage - scheduleUpdate immediate vs debounced (lines 166-172)", () => {
+  it("should update immediately when enough time has passed (line 167-168)", async () => {
+    const { result } = renderHook(() =>
+      useAvatarStateCache({ debounceMs: 50 })
+    );
+
+    mockNow = 100;
+    act(() => {
+      result.current.updateEmotion("joy");
+      jest.advanceTimersByTime(60);
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.emotion).toBe("joy");
+    });
+
+    mockNow = 200;
+    act(() => {
+      result.current.updateEmotion("sadness");
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.emotion).toBe("sadness");
+    });
+  });
+
+  it("should clear existing timeout when scheduling new update (line 161-162)", async () => {
+    const { result } = renderHook(() =>
+      useAvatarStateCache({ debounceMs: 100 })
+    );
+
+    act(() => {
+      result.current.updateEmotion("joy");
+    });
+
+    act(() => {
+      jest.advanceTimersByTime(50);
+      result.current.updateEmotion("sadness");
+    });
+
+    act(() => {
+      jest.advanceTimersByTime(150);
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.emotion).toBe("sadness");
+    });
+  });
+});
+
+describe("branch coverage - updateListening no-change (line 240)", () => {
+  it("should not re-render if listening state unchanged (line 240)", () => {
+    const { result } = renderHook(() => useAvatarStateCache());
+
+    act(() => {
+      result.current.updateListening(true);
+    });
+
+    expect(result.current.state.isListening).toBe(true);
+    const stateAfterFirstUpdate = result.current.state;
+
+    act(() => {
+      result.current.updateListening(true);
+    });
+
+    expect(result.current.state).toBe(stateAfterFirstUpdate);
+  });
+});
+
+describe("branch coverage - cleanup on unmount (lines 271-278)", () => {
+  it("should cleanup debounce timeout on unmount (lines 273-274)", () => {
+    const { result, unmount } = renderHook(() =>
+      useAvatarStateCache({ debounceMs: 100 })
+    );
+
+    act(() => {
+      result.current.updateEmotion("joy");
+    });
+
+    unmount();
+  });
+
+  it("should cleanup smoothing frame on unmount (lines 276-277)", () => {
+    const { unmount } = renderHook(() => useAvatarStateCache());
+    unmount();
+  });
+});
+
+describe("branch coverage - resetState with pending timeout (line 261-262)", () => {
+  it("should clear debounce timeout on reset (lines 261-262)", () => {
+    const { result } = renderHook(() =>
+      useAvatarStateCache({ debounceMs: 100 })
+    );
+
+    act(() => {
+      result.current.updateEmotion("joy");
+    });
+
+    act(() => {
+      result.current.resetState();
+    });
+
+    act(() => {
+      jest.advanceTimersByTime(150);
+    });
+
+    expect(result.current.state.emotion).toBe("neutral");
+  });
+});
+
 describe("useAvatarComputations", () => {
   describe("mouth openness calculation", () => {
     it("should return 0 when not speaking", () => {

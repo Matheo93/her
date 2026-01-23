@@ -595,23 +595,30 @@ describe("branch coverage - getNextAnimation sorting (lines 199-204)", () => {
 
 describe("branch coverage - dropped frames detection (line 211-212)", () => {
   it("should detect dropped frames when delta exceeds threshold", () => {
+    // Start at non-zero time
+    mockTime = 100;
+
     const { result } = renderHook(() =>
       useAvatarTouchAnimationSync({ targetFps: 60 }) // frameBudgetMs = 16.67ms
     );
 
-    // First frame to establish baseline
-    mockTime = 0;
+    // First frame to establish baseline - called when mockTime = 100
     act(() => {
       result.current.controls.processFrame();
     });
 
+    // Now lastFrameTimeRef.current = 100
     // Large time gap exceeding 1.5x frame budget (>25ms for 60fps)
-    mockTime = 100; // 100ms gap = ~6 frames at 60fps
+    mockTime = 250; // 150ms gap = ~9 frames at 60fps, well over 1.5x budget (25ms)
+
     act(() => {
       result.current.controls.processFrame();
     });
 
-    // Should detect dropped frames (100 / 16.67 - 1 = ~5 dropped frames)
+    // delta = 250 - 100 = 150ms
+    // frameBudgetMs = 1000/60 = 16.67ms
+    // 150 > 16.67 * 1.5 = 25 ✓
+    // droppedFrames = Math.floor(150 / 16.67) - 1 = Math.floor(9) - 1 = 8
     expect(result.current.metrics.droppedFrames).toBeGreaterThan(0);
   });
 
@@ -620,13 +627,13 @@ describe("branch coverage - dropped frames detection (line 211-212)", () => {
       useAvatarTouchAnimationSync({ targetFps: 60 })
     );
 
-    mockTime = 0;
+    mockTime = 100;
     act(() => {
       result.current.controls.processFrame();
     });
 
     // Normal frame timing (within 1.5x budget)
-    mockTime = 20; // 20ms is within 16.67 * 1.5 = 25ms
+    mockTime = 120; // 20ms is within 16.67 * 1.5 = 25ms
     act(() => {
       result.current.controls.processFrame();
     });
@@ -770,6 +777,35 @@ describe("branch coverage - useTouchAlignedAnimation stop when not running (line
 
     // Unmount without starting - should not throw
     unmount();
+  });
+
+  it("should continue animation loop (line 330)", () => {
+    jest.useFakeTimers();
+    const rafSpy = jest.spyOn(window, "requestAnimationFrame");
+
+    const { result } = renderHook(() => useTouchAlignedAnimation());
+
+    act(() => {
+      result.current.start();
+    });
+
+    // The loop function should have called requestAnimationFrame
+    expect(rafSpy).toHaveBeenCalled();
+
+    // Run timers to trigger the loop callback
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    // Inner loop should have been called, scheduling another frame
+    expect(rafSpy.mock.calls.length).toBeGreaterThan(1);
+
+    // Stop the animation
+    act(() => {
+      result.current.stop();
+    });
+
+    jest.useRealTimers();
   });
 });
 

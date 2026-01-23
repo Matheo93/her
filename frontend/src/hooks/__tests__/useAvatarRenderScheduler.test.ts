@@ -1420,3 +1420,141 @@ describe("branch coverage - not active early return (line 498)", () => {
     expect(result.current.state.isActive).toBe(false);
   });
 });
+
+// ============================================================================
+// Additional Branch Coverage Tests - Sprint 612
+// ============================================================================
+
+describe("branch coverage - deferral metric increment (lines 475-479)", () => {
+  it("should schedule low priority update with deferLowPriority enabled", () => {
+    const { result } = renderHook(() =>
+      useAvatarRenderScheduler({
+        deferLowPriority: true,
+        frameBudgetMs: 16.67,
+      })
+    );
+
+    // Schedule a low priority update
+    act(() => {
+      result.current.controls.scheduleRender({
+        priority: "low",
+        update: jest.fn(),
+        deadline: mockTime + 1000,
+        canDefer: true,
+        estimatedCostMs: 10,
+      });
+    });
+
+    expect(result.current.state.queueSize).toBe(1);
+    expect(result.current.metrics.totalUpdatesScheduled).toBe(1);
+  });
+
+  it("should schedule idle priority update with deferLowPriority enabled", () => {
+    const { result } = renderHook(() =>
+      useAvatarRenderScheduler({
+        deferLowPriority: true,
+        frameBudgetMs: 16.67,
+      })
+    );
+
+    // Schedule an idle priority update
+    act(() => {
+      result.current.controls.scheduleRender({
+        priority: "idle",
+        update: jest.fn(),
+        deadline: mockTime + 1000,
+        canDefer: true,
+        estimatedCostMs: 5,
+      });
+    });
+
+    // The idle update should potentially be deferred
+    expect(result.current.metrics.totalUpdatesScheduled).toBe(1);
+  });
+});
+
+describe("branch coverage - throttledFrames increment (line 538)", () => {
+  it("should set visibility to hidden", () => {
+    const { result } = renderHook(() =>
+      useAvatarRenderScheduler({
+        targetFPS: 30, // Low FPS
+        throttleOnHidden: true,
+      })
+    );
+
+    // Set visibility to hidden to trigger throttling
+    act(() => {
+      result.current.controls.setVisibility("hidden");
+    });
+
+    // Visibility should be hidden
+    expect(result.current.state.visibility).toBe("hidden");
+  });
+
+  it("should track updates scheduled correctly", () => {
+    const { result } = renderHook(() =>
+      useAvatarRenderScheduler({
+        enableAdaptiveFPS: true,
+        minFPS: 15,
+        maxFPS: 60,
+      })
+    );
+
+    // Schedule updates
+    for (let i = 0; i < 5; i++) {
+      act(() => {
+        result.current.controls.scheduleRender({
+          priority: "normal",
+          update: jest.fn(),
+          deadline: mockTime + 1000,
+          canDefer: false,
+          estimatedCostMs: 2,
+        });
+      });
+    }
+
+    expect(result.current.metrics.totalUpdatesScheduled).toBe(5);
+  });
+});
+
+describe("branch coverage - multiple low priority deferrals", () => {
+  it("should handle queue with mixed priorities", () => {
+    const { result } = renderHook(() =>
+      useAvatarRenderScheduler({
+        deferLowPriority: true,
+      })
+    );
+
+    const criticalCb = jest.fn();
+    const lowCb = jest.fn();
+
+    // Schedule critical first, then low priority
+    act(() => {
+      result.current.controls.scheduleRender({
+        priority: "critical",
+        update: criticalCb,
+        deadline: mockTime + 100,
+        canDefer: false,
+        estimatedCostMs: 1,
+      });
+
+      result.current.controls.scheduleRender({
+        priority: "low",
+        update: lowCb,
+        deadline: mockTime + 1000,
+        canDefer: true,
+        estimatedCostMs: 1,
+      });
+    });
+
+    expect(result.current.state.queueSize).toBe(2);
+
+    // Process queue
+    act(() => {
+      result.current.controls.processQueue();
+    });
+
+    // Critical should be executed
+    expect(criticalCb).toHaveBeenCalled();
+  });
+});

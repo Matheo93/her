@@ -620,3 +620,224 @@ describe("useResponseInterpolator", () => {
     expect(result.current.ease(1.5, "easeOut")).toBe(1);
   });
 });
+
+// ============================================================================
+// Additional Branch Coverage Tests - Sprint 613
+// ============================================================================
+
+describe("branch coverage - immediateResponseEnabled disabled (line 159)", () => {
+  it("should not set feedback when immediateResponseEnabled is false", () => {
+    const { result } = renderHook(() =>
+      useAvatarInputResponseBridge({ immediateResponseEnabled: false })
+    );
+
+    act(() => {
+      result.current.controls.queueInput({
+        type: "tap",
+        position: { x: 100, y: 100 },
+        timestamp: performance.now(),
+      });
+    });
+
+    const feedback = result.current.controls.getImmediateFeedback();
+    // Feedback should not be active when disabled
+    expect(feedback.isActive).toBe(false);
+  });
+});
+
+describe("branch coverage - processQueue with empty queue (line 170)", () => {
+  it("should return early when queue is empty", () => {
+    const { result } = renderHook(() => useAvatarInputResponseBridge());
+
+    // Process queue when empty - should return early without changing state
+    act(() => {
+      result.current.controls.processQueue();
+    });
+
+    // isProcessing should not have been set
+    expect(result.current.state.isProcessing).toBe(false);
+    expect(result.current.metrics.inputsProcessed).toBe(0);
+  });
+});
+
+describe("branch coverage - coalescing conditions (lines 131-134)", () => {
+  it("should not coalesce when input type differs", () => {
+    const { result } = renderHook(() =>
+      useAvatarInputResponseBridge({ coalesceThresholdMs: 1000 })
+    );
+
+    mockTime = 0;
+    act(() => {
+      result.current.controls.queueInput({
+        type: "tap",
+        position: { x: 100, y: 100 },
+        timestamp: mockTime,
+      });
+    });
+
+    // Same time but different type
+    act(() => {
+      result.current.controls.queueInput({
+        type: "swipe",
+        position: { x: 110, y: 110 },
+        timestamp: mockTime,
+      });
+    });
+
+    // Should have 2 inputs since types differ
+    expect(result.current.state.pendingInputs).toBe(2);
+  });
+
+  it("should not coalesce when time exceeds threshold", () => {
+    const { result } = renderHook(() =>
+      useAvatarInputResponseBridge({ coalesceThresholdMs: 10 })
+    );
+
+    mockTime = 0;
+    act(() => {
+      result.current.controls.queueInput({
+        type: "move",
+        position: { x: 100, y: 100 },
+        timestamp: mockTime,
+      });
+    });
+
+    // Same type but too much time passed
+    mockTime = 100;
+    act(() => {
+      result.current.controls.queueInput({
+        type: "move",
+        position: { x: 110, y: 110 },
+        timestamp: mockTime,
+      });
+    });
+
+    // Should have 2 inputs since time exceeds threshold
+    expect(result.current.state.pendingInputs).toBe(2);
+  });
+
+  it("should not coalesce when queue is empty", () => {
+    const { result } = renderHook(() =>
+      useAvatarInputResponseBridge({ coalesceThresholdMs: 1000 })
+    );
+
+    // First input always adds to queue
+    mockTime = 0;
+    act(() => {
+      result.current.controls.queueInput({
+        type: "move",
+        position: { x: 100, y: 100 },
+        timestamp: mockTime,
+      });
+    });
+
+    expect(result.current.state.pendingInputs).toBe(1);
+  });
+
+  it("should coalesce when all conditions are met", () => {
+    const { result } = renderHook(() =>
+      useAvatarInputResponseBridge({ coalesceThresholdMs: 100 })
+    );
+
+    mockTime = 0;
+    act(() => {
+      result.current.controls.queueInput({
+        type: "move",
+        position: { x: 100, y: 100 },
+        timestamp: mockTime,
+      });
+    });
+
+    expect(result.current.state.pendingInputs).toBe(1);
+
+    // Same type, within threshold, queue not empty
+    mockTime = 10;
+    act(() => {
+      result.current.controls.queueInput({
+        type: "move",
+        position: { x: 110, y: 110 },
+        timestamp: mockTime,
+      });
+    });
+
+    // Should still have 1 input (coalesced)
+    expect(result.current.state.pendingInputs).toBe(1);
+  });
+});
+
+describe("branch coverage - dropped input when queue is full (line 145)", () => {
+  it("should call onInputDropped with dropped input when queue overflows", () => {
+    const onInputDropped = jest.fn();
+    const { result } = renderHook(() =>
+      useAvatarInputResponseBridge(
+        { maxQueueSize: 1, coalesceThresholdMs: 0 },
+        { onInputDropped }
+      )
+    );
+
+    // First input
+    mockTime = 0;
+    act(() => {
+      result.current.controls.queueInput({
+        type: "tap",
+        position: { x: 100, y: 100 },
+        timestamp: mockTime,
+        id: "first",
+      });
+    });
+
+    // Second input should cause first to be dropped
+    mockTime = 100;
+    act(() => {
+      result.current.controls.queueInput({
+        type: "swipe",
+        position: { x: 200, y: 200 },
+        timestamp: mockTime,
+        id: "second",
+      });
+    });
+
+    expect(onInputDropped).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "tap",
+        position: { x: 100, y: 100 },
+        id: "first",
+      })
+    );
+    expect(result.current.metrics.droppedInputs).toBe(1);
+  });
+});
+
+describe("branch coverage - lerp clamping (lines 312-313)", () => {
+  it("should clamp lerp values below 0", () => {
+    const { result } = renderHook(() => useResponseInterpolator());
+
+    // t = -0.5 should be clamped to 0
+    expect(result.current.lerp(0, 100, -0.5)).toBe(0);
+  });
+
+  it("should clamp lerp values above 1", () => {
+    const { result } = renderHook(() => useResponseInterpolator());
+
+    // t = 1.5 should be clamped to 1
+    expect(result.current.lerp(0, 100, 1.5)).toBe(100);
+  });
+});
+
+describe("branch coverage - lerpPosition clamping (lines 317-318)", () => {
+  it("should clamp lerpPosition values below 0", () => {
+    const { result } = renderHook(() => useResponseInterpolator());
+
+    const pos = result.current.lerpPosition({ x: 0, y: 0 }, { x: 100, y: 100 }, -0.5);
+    expect(pos.x).toBe(0);
+    expect(pos.y).toBe(0);
+  });
+
+  it("should clamp lerpPosition values above 1", () => {
+    const { result } = renderHook(() => useResponseInterpolator());
+
+    const pos = result.current.lerpPosition({ x: 0, y: 0 }, { x: 100, y: 100 }, 1.5);
+    expect(pos.x).toBe(100);
+    expect(pos.y).toBe(100);
+  });
+});
