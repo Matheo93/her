@@ -1296,7 +1296,7 @@ export {
   type ScheduledAnimation,
   type AnimationGroup,
   type FrameBudgetInfo,
-  type DeviceConditions,
+  type DeviceConditions as SchedulerDeviceConditions,
   type SchedulerConfig,
   type SchedulerMetrics,
   type SchedulerState,

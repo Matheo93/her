@@ -2,6 +2,10 @@
 const config = {
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  // Limit workers to prevent memory issues with large test suites
+  maxWorkers: '50%',
+  // Prevent memory buildup between test files
+  workerIdleMemoryLimit: '512MB',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
