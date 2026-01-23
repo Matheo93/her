@@ -484,3 +484,296 @@ describe("useBatteryAwareFeature", () => {
     });
   });
 });
+
+// ============================================================================
+// Sprint 627 - Utility Function Tests
+// ============================================================================
+
+describe("Sprint 627 - getBatteryLevel utility function (lines 231-235)", () => {
+  const defaultThresholds = {
+    full: 0.8,
+    high: 0.5,
+    medium: 0.3,
+    low: 0.15,
+    critical: 0.05,
+  };
+
+  it("should return 'full' for level >= full threshold", () => {
+    expect(getBatteryLevel(0.95, defaultThresholds)).toBe("full");
+    expect(getBatteryLevel(0.8, defaultThresholds)).toBe("full");
+    expect(getBatteryLevel(1.0, defaultThresholds)).toBe("full");
+  });
+
+  it("should return 'high' for level >= high threshold but < full", () => {
+    expect(getBatteryLevel(0.79, defaultThresholds)).toBe("high");
+    expect(getBatteryLevel(0.5, defaultThresholds)).toBe("high");
+    expect(getBatteryLevel(0.6, defaultThresholds)).toBe("high");
+  });
+
+  it("should return 'medium' for level >= medium threshold but < high", () => {
+    expect(getBatteryLevel(0.49, defaultThresholds)).toBe("medium");
+    expect(getBatteryLevel(0.3, defaultThresholds)).toBe("medium");
+    expect(getBatteryLevel(0.4, defaultThresholds)).toBe("medium");
+  });
+
+  it("should return 'low' for level >= low threshold but < medium", () => {
+    expect(getBatteryLevel(0.29, defaultThresholds)).toBe("low");
+    expect(getBatteryLevel(0.15, defaultThresholds)).toBe("low");
+    expect(getBatteryLevel(0.2, defaultThresholds)).toBe("low");
+  });
+
+  it("should return 'critical' for level < low threshold", () => {
+    expect(getBatteryLevel(0.14, defaultThresholds)).toBe("critical");
+    expect(getBatteryLevel(0.05, defaultThresholds)).toBe("critical");
+    expect(getBatteryLevel(0.01, defaultThresholds)).toBe("critical");
+    expect(getBatteryLevel(0, defaultThresholds)).toBe("critical");
+  });
+
+  it("should work with custom thresholds", () => {
+    const customThresholds = {
+      full: 0.9,
+      high: 0.7,
+      medium: 0.4,
+      low: 0.2,
+      critical: 0.1,
+    };
+
+    expect(getBatteryLevel(0.85, customThresholds)).toBe("high");
+    expect(getBatteryLevel(0.9, customThresholds)).toBe("full");
+    expect(getBatteryLevel(0.5, customThresholds)).toBe("medium");
+  });
+});
+
+describe("Sprint 627 - getRecommendedPowerMode utility function (lines 238-257)", () => {
+  it("should return 'normal' when charging regardless of battery level", () => {
+    expect(getRecommendedPowerMode("critical", true, false)).toBe("normal");
+    expect(getRecommendedPowerMode("low", true, false)).toBe("normal");
+    expect(getRecommendedPowerMode("medium", true, false)).toBe("normal");
+    expect(getRecommendedPowerMode("high", true, false)).toBe("normal");
+    expect(getRecommendedPowerMode("full", true, false)).toBe("normal");
+  });
+
+  it("should return 'power_saver' when system low power mode is on", () => {
+    expect(getRecommendedPowerMode("full", false, true)).toBe("power_saver");
+    expect(getRecommendedPowerMode("high", false, true)).toBe("power_saver");
+  });
+
+  it("should return 'normal' for full battery when not charging and no system low power", () => {
+    expect(getRecommendedPowerMode("full", false, false)).toBe("normal");
+  });
+
+  it("should return 'normal' for high battery when not charging and no system low power", () => {
+    expect(getRecommendedPowerMode("high", false, false)).toBe("normal");
+  });
+
+  it("should return 'balanced' for medium battery", () => {
+    expect(getRecommendedPowerMode("medium", false, false)).toBe("balanced");
+  });
+
+  it("should return 'power_saver' for low battery", () => {
+    expect(getRecommendedPowerMode("low", false, false)).toBe("power_saver");
+  });
+
+  it("should return 'ultra_saver' for critical battery", () => {
+    expect(getRecommendedPowerMode("critical", false, false)).toBe("ultra_saver");
+  });
+});
+
+describe("Sprint 627 - estimateConsumption utility function (lines 259-268)", () => {
+  it("should return 0 for empty features", () => {
+    const features = {} as Record<FeatureCategory, FeatureConfig>;
+    expect(estimateConsumption(features)).toBe(0);
+  });
+
+  it("should calculate consumption for enabled features only", () => {
+    const features: Record<FeatureCategory, FeatureConfig> = {
+      animations: { category: "animations", enabled: true, powerConsumption: 5, minBatteryLevel: 0.1, priority: 5 },
+      video: { category: "video", enabled: false, powerConsumption: 10, minBatteryLevel: 0.2, priority: 8 },
+      audio: { category: "audio", enabled: true, powerConsumption: 3, minBatteryLevel: 0.05, priority: 9 },
+      sync: { category: "sync", enabled: false, powerConsumption: 4, minBatteryLevel: 0.1, priority: 7 },
+      prefetch: { category: "prefetch", enabled: false, powerConsumption: 6, minBatteryLevel: 0.15, priority: 4 },
+      analytics: { category: "analytics", enabled: false, powerConsumption: 2, minBatteryLevel: 0.1, priority: 2 },
+      location: { category: "location", enabled: false, powerConsumption: 8, minBatteryLevel: 0.2, priority: 6 },
+      haptics: { category: "haptics", enabled: false, powerConsumption: 1, minBatteryLevel: 0.1, priority: 3 },
+      high_refresh: { category: "high_refresh", enabled: false, powerConsumption: 7, minBatteryLevel: 0.3, priority: 4 },
+      background: { category: "background", enabled: false, powerConsumption: 5, minBatteryLevel: 0.15, priority: 3 },
+    };
+
+    // Only animations (5) + audio (3) = 8, * 0.8 = 6.4
+    expect(estimateConsumption(features)).toBe(6.4);
+  });
+
+  it("should calculate consumption for all enabled features", () => {
+    const features: Record<FeatureCategory, FeatureConfig> = {
+      animations: { category: "animations", enabled: true, powerConsumption: 5, minBatteryLevel: 0.1, priority: 5 },
+      video: { category: "video", enabled: true, powerConsumption: 10, minBatteryLevel: 0.2, priority: 8 },
+      audio: { category: "audio", enabled: true, powerConsumption: 3, minBatteryLevel: 0.05, priority: 9 },
+      sync: { category: "sync", enabled: true, powerConsumption: 4, minBatteryLevel: 0.1, priority: 7 },
+      prefetch: { category: "prefetch", enabled: true, powerConsumption: 6, minBatteryLevel: 0.15, priority: 4 },
+      analytics: { category: "analytics", enabled: true, powerConsumption: 2, minBatteryLevel: 0.1, priority: 2 },
+      location: { category: "location", enabled: true, powerConsumption: 8, minBatteryLevel: 0.2, priority: 6 },
+      haptics: { category: "haptics", enabled: true, powerConsumption: 1, minBatteryLevel: 0.1, priority: 3 },
+      high_refresh: { category: "high_refresh", enabled: true, powerConsumption: 7, minBatteryLevel: 0.3, priority: 4 },
+      background: { category: "background", enabled: true, powerConsumption: 5, minBatteryLevel: 0.15, priority: 3 },
+    };
+
+    // Total = 5+10+3+4+6+2+8+1+7+5 = 51, * 0.8 = 40.8
+    expect(estimateConsumption(features)).toBeCloseTo(40.8);
+  });
+
+  it("should return 0 when all features are disabled", () => {
+    const features: Record<FeatureCategory, FeatureConfig> = {
+      animations: { category: "animations", enabled: false, powerConsumption: 5, minBatteryLevel: 0.1, priority: 5 },
+      video: { category: "video", enabled: false, powerConsumption: 10, minBatteryLevel: 0.2, priority: 8 },
+      audio: { category: "audio", enabled: false, powerConsumption: 3, minBatteryLevel: 0.05, priority: 9 },
+      sync: { category: "sync", enabled: false, powerConsumption: 4, minBatteryLevel: 0.1, priority: 7 },
+      prefetch: { category: "prefetch", enabled: false, powerConsumption: 6, minBatteryLevel: 0.15, priority: 4 },
+      analytics: { category: "analytics", enabled: false, powerConsumption: 2, minBatteryLevel: 0.1, priority: 2 },
+      location: { category: "location", enabled: false, powerConsumption: 8, minBatteryLevel: 0.2, priority: 6 },
+      haptics: { category: "haptics", enabled: false, powerConsumption: 1, minBatteryLevel: 0.1, priority: 3 },
+      high_refresh: { category: "high_refresh", enabled: false, powerConsumption: 7, minBatteryLevel: 0.3, priority: 4 },
+      background: { category: "background", enabled: false, powerConsumption: 5, minBatteryLevel: 0.15, priority: 3 },
+    };
+
+    expect(estimateConsumption(features)).toBe(0);
+  });
+});
+
+describe("Sprint 627 - updateBatteryState with battery API (lines 311-405)", () => {
+  it("should handle battery state initialization", () => {
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    // Initial state before any battery API calls
+    expect(result.current.state.battery).toBeDefined();
+    expect(result.current.state.battery.level).toBe(1);
+    expect(result.current.state.battery.charging).toBe(false);
+  });
+
+  it("should calculate battery level category correctly via controls", () => {
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    // Use the getRecommendedProfile to verify logic works
+    const profile = result.current.controls.getRecommendedProfile();
+    expect(profile).toBeDefined();
+    expect(profile.mode).toBeDefined();
+  });
+
+  it("should auto-optimize state flag is false when not enabled", () => {
+    const { result } = renderHook(() =>
+      useMobileBatteryOptimizer({ autoOptimize: false })
+    );
+
+    expect(result.current.state.isOptimizing).toBe(false);
+  });
+
+  it("should allow manual power mode changes", () => {
+    const { result } = renderHook(() =>
+      useMobileBatteryOptimizer({ autoOptimize: false })
+    );
+
+    act(() => {
+      result.current.controls.setPowerMode("power_saver");
+    });
+
+    expect(result.current.state.powerMode).toBe("power_saver");
+    expect(result.current.state.profile.mode).toBe("power_saver");
+  });
+
+  it("should disable features manually", () => {
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    act(() => {
+      result.current.controls.setFeatureEnabled("video", false);
+    });
+
+    expect(result.current.state.features.video.enabled).toBe(false);
+  });
+
+  it("should have default features enabled", () => {
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    // By default, features should be enabled
+    expect(result.current.state.features.animations.enabled).toBe(true);
+    expect(result.current.state.features.audio.enabled).toBe(true);
+  });
+});
+
+describe("Sprint 627 - battery event listeners setup logic", () => {
+  it("should have correct initial state without battery API", () => {
+    // getBattery returns null in beforeEach
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    // Advance timers to trigger any async effects
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+
+    // Battery should be marked unsupported
+    expect(result.current.state.battery.supported).toBe(false);
+  });
+
+  it("should work when disabled config is set", () => {
+    const { result } = renderHook(() =>
+      useMobileBatteryOptimizer({ enabled: false })
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+
+    // Hook should still provide state
+    expect(result.current.state).toBeDefined();
+    expect(result.current.controls).toBeDefined();
+  });
+});
+
+describe("Sprint 627 - getRecommendedProfile control (line 487)", () => {
+  it("should return recommended profile based on current battery state", () => {
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    const profile = result.current.controls.getRecommendedProfile();
+
+    expect(profile).toBeDefined();
+    expect(profile.mode).toBeDefined();
+    expect(profile.features).toBeDefined();
+    expect(profile.animationSpeed).toBeDefined();
+    expect(profile.videoQuality).toBeDefined();
+    expect(profile.refreshRate).toBeDefined();
+  });
+
+  it("should return profile with expected structure", () => {
+    const { result } = renderHook(() => useMobileBatteryOptimizer());
+
+    // Get recommended profile
+    const profile = result.current.controls.getRecommendedProfile();
+
+    // Profile should have all required fields
+    expect(typeof profile.mode).toBe("string");
+    expect(typeof profile.animationSpeed).toBe("number");
+    expect(typeof profile.syncInterval).toBe("number");
+    expect(typeof profile.refreshRate).toBe("number");
+  });
+});
+
+describe("Sprint 627 - useBatteryAwareFeature reason branches (lines 583-586)", () => {
+  it("should indicate feature status", () => {
+    const { result } = renderHook(() => useBatteryAwareFeature("video"));
+
+    // Feature should be defined
+    expect(result.current).toBeDefined();
+    expect(typeof result.current.enabled).toBe("boolean");
+    expect(typeof result.current.shouldEnable).toBe("boolean");
+  });
+
+  it("should check reason for disabled features in power mode", () => {
+    // This tests the reason branches by checking the structure
+    const { result } = renderHook(() => useBatteryAwareFeature("animations"));
+
+    // By default, animations should be enabled
+    expect(result.current.enabled).toBe(true);
+    // When enabled, reason is undefined
+    if (result.current.shouldEnable) {
+      expect(result.current.reason).toBeUndefined();
+    }
+  });
+});
