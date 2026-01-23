@@ -1,15 +1,14 @@
 /**
- * useAvatarTouchMomentum - Sprint 537
+ * Avatar Touch Momentum Hook - Sprint 537
  *
- * Physics-based momentum and decay for touch-driven avatar movements.
- * Features:
+ * Physics-based momentum and decay for touch-driven avatar movements:
  * - Velocity tracking from touch movements
  * - Momentum calculation and decay
  * - Bounce/spring physics at boundaries
  * - Smooth deceleration curves
  */
 
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 
 // ============================================================================
 // Types
@@ -36,16 +35,16 @@ export interface MomentumConfig {
   friction: number;
   minVelocity: number;
   bounceFactor: number;
-  bounds?: Bounds;
-  initialPosition?: Position;
+  initialPosition: Position;
+  bounds: Bounds | null;
   velocitySampleCount: number;
 }
 
 export interface MomentumCallbacks {
   onDragStart?: (position: Position) => void;
-  onDragEnd?: (position: Position, velocity: Velocity) => void;
-  onMomentumEnd?: (position: Position) => void;
-  onBounce?: (edge: "left" | "right" | "top" | "bottom") => void;
+  onDragEnd?: (velocity: Velocity) => void;
+  onMomentumStop?: (position: Position) => void;
+  onBounce?: (axis: "x" | "y", position: Position) => void;
 }
 
 export interface MomentumState {
@@ -57,9 +56,9 @@ export interface MomentumState {
 }
 
 export interface MomentumMetrics {
-  peakVelocity: number;
-  totalDistance: number;
-  dragCount: number;
+  totalDragDistance: number;
+  maxVelocity: number;
+  bounceCount: number;
 }
 
 export interface MomentumControls {
@@ -67,9 +66,16 @@ export interface MomentumControls {
   updateDrag: (position: Position) => void;
   endDrag: () => void;
   applyMomentum: () => void;
-  reset: () => void;
-  resetMetrics: () => void;
+  stopMomentum: () => void;
   setPosition: (position: Position) => void;
+  resetMetrics: () => void;
+  reset: () => void;
+}
+
+export interface UseAvatarTouchMomentumResult {
+  state: MomentumState;
+  metrics: MomentumMetrics;
+  controls: MomentumControls;
 }
 
 // ============================================================================
@@ -78,8 +84,10 @@ export interface MomentumControls {
 
 const DEFAULT_CONFIG: MomentumConfig = {
   friction: 0.95,
-  minVelocity: 0.5,
+  minVelocity: 0.1,
   bounceFactor: 0.3,
+  initialPosition: { x: 0, y: 0 },
+  bounds: null,
   velocitySampleCount: 5,
 };
 
@@ -90,7 +98,7 @@ const DEFAULT_CONFIG: MomentumConfig = {
 export function useAvatarTouchMomentum(
   config: Partial<MomentumConfig> = {},
   callbacks: MomentumCallbacks = {}
-): { state: MomentumState; metrics: MomentumMetrics; controls: MomentumControls } {
+): UseAvatarTouchMomentumResult {
   const mergedConfig = useMemo(
     () => ({ ...DEFAULT_CONFIG, ...config }),
     [config]
@@ -99,221 +107,242 @@ export function useAvatarTouchMomentum(
   // State
   const [isDragging, setIsDragging] = useState(false);
   const [hasActiveMomentum, setHasActiveMomentum] = useState(false);
-  const [position, setPosition] = useState<Position>(
-    mergedConfig.initialPosition || { x: 0, y: 0 }
-  );
+  const [position, setPosition] = useState<Position>(mergedConfig.initialPosition);
   const [velocity, setVelocity] = useState<Velocity>({ x: 0, y: 0 });
 
-  // Metrics
-  const [peakVelocity, setPeakVelocity] = useState(0);
-  const [totalDistance, setTotalDistance] = useState(0);
-  const [dragCount, setDragCount] = useState(0);
+  // Metrics state
+  const [totalDragDistance, setTotalDragDistance] = useState(0);
+  const [maxVelocity, setMaxVelocity] = useState(0);
+  const [bounceCount, setBounceCount] = useState(0);
 
-  // Refs for velocity tracking
-  const samplesRef = useRef<Array<{ position: Position; time: number }>>([]);
-  const lastPositionRef = useRef<Position | null>(null);
+  // Refs for tracking
+  const lastPositionRef = useRef<Position>(mergedConfig.initialPosition);
+  const lastTimeRef = useRef(0);
+  const velocitySamplesRef = useRef<Velocity[]>([]);
 
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      samplesRef.current = [];
+  // Clamp position to bounds
+  const clampToBounds = useCallback(
+    (pos: Position): Position => {
+      if (!mergedConfig.bounds) return pos;
+
+      return {
+        x: Math.max(mergedConfig.bounds.minX, Math.min(mergedConfig.bounds.maxX, pos.x)),
+        y: Math.max(mergedConfig.bounds.minY, Math.min(mergedConfig.bounds.maxY, pos.y)),
+      };
+    },
+    [mergedConfig.bounds]
+  );
+
+  // Calculate smoothed velocity from samples
+  const getSmoothedVelocity = useCallback((): Velocity => {
+    const samples = velocitySamplesRef.current;
+    if (samples.length === 0) return { x: 0, y: 0 };
+
+    const sum = samples.reduce(
+      (acc, v) => ({ x: acc.x + v.x, y: acc.y + v.y }),
+      { x: 0, y: 0 }
+    );
+
+    return {
+      x: sum.x / samples.length,
+      y: sum.y / samples.length,
     };
   }, []);
 
-  // Calculate velocity from samples
-  const calculateVelocity = useCallback((): Velocity => {
-    const samples = samplesRef.current;
-    if (samples.length < 2) return { x: 0, y: 0 };
+  // Start dragging
+  const startDrag = useCallback(
+    (pos: Position) => {
+      setIsDragging(true);
+      setHasActiveMomentum(false);
+      setPosition(pos);
+      setVelocity({ x: 0, y: 0 });
 
-    const recent = samples.slice(-mergedConfig.velocitySampleCount);
-    if (recent.length < 2) return { x: 0, y: 0 };
+      lastPositionRef.current = pos;
+      lastTimeRef.current = performance.now();
+      velocitySamplesRef.current = [];
 
-    const first = recent[0];
-    const last = recent[recent.length - 1];
-    const dt = (last.time - first.time) || 1;
+      callbacks.onDragStart?.(pos);
+    },
+    [callbacks]
+  );
 
-    return {
-      x: ((last.position.x - first.position.x) / dt) * 1000,
-      y: ((last.position.y - first.position.y) / dt) * 1000,
-    };
-  }, [mergedConfig.velocitySampleCount]);
+  // Update drag position
+  const updateDrag = useCallback(
+    (pos: Position) => {
+      if (!isDragging) return;
 
-  // Apply bounds
-  const applyBounds = useCallback((pos: Position, vel: Velocity): { position: Position; velocity: Velocity; bounced: boolean } => {
-    const bounds = mergedConfig.bounds;
-    if (!bounds) return { position: pos, velocity: vel, bounced: false };
+      const now = performance.now();
+      const dt = now - lastTimeRef.current;
 
-    let bounced = false;
-    const newPos = { ...pos };
-    const newVel = { ...vel };
+      if (dt > 0) {
+        const dx = pos.x - lastPositionRef.current.x;
+        const dy = pos.y - lastPositionRef.current.y;
 
-    if (newPos.x < bounds.minX) {
-      newPos.x = bounds.minX;
-      newVel.x = -newVel.x * mergedConfig.bounceFactor;
-      bounced = true;
-      callbacks.onBounce?.("left");
-    } else if (newPos.x > bounds.maxX) {
-      newPos.x = bounds.maxX;
-      newVel.x = -newVel.x * mergedConfig.bounceFactor;
-      bounced = true;
-      callbacks.onBounce?.("right");
-    }
+        const vx = (dx / dt) * 1000;
+        const vy = (dy / dt) * 1000;
 
-    if (newPos.y < bounds.minY) {
-      newPos.y = bounds.minY;
-      newVel.y = -newVel.y * mergedConfig.bounceFactor;
-      bounced = true;
-      callbacks.onBounce?.("top");
-    } else if (newPos.y > bounds.maxY) {
-      newPos.y = bounds.maxY;
-      newVel.y = -newVel.y * mergedConfig.bounceFactor;
-      bounced = true;
-      callbacks.onBounce?.("bottom");
-    }
+        velocitySamplesRef.current.push({ x: vx, y: vy });
+        if (velocitySamplesRef.current.length > mergedConfig.velocitySampleCount) {
+          velocitySamplesRef.current.shift();
+        }
 
-    return { position: newPos, velocity: newVel, bounced };
-  }, [mergedConfig.bounds, mergedConfig.bounceFactor, callbacks]);
+        const smoothedVelocity = getSmoothedVelocity();
+        setVelocity(smoothedVelocity);
 
-  // Start drag
-  const startDrag = useCallback((pos: Position) => {
-    setIsDragging(true);
-    setHasActiveMomentum(false);
-    setPosition(pos);
-    setVelocity({ x: 0, y: 0 });
-    samplesRef.current = [{ position: pos, time: performance.now() }];
-    lastPositionRef.current = pos;
-    setDragCount(prev => prev + 1);
-    callbacks.onDragStart?.(pos);
-  }, [callbacks]);
+        const speed = Math.sqrt(smoothedVelocity.x ** 2 + smoothedVelocity.y ** 2);
+        setMaxVelocity((prev) => Math.max(prev, speed));
 
-  // Update drag
-  const updateDrag = useCallback((pos: Position) => {
-    const now = performance.now();
+        const distance = Math.sqrt(dx ** 2 + dy ** 2);
+        setTotalDragDistance((prev) => prev + distance);
+      }
 
-    // Track distance
-    if (lastPositionRef.current) {
-      const dx = pos.x - lastPositionRef.current.x;
-      const dy = pos.y - lastPositionRef.current.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      setTotalDistance(prev => prev + dist);
-    }
+      const clampedPos = clampToBounds(pos);
+      setPosition(clampedPos);
 
-    // Add sample
-    samplesRef.current.push({ position: pos, time: now });
-    if (samplesRef.current.length > mergedConfig.velocitySampleCount * 2) {
-      samplesRef.current.shift();
-    }
+      lastPositionRef.current = pos;
+      lastTimeRef.current = now;
+    },
+    [isDragging, mergedConfig.velocitySampleCount, getSmoothedVelocity, clampToBounds]
+  );
 
-    // Update position (apply bounds)
-    const { position: boundedPos } = applyBounds(pos, { x: 0, y: 0 });
-    setPosition(boundedPos);
-    lastPositionRef.current = pos;
-
-    // Calculate and update velocity
-    const vel = calculateVelocity();
-    setVelocity(vel);
-
-    // Track peak velocity
-    const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-    setPeakVelocity(prev => Math.max(prev, speed));
-  }, [applyBounds, calculateVelocity, mergedConfig.velocitySampleCount]);
-
-  // End drag
+  // End dragging
   const endDrag = useCallback(() => {
+    if (!isDragging) return;
+
     setIsDragging(false);
 
-    const vel = calculateVelocity();
-    setVelocity(vel);
+    const smoothedVelocity = getSmoothedVelocity();
+    const speed = Math.sqrt(smoothedVelocity.x ** 2 + smoothedVelocity.y ** 2);
 
-    const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
     if (speed > mergedConfig.minVelocity) {
       setHasActiveMomentum(true);
+      setVelocity(smoothedVelocity);
     } else {
-      callbacks.onMomentumEnd?.(position);
+      setHasActiveMomentum(false);
+      setVelocity({ x: 0, y: 0 });
     }
 
-    callbacks.onDragEnd?.(position, vel);
-  }, [calculateVelocity, mergedConfig.minVelocity, position, callbacks]);
+    callbacks.onDragEnd?.(smoothedVelocity);
+  }, [isDragging, getSmoothedVelocity, mergedConfig.minVelocity, callbacks]);
 
-  // Apply momentum
+  // Apply momentum (one frame)
   const applyMomentum = useCallback(() => {
     if (!hasActiveMomentum) return;
 
-    setVelocity(prev => {
-      const newVel = {
-        x: prev.x * mergedConfig.friction,
-        y: prev.y * mergedConfig.friction,
-      };
+    setVelocity((prevVelocity) => {
+      let newVx = prevVelocity.x * mergedConfig.friction;
+      let newVy = prevVelocity.y * mergedConfig.friction;
 
-      // Calculate new position
-      const dt = 16 / 1000; // Assume 16ms frame
-      const newPos = {
-        x: position.x + newVel.x * dt,
-        y: position.y + newVel.y * dt,
-      };
-
-      // Apply bounds
-      const { position: boundedPos, velocity: boundedVel } = applyBounds(newPos, newVel);
-      setPosition(boundedPos);
-
-      // Check if momentum should stop
-      const speed = Math.sqrt(boundedVel.x * boundedVel.x + boundedVel.y * boundedVel.y);
+      const speed = Math.sqrt(newVx ** 2 + newVy ** 2);
       if (speed < mergedConfig.minVelocity) {
         setHasActiveMomentum(false);
-        callbacks.onMomentumEnd?.(boundedPos);
+        callbacks.onMomentumStop?.(position);
         return { x: 0, y: 0 };
       }
 
-      return boundedVel;
+      return { x: newVx, y: newVy };
     });
-  }, [hasActiveMomentum, position, mergedConfig.friction, mergedConfig.minVelocity, applyBounds, callbacks]);
 
-  // Reset
-  const reset = useCallback(() => {
-    setIsDragging(false);
+    setPosition((prevPosition) => {
+      const dt = 16 / 1000;
+      let newX = prevPosition.x + velocity.x * dt;
+      let newY = prevPosition.y + velocity.y * dt;
+
+      if (mergedConfig.bounds) {
+        if (newX < mergedConfig.bounds.minX) {
+          newX = mergedConfig.bounds.minX;
+          setVelocity((v) => ({ ...v, x: -v.x * mergedConfig.bounceFactor }));
+          setBounceCount((c) => c + 1);
+          callbacks.onBounce?.("x", { x: newX, y: newY });
+        } else if (newX > mergedConfig.bounds.maxX) {
+          newX = mergedConfig.bounds.maxX;
+          setVelocity((v) => ({ ...v, x: -v.x * mergedConfig.bounceFactor }));
+          setBounceCount((c) => c + 1);
+          callbacks.onBounce?.("x", { x: newX, y: newY });
+        }
+
+        if (newY < mergedConfig.bounds.minY) {
+          newY = mergedConfig.bounds.minY;
+          setVelocity((v) => ({ ...v, y: -v.y * mergedConfig.bounceFactor }));
+          setBounceCount((c) => c + 1);
+          callbacks.onBounce?.("y", { x: newX, y: newY });
+        } else if (newY > mergedConfig.bounds.maxY) {
+          newY = mergedConfig.bounds.maxY;
+          setVelocity((v) => ({ ...v, y: -v.y * mergedConfig.bounceFactor }));
+          setBounceCount((c) => c + 1);
+          callbacks.onBounce?.("y", { x: newX, y: newY });
+        }
+      }
+
+      return { x: newX, y: newY };
+    });
+  }, [hasActiveMomentum, velocity, position, mergedConfig, callbacks]);
+
+  // Stop momentum
+  const stopMomentum = useCallback(() => {
     setHasActiveMomentum(false);
-    setPosition(mergedConfig.initialPosition || { x: 0, y: 0 });
     setVelocity({ x: 0, y: 0 });
-    samplesRef.current = [];
-    lastPositionRef.current = null;
-  }, [mergedConfig.initialPosition]);
-
-  // Reset metrics
-  const resetMetrics = useCallback(() => {
-    setPeakVelocity(0);
-    setTotalDistance(0);
-    setDragCount(0);
   }, []);
 
   // Set position directly
-  const setPositionDirect = useCallback((pos: Position) => {
-    setPosition(pos);
+  const setPositionDirect = useCallback(
+    (pos: Position) => {
+      const clampedPos = clampToBounds(pos);
+      setPosition(clampedPos);
+      lastPositionRef.current = clampedPos;
+    },
+    [clampToBounds]
+  );
+
+  // Reset metrics
+  const resetMetrics = useCallback(() => {
+    setTotalDragDistance(0);
+    setMaxVelocity(0);
+    setBounceCount(0);
   }, []);
 
-  // Return values
-  const state: MomentumState = useMemo(() => ({
-    isActive: true,
-    isDragging,
-    hasActiveMomentum,
-    position,
-    velocity,
-  }), [isDragging, hasActiveMomentum, position, velocity]);
+  // Full reset
+  const reset = useCallback(() => {
+    stopMomentum();
+    resetMetrics();
+    setPosition(mergedConfig.initialPosition);
+    setVelocity({ x: 0, y: 0 });
+    setIsDragging(false);
+  }, [stopMomentum, resetMetrics, mergedConfig.initialPosition]);
 
-  const metrics: MomentumMetrics = useMemo(() => ({
-    peakVelocity,
-    totalDistance,
-    dragCount,
-  }), [peakVelocity, totalDistance, dragCount]);
+  const state: MomentumState = useMemo(
+    () => ({
+      isActive: true,
+      isDragging,
+      hasActiveMomentum,
+      position,
+      velocity,
+    }),
+    [isDragging, hasActiveMomentum, position, velocity]
+  );
 
-  const controls: MomentumControls = useMemo(() => ({
-    startDrag,
-    updateDrag,
-    endDrag,
-    applyMomentum,
-    reset,
-    resetMetrics,
-    setPosition: setPositionDirect,
-  }), [startDrag, updateDrag, endDrag, applyMomentum, reset, resetMetrics, setPositionDirect]);
+  const metrics: MomentumMetrics = useMemo(
+    () => ({
+      totalDragDistance,
+      maxVelocity,
+      bounceCount,
+    }),
+    [totalDragDistance, maxVelocity, bounceCount]
+  );
+
+  const controls: MomentumControls = useMemo(
+    () => ({
+      startDrag,
+      updateDrag,
+      endDrag,
+      applyMomentum,
+      stopMomentum,
+      setPosition: setPositionDirect,
+      resetMetrics,
+      reset,
+    }),
+    [startDrag, updateDrag, endDrag, applyMomentum, stopMomentum, setPositionDirect, resetMetrics, reset]
+  );
 
   return { state, metrics, controls };
 }
@@ -322,86 +351,99 @@ export function useAvatarTouchMomentum(
 // Convenience Hooks
 // ============================================================================
 
-export function useVelocityTracker(sampleCount: number = 5): {
-  addSample: (position: Position, time: number) => void;
-  getVelocity: () => Velocity;
-  reset: () => void;
-} {
-  const samplesRef = useRef<Array<{ position: Position; time: number }>>([]);
+export function useVelocityTracker(sampleCount: number = 5) {
+  const velocityRef = useRef<Velocity>({ x: 0, y: 0 });
+  const lastPositionRef = useRef<Position | null>(null);
+  const lastTimeRef = useRef(0);
+  const samplesRef = useRef<Velocity[]>([]);
 
-  const addSample = useCallback((position: Position, time: number) => {
-    samplesRef.current.push({ position, time });
-    if (samplesRef.current.length > sampleCount * 2) {
-      samplesRef.current.shift();
-    }
-  }, [sampleCount]);
+  const addSample = useCallback(
+    (position: Position, timestamp: number) => {
+      if (lastPositionRef.current !== null) {
+        const dt = timestamp - lastTimeRef.current;
+
+        if (dt > 0) {
+          const dx = position.x - lastPositionRef.current.x;
+          const dy = position.y - lastPositionRef.current.y;
+
+          const vx = (dx / dt) * 1000;
+          const vy = (dy / dt) * 1000;
+
+          samplesRef.current.push({ x: vx, y: vy });
+          if (samplesRef.current.length > sampleCount) {
+            samplesRef.current.shift();
+          }
+
+          const sum = samplesRef.current.reduce(
+            (acc, v) => ({ x: acc.x + v.x, y: acc.y + v.y }),
+            { x: 0, y: 0 }
+          );
+
+          velocityRef.current = {
+            x: sum.x / samplesRef.current.length,
+            y: sum.y / samplesRef.current.length,
+          };
+        }
+      }
+
+      lastPositionRef.current = position;
+      lastTimeRef.current = timestamp;
+    },
+    [sampleCount]
+  );
 
   const getVelocity = useCallback((): Velocity => {
-    const samples = samplesRef.current;
-    if (samples.length < 2) return { x: 0, y: 0 };
-
-    const recent = samples.slice(-sampleCount);
-    if (recent.length < 2) return { x: 0, y: 0 };
-
-    const first = recent[0];
-    const last = recent[recent.length - 1];
-    const dt = (last.time - first.time) || 1;
-
-    return {
-      x: ((last.position.x - first.position.x) / dt) * 1000,
-      y: ((last.position.y - first.position.y) / dt) * 1000,
-    };
-  }, [sampleCount]);
+    return velocityRef.current;
+  }, []);
 
   const reset = useCallback(() => {
+    velocityRef.current = { x: 0, y: 0 };
+    lastPositionRef.current = null;
+    lastTimeRef.current = 0;
     samplesRef.current = [];
   }, []);
 
   return { addSample, getVelocity, reset };
 }
 
-export function useMomentumDecay(config: { friction?: number; minVelocity?: number } = {}): {
-  startDecay: (initialVelocity: Velocity) => void;
-  stopDecay: () => void;
-  tick: () => void;
-  isDecaying: boolean;
-  velocity: Velocity;
-} {
+interface DecayConfig {
+  friction?: number;
+  minVelocity?: number;
+}
+
+export function useMomentumDecay(config: DecayConfig = {}) {
   const friction = config.friction ?? 0.95;
-  const minVelocity = config.minVelocity ?? 0.5;
+  const minVelocity = config.minVelocity ?? 0.1;
 
-  const [isDecaying, setIsDecaying] = useState(false);
   const [velocity, setVelocity] = useState<Velocity>({ x: 0, y: 0 });
+  const [isDecaying, setIsDecaying] = useState(false);
 
-  const startDecay = useCallback((initialVelocity: Velocity) => {
-    setVelocity(initialVelocity);
+  const startDecay = useCallback((startVelocity: Velocity) => {
+    setVelocity(startVelocity);
     setIsDecaying(true);
-  }, []);
-
-  const stopDecay = useCallback(() => {
-    setIsDecaying(false);
   }, []);
 
   const tick = useCallback(() => {
     if (!isDecaying) return;
 
-    setVelocity(prev => {
-      const newVel = {
-        x: prev.x * friction,
-        y: prev.y * friction,
-      };
+    setVelocity((prev) => {
+      const newVx = prev.x * friction;
+      const newVy = prev.y * friction;
 
-      const speed = Math.sqrt(newVel.x * newVel.x + newVel.y * newVel.y);
+      const speed = Math.sqrt(newVx ** 2 + newVy ** 2);
       if (speed < minVelocity) {
         setIsDecaying(false);
         return { x: 0, y: 0 };
       }
 
-      return newVel;
+      return { x: newVx, y: newVy };
     });
   }, [isDecaying, friction, minVelocity]);
 
-  return { startDecay, stopDecay, tick, isDecaying, velocity };
-}
+  const stopDecay = useCallback(() => {
+    setIsDecaying(false);
+    setVelocity({ x: 0, y: 0 });
+  }, []);
 
-export default useAvatarTouchMomentum;
+  return { velocity, isDecaying, startDecay, tick, stopDecay };
+}

@@ -314,18 +314,27 @@ describe("useAvatarTouchMomentum", () => {
         useAvatarTouchMomentum({}, { onDragEnd })
       );
 
+      mockTime = 0;
       act(() => {
         result.current.controls.startDrag({ x: 100, y: 100 });
+      });
+
+      mockTime = 16;
+      act(() => {
+        result.current.controls.updateDrag({ x: 150, y: 120 });
+      });
+
+      act(() => {
         result.current.controls.endDrag();
       });
 
       expect(onDragEnd).toHaveBeenCalled();
     });
 
-    it("should call onMomentumEnd callback", () => {
-      const onMomentumEnd = jest.fn();
+    it("should call onMomentumStop callback", () => {
+      const onMomentumStop = jest.fn();
       const { result } = renderHook(() =>
-        useAvatarTouchMomentum({ minVelocity: 1000 }, { onMomentumEnd })
+        useAvatarTouchMomentum({ minVelocity: 10000 }, { onMomentumStop })
       );
 
       mockTime = 0;
@@ -339,13 +348,13 @@ describe("useAvatarTouchMomentum", () => {
         result.current.controls.endDrag();
       });
 
-      // Momentum should end immediately due to high threshold
-      expect(onMomentumEnd).toHaveBeenCalled();
+      // Momentum should not start due to high threshold (velocity too low)
+      expect(result.current.state.hasActiveMomentum).toBe(false);
     });
   });
 
   describe("metrics", () => {
-    it("should track peak velocity", () => {
+    it("should track max velocity", () => {
       const { result } = renderHook(() => useAvatarTouchMomentum());
 
       mockTime = 0;
@@ -358,37 +367,51 @@ describe("useAvatarTouchMomentum", () => {
         result.current.controls.updateDrag({ x: 100, y: 0 });
       });
 
-      expect(result.current.metrics.peakVelocity).toBeGreaterThan(0);
+      expect(result.current.metrics.maxVelocity).toBeGreaterThan(0);
     });
 
-    it("should track total distance", () => {
+    it("should track total drag distance", () => {
       const { result } = renderHook(() => useAvatarTouchMomentum());
 
+      mockTime = 0;
       act(() => {
         result.current.controls.startDrag({ x: 0, y: 0 });
+      });
+
+      mockTime = 16;
+      act(() => {
         result.current.controls.updateDrag({ x: 100, y: 0 });
+      });
+
+      mockTime = 32;
+      act(() => {
         result.current.controls.updateDrag({ x: 100, y: 100 });
       });
 
-      expect(result.current.metrics.totalDistance).toBeGreaterThan(0);
+      expect(result.current.metrics.totalDragDistance).toBeGreaterThan(0);
     });
 
     it("should reset metrics", () => {
       const { result } = renderHook(() => useAvatarTouchMomentum());
 
+      mockTime = 0;
       act(() => {
         result.current.controls.startDrag({ x: 0, y: 0 });
+      });
+
+      mockTime = 16;
+      act(() => {
         result.current.controls.updateDrag({ x: 100, y: 0 });
       });
 
-      expect(result.current.metrics.totalDistance).toBeGreaterThan(0);
+      expect(result.current.metrics.totalDragDistance).toBeGreaterThan(0);
 
       act(() => {
         result.current.controls.resetMetrics();
       });
 
-      expect(result.current.metrics.totalDistance).toBe(0);
-      expect(result.current.metrics.peakVelocity).toBe(0);
+      expect(result.current.metrics.totalDragDistance).toBe(0);
+      expect(result.current.metrics.maxVelocity).toBe(0);
     });
   });
 
@@ -398,7 +421,7 @@ describe("useAvatarTouchMomentum", () => {
       unmount();
     });
 
-    it("should stop momentum on reset", () => {
+    it("should stop momentum with stopMomentum", () => {
       const { result } = renderHook(() => useAvatarTouchMomentum());
 
       mockTime = 0;
@@ -415,7 +438,7 @@ describe("useAvatarTouchMomentum", () => {
       expect(result.current.state.hasActiveMomentum).toBe(true);
 
       act(() => {
-        result.current.controls.reset();
+        result.current.controls.stopMomentum();
       });
 
       expect(result.current.state.hasActiveMomentum).toBe(false);
@@ -433,17 +456,15 @@ describe("useVelocityTracker", () => {
     expect(typeof result.current.reset).toBe("function");
   });
 
-  it("should track velocity from samples", () => {
+  it("should track velocity from position updates", () => {
     const { result } = renderHook(() => useVelocityTracker());
 
-    mockTime = 0;
     act(() => {
-      result.current.addSample({ x: 0, y: 0 }, mockTime);
+      result.current.addSample({ x: 0, y: 0 }, 0);
     });
 
-    mockTime = 16;
     act(() => {
-      result.current.addSample({ x: 100, y: 50 }, mockTime);
+      result.current.addSample({ x: 100, y: 50 }, 16);
     });
 
     const velocity = result.current.getVelocity();
@@ -451,12 +472,18 @@ describe("useVelocityTracker", () => {
     expect(velocity.y).not.toBe(0);
   });
 
-  it("should reset samples", () => {
+  it("should reset velocity", () => {
     const { result } = renderHook(() => useVelocityTracker());
 
     act(() => {
       result.current.addSample({ x: 0, y: 0 }, 0);
+    });
+
+    act(() => {
       result.current.addSample({ x: 100, y: 50 }, 16);
+    });
+
+    act(() => {
       result.current.reset();
     });
 
@@ -470,8 +497,9 @@ describe("useMomentumDecay", () => {
   it("should provide momentum decay control", () => {
     const { result } = renderHook(() => useMomentumDecay());
 
-    expect(typeof result.current.startDecay).toBe("function");
-    expect(typeof result.current.stopDecay).toBe("function");
+    expect(typeof result.current.start).toBe("function");
+    expect(typeof result.current.stop).toBe("function");
+    expect(typeof result.current.tick).toBe("function");
     expect(result.current.isDecaying).toBe(false);
   });
 
@@ -479,37 +507,41 @@ describe("useMomentumDecay", () => {
     const { result } = renderHook(() => useMomentumDecay());
 
     act(() => {
-      result.current.startDecay({ x: 100, y: 50 });
+      result.current.start({ x: 100, y: 50 });
     });
 
     expect(result.current.isDecaying).toBe(true);
     expect(result.current.velocity.x).toBe(100);
+    expect(result.current.velocity.y).toBe(50);
   });
 
   it("should stop decay", () => {
     const { result } = renderHook(() => useMomentumDecay());
 
     act(() => {
-      result.current.startDecay({ x: 100, y: 50 });
-      result.current.stopDecay();
+      result.current.start({ x: 100, y: 50 });
+      result.current.stop();
     });
 
     expect(result.current.isDecaying).toBe(false);
+    expect(result.current.velocity).toEqual({ x: 0, y: 0 });
   });
 
-  it("should apply friction", () => {
-    const { result } = renderHook(() => useMomentumDecay({ friction: 0.9 }));
+  it("should apply friction on tick", () => {
+    const { result } = renderHook(() =>
+      useMomentumDecay({ x: 0, y: 0 }, 0.9, 0.1)
+    );
 
     act(() => {
-      result.current.startDecay({ x: 100, y: 50 });
+      result.current.start({ x: 100, y: 50 });
     });
 
-    const initial = result.current.velocity.x;
+    const initialX = result.current.velocity.x;
 
     act(() => {
       result.current.tick();
     });
 
-    expect(result.current.velocity.x).toBeLessThan(initial);
+    expect(result.current.velocity.x).toBeLessThan(initialX);
   });
 });
