@@ -4,6 +4,14 @@ import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { HER_COLORS } from "@/styles/her-theme";
 import type { AnimationSettings } from "@/hooks/useMobileOptimization";
+import {
+  useTouchResponseOptimizer,
+  type TrackedTouch,
+} from "@/hooks/useTouchResponseOptimizer";
+import {
+  useMobileAvatarLatencyMitigator,
+  type AvatarPose,
+} from "@/hooks/useMobileAvatarLatencyMitigator";
 
 /**
  * OptimizedAvatar - Sprint 514
@@ -27,6 +35,12 @@ interface OptimizedAvatarProps {
   audioLevel: number;
   animationSettings: AnimationSettings;
   className?: string;
+  /** Callback when avatar is touched (for interaction feedback) */
+  onTouch?: (position: { x: number; y: number }) => void;
+  /** Callback for latency metrics (Sprint 521) */
+  onLatencyMeasured?: (latencyMs: number) => void;
+  /** Enable touch interaction feedback */
+  enableTouchFeedback?: boolean;
 }
 
 // Emotion color mappings
@@ -553,7 +567,80 @@ export function OptimizedAvatar({
   audioLevel,
   animationSettings,
   className = "",
+  onTouch,
+  onLatencyMeasured,
+  enableTouchFeedback = false,
 }: OptimizedAvatarProps) {
+  // Touch response optimization (Sprint 521)
+  const { state: touchState, controls: touchControls, metrics: touchMetrics } = useTouchResponseOptimizer(
+    {
+      targetResponseMs: animationSettings.targetFPS <= 30 ? 33 : 16,
+      enablePrediction: animationSettings.avatarQuality !== "low",
+    },
+    {
+      onTouchStart: (touches) => {
+        if (onTouch && touches.length > 0) {
+          onTouch({ x: touches[0].x, y: touches[0].y });
+        }
+      },
+      onSlowResponse: (responseMs) => {
+        if (onLatencyMeasured) {
+          onLatencyMeasured(responseMs);
+        }
+      },
+    }
+  );
+
+  // Latency mitigation for smooth animations (Sprint 521)
+  const { state: mitigatorState, controls: mitigatorControls, metrics: mitigatorMetrics } = useMobileAvatarLatencyMitigator(
+    {
+      targetFrameTimeMs: 1000 / animationSettings.targetFPS,
+      strategy: animationSettings.avatarQuality === "low" ? "conservative" : "adaptive",
+      monitorFrameTiming: animationSettings.avatarQuality !== "low",
+    },
+    {
+      onHighLatency: (latencyMs) => {
+        if (onLatencyMeasured) {
+          onLatencyMeasured(latencyMs);
+        }
+      },
+    }
+  );
+
+  // Touch feedback state
+  const [touchFeedback, setTouchFeedback] = useState<{ x: number; y: number; visible: boolean }>({
+    x: 0,
+    y: 0,
+    visible: false,
+  });
+
+  // Handle touch events with optimization
+  const handleTouchStart = useCallback(
+    (event: React.TouchEvent | React.PointerEvent) => {
+      if (!enableTouchFeedback) return;
+
+      const nativeEvent = event.nativeEvent as TouchEvent | PointerEvent;
+      const feedback = touchControls.getImmediateFeedbackPosition(nativeEvent);
+
+      if (feedback) {
+        setTouchFeedback({ x: feedback.x, y: feedback.y, visible: true });
+        touchControls.processTouchStart(nativeEvent);
+      }
+    },
+    [enableTouchFeedback, touchControls]
+  );
+
+  const handleTouchEnd = useCallback(
+    (event: React.TouchEvent | React.PointerEvent) => {
+      if (!enableTouchFeedback) return;
+
+      const nativeEvent = event.nativeEvent as TouchEvent | PointerEvent;
+      touchControls.processTouchEnd(nativeEvent);
+      setTouchFeedback((prev) => ({ ...prev, visible: false }));
+    },
+    [enableTouchFeedback, touchControls]
+  );
+
   // Throttle audio level updates based on target FPS
   const throttledAudioLevel = useThrottledValue(audioLevel, animationSettings.targetFPS);
 
@@ -617,8 +704,40 @@ export function OptimizedAvatar({
   ]);
 
   return (
-    <div className={`relative ${className}`}>
+    <div
+      className={`relative ${className}`}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onPointerDown={handleTouchStart}
+      onPointerUp={handleTouchEnd}
+    >
       {renderAvatar()}
+
+      {/* Touch feedback indicator (Sprint 521) */}
+      {enableTouchFeedback && touchFeedback.visible && (
+        <motion.div
+          className="absolute rounded-full pointer-events-none"
+          style={{
+            width: 40,
+            height: 40,
+            backgroundColor: HER_COLORS.coral + "40",
+            left: touchFeedback.x - 20,
+            top: touchFeedback.y - 20,
+          }}
+          initial={{ scale: 0.5, opacity: 0.8 }}
+          animate={{ scale: 1.2, opacity: 0 }}
+          transition={{ duration: 0.3 }}
+        />
+      )}
+
+      {/* Latency warning indicator (only in development) */}
+      {process.env.NODE_ENV === "development" && mitigatorMetrics.averageTouchLatencyMs > 100 && (
+        <div
+          className="absolute top-0 right-0 w-2 h-2 rounded-full"
+          style={{ backgroundColor: HER_COLORS.coral }}
+          title={`Latency: ${mitigatorMetrics.averageTouchLatencyMs.toFixed(0)}ms`}
+        />
+      )}
     </div>
   );
 }

@@ -350,7 +350,10 @@ describe("useMobileAvatarLatencyMitigator", () => {
         { ...createMockPose(16), position: { x: 10, y: 0, z: 0 } },
       ];
 
-      const predicted = result.current.controls.predictPose(history, 16);
+      let predicted: ReturnType<typeof result.current.controls.predictPose>;
+      act(() => {
+        predicted = result.current.controls.predictPose(history, 16);
+      });
 
       expect(predicted).not.toBeNull();
       // Should extrapolate position based on velocity

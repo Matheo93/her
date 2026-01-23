@@ -734,10 +734,10 @@ export {
   type FramePhase,
   type ScheduledTask,
   type FrameInfo,
-  type SchedulerState,
-  type SchedulerMetrics,
-  type SchedulerConfig,
-  type SchedulerControls,
+  type SchedulerState as FrameSchedulerState,
+  type SchedulerMetrics as FrameSchedulerMetrics,
+  type SchedulerConfig as FrameSchedulerConfig,
+  type SchedulerControls as FrameSchedulerControls,
   type UseMobileFrameSchedulerResult,
 } from "./useMobileFrameScheduler";
 
@@ -974,20 +974,20 @@ export {
 // Render Pipeline Optimizer (Sprint 521)
 export {
   useRenderPipelineOptimizer,
-  useFrameBudget,
+  useFrameBudget as usePipelineFrameBudget,
   useLODManager,
-  useGPUInfo,
-  type RenderPriority,
+  useGPUInfo as usePipelineGPUInfo,
+  type RenderPriority as PipelineRenderPriority,
   type LODLevel,
-  type GPUTier,
+  type GPUTier as PipelineGPUTier,
   type RenderPass,
-  type FrameBudget,
-  type GPUInfo,
+  type FrameBudget as PipelineFrameBudget,
+  type GPUInfo as PipelineGPUInfo,
   type OcclusionHint,
-  type PipelineMetrics,
-  type PipelineState,
-  type PipelineConfig,
-  type PipelineControls,
+  type PipelineMetrics as RenderPipelineMetrics,
+  type PipelineState as RenderPipelineState,
+  type PipelineConfig as RenderPipelineConfig,
+  type PipelineControls as RenderPipelineControls,
   type UseRenderPipelineOptimizerResult,
 } from "./useRenderPipelineOptimizer";
 
@@ -1011,3 +1011,43 @@ export {
   type PredictorControls,
   type UseGestureMotionPredictorResult,
 } from "./useGestureMotionPredictor";
+
+// Avatar Render Scheduler (Sprint 516 Iteration 2)
+export {
+  useAvatarRenderScheduler,
+  useFrameBudget as useAvatarRenderFrameBudget,
+  useRenderPriority,
+  useAdaptiveFPS,
+  type RenderPriority as AvatarRenderPriority,
+  type RenderPhase as AvatarRenderPhase,
+  type VisibilityState as AvatarVisibilityState,
+  type ThrottleReason,
+  type ScheduledRender,
+  type FrameBudget as AvatarFrameBudget,
+  type FrameStats as AvatarFrameStats,
+  type SchedulerState as AvatarSchedulerState,
+  type SchedulerMetrics as AvatarSchedulerMetrics,
+  type SchedulerConfig as AvatarSchedulerConfig,
+  type SchedulerControls as AvatarSchedulerControls,
+  type UseAvatarRenderSchedulerResult,
+} from "./useAvatarRenderScheduler";
+
+// Mobile Input Pipeline (Sprint 516 Iteration 2)
+export {
+  useMobileInputPipeline,
+  useGestureDetection,
+  useInputPrediction,
+  type InputType,
+  type GestureType as InputGestureType,
+  type InputPriority,
+  type PipelineStage as InputPipelineStage,
+  type RawInput,
+  type ProcessedInput,
+  type InputBuffer,
+  type GestureState as InputGestureState,
+  type PipelineState as InputPipelineState,
+  type PipelineMetrics as InputPipelineMetrics,
+  type PipelineConfig as InputPipelineConfig,
+  type PipelineControls as InputPipelineControls,
+  type UseMobileInputPipelineResult,
+} from "./useMobileInputPipeline";

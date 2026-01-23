@@ -147,14 +147,18 @@ describe("useAvatarStateCache", () => {
         result.current.updateAudioLevel(1.0);
       });
 
-      // Advance several frames
+      // Advance several frames in a single act block
+      // Each advanceFrame processes callbacks which register new callbacks
+      // The smoothing uses factor 0.3 for attack, so after a few frames we should see movement
       act(() => {
-        advanceFrame(16);
-        advanceFrame(16);
-        advanceFrame(16);
+        // Process multiple frames to allow smoothing to occur
+        for (let i = 0; i < 10; i++) {
+          advanceFrame(16);
+        }
       });
 
       // Should be moving toward 1.0 but not there instantly
+      // With factor 0.3, after several frames the value should have increased
       expect(result.current.state.audioLevel).toBeGreaterThan(0);
       expect(result.current.state.audioLevel).toBeLessThan(1);
     });

@@ -261,7 +261,10 @@ describe("useTouchResponseOptimizer", () => {
       });
 
       // Get prediction
-      const predicted = result.current.controls.getPredictedPosition(1, 50);
+      let predicted: ReturnType<typeof result.current.controls.getPredictedPosition>;
+      act(() => {
+        predicted = result.current.controls.getPredictedPosition(1, 50);
+      });
 
       expect(predicted).not.toBeNull();
       // Should predict ahead based on velocity
@@ -325,7 +328,10 @@ describe("useTouchResponseOptimizer", () => {
         result.current.controls.processTouchStart(touchEvent);
       });
 
-      const feedback = result.current.controls.getImmediateFeedbackPosition(touchEvent);
+      let feedback: ReturnType<typeof result.current.controls.getImmediateFeedbackPosition>;
+      act(() => {
+        feedback = result.current.controls.getImmediateFeedbackPosition(touchEvent);
+      });
 
       expect(feedback).not.toBeNull();
       expect(feedback!.touchId).toBe(1);
