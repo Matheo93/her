@@ -1545,7 +1545,7 @@ describe("Sprint 618 - branch coverage improvements", () => {
     it("should call onPan during movement", () => {
       const onPan = jest.fn();
       const { result } = renderHook(() =>
-        useTouchAvatarInteraction({ onPan }, { swipeThreshold: 100 }) // High threshold to avoid swipe
+        useTouchAvatarInteraction({ onPan }, { swipeThreshold: 40 }) // Low enough to trigger pan
       );
 
       act(() => {
@@ -1557,8 +1557,8 @@ describe("Sprint 618 - branch coverage improvements", () => {
           new TouchEvent("touchstart", {
             touches: [
               {
-                identifier: 0, clientX: 50, clientY: 50, pageX: 50, pageY: 50,
-                screenX: 50, screenY: 50, target: element, radiusX: 1, radiusY: 1,
+                identifier: 0, clientX: 10, clientY: 50, pageX: 10, pageY: 50,
+                screenX: 10, screenY: 50, target: element, radiusX: 1, radiusY: 1,
                 rotationAngle: 0, force: 1,
               } as Touch,
             ],
@@ -1567,14 +1567,14 @@ describe("Sprint 618 - branch coverage improvements", () => {
         );
       });
 
-      // Move enough to trigger pan
+      // First move to establish history
       act(() => {
         element.dispatchEvent(
           new TouchEvent("touchmove", {
             touches: [
               {
-                identifier: 0, clientX: 80, clientY: 50, pageX: 80, pageY: 50,
-                screenX: 80, screenY: 50, target: element, radiusX: 1, radiusY: 1,
+                identifier: 0, clientX: 40, clientY: 50, pageX: 40, pageY: 50,
+                screenX: 40, screenY: 50, target: element, radiusX: 1, radiusY: 1,
                 rotationAngle: 0, force: 1,
               } as Touch,
             ],
@@ -1583,13 +1583,14 @@ describe("Sprint 618 - branch coverage improvements", () => {
         );
       });
 
+      // Second move should trigger pan (totalDistance > 40 * 0.5 = 20)
       act(() => {
         element.dispatchEvent(
           new TouchEvent("touchmove", {
             touches: [
               {
-                identifier: 0, clientX: 90, clientY: 50, pageX: 90, pageY: 50,
-                screenX: 90, screenY: 50, target: element, radiusX: 1, radiusY: 1,
+                identifier: 0, clientX: 60, clientY: 50, pageX: 60, pageY: 50,
+                screenX: 60, screenY: 50, target: element, radiusX: 1, radiusY: 1,
                 rotationAngle: 0, force: 1,
               } as Touch,
             ],
