@@ -499,3 +499,57 @@ export {
   type GestureOptimizerControls,
   type UseMobileGestureOptimizerResult,
 } from "./useMobileGestureOptimizer";
+
+// Avatar Attention System (Sprint 513)
+export {
+  useAvatarAttentionSystem,
+  useUserFaceAttention,
+  useConversationAttention,
+  type AttentionTargetType,
+  type AttentionPriority,
+  type GazePattern,
+  type AttentionTarget,
+  type GazeState,
+  type AttentionMetrics,
+  type AttentionConfig,
+  type AttentionSystemState,
+  type AttentionControls,
+  type UseAvatarAttentionSystemResult,
+} from "./useAvatarAttentionSystem";
+
+// Adaptive Streaming Quality (Sprint 513)
+export {
+  useAdaptiveStreamingQuality,
+  useStreamingQuality,
+  useBufferHealth,
+  type StreamQualityLevel,
+  type BufferHealth,
+  type QualityTrend,
+  type QualityProfile,
+  type BufferState,
+  type BandwidthEstimate,
+  type QualityTransition,
+  type StreamingMetrics,
+  type AdaptiveStreamingConfig,
+  type AdaptiveStreamingState,
+  type AdaptiveStreamingControls,
+  type UseAdaptiveStreamingQualityResult,
+} from "./useAdaptiveStreamingQuality";
+
+// Mobile Memory Optimizer (Sprint 513)
+export {
+  useMobileMemoryOptimizer,
+  useImageMemoryManager,
+  useMemoryPressureAlert,
+  type MemoryPressureLevel,
+  type CacheEvictionStrategy,
+  type ResourceType as MemoryResourceType,
+  type ManagedResource,
+  type MemoryStats,
+  type MemoryBudget,
+  type EvictionResult,
+  type MemoryOptimizerConfig,
+  type MemoryOptimizerState,
+  type MemoryOptimizerControls,
+  type UseMobileMemoryOptimizerResult,
+} from "./useMobileMemoryOptimizer";
