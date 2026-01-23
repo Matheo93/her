@@ -164,10 +164,10 @@ const DEFAULT_CONFIG: GestureOptimizerConfig = {
 };
 
 // ============================================================================
-// Utility Functions
+// Utility Functions (exported for testing)
 // ============================================================================
 
-function createTouchPoint(touch: Touch, timestamp: number): TouchPoint {
+export function createTouchPoint(touch: Touch, timestamp: number): TouchPoint {
   return {
     id: touch.identifier,
     x: touch.clientX,
@@ -179,7 +179,7 @@ function createTouchPoint(touch: Touch, timestamp: number): TouchPoint {
   };
 }
 
-function calculateVelocity(
+export function calculateVelocity(
   start: TouchPoint,
   end: TouchPoint
 ): GestureVelocity {
@@ -195,17 +195,17 @@ function calculateVelocity(
   return { x: vx, y: vy, magnitude, angle };
 }
 
-function calculateDistance(p1: TouchPoint, p2: TouchPoint): number {
+export function calculateDistance(p1: TouchPoint, p2: TouchPoint): number {
   const dx = p2.x - p1.x;
   const dy = p2.y - p1.y;
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-function calculateAngle(p1: TouchPoint, p2: TouchPoint): number {
+export function calculateAngle(p1: TouchPoint, p2: TouchPoint): number {
   return Math.atan2(p2.y - p1.y, p2.x - p1.x);
 }
 
-function detectSwipeDirection(
+export function detectSwipeDirection(
   velocity: GestureVelocity,
   minVelocity: number
 ): GestureType | null {
@@ -223,12 +223,12 @@ function detectSwipeDirection(
   return null;
 }
 
-function isPalmTouch(touch: Touch, maxArea: number): boolean {
+export function isPalmTouch(touch: Touch, maxArea: number): boolean {
   const area = (touch.radiusX || 10) * (touch.radiusY || 10) * Math.PI;
   return area > maxArea;
 }
 
-function predictGesture(
+export function predictGesture(
   touches: TouchPoint[],
   velocity: GestureVelocity,
   duration: number,

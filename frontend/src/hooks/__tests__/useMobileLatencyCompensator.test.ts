@@ -499,3 +499,311 @@ describe("useLatencyAwareLoading", () => {
     expect(result.current.showContent).toBe(true);
   });
 });
+
+// ============================================================================
+// Sprint 621: Branch coverage improvements
+// ============================================================================
+
+describe("useMobileLatencyCompensator - branch coverage", () => {
+  describe("latency classification - timeout level (line 241)", () => {
+    it("should classify very high latency as timeout", () => {
+      const onLatencyChange = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({}, { onLatencyChange })
+      );
+
+      // Record extremely high latency (>5000ms is typically timeout)
+      act(() => {
+        result.current.controls.recordLatency(10000, true);
+      });
+
+      expect(result.current.state.currentLatencyLevel).toBe("timeout");
+    });
+
+    it("should classify latency as very_slow before timeout", () => {
+      const { result } = renderHook(() => useMobileLatencyCompensator());
+
+      // Record very slow latency (1000-2999ms is very_slow based on thresholds)
+      act(() => {
+        result.current.controls.recordLatency(2000, true);
+      });
+
+      expect(result.current.state.currentLatencyLevel).toBe("very_slow");
+    });
+  });
+
+  describe("UI hint - show_placeholder (line 248)", () => {
+    it("should return show_placeholder for latency above timeout threshold", () => {
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({
+          spinnerThreshold: 100,
+          skeletonThreshold: 200,
+          timeoutThreshold: 5000,
+        })
+      );
+
+      // Record latencies above timeout threshold
+      act(() => {
+        result.current.controls.recordLatency(6000, true);
+        result.current.controls.recordLatency(7000, true);
+        result.current.controls.recordLatency(8000, true);
+      });
+
+      const hint = result.current.controls.getUIHint();
+      expect(hint).toBe("show_placeholder");
+    });
+  });
+
+  describe("latency samples overflow (line 385)", () => {
+    it("should trim latency samples when exceeding window size", () => {
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({ predictionWindowSize: 10 })
+      );
+
+      // Record more samples than 2x the window size (10 * 2 = 20)
+      for (let i = 0; i < 25; i++) {
+        act(() => {
+          result.current.controls.recordLatency(100 + i, true);
+        });
+      }
+
+      // Samples should be trimmed, metrics should still track correctly
+      expect(result.current.metrics.latencySamples).toBe(25);
+      expect(result.current.metrics.averageLatencyMs).toBeGreaterThan(0);
+    });
+  });
+
+  describe("spinner display for medium latency (lines 477-479)", () => {
+    it("should show spinner when prediction is between spinner and skeleton threshold", () => {
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({
+          spinnerThreshold: 100,
+          skeletonThreshold: 500,
+        })
+      );
+
+      // Record latencies that predict between spinner (100) and skeleton (500) thresholds
+      act(() => {
+        result.current.controls.recordLatency(200, true);
+        result.current.controls.recordLatency(250, true);
+        result.current.controls.recordLatency(200, true);
+      });
+
+      // Start a compensated update
+      act(() => {
+        result.current.controls.compensate(() => {}, () => {});
+      });
+
+      // Should show spinner, not skeleton
+      expect(result.current.state.showSpinner).toBe(true);
+      expect(result.current.state.showSkeleton).toBe(false);
+      expect(result.current.metrics.spinnersShown).toBeGreaterThan(0);
+    });
+  });
+
+  describe("cleanup timeouts on commit (lines 540-543)", () => {
+    it("should cleanup update from map after commit timeout", () => {
+      const { result } = renderHook(() => useMobileLatencyCompensator());
+
+      let comp: ReturnType<typeof result.current.controls.compensate>;
+      mockTime = 0;
+
+      act(() => {
+        comp = result.current.controls.compensate(() => {}, () => {});
+      });
+
+      const updateId = comp!.updateId;
+
+      mockTime = 100;
+      act(() => {
+        comp!.commit();
+      });
+
+      // State should show committed
+      expect(comp!.getState()).toBe("committed");
+
+      // Advance time to trigger the cleanup timeout (1000ms)
+      act(() => {
+        jest.advanceTimersByTime(1100);
+      });
+
+      // Update should be cleaned up
+      // After cleanup, getState returns "committed" as fallback since update is gone
+      expect(result.current.state.pendingUpdates).toBe(0);
+    });
+  });
+
+  describe("cleanup timeouts on rollback (lines 603-606)", () => {
+    it("should cleanup update from map after rollback timeout", () => {
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({ rollbackAnimationMs: 300 })
+      );
+
+      let comp: ReturnType<typeof result.current.controls.compensate>;
+      mockTime = 0;
+
+      act(() => {
+        comp = result.current.controls.compensate(() => {}, () => {});
+      });
+
+      mockTime = 100;
+      act(() => {
+        comp!.rollback();
+      });
+
+      expect(comp!.getState()).toBe("rolled_back");
+
+      // Advance time to trigger the cleanup timeout (rollbackAnimationMs = 300)
+      act(() => {
+        jest.advanceTimersByTime(400);
+      });
+
+      // Update should be cleaned up
+      expect(result.current.state.pendingUpdates).toBe(0);
+    });
+  });
+
+  describe("clearPending with timeouts (line 633)", () => {
+    it("should clear timeouts when clearing pending updates", () => {
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({
+          autoRollbackOnTimeout: true,
+          timeoutThreshold: 5000,
+        })
+      );
+
+      const rollback1 = jest.fn();
+      const rollback2 = jest.fn();
+
+      act(() => {
+        result.current.controls.compensate(() => {}, rollback1);
+        result.current.controls.compensate(() => {}, rollback2);
+      });
+
+      expect(result.current.state.pendingUpdates).toBe(2);
+
+      // Clear pending - should clear timeouts and rollback
+      act(() => {
+        result.current.controls.clearPending();
+      });
+
+      expect(rollback1).toHaveBeenCalled();
+      expect(rollback2).toHaveBeenCalled();
+
+      // Advance past original timeout - should not cause additional rollbacks
+      // since timeouts were cleared
+      rollback1.mockClear();
+      rollback2.mockClear();
+
+      act(() => {
+        jest.advanceTimersByTime(6000);
+      });
+
+      // Rollbacks should not be called again
+      expect(rollback1).not.toHaveBeenCalled();
+      expect(rollback2).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("commit and rollback for non-existent updates", () => {
+    it("should handle commit for non-existent update gracefully", () => {
+      const { result } = renderHook(() => useMobileLatencyCompensator());
+
+      // Get controls - commit is the exposed name
+      const { commit } = result.current.controls;
+
+      // Should not throw
+      expect(() => {
+        act(() => {
+          commit("non-existent-id");
+        });
+      }).not.toThrow();
+    });
+
+    it("should handle rollback for non-existent update gracefully", () => {
+      const { result } = renderHook(() => useMobileLatencyCompensator());
+
+      const { rollback } = result.current.controls;
+
+      // Should not throw
+      expect(() => {
+        act(() => {
+          rollback("non-existent-id");
+        });
+      }).not.toThrow();
+    });
+  });
+
+  describe("latency level transitions", () => {
+    it("should transition from fast to normal", () => {
+      const onLatencyChange = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({}, { onLatencyChange })
+      );
+
+      // Start with fast (< 100ms)
+      act(() => {
+        result.current.controls.recordLatency(50, true);
+      });
+      expect(result.current.state.currentLatencyLevel).toBe("fast");
+
+      // Transition to normal (100-299ms based on thresholds)
+      act(() => {
+        result.current.controls.recordLatency(150, true);
+      });
+      expect(result.current.state.currentLatencyLevel).toBe("normal");
+      expect(onLatencyChange).toHaveBeenCalledWith("normal");
+    });
+
+    it("should transition from normal to slow", () => {
+      const onLatencyChange = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({}, { onLatencyChange })
+      );
+
+      // Start with normal (100-299ms)
+      act(() => {
+        result.current.controls.recordLatency(150, true);
+      });
+      expect(result.current.state.currentLatencyLevel).toBe("normal");
+
+      // Transition to slow (300-999ms)
+      act(() => {
+        result.current.controls.recordLatency(500, true);
+      });
+      expect(result.current.state.currentLatencyLevel).toBe("slow");
+      expect(onLatencyChange).toHaveBeenCalledWith("slow");
+    });
+
+    it("should not call onLatencyChange when level stays the same", () => {
+      const onLatencyChange = jest.fn();
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({}, { onLatencyChange })
+      );
+
+      // Record same level multiple times
+      act(() => {
+        result.current.controls.recordLatency(50, true);
+      });
+      const callCount = onLatencyChange.mock.calls.length;
+
+      act(() => {
+        result.current.controls.recordLatency(60, true); // Still fast
+      });
+
+      expect(onLatencyChange.mock.calls.length).toBe(callCount); // No new call
+    });
+  });
+
+  describe("recording latency with success false", () => {
+    it("should record failed latency samples", () => {
+      const { result } = renderHook(() => useMobileLatencyCompensator());
+
+      act(() => {
+        result.current.controls.recordLatency(500, false, "/api/test");
+      });
+
+      expect(result.current.metrics.latencySamples).toBe(1);
+    });
+  });
+});
