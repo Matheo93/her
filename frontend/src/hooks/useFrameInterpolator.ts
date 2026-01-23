@@ -784,11 +784,17 @@ export function useValueInterpolator(
  */
 export function useSubFrameProgress(targetFps: number = 60): number {
   const { state, controls } = useFrameInterpolator({ targetFps });
+  const startRef = useRef(controls.start);
+  const stopRef = useRef(controls.stop);
+
+  // Update refs without causing re-renders
+  startRef.current = controls.start;
+  stopRef.current = controls.stop;
 
   useEffect(() => {
-    controls.start();
-    return () => controls.stop();
-  }, [controls]);
+    startRef.current();
+    return () => stopRef.current();
+  }, []); // Empty deps - run once on mount/unmount
 
   return state.subFrameProgress;
 }

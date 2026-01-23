@@ -944,7 +944,7 @@ export function useGestureDetection(
 ): {
   startTouch: (x: number, y: number) => void;
   moveTouch: (x: number, y: number) => void;
-  endTouch: () => void;
+  endTouch: () => GestureType | null;
 } {
   const { controls } = useMobileInputPipeline(
     { enableGestureRecognition: true },

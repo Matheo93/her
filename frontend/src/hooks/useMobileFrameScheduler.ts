@@ -191,6 +191,7 @@ export function useMobileFrameScheduler(
   const tasksRef = useRef<Map<string, ScheduledTask>>(new Map());
   const oneTimeTasksRef = useRef<Array<{ callback: () => void; priority: TaskPriority }>>([]);
   const isPausedRef = useRef(false);
+  const isRunningRef = useRef(false);
   const lastFrameTimeRef = useRef(0);
   const frameCountRef = useRef(0);
   const fpsHistoryRef = useRef<number[]>([]);
@@ -253,7 +254,7 @@ export function useMobileFrameScheduler(
   // Main frame loop
   const frameLoop = useCallback(
     (timestamp: number) => {
-      if (!state.isRunning || isPausedRef.current) {
+      if (!isRunningRef.current || isPausedRef.current) {
         animationRef.current = requestAnimationFrame(frameLoop);
         return;
       }
@@ -422,14 +423,16 @@ export function useMobileFrameScheduler(
 
   // Controls
   const start = useCallback(() => {
-    if (state.isRunning) return;
+    if (isRunningRef.current) return;
 
+    isRunningRef.current = true;
     lastFrameTimeRef.current = performance.now();
     setState((prev) => ({ ...prev, isRunning: true }));
     animationRef.current = requestAnimationFrame(frameLoop);
-  }, [state.isRunning, frameLoop]);
+  }, [frameLoop]);
 
   const stop = useCallback(() => {
+    isRunningRef.current = false;
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
