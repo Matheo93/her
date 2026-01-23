@@ -819,22 +819,23 @@ describe("Sprint 630 - updateBatteryState with real battery API (lines 311-409)"
   });
 
   it("should track level history and calculate average consumption (lines 332-346)", async () => {
+    let currentTime = 0;
+    jest.spyOn(Date, "now").mockImplementation(() => currentTime);
+
     mockBattery.level = 0.9;
     mockBattery.charging = false;
     (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
 
     const { result } = renderHook(() => useMobileBatteryOptimizer());
 
-    // First update at time 0
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+    // Wait for first update
+    await waitFor(() => {
+      expect(result.current.state.battery.supported).toBe(true);
     });
 
     // Simulate time passing and battery drain
     mockBattery.level = 0.85;
-    mockTime = 3600000; // 1 hour later
+    currentTime = 3600000; // 1 hour later
 
     // Trigger another update via refresh
     await act(async () => {
@@ -851,10 +852,8 @@ describe("Sprint 630 - updateBatteryState with real battery API (lines 311-409)"
 
     const { result } = renderHook(() => useMobileBatteryOptimizer());
 
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(result.current.state.battery.supported).toBe(true);
     });
 
     // Session duration and consumption should be calculated
@@ -870,10 +869,8 @@ describe("Sprint 630 - updateBatteryState with real battery API (lines 311-409)"
 
     const { result } = renderHook(() => useMobileBatteryOptimizer());
 
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(result.current.state.battery.supported).toBe(true);
     });
 
     // When charging, estimatedTimeRemaining should be Infinity
@@ -888,10 +885,8 @@ describe("Sprint 630 - updateBatteryState with real battery API (lines 311-409)"
 
     const { result } = renderHook(() => useMobileBatteryOptimizer());
 
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(result.current.state.battery.supported).toBe(true);
     });
 
     // Should use dischargingTime / 60 when no averageConsumption history
@@ -905,10 +900,8 @@ describe("Sprint 630 - updateBatteryState with real battery API (lines 311-409)"
 
     const { result } = renderHook(() => useMobileBatteryOptimizer({ autoOptimize: true }));
 
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(result.current.state.battery.supported).toBe(true);
     });
 
     // Should auto-switch to power_saver for low battery
@@ -923,10 +916,8 @@ describe("Sprint 630 - updateBatteryState with real battery API (lines 311-409)"
 
     const { result } = renderHook(() => useMobileBatteryOptimizer({ autoOptimize: true }));
 
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(result.current.state.battery.supported).toBe(true);
     });
 
     expect(result.current.state.powerMode).toBe("ultra_saver");
@@ -940,10 +931,8 @@ describe("Sprint 630 - updateBatteryState with real battery API (lines 311-409)"
 
     const { result } = renderHook(() => useMobileBatteryOptimizer({ autoOptimize: true }));
 
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(result.current.state.battery.supported).toBe(true);
     });
 
     expect(result.current.state.powerMode).toBe("balanced");
@@ -957,10 +946,8 @@ describe("Sprint 630 - updateBatteryState with real battery API (lines 311-409)"
 
     const { result } = renderHook(() => useMobileBatteryOptimizer({ autoOptimize: true }));
 
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(result.current.state.battery.supported).toBe(true);
     });
 
     expect(result.current.state.powerMode).toBe("normal");
@@ -974,10 +961,8 @@ describe("Sprint 630 - updateBatteryState with real battery API (lines 311-409)"
 
     const { result } = renderHook(() => useMobileBatteryOptimizer({ autoOptimize: true }));
 
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(result.current.state.battery.supported).toBe(true);
     });
 
     // high_refresh has minBatteryLevel of 0.3, should be disabled
@@ -993,10 +978,8 @@ describe("Sprint 630 - updateBatteryState with real battery API (lines 311-409)"
 
     const { result } = renderHook(() => useMobileBatteryOptimizer({ autoOptimize: true }));
 
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(result.current.state.battery.supported).toBe(true);
     });
 
     // Verify feature is in degraded mode
@@ -1059,16 +1042,23 @@ describe("Sprint 630 - updateBatteryState with real battery API (lines 311-409)"
   });
 
   it("should trim level history to max 60 entries (lines 333-335)", async () => {
+    let currentTime = 0;
+    jest.spyOn(Date, "now").mockImplementation(() => currentTime);
+
     mockBattery.level = 1.0;
     mockBattery.charging = false;
     (navigator as any).getBattery = jest.fn().mockResolvedValue(mockBattery);
 
     const { result } = renderHook(() => useMobileBatteryOptimizer());
 
+    await waitFor(() => {
+      expect(result.current.state.battery.supported).toBe(true);
+    });
+
     // Trigger many updates to exceed 60 entries
-    for (let i = 0; i < 65; i++) {
+    for (let i = 1; i < 65; i++) {
       mockBattery.level = 1.0 - i * 0.01;
-      mockTime = i * 60000; // 1 minute increments
+      currentTime = i * 60000; // 1 minute increments
 
       await act(async () => {
         await result.current.controls.refreshBatteryState();

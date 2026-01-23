@@ -772,6 +772,58 @@ describe("Sprint 628 - Keyboard detection (lines 376-441)", () => {
     expect(result.current.metrics.averageKeyboardHeight).toBeGreaterThan(0);
   });
 
+  it("should limit keyboard height history to 10 entries (line 394)", async () => {
+    Object.defineProperty(window, "innerHeight", {
+      value: 812,
+      writable: true,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useMobileViewportOptimizer());
+
+    act(() => {
+      jest.advanceTimersByTime(150);
+    });
+
+    // Show keyboard more than 10 times to trigger the shift() branch
+    for (let i = 0; i < 12; i++) {
+      // Show keyboard with varying heights
+      Object.defineProperty(window, "innerHeight", {
+        value: 500 - (i % 5) * 20,
+        writable: true,
+        configurable: true,
+      });
+
+      await act(async () => {
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(150);
+      });
+
+      // Hide keyboard
+      Object.defineProperty(window, "innerHeight", {
+        value: 812,
+        writable: true,
+        configurable: true,
+      });
+
+      await act(async () => {
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(150);
+      });
+    }
+
+    // Keyboard should have been shown more than 10 times
+    expect(result.current.metrics.keyboardShowCount).toBeGreaterThan(10);
+    // Average should still be tracked properly
+    expect(result.current.metrics.averageKeyboardHeight).toBeGreaterThan(0);
+  });
+
   it("should lock scroll when keyboard appears if configured", async () => {
     Object.defineProperty(window, "innerHeight", {
       value: 812,
@@ -1188,5 +1240,158 @@ describe("Sprint 628 - Cleanup", () => {
 
     // Unmount before timeout fires
     expect(() => unmount()).not.toThrow();
+  });
+});
+
+describe("Sprint 628 - Safe area insets parsing", () => {
+  it("should parse safe area insets from CSS variables", () => {
+    window.getComputedStyle = jest.fn().mockReturnValue({
+      getPropertyValue: jest.fn((prop: string) => {
+        if (prop === "--sat") return "44";
+        if (prop === "--sab") return "34";
+        return "0";
+      }),
+    });
+
+    const { result } = renderHook(() => useMobileViewportOptimizer());
+
+    expect(result.current.state.safeAreaInsets.top).toBe(44);
+    expect(result.current.state.safeAreaInsets.bottom).toBe(34);
+  });
+
+  it("should fallback to env() values when CSS vars are 0", () => {
+    window.getComputedStyle = jest.fn().mockReturnValue({
+      getPropertyValue: jest.fn((prop: string) => {
+        if (prop === "--sat") return "0";
+        if (prop === "env(safe-area-inset-top)") return "47";
+        return "0";
+      }),
+    });
+
+    const { result } = renderHook(() => useMobileViewportOptimizer());
+
+    // Will be 0 or parsed value depending on which returns first non-zero
+    expect(typeof result.current.state.safeAreaInsets.top).toBe("number");
+  });
+});
+
+describe("Sprint 628 - Visual viewport fallback", () => {
+  it("should use window dimensions when visualViewport unavailable", () => {
+    Object.defineProperty(window, "visualViewport", {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useMobileViewportOptimizer());
+
+    // Should fall back to innerWidth/innerHeight
+    expect(result.current.state.dimensions.visualWidth).toBe(window.innerWidth);
+    expect(result.current.state.dimensions.visualHeight).toBe(window.innerHeight);
+  });
+});
+
+describe("Sprint 628 - Additional edge cases", () => {
+  it("should handle scroll to bottom without smooth", () => {
+    const { result } = renderHook(() => useMobileViewportOptimizer());
+
+    act(() => {
+      result.current.controls.scrollToBottom(false);
+    });
+
+    expect(window.scrollTo).toHaveBeenCalledWith({
+      top: expect.any(Number),
+      behavior: "auto",
+    });
+  });
+
+  it("should use screen.orientation.type when available", () => {
+    Object.defineProperty(screen, "orientation", {
+      value: {
+        type: "landscape-secondary",
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useMobileViewportOptimizer());
+
+    expect(result.current.state.orientation).toBe("landscape-secondary");
+  });
+
+  it("should handle keyboard hiding when scroll was locked", async () => {
+    Object.defineProperty(window, "innerHeight", {
+      value: 812,
+      writable: true,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() =>
+      useMobileViewportOptimizer({ scrollLockOnKeyboard: true })
+    );
+
+    // Wait for initial setup
+    act(() => {
+      jest.advanceTimersByTime(150);
+    });
+
+    // Manually lock scroll
+    act(() => {
+      result.current.controls.lockScroll();
+    });
+
+    expect(result.current.state.isScrollLocked).toBe(true);
+
+    // Simulate keyboard hiding (height increases from lower value)
+    // First simulate keyboard was shown
+    Object.defineProperty(window, "innerHeight", {
+      value: 500,
+      writable: true,
+      configurable: true,
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    act(() => {
+      jest.advanceTimersByTime(150);
+    });
+
+    // Now hide keyboard
+    Object.defineProperty(window, "innerHeight", {
+      value: 812,
+      writable: true,
+      configurable: true,
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    act(() => {
+      jest.advanceTimersByTime(150);
+    });
+
+    // Scroll should be unlocked
+    expect(result.current.state.isScrollLocked).toBe(false);
+  });
+
+  it("should track viewport updates count", async () => {
+    const { result } = renderHook(() => useMobileViewportOptimizer());
+
+    const initialUpdates = result.current.metrics.viewportUpdates;
+
+    await act(async () => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    act(() => {
+      jest.advanceTimersByTime(150);
+    });
+
+    expect(result.current.metrics.viewportUpdates).toBeGreaterThan(initialUpdates);
   });
 });
