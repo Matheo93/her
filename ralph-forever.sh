@@ -56,8 +56,8 @@ check_ralph_active() {
         return 1
     fi
 
-    # Check if error
-    if echo "$output" | grep -qE "API Error|Stop hook failed"; then
+    # Check if error or context exhausted
+    if echo "$output" | grep -qE "API Error|Stop hook failed|Context left until auto-compact: [0-9]%"; then
         return 1
     fi
 
