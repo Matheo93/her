@@ -1550,3 +1550,24 @@ export {
   type TouchFeedbackMetrics as TouchBridgeMetrics,
   type TouchFeedbackControls as TouchBridgeControls,
 } from "./useAvatarTouchFeedbackBridge";
+
+// Avatar Gesture Predictor (Sprint 544)
+export {
+  useAvatarGesturePredictor,
+  useGesturePrediction as useAvatarGesturePrediction,
+  usePredictedGesture,
+  usePredictionConfidence,
+  usePredictorMetrics as useGesturePredictorMetrics,
+  type PredictedGesture,
+  type GesturePredictionConfidence,
+  type PredictorMode,
+  type TouchPoint as GesturePredictorTouchPoint,
+  type TouchTrajectory,
+  type GesturePrediction as AvatarGesturePrediction,
+  type PredictorState as GesturePredictorState,
+  type PredictorMetrics as GesturePredictorMetrics,
+  type PredictorConfig as GesturePredictorConfig,
+  type PredictorCallbacks as GesturePredictorCallbacks,
+  type PredictorControls as GesturePredictorControls,
+  type GesturePredictorResult,
+} from "./useAvatarGesturePredictor";
