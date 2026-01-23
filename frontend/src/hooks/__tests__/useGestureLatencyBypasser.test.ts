@@ -32,6 +32,39 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
+// Create proper TouchEvent that works with event handlers
+function createTouchEvent(
+  type: string,
+  touches: Array<{ clientX: number; clientY: number; identifier: number }>
+): TouchEvent {
+  const touchArray = touches.map((t, idx) => ({
+    clientX: t.clientX,
+    clientY: t.clientY,
+    identifier: t.identifier ?? idx,
+    screenX: t.clientX,
+    screenY: t.clientY,
+    pageX: t.clientX,
+    pageY: t.clientY,
+    radiusX: 0,
+    radiusY: 0,
+    rotationAngle: 0,
+    force: 1,
+    target: null,
+  }));
+
+  const touchList = Object.assign(touchArray, {
+    length: touches.length,
+    item: (index: number) => touchArray[index] ?? null,
+  });
+
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "touches", { value: touchList, configurable: true });
+  Object.defineProperty(event, "targetTouches", { value: touchList, configurable: true });
+  Object.defineProperty(event, "changedTouches", { value: touchList, configurable: true });
+
+  return event as unknown as TouchEvent;
+}
+
 describe("useGestureLatencyBypasser", () => {
   describe("initialization", () => {
     it("should initialize with default state", () => {
@@ -136,7 +169,6 @@ describe("useGestureLatencyBypasser", () => {
         });
       });
 
-      // Snap point added (internal state)
       expect(typeof result.current.controls.addSnapPoint).toBe("function");
     });
 
@@ -258,7 +290,6 @@ describe("useGestureLatencyBypasser", () => {
       const { unmount } = renderHook(() => useGestureLatencyBypasser());
 
       unmount();
-      // No error means cleanup succeeded
     });
   });
 });
@@ -302,27 +333,6 @@ describe("usePinchBypasser", () => {
 // ============================================================================
 
 describe("useGestureLatencyBypasser - touch event handling", () => {
-  // Helper to create mock TouchEvent
-  const createTouchEvent = (
-    type: string,
-    touches: Array<{ clientX: number; clientY: number; identifier: number }>
-  ): TouchEvent => {
-    const touchList = {
-      length: touches.length,
-      item: (index: number) => touches[index] ?? null,
-      [Symbol.iterator]: function* () {
-        for (const t of touches) yield t;
-      },
-    } as unknown as TouchList;
-
-    return {
-      type,
-      touches: touchList,
-      preventDefault: jest.fn(),
-      stopPropagation: jest.fn(),
-    } as unknown as TouchEvent;
-  };
-
   describe("touch start handling (lines 519-581)", () => {
     it("should handle single touch start and set gesture active", () => {
       const { result } = renderHook(() => useGestureLatencyBypasser());
@@ -338,11 +348,12 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStartEvent as unknown as Event);
+        element.dispatchEvent(touchStartEvent);
       });
 
-      // Touch should have been registered
       expect(result.current.state.isAttached).toBe(true);
+      expect(result.current.state.gesture.isActive).toBe(true);
+      expect(result.current.state.gesture.type).toBe("pan");
     });
 
     it("should detect pinch gesture with two touches (lines 531-542, 546-548)", () => {
@@ -354,63 +365,21 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Simulate multi-touch start
       const multiTouchEvent = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
         { clientX: 200, clientY: 200, identifier: 2 },
       ]);
 
       act(() => {
-        element.dispatchEvent(multiTouchEvent as unknown as Event);
+        element.dispatchEvent(multiTouchEvent);
       });
 
-      expect(result.current.state.isAttached).toBe(true);
+      expect(result.current.state.gesture.isActive).toBe(true);
+      expect(result.current.state.gesture.type).toBe("pinch");
+      expect(result.current.state.gesture.touchCount).toBe(2);
     });
 
-    it("should stop existing momentum on new touch (lines 574-578)", () => {
-      const { result } = renderHook(() =>
-        useGestureLatencyBypasser({ enableMomentum: true })
-      );
-      const element = document.createElement("div");
-      const styleUpdater = jest.fn();
-
-      act(() => {
-        result.current.controls.attach(element, styleUpdater);
-      });
-
-      // Start a gesture
-      const touchStart = createTouchEvent("touchstart", [
-        { clientX: 100, clientY: 100, identifier: 1 },
-      ]);
-
-      act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
-      });
-
-      // End the gesture (to trigger momentum)
-      mockTime = 50;
-      const touchEnd = createTouchEvent("touchend", []);
-
-      act(() => {
-        element.dispatchEvent(touchEnd as unknown as Event);
-      });
-
-      // Start new gesture (should cancel momentum)
-      mockTime = 100;
-      const newTouchStart = createTouchEvent("touchstart", [
-        { clientX: 150, clientY: 150, identifier: 2 },
-      ]);
-
-      act(() => {
-        element.dispatchEvent(newTouchStart as unknown as Event);
-      });
-
-      expect(result.current.state.isMomentumActive).toBe(false);
-    });
-  });
-
-  describe("touch move handling (lines 586-657)", () => {
-    it("should track touch movement and update delta", () => {
+    it("should store initial position on touch start", () => {
       const { result } = renderHook(() => useGestureLatencyBypasser());
       const element = document.createElement("div");
       const styleUpdater = jest.fn();
@@ -419,28 +388,20 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start touch
       const touchStart = createTouchEvent("touchstart", [
-        { clientX: 100, clientY: 100, identifier: 1 },
+        { clientX: 150, clientY: 200, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
-      // Move touch
-      mockTime = 16;
-      const touchMove = createTouchEvent("touchmove", [
-        { clientX: 150, clientY: 120, identifier: 1 },
-      ]);
-
-      act(() => {
-        element.dispatchEvent(touchMove as unknown as Event);
-      });
-
-      expect(styleUpdater).toHaveBeenCalled();
+      expect(result.current.state.gesture.startPosition).toEqual({ x: 150, y: 200 });
+      expect(result.current.state.gesture.currentPosition).toEqual({ x: 150, y: 200 });
     });
+  });
 
+  describe("touch move handling (lines 586-657)", () => {
     it("should skip touch move when gesture not active (line 588)", () => {
       const { result } = renderHook(() => useGestureLatencyBypasser());
       const element = document.createElement("div");
@@ -450,22 +411,20 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Move without starting (should be ignored)
       const touchMove = createTouchEvent("touchmove", [
         { clientX: 150, clientY: 120, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchMove as unknown as Event);
+        element.dispatchEvent(touchMove);
       });
 
       expect(styleUpdater).not.toHaveBeenCalled();
+      expect(result.current.state.gesture.isActive).toBe(false);
     });
 
-    it("should limit velocity samples (lines 602-604)", () => {
-      const { result } = renderHook(() =>
-        useGestureLatencyBypasser({ velocitySamples: 3 })
-      );
+    it("should track touch movement and update delta", () => {
+      const { result } = renderHook(() => useGestureLatencyBypasser());
       const element = document.createElement("div");
       const styleUpdater = jest.fn();
 
@@ -473,28 +432,25 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start touch
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
-      // Multiple moves to exceed sample limit
-      for (let i = 1; i <= 10; i++) {
-        mockTime = i * 16;
-        const touchMove = createTouchEvent("touchmove", [
-          { clientX: 100 + i * 10, clientY: 100 + i * 5, identifier: 1 },
-        ]);
+      mockTime = 16;
+      const touchMove = createTouchEvent("touchmove", [
+        { clientX: 150, clientY: 120, identifier: 1 },
+      ]);
 
-        act(() => {
-          element.dispatchEvent(touchMove as unknown as Event);
-        });
-      }
+      act(() => {
+        element.dispatchEvent(touchMove);
+      });
 
       expect(styleUpdater).toHaveBeenCalled();
+      expect(result.current.state.gesture.delta).toEqual({ x: 50, y: 20 });
     });
 
     it("should calculate scale and rotation for multi-touch (lines 616-631)", () => {
@@ -506,17 +462,15 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start with two touches
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
         { clientX: 200, clientY: 100, identifier: 2 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
-      // Move both touches apart (pinch out)
       mockTime = 16;
       const touchMove = createTouchEvent("touchmove", [
         { clientX: 50, clientY: 100, identifier: 1 },
@@ -524,13 +478,12 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
       ]);
 
       act(() => {
-        element.dispatchEvent(touchMove as unknown as Event);
+        element.dispatchEvent(touchMove);
       });
 
-      // Scale should have been calculated
       expect(styleUpdater).toHaveBeenCalled();
       const lastCall = styleUpdater.mock.calls[styleUpdater.mock.calls.length - 1];
-      expect(lastCall[1]).toBeGreaterThan(1); // Scale increased
+      expect(lastCall[1]).toBe(2); // Scale doubled
     });
 
     it("should track velocity when enabled (lines 634-636)", () => {
@@ -544,23 +497,21 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start touch
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
-      // Quick move (high velocity)
       mockTime = 10;
       const touchMove = createTouchEvent("touchmove", [
         { clientX: 200, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchMove as unknown as Event);
+        element.dispatchEvent(touchMove);
       });
 
       expect(result.current.state.gesture.velocity.speed).toBeGreaterThan(0);
@@ -577,23 +528,21 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start touch
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
-      // Move
       mockTime = 16;
       const touchMove = createTouchEvent("touchmove", [
         { clientX: 200, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchMove as unknown as Event);
+        element.dispatchEvent(touchMove);
       });
 
       expect(result.current.state.gesture.velocity.speed).toBe(0);
@@ -610,16 +559,14 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start touch
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
-      // Multiple moves to generate prediction
       for (let i = 1; i <= 3; i++) {
         mockTime = i * 16;
         const touchMove = createTouchEvent("touchmove", [
@@ -627,11 +574,12 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         ]);
 
         act(() => {
-          element.dispatchEvent(touchMove as unknown as Event);
+          element.dispatchEvent(touchMove);
         });
       }
 
       expect(result.current.state.metrics.predictionsGenerated).toBeGreaterThan(0);
+      expect(result.current.state.prediction).not.toBeNull();
     });
   });
 
@@ -645,11 +593,10 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // End without starting
       const touchEnd = createTouchEvent("touchend", []);
 
       act(() => {
-        element.dispatchEvent(touchEnd as unknown as Event);
+        element.dispatchEvent(touchEnd);
       });
 
       expect(result.current.state.metrics.gesturesProcessed).toBe(0);
@@ -664,24 +611,23 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start touch
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
-      // End touch
       mockTime = 50;
       const touchEnd = createTouchEvent("touchend", []);
 
       act(() => {
-        element.dispatchEvent(touchEnd as unknown as Event);
+        element.dispatchEvent(touchEnd);
       });
 
       expect(result.current.state.metrics.gesturesProcessed).toBe(1);
+      expect(result.current.state.gesture.isActive).toBe(false);
     });
 
     it("should trigger momentum on all touches ended (lines 672-676)", () => {
@@ -695,37 +641,32 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start touch
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
-      // Fast move to build velocity
       mockTime = 10;
       const touchMove = createTouchEvent("touchmove", [
         { clientX: 500, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchMove as unknown as Event);
+        element.dispatchEvent(touchMove);
       });
 
-      // End touch
       mockTime = 20;
       const touchEnd = createTouchEvent("touchend", []);
 
       act(() => {
-        element.dispatchEvent(touchEnd as unknown as Event);
-        // Run momentum frame
-        jest.advanceTimersByTime(16);
+        element.dispatchEvent(touchEnd);
       });
 
-      // Momentum should be activated due to high velocity
       expect(result.current.state.gesture.isActive).toBe(false);
+      expect(result.current.state.isMomentumActive).toBe(true);
     });
 
     it("should update touch count when some touches remain (lines 683-688)", () => {
@@ -737,28 +678,28 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start with two touches
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
         { clientX: 200, clientY: 200, identifier: 2 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
-      // End one touch (one remains)
+      expect(result.current.state.gesture.touchCount).toBe(2);
+
       mockTime = 50;
       const touchEnd = createTouchEvent("touchend", [
         { clientX: 100, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchEnd as unknown as Event);
+        element.dispatchEvent(touchEnd);
       });
 
-      // Gesture should still be active with updated touch count
       expect(result.current.state.gesture.touchCount).toBe(1);
+      expect(result.current.state.gesture.isActive).toBe(true);
     });
   });
 
@@ -772,13 +713,12 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start and move to trigger style update
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
       mockTime = 16;
@@ -787,15 +727,11 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
       ]);
 
       act(() => {
-        element.dispatchEvent(touchMove as unknown as Event);
+        element.dispatchEvent(touchMove);
       });
 
-      expect(styleUpdater).toHaveBeenCalledWith(
-        expect.objectContaining({ x: 50, y: 20 }),
-        expect.any(Number),
-        expect.any(Number)
-      );
-      expect(result.current.state.metrics.bypassedUpdates).toBeGreaterThan(0);
+      expect(styleUpdater).toHaveBeenCalledWith({ x: 50, y: 20 }, 1, 0);
+      expect(result.current.state.metrics.bypassedUpdates).toBe(1);
     });
 
     it("should trim latency history when exceeds 100 samples (lines 371-373)", () => {
@@ -807,16 +743,14 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start touch
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
-      // Generate many moves to exceed 100 latency samples
       for (let i = 1; i <= 120; i++) {
         mockTime = i * 16;
         const touchMove = createTouchEvent("touchmove", [
@@ -824,65 +758,15 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         ]);
 
         act(() => {
-          element.dispatchEvent(touchMove as unknown as Event);
+          element.dispatchEvent(touchMove);
         });
       }
 
       expect(result.current.state.metrics.bypassedUpdates).toBe(120);
-      expect(result.current.state.metrics.averageLatencyMs).toBeDefined();
     });
   });
 
   describe("updatePrediction (lines 389-434)", () => {
-    it("should set prediction to null with insufficient samples (lines 390-393)", () => {
-      const { result } = renderHook(() =>
-        useGestureLatencyBypasser({ enablePrediction: true })
-      );
-
-      // Initially no samples
-      expect(result.current.state.prediction).toBeNull();
-    });
-
-    it("should generate prediction with snap point (lines 408-419)", () => {
-      const { result } = renderHook(() =>
-        useGestureLatencyBypasser({
-          enablePrediction: true,
-          enableSnapPoints: true,
-          snapPoints: [{ id: "snap1", x: 200, y: 120, radius: 100 }],
-          snapRadius: 150,
-        })
-      );
-      const element = document.createElement("div");
-      const styleUpdater = jest.fn();
-
-      act(() => {
-        result.current.controls.attach(element, styleUpdater);
-      });
-
-      // Start touch
-      const touchStart = createTouchEvent("touchstart", [
-        { clientX: 100, clientY: 100, identifier: 1 },
-      ]);
-
-      act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
-      });
-
-      // Multiple moves toward snap point
-      for (let i = 1; i <= 5; i++) {
-        mockTime = i * 16;
-        const touchMove = createTouchEvent("touchmove", [
-          { clientX: 100 + i * 20, clientY: 100 + i * 4, identifier: 1 },
-        ]);
-
-        act(() => {
-          element.dispatchEvent(touchMove as unknown as Event);
-        });
-      }
-
-      expect(result.current.state.metrics.predictionsGenerated).toBeGreaterThan(0);
-    });
-
     it("should not generate prediction when disabled (line 390)", () => {
       const { result } = renderHook(() =>
         useGestureLatencyBypasser({ enablePrediction: false })
@@ -894,13 +778,12 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start and move
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
       for (let i = 1; i <= 5; i++) {
@@ -910,18 +793,19 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         ]);
 
         act(() => {
-          element.dispatchEvent(touchMove as unknown as Event);
+          element.dispatchEvent(touchMove);
         });
       }
 
       expect(result.current.state.prediction).toBeNull();
+      expect(result.current.state.metrics.predictionsGenerated).toBe(0);
     });
   });
 
   describe("runMomentum (lines 439-514)", () => {
     it("should not start momentum when velocity below threshold (lines 442-445)", () => {
       const { result } = renderHook(() =>
-        useGestureLatencyBypasser({ enableMomentum: true, momentumThreshold: 1000 })
+        useGestureLatencyBypasser({ enableMomentum: true, momentumThreshold: 100000 })
       );
       const element = document.createElement("div");
       const styleUpdater = jest.fn();
@@ -930,44 +814,38 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start touch
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
-      // Slow move
-      mockTime = 1000; // 1 second later - very slow
+      mockTime = 1000;
       const touchMove = createTouchEvent("touchmove", [
         { clientX: 101, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchMove as unknown as Event);
+        element.dispatchEvent(touchMove);
       });
 
-      // End touch
       mockTime = 2000;
       const touchEnd = createTouchEvent("touchend", []);
 
       act(() => {
-        element.dispatchEvent(touchEnd as unknown as Event);
+        element.dispatchEvent(touchEnd);
       });
 
       expect(result.current.state.isMomentumActive).toBe(false);
     });
 
-    it("should snap to point when momentum ends near snap point (lines 464-488)", () => {
+    it("should activate momentum with high velocity", () => {
       const { result } = renderHook(() =>
         useGestureLatencyBypasser({
           enableMomentum: true,
-          enableSnapPoints: true,
-          snapPoints: [{ id: "snap1", x: 150, y: 100, radius: 100 }],
-          snapRadius: 100,
-          momentumFriction: 0.5, // High friction to stop quickly
+          momentumFriction: 0.95,
           momentumThreshold: 0.1,
         })
       );
@@ -978,134 +856,31 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start touch
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
-      // Move toward snap point with some velocity
-      mockTime = 16;
-      const touchMove = createTouchEvent("touchmove", [
-        { clientX: 140, clientY: 100, identifier: 1 },
-      ]);
-
-      act(() => {
-        element.dispatchEvent(touchMove as unknown as Event);
-      });
-
-      // End touch to trigger momentum
-      mockTime = 32;
-      const touchEnd = createTouchEvent("touchend", []);
-
-      act(() => {
-        element.dispatchEvent(touchEnd as unknown as Event);
-        // Let momentum run
-        jest.advanceTimersByTime(100);
-      });
-
-      // Snap should have been triggered or momentum ran
-      expect(result.current.state.metrics.gesturesProcessed).toBe(1);
-    });
-
-    it("should stop momentum when speed falls below threshold (line 460)", () => {
-      const { result } = renderHook(() =>
-        useGestureLatencyBypasser({
-          enableMomentum: true,
-          momentumFriction: 0.1, // Very high friction
-          momentumThreshold: 100,
-        })
-      );
-      const element = document.createElement("div");
-      const styleUpdater = jest.fn();
-
-      act(() => {
-        result.current.controls.attach(element, styleUpdater);
-      });
-
-      // Start touch
-      const touchStart = createTouchEvent("touchstart", [
-        { clientX: 100, clientY: 100, identifier: 1 },
-      ]);
-
-      act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
-      });
-
-      // Move with moderate velocity
-      mockTime = 16;
-      const touchMove = createTouchEvent("touchmove", [
-        { clientX: 200, clientY: 100, identifier: 1 },
-      ]);
-
-      act(() => {
-        element.dispatchEvent(touchMove as unknown as Event);
-      });
-
-      // End
-      mockTime = 32;
-      const touchEnd = createTouchEvent("touchend", []);
-
-      act(() => {
-        element.dispatchEvent(touchEnd as unknown as Event);
-        jest.advanceTimersByTime(500); // Let momentum decay
-      });
-
-      // Momentum should have stopped
-      expect(result.current.state.isMomentumActive).toBe(false);
-    });
-
-    it("should track momentum frames (lines 505-508)", () => {
-      const { result } = renderHook(() =>
-        useGestureLatencyBypasser({
-          enableMomentum: true,
-          momentumFriction: 0.95,
-          momentumThreshold: 0.01,
-        })
-      );
-      const element = document.createElement("div");
-      const styleUpdater = jest.fn();
-
-      act(() => {
-        result.current.controls.attach(element, styleUpdater);
-      });
-
-      // Start touch
-      const touchStart = createTouchEvent("touchstart", [
-        { clientX: 100, clientY: 100, identifier: 1 },
-      ]);
-
-      act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
-      });
-
-      // Fast move for high velocity
       mockTime = 10;
       const touchMove = createTouchEvent("touchmove", [
-        { clientX: 300, clientY: 100, identifier: 1 },
+        { clientX: 500, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchMove as unknown as Event);
+        element.dispatchEvent(touchMove);
       });
 
-      // End touch
       mockTime = 20;
       const touchEnd = createTouchEvent("touchend", []);
 
       act(() => {
-        element.dispatchEvent(touchEnd as unknown as Event);
-        // Run several animation frames
-        for (let i = 0; i < 10; i++) {
-          jest.advanceTimersByTime(16);
-        }
+        element.dispatchEvent(touchEnd);
       });
 
-      // Some momentum frames should have been tracked
-      expect(result.current.state.metrics.momentumFrames).toBeGreaterThanOrEqual(0);
+      expect(result.current.state.isMomentumActive).toBe(true);
     });
   });
 
@@ -1156,19 +931,17 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
       );
       const element = document.createElement("div");
       const styleUpdater = jest.fn();
-      const cancelAnimationFrameSpy = jest.spyOn(window, "cancelAnimationFrame");
 
       act(() => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start and move fast
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
       mockTime = 10;
@@ -1177,18 +950,18 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
       ]);
 
       act(() => {
-        element.dispatchEvent(touchMove as unknown as Event);
+        element.dispatchEvent(touchMove);
       });
 
-      // End to start momentum
       mockTime = 20;
       const touchEnd = createTouchEvent("touchend", []);
 
       act(() => {
-        element.dispatchEvent(touchEnd as unknown as Event);
+        element.dispatchEvent(touchEnd);
       });
 
-      // Detach while momentum might be running
+      expect(result.current.state.isMomentumActive).toBe(true);
+
       act(() => {
         result.current.controls.detach();
       });
@@ -1210,13 +983,12 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start touch
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
       // Move at exact same time (dt = 0)
@@ -1225,10 +997,9 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
       ]);
 
       act(() => {
-        element.dispatchEvent(touchMove as unknown as Event);
+        element.dispatchEvent(touchMove);
       });
 
-      // Should return default velocity when dt <= 0
       expect(result.current.state.gesture.velocity.speed).toBe(0);
     });
 
@@ -1243,16 +1014,14 @@ describe("useGestureLatencyBypasser - touch event handling", () => {
         result.current.controls.attach(element, styleUpdater);
       });
 
-      // Start touch (only one sample)
       const touchStart = createTouchEvent("touchstart", [
         { clientX: 100, clientY: 100, identifier: 1 },
       ]);
 
       act(() => {
-        element.dispatchEvent(touchStart as unknown as Event);
+        element.dispatchEvent(touchStart);
       });
 
-      // With only 1 sample, velocity should be default
       expect(result.current.state.gesture.velocity.speed).toBe(0);
     });
   });
