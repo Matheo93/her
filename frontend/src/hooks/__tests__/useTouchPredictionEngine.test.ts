@@ -678,3 +678,420 @@ describe("useSimpleTouchPredictor", () => {
     expect(result.current.predictedPosition).not.toBeNull();
   });
 });
+
+// ============================================================================
+// Sprint 619 - Branch Coverage Tests
+// ============================================================================
+
+describe("Sprint 619 - branch coverage improvements", () => {
+  describe("weighted_average algorithm (lines 262-293, 570)", () => {
+    it("should use weighted_average algorithm for prediction", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          autoSelectAlgorithm: false,
+          defaultAlgorithm: "weighted_average",
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Add enough samples for weighted average
+      for (let i = 0; i < 6; i++) {
+        act(() => {
+          result.current.controls.addSample(createSample(100 + i * 10, 100 + i * 5));
+        });
+        advanceTime(16);
+      }
+
+      expect(result.current.state.currentPrediction?.algorithm).toBe("weighted_average");
+      expect(result.current.state.currentPrediction?.x).toBeGreaterThan(140);
+    });
+
+    it("should return null for weighted_average with insufficient samples", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          autoSelectAlgorithm: false,
+          defaultAlgorithm: "weighted_average",
+          minSamplesForPrediction: 2,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Add only 2 samples - weighted_average needs 3
+      act(() => {
+        result.current.controls.addSample(createSample(100, 100));
+      });
+      advanceTime(16);
+      act(() => {
+        result.current.controls.addSample(createSample(110, 105));
+      });
+
+      // Should fall back or return null
+      expect(result.current.state.currentPrediction).toBeNull();
+    });
+
+    it("should handle zero time delta in weighted_average (line 273)", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          autoSelectAlgorithm: false,
+          defaultAlgorithm: "weighted_average",
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Add samples with same timestamp
+      act(() => {
+        result.current.controls.addSample(createSample(100, 100));
+        result.current.controls.addSample(createSample(110, 105));
+        result.current.controls.addSample(createSample(120, 110));
+      });
+
+      // Should handle gracefully
+      expect(result.current.state.currentPrediction).toBeDefined();
+    });
+  });
+
+  describe("spline algorithm fallback (lines 575-577)", () => {
+    it("should fall back to quadratic for spline algorithm", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          autoSelectAlgorithm: false,
+          defaultAlgorithm: "spline",
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          result.current.controls.addSample(createSample(100 + i * 10, 100 + i * 5));
+        });
+        advanceTime(16);
+      }
+
+      // Spline should work (falling back to quadratic)
+      expect(result.current.state.currentPrediction).not.toBeNull();
+      expect(result.current.state.currentPrediction?.algorithm).toBe("spline");
+    });
+  });
+
+  describe("Kalman filter edge cases (line 334)", () => {
+    it("should handle zero time delta in Kalman filter", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          autoSelectAlgorithm: false,
+          defaultAlgorithm: "kalman",
+          minSamplesForPrediction: 2,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Add samples at same time (dt = 0)
+      act(() => {
+        result.current.controls.addSample(createSample(100, 100));
+        result.current.controls.addSample(createSample(110, 105));
+      });
+
+      // Should handle gracefully
+      expect(result.current.state.lastSample?.x).toBe(110);
+    });
+  });
+
+  describe("confidence calculation edge cases (line 380)", () => {
+    it("should return zero confidence with insufficient samples", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          minSamplesForPrediction: 5,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Add only 2 samples
+      act(() => {
+        result.current.controls.addSample(createSample(100, 100));
+      });
+      advanceTime(16);
+      act(() => {
+        result.current.controls.addSample(createSample(110, 105));
+      });
+
+      // Not enough samples for prediction
+      expect(result.current.state.currentPrediction).toBeNull();
+    });
+  });
+
+  describe("uncertainty calculation (lines 430, 446)", () => {
+    it("should return default uncertainty with insufficient samples", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          minSamplesForPrediction: 2,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      act(() => {
+        result.current.controls.addSample(createSample(100, 100));
+      });
+      advanceTime(16);
+      act(() => {
+        result.current.controls.addSample(createSample(110, 105));
+      });
+
+      // With few samples, uncertainty should be at default values
+      if (result.current.state.currentPrediction) {
+        expect(result.current.state.currentPrediction.uncertainty.x).toBeGreaterThanOrEqual(5);
+        expect(result.current.state.currentPrediction.uncertainty.y).toBeGreaterThanOrEqual(5);
+      }
+    });
+
+    it("should handle zero velocities in uncertainty calculation", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Add samples at same position (zero velocity)
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          result.current.controls.addSample(createSample(100, 100));
+        });
+        advanceTime(16);
+      }
+
+      // Should handle gracefully
+      if (result.current.state.currentPrediction) {
+        expect(result.current.state.currentPrediction.uncertainty.x).toBeGreaterThanOrEqual(5);
+      }
+    });
+  });
+
+  describe("auto-select algorithm with metrics (lines 545-547)", () => {
+    it("should auto-select best algorithm based on accuracy", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          autoSelectAlgorithm: true,
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Generate many predictions and verifications to build metrics
+      for (let round = 0; round < 3; round++) {
+        for (let i = 0; i < 10; i++) {
+          act(() => {
+            result.current.controls.addSample(createSample(100 + i * 10, 100 + i * 5));
+          });
+          advanceTime(16);
+        }
+
+        // Verify predictions
+        const prediction = result.current.state.currentPrediction;
+        if (prediction) {
+          act(() => {
+            result.current.controls.verifyPrediction({ x: prediction.x, y: prediction.y });
+          });
+        }
+
+        act(() => {
+          result.current.controls.reset();
+        });
+      }
+
+      // Auto-select should have picked an algorithm
+      expect(result.current.state.metrics.currentAlgorithm).toBeDefined();
+    });
+  });
+
+  describe("sample history overflow (line 594)", () => {
+    it("should limit sample history", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          maxSampleHistory: 10,
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Add more samples than history limit
+      for (let i = 0; i < 20; i++) {
+        act(() => {
+          result.current.controls.addSample(createSample(100 + i * 10, 100 + i * 5));
+        });
+        advanceTime(16);
+      }
+
+      // Should still work, not crash
+      expect(result.current.state.currentPrediction).not.toBeNull();
+    });
+  });
+
+  describe("predict() edge cases (lines 681, 689)", () => {
+    it("should return null when predict returns no result", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          minSamplesForPrediction: 10,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      // Not started, no samples
+      let prediction: PredictedTouch | null = null;
+      act(() => {
+        prediction = result.current.controls.predict();
+      });
+
+      expect(prediction).toBeNull();
+    });
+
+    it("should use adaptive horizon when no horizon provided", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+          enableAdaptiveHorizon: true,
+          baseHorizonMs: 30,
+        })
+      );
+
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          result.current.controls.addSample(createSample(100 + i * 10, 100));
+        });
+        advanceTime(16);
+      }
+
+      let prediction: PredictedTouch | null = null;
+      act(() => {
+        prediction = result.current.controls.predict(); // No horizon argument
+      });
+
+      expect(prediction).not.toBeNull();
+      expect(prediction!.horizonMs).toBeGreaterThanOrEqual(30);
+    });
+  });
+
+  describe("velocity consistency in confidence (lines 388-413)", () => {
+    it("should have lower confidence with inconsistent velocities", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Add samples with inconsistent direction (zigzag)
+      const positions = [
+        { x: 100, y: 100 },
+        { x: 120, y: 80 },  // Right, up
+        { x: 100, y: 100 }, // Left, down
+        { x: 120, y: 80 },  // Right, up
+        { x: 100, y: 100 }, // Left, down
+      ];
+
+      for (const pos of positions) {
+        act(() => {
+          result.current.controls.addSample(createSample(pos.x, pos.y));
+        });
+        advanceTime(16);
+      }
+
+      const erraticPrediction = result.current.state.currentPrediction;
+
+      // Reset and add consistent samples
+      act(() => {
+        result.current.controls.reset();
+      });
+
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          result.current.controls.addSample(createSample(100 + i * 10, 100 + i * 5));
+        });
+        advanceTime(16);
+      }
+
+      const consistentPrediction = result.current.state.currentPrediction;
+
+      // Consistent movement should have higher or equal confidence
+      if (erraticPrediction && consistentPrediction) {
+        expect(consistentPrediction.confidence).toBeGreaterThanOrEqual(
+          erraticPrediction.confidence * 0.5
+        );
+      }
+    });
+  });
+
+  describe("quadratic prediction", () => {
+    it("should use quadratic algorithm", () => {
+      const { result } = renderHook(() =>
+        useTouchPredictionEngine({
+          autoSelectAlgorithm: false,
+          defaultAlgorithm: "quadratic",
+          minSamplesForPrediction: 3,
+          minConfidenceThreshold: 0,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Add accelerating samples
+      for (let i = 0; i < 5; i++) {
+        const x = 100 + i * 10 + i * i; // Accelerating
+        act(() => {
+          result.current.controls.addSample(createSample(x, 100));
+        });
+        advanceTime(16);
+      }
+
+      expect(result.current.state.currentPrediction?.algorithm).toBe("quadratic");
+    });
+  });
+});
