@@ -1304,3 +1304,25 @@ export {
   type SchedulerControls,
   type UseMobileAnimationSchedulerResult,
 } from "./useMobileAnimationScheduler";
+
+// Avatar Gesture Response Accelerator (Sprint 533)
+export {
+  useAvatarGestureResponseAccelerator,
+  useInstantAvatarFeedback,
+  useGesturePrioritizedResponse,
+  type GestureType as AcceleratorGestureType,
+  type AvatarResponseType,
+  type FeedbackMode,
+  type DeviceCapability as AcceleratorDeviceCapability,
+  type ResponsePriority,
+  type GestureData,
+  type GestureIntent,
+  type PredictionInput,
+  type ScheduledResponse,
+  type FeedbackEvent,
+  type ResponseEvent,
+  type AcceleratorConfig,
+  type AcceleratorCallbacks,
+  type AcceleratorState,
+  type AcceleratorMetrics,
+} from "./useAvatarGestureResponseAccelerator";

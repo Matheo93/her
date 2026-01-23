@@ -90,8 +90,8 @@ describe("useAvatarGestureResponseAccelerator", () => {
       });
 
       expect(intent).not.toBeNull();
-      expect(intent?.gestureType).toBe("tap");
-      expect(intent?.avatarResponse).toBe("acknowledge");
+      expect(intent!.gestureType).toBe("tap");
+      expect(intent!.avatarResponse).toBe("acknowledge");
     });
 
     it("should recognize swipe gesture", () => {
@@ -109,8 +109,8 @@ describe("useAvatarGestureResponseAccelerator", () => {
       });
 
       expect(intent).not.toBeNull();
-      expect(intent?.gestureType).toBe("swipe");
-      expect(intent?.avatarResponse).toBe("track");
+      expect(intent!.gestureType).toBe("swipe");
+      expect(intent!.avatarResponse).toBe("track");
     });
 
     it("should recognize long press gesture", () => {
@@ -127,8 +127,8 @@ describe("useAvatarGestureResponseAccelerator", () => {
       });
 
       expect(intent).not.toBeNull();
-      expect(intent?.gestureType).toBe("longPress");
-      expect(intent?.avatarResponse).toBe("focus");
+      expect(intent!.gestureType).toBe("longPress");
+      expect(intent!.avatarResponse).toBe("focus");
     });
 
     it("should recognize pinch gesture", () => {
@@ -145,8 +145,8 @@ describe("useAvatarGestureResponseAccelerator", () => {
       });
 
       expect(intent).not.toBeNull();
-      expect(intent?.gestureType).toBe("pinch");
-      expect(intent?.avatarResponse).toBe("scale");
+      expect(intent!.gestureType).toBe("pinch");
+      expect(intent!.avatarResponse).toBe("scale");
     });
 
     it("should increment gestures processed", () => {
