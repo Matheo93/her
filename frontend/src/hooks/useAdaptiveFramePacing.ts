@@ -508,6 +508,7 @@ export function useAdaptiveFramePacing(
    */
   const setTargetFpsControl = useCallback((fps: TargetFrameRate) => {
     setTargetFps(fps);
+    setMetrics((prev) => ({ ...prev, targetFps: fps }));
     lastRateChangeRef.current = performance.now();
   }, []);
 

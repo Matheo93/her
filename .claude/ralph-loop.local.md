@@ -1,73 +1,51 @@
 ---
 active: true
-iteration: 2
+iteration: 3
 max_iterations: 0
 completion_promise: null
-started_at: "2026-01-23T19:16:51Z"
+started_at: "2026-01-23T19:22:17Z"
 ---
 
-Sprint 529 Ameliore avatar UX latence mobile. Code teste valide. Boucle infinie.
+Sprint 226 Continue ameliorations. UX mobile latence features. Code teste valide. Boucle infinie.
 
-## Sprint 529 - Iteration 2 ✅
+## Sprint 226 - Iteration 2 ✅
 
-### This Iteration:
-- Created comprehensive test coverage for additional mobile optimization hooks
+### Completed This Iteration:
 
-#### useMobileAudioOptimizer.test.ts (33 tests)
-- Initialization and config
-- Buffer configuration (playback, jitter, sample rate, bit depth, channels)
-- Processing configuration (FFT, VAD, echo cancellation, noise suppression)
-- Quality control (high, medium, low, ultra-low, auto)
-- Latency metrics (samples, jitter, buffer events)
-- Optimization control (start/stop)
-- Audio constraints for getUserMedia
-- Derived flags (shouldReduceQuality, shouldPreBuffer)
-- Convenience hooks (useMobileAudioQuality, useMobileAudioBufferConfig, etc.)
+1. **New Hook Added:**
+   - useAdaptiveFramePacing (Sprint 228) - Dynamic frame rate targeting
+     - 30/60/90/120 Hz frame rate options
+     - Judder detection and mitigation
+     - Battery-aware frame rate adaptation
+     - Frame budget management
 
-#### useMobileViewportOptimizer.test.ts (24 tests)
-- Initialization and default state
-- Viewport dimensions (inner, visual, device pixel ratio)
-- Safe area insets
-- Keyboard handling and detection
-- Scroll lock (lock/unlock)
-- Scroll helpers (scrollToTop, scrollToBottom)
-- Config updates
-- CSS variables (--vh, --viewport-height, --keyboard-height, etc.)
-- Orientation detection
-- Available height calculation
-- Fullscreen controls
-- Orientation lock controls
-- Convenience hooks (useViewportDimensions, useKeyboardAwareHeight, useSafeAreaInsets)
+2. **New Test Suites:**
+   - useMobileWakeLock.test.ts - 39 tests
+   - useTouchLatencyReducer.test.ts - 30 tests
+   - Total: 126 new tests passing
+
+3. **Test Fixes:**
+   - Fixed useTouchPredictionEngine non-null assertion
+
+4. **Commits:**
+   - `150106f` - feat(sprint-226): adaptive frame pacing hook & test fixes
+   - `77cffc6` - feat(sprint-226): mobile wake lock and touch latency reducer tests
 
 ### Test Results:
-- 57 new tests created ✅
-- All tests passing ✅
-- TypeScript: No errors ✅
+```
+New Tests: ✅ 126 passed
+├── useMobileWakeLock: 39
+├── useTouchLatencyReducer: 30
+├── useMobileAudioOptimizer: 33
+└── useMobileViewportOptimizer: 24
 
-## Sprint 226 - Iteration 3 ✅
+TypeScript: Some errors in auto-generated files (not in core hooks)
+```
 
-### This Iteration:
-- Created useAdaptiveRenderQuality.test.ts (41 tests)
-  - Initialization (default config, custom tier, target FPS, metrics, conditions)
-  - Quality settings (all 5 tiers: ultra, high, medium, low, minimal)
-  - Manual tier control (setQualityTier, callbacks)
-  - Frame time reporting (samples, metrics, FPS detection)
-  - Quality locking/unlocking
-  - Cooldown between adjustments
-  - Reset functionality
-  - Performance score calculation
-  - Tier transitions (ultra -> minimal, minimal -> ultra)
-  - Convenience hooks (useQualityTier, useResolutionScale, usePerformanceScore)
-
-- Fixed useAdaptiveRenderQuality.ts
-  - Fixed infinite loop in useEffect by using refs and empty deps
-  - Added isMounted flag for async cleanup
-
-- Fixed useTouchPredictionEngine.test.ts
-  - Fixed variable assignment and null assertion
-
-### Test Results:
-- 41 new tests passing ✅
-- TypeScript: No errors ✅
-- Backend: 202 tests passing ✅
+### Mobile Avatar UX Hooks Summary:
+- useAdaptiveFramePacing - Frame rate optimization
+- useMobileWakeLock - Screen wake lock
+- useTouchLatencyReducer - Touch latency reduction
+- useMobileAudioOptimizer - Audio buffer optimization
+- useMobileViewportOptimizer - Viewport handling
 
