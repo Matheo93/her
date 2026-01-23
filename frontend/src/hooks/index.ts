@@ -657,3 +657,54 @@ export {
   type ThermalControls,
   type UseMobileThermalManagerResult,
 } from "./useMobileThermalManager";
+
+// Avatar Lip Sync (Sprint 1588)
+export {
+  useAvatarLipSync,
+  useMouthState,
+  useVisemeWeights,
+  phonemesToVisemes,
+  type Viseme as AvatarViseme,
+  type VisemeWeight,
+  type VisemeFrame,
+  type LipSyncState,
+  type LipSyncMetrics,
+  type LipSyncConfig,
+  type LipSyncControls,
+  type UseAvatarLipSyncResult,
+} from "./useAvatarLipSync";
+
+// Touch Feedback Optimizer (Sprint 1588)
+export {
+  useTouchFeedbackOptimizer,
+  useHapticFeedback as useTouchHapticFeedback,
+  useTouchRipple,
+  type HapticPattern,
+  type FeedbackType as TouchFeedbackType,
+  type TouchPoint as FeedbackTouchPoint,
+  type RippleEffect,
+  type FeedbackEvent,
+  type TouchFeedbackState,
+  type FeedbackMetrics as TouchFeedbackMetrics,
+  type TouchFeedbackConfig,
+  type TouchFeedbackControls,
+  type UseTouchFeedbackOptimizerResult,
+} from "./useTouchFeedbackOptimizer";
+
+// Mobile Network Recovery (Sprint 1588)
+export {
+  useMobileNetworkRecovery,
+  useOnlineStatus,
+  useOfflineQueue as useRecoveryQueue,
+  type NetworkState as RecoveryNetworkState,
+  type ConnectionType as NetworkConnectionType,
+  type RecoveryStrategy,
+  type QueuedRequest,
+  type NetworkQuality as RecoveryNetworkQuality,
+  type SyncState,
+  type RecoveryState,
+  type RecoveryMetrics,
+  type RecoveryConfig,
+  type RecoveryControls,
+  type UseMobileNetworkRecoveryResult,
+} from "./useMobileNetworkRecovery";
