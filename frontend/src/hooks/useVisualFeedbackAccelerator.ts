@@ -49,20 +49,37 @@ export interface TransformState {
 }
 
 /**
+ * Filter state
+ */
+export interface FilterState {
+  blur: number;
+  brightness: number;
+  contrast: number;
+  saturate: number;
+}
+
+/**
  * Style state for accelerated updates
  */
 export interface AcceleratedStyle {
   transform: TransformState;
   opacity: number;
-  filter: {
-    blur: number;
-    brightness: number;
-    contrast: number;
-    saturate: number;
-  };
+  filter: FilterState;
   backgroundColor: string;
   boxShadow: string;
   customVars: Record<string, string | number>;
+}
+
+/**
+ * Partial style update (allows partial nested objects)
+ */
+export interface PartialAcceleratedStyle {
+  transform?: Partial<TransformState>;
+  opacity?: number;
+  filter?: Partial<FilterState>;
+  backgroundColor?: string;
+  boxShadow?: string;
+  customVars?: Record<string, string | number>;
 }
 
 /**
@@ -70,7 +87,7 @@ export interface AcceleratedStyle {
  */
 export interface UpdateBatch {
   id: number;
-  updates: Partial<AcceleratedStyle>;
+  updates: PartialAcceleratedStyle;
   timestamp: number;
   priority: "high" | "normal" | "low";
 }
@@ -133,7 +150,7 @@ export interface AcceleratorControls {
   /** Set CSS variable */
   setCssVar: (name: string, value: string | number) => void;
   /** Queue batched update */
-  queueUpdate: (updates: Partial<AcceleratedStyle>, priority?: "high" | "normal" | "low") => void;
+  queueUpdate: (updates: PartialAcceleratedStyle, priority?: "high" | "normal" | "low") => void;
   /** Flush pending batches */
   flushBatches: () => void;
   /** Reset to initial state */
@@ -312,7 +329,7 @@ export function useVisualFeedbackAccelerator(
    * Apply style directly to DOM
    */
   const applyToDom = useCallback(
-    (style: Partial<AcceleratedStyle>) => {
+    (style: PartialAcceleratedStyle) => {
       const element = elementRef.current;
       if (!element || !mergedConfig.enableDirectDom) return;
 
@@ -405,19 +422,20 @@ export function useVisualFeedbackAccelerator(
       return priorityOrder[a.priority] - priorityOrder[b.priority];
     });
 
-    // Merge all updates
-    let merged: Partial<AcceleratedStyle> = {};
+    // Merge all updates - transform and filter stay as Partial types
+    // They will be merged with current state in applyToDom
+    let merged: PartialAcceleratedStyle = {};
     for (const batch of queue) {
-      const mergedTransform = merged.transform ?? {} as Partial<TransformState>;
-      const batchTransform = batch.updates.transform ?? {} as Partial<TransformState>;
+      const mergedTransform = merged.transform ?? {};
+      const batchTransform = batch.updates.transform ?? {};
       const mergedFilter = merged.filter ?? {};
       const batchFilter = batch.updates.filter ?? {};
 
       merged = {
         ...merged,
         ...batch.updates,
-        transform: { ...mergedTransform, ...batchTransform } as TransformState,
-        filter: { ...mergedFilter, ...batchFilter } as AcceleratedStyle["filter"],
+        transform: { ...mergedTransform, ...batchTransform },
+        filter: { ...mergedFilter, ...batchFilter },
         customVars: { ...merged.customVars, ...batch.updates.customVars },
       };
     }
@@ -542,7 +560,7 @@ export function useVisualFeedbackAccelerator(
    */
   const queueUpdate = useCallback(
     (
-      updates: Partial<AcceleratedStyle>,
+      updates: PartialAcceleratedStyle,
       priority: "high" | "normal" | "low" = "normal"
     ) => {
       const queue = batchQueueRef.current;
