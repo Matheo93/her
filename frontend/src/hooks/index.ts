@@ -1368,3 +1368,19 @@ export {
   type UseTouchResponsePredictorResult,
 } from "./useTouchResponsePredictor";
 
+// Avatar Touch Animation Sync (Sprint 533)
+export {
+  useAvatarTouchAnimationSync,
+  useTouchAlignedAnimation,
+  useAnimationFrameSync,
+  type SyncMode,
+  type AnimationPriority as TouchAnimationPriority,
+  type Position as TouchSyncPosition,
+  type ScheduledAnimation as TouchScheduledAnimation,
+  type SyncConfig,
+  type SyncCallbacks,
+  type SyncState,
+  type SyncMetrics,
+  type SyncControls,
+} from "./useAvatarTouchAnimationSync";
+
