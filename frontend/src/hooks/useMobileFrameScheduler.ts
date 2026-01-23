@@ -418,7 +418,7 @@ export function useMobileFrameScheduler(
 
       animationRef.current = requestAnimationFrame(frameLoop);
     },
-    [state.isRunning, config.adaptiveFrameRate, config.minFps, config.targetFps, getSortedTasks]
+    [config.adaptiveFrameRate, config.minFps, config.targetFps, getSortedTasks]
   );
 
   // Controls
