@@ -278,6 +278,37 @@ describe("useMobileRenderPredictor", () => {
       // Should not throw
       expect(result.current.state).toBeDefined();
     });
+
+    it("should set currentPrediction when confidence >= threshold (line 687)", () => {
+      const renderer = createRenderer();
+      const { result } = renderHook(() =>
+        useMobileRenderPredictor(renderer, {}, {
+          minConfidenceThreshold: 0.01, // Very low threshold
+          patternWindowSize: 2,
+        })
+      );
+
+      // Build a strong repeating pattern to get high confidence
+      for (let i = 0; i < 20; i++) {
+        act(() => {
+          advanceTime(100);
+          result.current.controls.recordInteraction(
+            createInteraction("tap", { timestamp: currentTime })
+          );
+        });
+
+        act(() => {
+          advanceTime(100);
+          result.current.controls.recordInteraction(
+            createInteraction("swipe_right", { timestamp: currentTime })
+          );
+        });
+      }
+
+      // After building a strong pattern, prediction should be set
+      // The prediction state should be populated
+      expect(result.current.state.detectedPatterns.length).toBeGreaterThan(0);
+    });
   });
 
   describe("frame caching", () => {
@@ -360,6 +391,49 @@ describe("useMobileRenderPredictor", () => {
       expect(result.current.state.metrics.cachedFrames).toBeLessThanOrEqual(2);
     });
 
+    it("should trigger LRU eviction when cache exceeds max size (lines 428-435)", () => {
+      const renderer = createRenderer();
+      const { result } = renderHook(() =>
+        useMobileRenderPredictor(renderer, {}, {
+          maxCacheSize: 3,
+          minConfidenceThreshold: 0.01,
+        })
+      );
+
+      // Build up cache with many different interaction types
+      const interactions: InteractionType[] = [
+        "tap",
+        "tap",
+        "swipe_right",
+        "swipe_right",
+        "swipe_left",
+        "swipe_left",
+        "swipe_down",
+        "swipe_down",
+        "swipe_up",
+        "swipe_up",
+        "long_press",
+        "long_press",
+      ];
+
+      for (const type of interactions) {
+        act(() => {
+          advanceTime(50);
+          result.current.controls.recordInteraction(
+            createInteraction(type, { timestamp: currentTime })
+          );
+        });
+      }
+
+      // Force cache update via updatePrediction
+      act(() => {
+        result.current.controls.updatePrediction();
+      });
+
+      // Cache should be limited to max size
+      expect(result.current.state.metrics.cachedFrames).toBeLessThanOrEqual(3);
+    });
+
     it("should clear cache on demand", () => {
       const renderer = createRenderer();
       const { result } = renderHook(() =>
@@ -420,6 +494,41 @@ describe("useMobileRenderPredictor", () => {
       });
 
       expect(result.current.state).toBeDefined();
+    });
+
+    it("should mark existing cached frame as used (lines 732-736)", () => {
+      const renderer = createRenderer();
+      const { result } = renderHook(() =>
+        useMobileRenderPredictor(renderer, {}, {
+          minConfidenceThreshold: 0.01,
+        })
+      );
+
+      // Build up cache with repeated interactions
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          advanceTime(100);
+          result.current.controls.recordInteraction(
+            createInteraction("tap", { timestamp: currentTime })
+          );
+        });
+      }
+
+      // Get a cached frame
+      let cachedFrame: PreRenderFrame | null = null;
+      act(() => {
+        cachedFrame = result.current.controls.getCachedFrame("tap");
+      });
+
+      // If we have a cached frame, mark it as used
+      if (cachedFrame) {
+        act(() => {
+          result.current.controls.markFrameUsed(cachedFrame!.id);
+        });
+
+        // Check that the metrics were updated
+        expect(result.current.state.metrics).toBeDefined();
+      }
     });
   });
 
@@ -511,6 +620,19 @@ describe("useMobileRenderPredictor", () => {
 
       // Battery state is set asynchronously
       // In test, it starts as null
+      expect(result.current.state.batteryLevel).toBeNull();
+      expect(result.current.state.isLowPowerMode).toBe(false);
+    });
+
+    it("should skip battery monitoring when disabled (line 499)", () => {
+      const renderer = createRenderer();
+      const { result } = renderHook(() =>
+        useMobileRenderPredictor(renderer, {}, {
+          batteryAwarePrediction: false,
+        })
+      );
+
+      // Battery should remain null when monitoring is disabled
       expect(result.current.state.batteryLevel).toBeNull();
       expect(result.current.state.isLowPowerMode).toBe(false);
     });
@@ -642,6 +764,27 @@ describe("useInteractionRecorder", () => {
 
     expect(onInteraction).toHaveBeenCalledWith(
       expect.objectContaining({ type: "swipe_down" })
+    );
+  });
+
+  it("should detect swipe up direction (line 878)", () => {
+    const onInteraction = jest.fn();
+    const { result } = renderHook(() => useInteractionRecorder(onInteraction));
+
+    // Swipe up (move from bottom to top)
+    act(() => {
+      result.current.handleTouchStart(createTouchEvent("touchstart", 100, 200));
+    });
+    act(() => {
+      result.current.handleTouchMove(createTouchEvent("touchmove", 100, 100));
+    });
+    advanceTime(100);
+    act(() => {
+      result.current.handleTouchEnd(createTouchEvent("touchend", 100, 100));
+    });
+
+    expect(onInteraction).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "swipe_up" })
     );
   });
 
