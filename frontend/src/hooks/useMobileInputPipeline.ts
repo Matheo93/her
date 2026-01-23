@@ -967,14 +967,18 @@ export function useInputPrediction(
   deltaMs: number
 ): { x: number; y: number; confidence: number } | null {
   const { controls } = useMobileInputPipeline({ enablePrediction: true });
+  const processInputRef = useRef(controls.processInput);
+  const getPredictedInputRef = useRef(controls.getPredictedInput);
+
+  // Update refs when controls change
+  processInputRef.current = controls.processInput;
+  getPredictedInputRef.current = controls.getPredictedInput;
 
   useEffect(() => {
-    controls.processInput({ type: "pointer", x, y });
-  }, [x, y, controls]);
+    processInputRef.current({ type: "pointer", x, y });
+  }, [x, y]);
 
-  const predicted = controls.getPredictedInput(deltaMs);
-  if (!predicted) return null;
-  return predicted;
+  return getPredictedInputRef.current(deltaMs);
 }
 
 export default useMobileInputPipeline;

@@ -261,7 +261,7 @@ describe("useTouchResponseOptimizer", () => {
       });
 
       // Get prediction
-      let predicted: ReturnType<typeof result.current.controls.getPredictedPosition>;
+      let predicted: ReturnType<typeof result.current.controls.getPredictedPosition> = null;
       act(() => {
         predicted = result.current.controls.getPredictedPosition(1, 50);
       });
@@ -328,7 +328,7 @@ describe("useTouchResponseOptimizer", () => {
         result.current.controls.processTouchStart(touchEvent);
       });
 
-      let feedback: ReturnType<typeof result.current.controls.getImmediateFeedbackPosition>;
+      let feedback: ReturnType<typeof result.current.controls.getImmediateFeedbackPosition> = null;
       act(() => {
         feedback = result.current.controls.getImmediateFeedbackPosition(touchEvent);
       });

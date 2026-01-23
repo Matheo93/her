@@ -158,7 +158,7 @@ describe("useMobileOptimization", () => {
     });
 
     it("should detect slow connection from high RTT", () => {
-      (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = undefined;
+      (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "" as string;
       (global.navigator as unknown as typeof mockNavigator).connection.rtt = 500;
 
       const { result } = renderHook(() => useMobileOptimization());

@@ -146,7 +146,7 @@ describe("useRenderPipelineOptimizer", () => {
       const { result } = renderHook(() => useRenderPipelineOptimizer());
 
       const callback = jest.fn();
-      let id: string;
+      let id = "";
 
       act(() => {
         id = result.current.controls.scheduleRenderWork("test", callback, "normal");
