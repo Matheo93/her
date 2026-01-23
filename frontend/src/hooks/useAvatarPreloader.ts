@@ -625,7 +625,7 @@ export function useAvatarPreloader(
       : fullConfig.maxConcurrent;
 
     while (queueRef.current.length > 0 && activeLoadsRef.current.size < maxConcurrent) {
-      if (isPaused || networkQuality === "offline") break;
+      if (isPaused) break;
 
       // Sort by priority
       queueRef.current.sort(

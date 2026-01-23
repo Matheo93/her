@@ -895,3 +895,40 @@ export {
   type CoalescerState,
   type UseRequestCoalescerResult,
 } from "./useRequestCoalescer";
+
+// Avatar Preloader (Sprint 515 Iteration 2)
+export {
+  useAvatarPreloader,
+  useAvatarModelPreload,
+  useAvatarAssetsPreload,
+  type AssetType,
+  type PreloadPriority,
+  type AssetStatus,
+  type NetworkQuality as PreloaderNetworkQuality,
+  type PreloadAsset,
+  type TrackedAsset as PreloadTrackedAsset,
+  type PreloadProgress,
+  type PreloadMetrics,
+  type PreloaderConfig,
+  type PreloaderControls,
+  type PreloaderState,
+  type UseAvatarPreloaderResult,
+} from "./useAvatarPreloader";
+
+// Mobile Latency Compensator (Sprint 515 Iteration 2)
+export {
+  useMobileLatencyCompensator,
+  useOptimisticUpdate,
+  useLatencyAwareLoading,
+  type CompensationState,
+  type LatencyLevel,
+  type UIHint,
+  type OptimisticUpdate as LatencyOptimisticUpdate,
+  type LatencySample as CompensatorLatencySample,
+  type LatencyPrediction,
+  type CompensatorMetrics,
+  type CompensatorConfig,
+  type CompensatorControls,
+  type CompensatorStateInfo,
+  type UseMobileLatencyCompensatorResult,
+} from "./useMobileLatencyCompensator";
