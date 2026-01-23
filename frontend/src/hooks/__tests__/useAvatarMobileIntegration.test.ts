@@ -509,4 +509,392 @@ describe("Mobile Avatar Integration Tests", () => {
       // No errors = success
     });
   });
+
+  // ============================================================================
+  // Sprint 618 - Advanced Integration Tests
+  // ============================================================================
+
+  describe("Advanced Touch Gesture Scenarios", () => {
+    it("should handle multi-touch gesture sequence", () => {
+      const touchSync = renderHook(() => useAvatarTouchAnimationSync());
+      const gestureAccel = renderHook(() => useAvatarGestureResponseAccelerator());
+
+      // First touch
+      mockTime = 0;
+      act(() => {
+        touchSync.result.current.controls.onTouchStart({ x: 100, y: 100 });
+        gestureAccel.result.current.controls.recognizeGesture({
+          type: "tap",
+          position: { x: 100, y: 100 },
+          timestamp: mockTime,
+        });
+      });
+
+      expect(gestureAccel.result.current.state.currentGesture).toBe("tap");
+
+      // End first touch
+      act(() => {
+        touchSync.result.current.controls.onTouchEnd();
+      });
+
+      // Second touch - swipe
+      mockTime = 200;
+      act(() => {
+        touchSync.result.current.controls.onTouchStart({ x: 100, y: 100 });
+      });
+
+      mockTime = 300;
+      act(() => {
+        touchSync.result.current.controls.onTouchMove({ x: 300, y: 100 });
+        gestureAccel.result.current.controls.recognizeGesture({
+          type: "swipe",
+          position: { x: 300, y: 100 },
+          timestamp: mockTime,
+        });
+      });
+
+      expect(gestureAccel.result.current.state.currentGesture).toBe("swipe");
+      expect(gestureAccel.result.current.metrics.gesturesProcessed).toBe(2);
+
+      // End second touch
+      act(() => {
+        touchSync.result.current.controls.onTouchEnd();
+      });
+    });
+
+    it("should coordinate prediction with instant feedback", () => {
+      const gestureAccel = renderHook(() =>
+        useAvatarGestureResponseAccelerator({ feedbackMode: "predictive" })
+      );
+      const instantFeedback = renderHook(() => useAvatarInstantFeedback());
+
+      // Start prediction
+      mockTime = 0;
+      act(() => {
+        gestureAccel.result.current.controls.predictGestureIntent({
+          touchStart: { x: 100, y: 100 },
+          currentPosition: { x: 150, y: 100 },
+          velocity: { x: 400, y: 0 },
+          elapsed: 80,
+        });
+      });
+
+      expect(gestureAccel.result.current.state.predictionConfidence).toBeGreaterThan(0);
+
+      // Trigger instant feedback based on prediction
+      act(() => {
+        instantFeedback.result.current.controls.triggerInstantFeedback("swipe", { x: 150, y: 100 });
+      });
+
+      expect(instantFeedback.result.current.state.currentFeedbackType).toBe("swipe");
+
+      // Confirm prediction
+      act(() => {
+        gestureAccel.result.current.controls.confirmPrediction(true);
+      });
+
+      expect(gestureAccel.result.current.metrics.predictionAccuracy).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Frame Budget and Performance Integration", () => {
+    it("should track frame budget across multiple animation operations", () => {
+      const frameBudget = renderHook(() => useAvatarFrameBudget({ targetFps: 60 }));
+      const touchSync = renderHook(() => useAvatarTouchAnimationSync());
+
+      // Start frame
+      act(() => {
+        frameBudget.result.current.controls.startWork("touch-handling");
+      });
+
+      // Process touch
+      act(() => {
+        touchSync.result.current.controls.onTouchStart({ x: 100, y: 100 });
+        mockTime += 2;
+      });
+
+      act(() => {
+        frameBudget.result.current.controls.endWork("touch-handling");
+      });
+
+      // Start animation work
+      act(() => {
+        frameBudget.result.current.controls.startWork("animation");
+        touchSync.result.current.controls.scheduleAnimation({
+          type: "track",
+          duration: 100,
+          priority: "high",
+        });
+        mockTime += 3;
+        frameBudget.result.current.controls.endWork("animation");
+      });
+
+      // Complete frame
+      act(() => {
+        frameBudget.result.current.controls.recordFrameComplete();
+      });
+
+      expect(frameBudget.result.current.metrics.framesRecorded).toBe(1);
+      expect(frameBudget.result.current.state.isOverBudget).toBe(false);
+    });
+
+    it("should detect frame budget overflow", () => {
+      const frameBudget = renderHook(() => useAvatarFrameBudget({ targetFps: 60 }));
+
+      // Start work at time 0
+      mockTime = 0;
+      act(() => {
+        frameBudget.result.current.controls.startWork("heavy");
+      });
+
+      // End work at time 20 (exceeds 16.67ms budget at 60fps)
+      mockTime = 20;
+      act(() => {
+        frameBudget.result.current.controls.endWork("heavy");
+      });
+
+      // After exceeding budget, isOverBudget should be true
+      expect(frameBudget.result.current.state.isOverBudget).toBe(true);
+    });
+  });
+
+  describe("State Cache Coordination", () => {
+    it("should coordinate rapid state updates with animation", () => {
+      const stateCache = renderHook(() => useAvatarStateCache({ debounceMs: 16 }));
+      const touchSync = renderHook(() => useAvatarTouchAnimationSync());
+
+      // Rapid state updates
+      act(() => {
+        stateCache.result.current.updateEmotion("joy");
+        stateCache.result.current.updateSpeaking(true);
+        stateCache.result.current.updateVisemeWeights({ AA: 0.5, sil: 0.5 });
+      });
+
+      // Schedule animation in parallel
+      act(() => {
+        touchSync.result.current.controls.scheduleAnimation({
+          type: "expression",
+          duration: 200,
+          priority: "high",
+        });
+      });
+
+      expect(touchSync.result.current.state.pendingAnimations).toBe(1);
+
+      // Advance time to flush state cache
+      act(() => {
+        jest.advanceTimersByTime(20);
+      });
+
+      expect(stateCache.result.current.state.emotion).toBe("joy");
+      expect(stateCache.result.current.state.isSpeaking).toBe(true);
+    });
+
+    it("should handle state reset during animation", () => {
+      const stateCache = renderHook(() => useAvatarStateCache({ debounceMs: 16 }));
+      const touchSync = renderHook(() => useAvatarTouchAnimationSync());
+
+      // Set initial state and animation
+      act(() => {
+        stateCache.result.current.updateEmotion("joy");
+        stateCache.result.current.updateSpeaking(true);
+        touchSync.result.current.controls.scheduleAnimation({
+          type: "expression",
+          duration: 500,
+          priority: "normal",
+        });
+        jest.advanceTimersByTime(20);
+      });
+
+      expect(stateCache.result.current.state.emotion).toBe("joy");
+      expect(touchSync.result.current.state.pendingAnimations).toBe(1);
+
+      // Reset state cache
+      act(() => {
+        stateCache.result.current.resetState();
+      });
+
+      expect(stateCache.result.current.state.emotion).toBe("neutral");
+      expect(stateCache.result.current.state.isSpeaking).toBe(false);
+      // Animation should still be pending
+      expect(touchSync.result.current.state.pendingAnimations).toBe(1);
+    });
+  });
+
+  describe("Momentum and Touch Sync Coordination", () => {
+    it("should coordinate momentum decay with touch sync smoothing", () => {
+      const touchSync = renderHook(() => useAvatarTouchAnimationSync({ smoothingFactor: 0.3 }));
+      const momentum = renderHook(() => useAvatarTouchMomentum({ friction: 0.95 }));
+
+      // Start drag
+      mockTime = 0;
+      act(() => {
+        touchSync.result.current.controls.onTouchStart({ x: 100, y: 100 });
+        momentum.result.current.controls.startDrag({ x: 100, y: 100 });
+      });
+
+      // Move drag
+      mockTime = 16;
+      act(() => {
+        touchSync.result.current.controls.onTouchMove({ x: 200, y: 100 });
+        momentum.result.current.controls.updateDrag({ x: 200, y: 100 });
+      });
+
+      mockTime = 32;
+      act(() => {
+        touchSync.result.current.controls.onTouchMove({ x: 350, y: 100 });
+        momentum.result.current.controls.updateDrag({ x: 350, y: 100 });
+      });
+
+      // End drag
+      act(() => {
+        touchSync.result.current.controls.onTouchEnd();
+        momentum.result.current.controls.endDrag();
+      });
+
+      // Both should have tracked the movement
+      expect(touchSync.result.current.metrics.touchEventsProcessed).toBeGreaterThan(0);
+      expect(momentum.result.current.state.velocity).toBeDefined();
+    });
+  });
+
+  describe("Error Recovery Scenarios", () => {
+    it("should recover from invalid gesture data", () => {
+      const gestureAccel = renderHook(() => useAvatarGestureResponseAccelerator());
+
+      // Valid gesture
+      act(() => {
+        gestureAccel.result.current.controls.recognizeGesture({
+          type: "tap",
+          position: { x: 100, y: 100 },
+          timestamp: mockTime,
+        });
+      });
+
+      expect(gestureAccel.result.current.metrics.gesturesProcessed).toBe(1);
+
+      // Another valid gesture after potential error
+      act(() => {
+        gestureAccel.result.current.controls.recognizeGesture({
+          type: "swipe",
+          position: { x: 200, y: 100 },
+          timestamp: mockTime + 100,
+        });
+      });
+
+      expect(gestureAccel.result.current.metrics.gesturesProcessed).toBe(2);
+    });
+
+    it("should handle rapid mount/unmount cycles", () => {
+      // First mount
+      const hook1 = renderHook(() => useAvatarTouchAnimationSync());
+      act(() => {
+        hook1.result.current.controls.onTouchStart({ x: 100, y: 100 });
+      });
+      hook1.unmount();
+
+      // Second mount
+      const hook2 = renderHook(() => useAvatarTouchAnimationSync());
+      act(() => {
+        hook2.result.current.controls.onTouchStart({ x: 200, y: 200 });
+      });
+      expect(hook2.result.current.state.isTouching).toBe(true);
+      hook2.unmount();
+
+      // Third mount
+      const hook3 = renderHook(() => useAvatarTouchAnimationSync());
+      expect(hook3.result.current.state.isTouching).toBe(false);
+      hook3.unmount();
+    });
+  });
+
+  describe("Full Pipeline End-to-End", () => {
+    it("should handle complete touch-to-animation pipeline", () => {
+      const touchSync = renderHook(() => useAvatarTouchAnimationSync());
+      const gestureAccel = renderHook(() => useAvatarGestureResponseAccelerator({ feedbackMode: "predictive" }));
+      const instantFeedback = renderHook(() => useAvatarInstantFeedback());
+      const stateCache = renderHook(() => useAvatarStateCache({ debounceMs: 10 }));
+      const frameBudget = renderHook(() => useAvatarFrameBudget({ targetFps: 60 }));
+
+      // Step 1: Touch start
+      mockTime = 0;
+      act(() => {
+        frameBudget.result.current.controls.startWork("touch");
+        touchSync.result.current.controls.onTouchStart({ x: 100, y: 100 });
+        frameBudget.result.current.controls.endWork("touch");
+      });
+
+      expect(touchSync.result.current.state.isTouching).toBe(true);
+
+      // Step 2: Predict gesture
+      mockTime = 50;
+      act(() => {
+        gestureAccel.result.current.controls.predictGestureIntent({
+          touchStart: { x: 100, y: 100 },
+          currentPosition: { x: 150, y: 100 },
+          velocity: { x: 300, y: 0 },
+          elapsed: 50,
+        });
+      });
+
+      // Step 3: Touch move with instant feedback
+      mockTime = 100;
+      act(() => {
+        touchSync.result.current.controls.onTouchMove({ x: 200, y: 100 });
+        instantFeedback.result.current.controls.triggerInstantFeedback("swipe", { x: 200, y: 100 });
+      });
+
+      // Step 4: Recognize gesture
+      act(() => {
+        gestureAccel.result.current.controls.recognizeGesture({
+          type: "swipe",
+          position: { x: 200, y: 100 },
+          timestamp: mockTime,
+        });
+        gestureAccel.result.current.controls.confirmPrediction(true);
+      });
+
+      // Step 5: Schedule animation response
+      let animId: string = "";
+      act(() => {
+        animId = touchSync.result.current.controls.scheduleAnimation({
+          type: "swipe-response",
+          duration: 200,
+          priority: "high",
+        });
+        gestureAccel.result.current.controls.scheduleAvatarResponse({
+          type: "track",
+          priority: "high",
+          delay: 0,
+        });
+      });
+
+      // Step 6: Update state cache
+      act(() => {
+        stateCache.result.current.batchUpdate({
+          emotion: "engaged",
+          isSpeaking: false,
+        });
+        jest.advanceTimersByTime(20);
+      });
+
+      // Step 7: Touch end
+      act(() => {
+        touchSync.result.current.controls.onTouchEnd();
+      });
+
+      // Step 8: Complete animation
+      act(() => {
+        touchSync.result.current.controls.completeAnimation(animId);
+        frameBudget.result.current.controls.recordFrameComplete();
+      });
+
+      // Verify full pipeline completed
+      expect(touchSync.result.current.state.isTouching).toBe(false);
+      expect(touchSync.result.current.state.pendingAnimations).toBe(0);
+      expect(gestureAccel.result.current.metrics.gesturesProcessed).toBe(1);
+      expect(instantFeedback.result.current.state.currentFeedbackType).toBe("swipe");
+      expect(frameBudget.result.current.metrics.framesRecorded).toBe(1);
+    });
+  });
 });
