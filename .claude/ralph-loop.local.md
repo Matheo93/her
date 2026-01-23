@@ -44,3 +44,30 @@ Sprint 529 Ameliore avatar UX latence mobile. Code teste valide. Boucle infinie.
 - All tests passing ✅
 - TypeScript: No errors ✅
 
+## Sprint 226 - Iteration 3 ✅
+
+### This Iteration:
+- Created useAdaptiveRenderQuality.test.ts (41 tests)
+  - Initialization (default config, custom tier, target FPS, metrics, conditions)
+  - Quality settings (all 5 tiers: ultra, high, medium, low, minimal)
+  - Manual tier control (setQualityTier, callbacks)
+  - Frame time reporting (samples, metrics, FPS detection)
+  - Quality locking/unlocking
+  - Cooldown between adjustments
+  - Reset functionality
+  - Performance score calculation
+  - Tier transitions (ultra -> minimal, minimal -> ultra)
+  - Convenience hooks (useQualityTier, useResolutionScale, usePerformanceScore)
+
+- Fixed useAdaptiveRenderQuality.ts
+  - Fixed infinite loop in useEffect by using refs and empty deps
+  - Added isMounted flag for async cleanup
+
+- Fixed useTouchPredictionEngine.test.ts
+  - Fixed variable assignment and null assertion
+
+### Test Results:
+- 41 new tests passing ✅
+- TypeScript: No errors ✅
+- Backend: 202 tests passing ✅
+
