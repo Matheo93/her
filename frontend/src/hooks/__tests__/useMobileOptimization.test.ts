@@ -39,12 +39,11 @@ const mockWindow = {
 Object.defineProperty(global, "navigator", {
   value: mockNavigator,
   writable: true,
+  configurable: true,
 });
 
-Object.defineProperty(global, "window", {
-  value: { ...global.window, ...mockWindow },
-  writable: true,
-});
+// Merge window properties instead of redefining
+Object.assign(global.window || {}, mockWindow);
 
 // Import after mocks are set up
 import { useMobileOptimization } from "../useMobileOptimization";

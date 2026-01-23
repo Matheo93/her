@@ -970,3 +970,44 @@ export {
   type OptimizerControls,
   type UseTouchResponseOptimizerResult,
 } from "./useTouchResponseOptimizer";
+
+// Render Pipeline Optimizer (Sprint 521)
+export {
+  useRenderPipelineOptimizer,
+  useFrameBudget,
+  useLODManager,
+  useGPUInfo,
+  type RenderPriority,
+  type LODLevel,
+  type GPUTier,
+  type RenderPass,
+  type FrameBudget,
+  type GPUInfo,
+  type OcclusionHint,
+  type PipelineMetrics,
+  type PipelineState,
+  type PipelineConfig,
+  type PipelineControls,
+  type UseRenderPipelineOptimizerResult,
+} from "./useRenderPipelineOptimizer";
+
+// Gesture Motion Predictor (Sprint 521)
+export {
+  useGestureMotionPredictor,
+  useSimpleMotionPredictor,
+  useGestureRecognition,
+  useKalmanPosition,
+  type Point2D,
+  type MotionPoint,
+  type PredictedPosition,
+  type GestureType as MotionGestureType,
+  type RecognizedGesture,
+  type TrajectoryPoint,
+  type PredictedTrajectory,
+  type KalmanState,
+  type PredictorMetrics,
+  type PredictorState,
+  type PredictorConfig,
+  type PredictorControls,
+  type UseGestureMotionPredictorResult,
+} from "./useGestureMotionPredictor";
