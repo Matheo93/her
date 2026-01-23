@@ -66,13 +66,13 @@ describe("useMobileOptimization", () => {
     jest.clearAllMocks();
 
     // Reset to desktop defaults
-    (global.navigator as typeof mockNavigator).userAgent =
+    (global.navigator as unknown as typeof mockNavigator).userAgent =
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
-    (global.navigator as typeof mockNavigator).maxTouchPoints = 0;
-    (global.navigator as typeof mockNavigator).hardwareConcurrency = 8;
-    (global.navigator as typeof mockNavigator).deviceMemory = 8;
-    (global.navigator as typeof mockNavigator).connection.effectiveType = "4g";
-    (global.navigator as typeof mockNavigator).connection.saveData = false;
+    (global.navigator as unknown as typeof mockNavigator).maxTouchPoints = 0;
+    (global.navigator as unknown as typeof mockNavigator).hardwareConcurrency = 8;
+    (global.navigator as unknown as typeof mockNavigator).deviceMemory = 8;
+    (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "4g";
+    (global.navigator as unknown as typeof mockNavigator).connection.saveData = false;
     window.innerWidth = 1920;
     window.innerHeight = 1080;
     Object.defineProperty(window, 'matchMedia', {
@@ -96,9 +96,9 @@ describe("useMobileOptimization", () => {
     });
 
     it("should detect mobile device from user agent", () => {
-      (global.navigator as typeof mockNavigator).userAgent =
+      (global.navigator as unknown as typeof mockNavigator).userAgent =
         "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X)";
-      (global.navigator as typeof mockNavigator).maxTouchPoints = 5;
+      (global.navigator as unknown as typeof mockNavigator).maxTouchPoints = 5;
       window.innerWidth = 375;
 
       const { result } = renderHook(() => useMobileOptimization());
@@ -107,7 +107,7 @@ describe("useMobileOptimization", () => {
     });
 
     it("should detect low-end device from hardware concurrency", () => {
-      (global.navigator as typeof mockNavigator).hardwareConcurrency = 2;
+      (global.navigator as unknown as typeof mockNavigator).hardwareConcurrency = 2;
 
       const { result } = renderHook(() => useMobileOptimization());
 
@@ -115,7 +115,7 @@ describe("useMobileOptimization", () => {
     });
 
     it("should detect low memory device", () => {
-      (global.navigator as typeof mockNavigator).deviceMemory = 2;
+      (global.navigator as unknown as typeof mockNavigator).deviceMemory = 2;
 
       const { result } = renderHook(() => useMobileOptimization());
 
@@ -142,7 +142,7 @@ describe("useMobileOptimization", () => {
 
   describe("connection detection", () => {
     it("should detect fast connection", () => {
-      (global.navigator as typeof mockNavigator).connection.effectiveType = "4g";
+      (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "4g";
 
       const { result } = renderHook(() => useMobileOptimization());
 
@@ -150,7 +150,7 @@ describe("useMobileOptimization", () => {
     });
 
     it("should detect slow connection from effectiveType", () => {
-      (global.navigator as typeof mockNavigator).connection.effectiveType = "2g";
+      (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "2g";
 
       const { result } = renderHook(() => useMobileOptimization());
 
@@ -158,8 +158,8 @@ describe("useMobileOptimization", () => {
     });
 
     it("should detect slow connection from high RTT", () => {
-      (global.navigator as typeof mockNavigator).connection.effectiveType = undefined;
-      (global.navigator as typeof mockNavigator).connection.rtt = 500;
+      (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = undefined;
+      (global.navigator as unknown as typeof mockNavigator).connection.rtt = 500;
 
       const { result } = renderHook(() => useMobileOptimization());
 
@@ -167,7 +167,7 @@ describe("useMobileOptimization", () => {
     });
 
     it("should respect data saver mode", () => {
-      (global.navigator as typeof mockNavigator).connection.saveData = true;
+      (global.navigator as unknown as typeof mockNavigator).connection.saveData = true;
 
       const { result } = renderHook(() => useMobileOptimization());
 
@@ -186,11 +186,11 @@ describe("useMobileOptimization", () => {
     });
 
     it("should return medium quality settings for mobile with fast connection", () => {
-      (global.navigator as typeof mockNavigator).userAgent =
+      (global.navigator as unknown as typeof mockNavigator).userAgent =
         "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X)";
-      (global.navigator as typeof mockNavigator).maxTouchPoints = 5;
+      (global.navigator as unknown as typeof mockNavigator).maxTouchPoints = 5;
       window.innerWidth = 375;
-      (global.navigator as typeof mockNavigator).deviceMemory = 4;
+      (global.navigator as unknown as typeof mockNavigator).deviceMemory = 4;
 
       const { result } = renderHook(() => useMobileOptimization());
 
@@ -200,8 +200,8 @@ describe("useMobileOptimization", () => {
     });
 
     it("should return low quality settings for low-end devices", () => {
-      (global.navigator as typeof mockNavigator).hardwareConcurrency = 2;
-      (global.navigator as typeof mockNavigator).deviceMemory = 2;
+      (global.navigator as unknown as typeof mockNavigator).hardwareConcurrency = 2;
+      (global.navigator as unknown as typeof mockNavigator).deviceMemory = 2;
 
       const { result } = renderHook(() => useMobileOptimization());
 
@@ -253,7 +253,7 @@ describe("useMobileOptimization", () => {
     });
 
     it("should return slower reconnect settings for slow connection", () => {
-      (global.navigator as typeof mockNavigator).connection.effectiveType = "2g";
+      (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "2g";
 
       const { result } = renderHook(() => useMobileOptimization());
 
@@ -293,7 +293,7 @@ describe("useMobileOptimization", () => {
       const { result } = renderHook(() => useMobileOptimization());
 
       // Simulate connection change
-      (global.navigator as typeof mockNavigator).connection.effectiveType = "3g";
+      (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "3g";
 
       act(() => {
         result.current.updateConnectionType();
@@ -307,13 +307,13 @@ describe("useMobileOptimization", () => {
 describe("animation settings calculation", () => {
   beforeEach(() => {
     // Reset to desktop defaults
-    (global.navigator as typeof mockNavigator).userAgent =
+    (global.navigator as unknown as typeof mockNavigator).userAgent =
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
-    (global.navigator as typeof mockNavigator).maxTouchPoints = 0;
-    (global.navigator as typeof mockNavigator).hardwareConcurrency = 8;
-    (global.navigator as typeof mockNavigator).deviceMemory = 8;
-    (global.navigator as typeof mockNavigator).connection.effectiveType = "4g";
-    (global.navigator as typeof mockNavigator).connection.saveData = false;
+    (global.navigator as unknown as typeof mockNavigator).maxTouchPoints = 0;
+    (global.navigator as unknown as typeof mockNavigator).hardwareConcurrency = 8;
+    (global.navigator as unknown as typeof mockNavigator).deviceMemory = 8;
+    (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "4g";
+    (global.navigator as unknown as typeof mockNavigator).connection.saveData = false;
     window.innerWidth = 1920;
     window.innerHeight = 1080;
     Object.defineProperty(window, 'matchMedia', {
@@ -329,22 +329,22 @@ describe("animation settings calculation", () => {
 
   it("should calculate appropriate particle count for device tier", () => {
     // High-end
-    (global.navigator as typeof mockNavigator).deviceMemory = 16;
+    (global.navigator as unknown as typeof mockNavigator).deviceMemory = 16;
     const { result: highEnd } = renderHook(() => useMobileOptimization());
     expect(highEnd.current.animations.particleCount).toBe(15);
   });
 
   it("should calculate appropriate particle count for low-end device tier", () => {
     // Low-end
-    (global.navigator as typeof mockNavigator).deviceMemory = 2;
-    (global.navigator as typeof mockNavigator).hardwareConcurrency = 2;
+    (global.navigator as unknown as typeof mockNavigator).deviceMemory = 2;
+    (global.navigator as unknown as typeof mockNavigator).hardwareConcurrency = 2;
     const { result: lowEnd } = renderHook(() => useMobileOptimization());
     expect(lowEnd.current.animations.particleCount).toBeLessThanOrEqual(3);
   });
 
   it("should calculate appropriate spring physics for high-end device", () => {
     // High-end: desktop with high memory gets springStiffness of 120
-    (global.navigator as typeof mockNavigator).deviceMemory = 16;
+    (global.navigator as unknown as typeof mockNavigator).deviceMemory = 16;
     const { result: highEnd } = renderHook(() => useMobileOptimization());
     // High-end desktop settings use springStiffness: 120
     expect(highEnd.current.animations.springStiffness).toBe(120);
@@ -352,8 +352,8 @@ describe("animation settings calculation", () => {
 
   it("should calculate appropriate spring physics for low-end device", () => {
     // Low-end: softer, simpler animations
-    (global.navigator as typeof mockNavigator).deviceMemory = 2;
-    (global.navigator as typeof mockNavigator).hardwareConcurrency = 2;
+    (global.navigator as unknown as typeof mockNavigator).deviceMemory = 2;
+    (global.navigator as unknown as typeof mockNavigator).hardwareConcurrency = 2;
     const { result: lowEnd } = renderHook(() => useMobileOptimization());
     // Low-end device settings use springStiffness: 80
     expect(lowEnd.current.animations.springStiffness).toBe(80);

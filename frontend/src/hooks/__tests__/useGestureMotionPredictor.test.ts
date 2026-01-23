@@ -663,7 +663,7 @@ describe("useSimpleMotionPredictor", () => {
       result.current.addPoint(100, 0);
     });
 
-    let predicted: ReturnType<typeof result.current.predict>;
+    let predicted: ReturnType<typeof result.current.predict> = null;
     act(() => {
       predicted = result.current.predict(50);
     });

@@ -639,7 +639,7 @@ describe("useMobileInputPipeline", () => {
       expect(result.current.state.isPaused).toBe(true);
 
       // Inputs should not be processed when paused
-      let processed: ReturnType<typeof result.current.controls.processInput>;
+      let processed: ReturnType<typeof result.current.controls.processInput> = null;
       act(() => {
         processed = result.current.controls.processInput(createRawInput());
       });
@@ -658,7 +658,7 @@ describe("useMobileInputPipeline", () => {
       expect(result.current.state.isPaused).toBe(false);
 
       // Inputs should be processed after resume
-      let processed: ReturnType<typeof result.current.controls.processInput>;
+      let processed: ReturnType<typeof result.current.controls.processInput> = null;
       act(() => {
         processed = result.current.controls.processInput(createRawInput());
       });
