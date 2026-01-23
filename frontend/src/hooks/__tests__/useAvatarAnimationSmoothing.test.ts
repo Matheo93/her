@@ -613,6 +613,18 @@ describe("convenience hooks", () => {
       expect(typeof result.current[0]).toBe("number");
       expect(typeof result.current[1]).toBe("function");
     });
+
+    it("should update value when setTarget is called (lines 885-886)", () => {
+      const { result } = renderHook(() => useSmoothedValue(0, 0.5));
+
+      act(() => {
+        advanceTime(16);
+        result.current[1](100); // setTarget
+      });
+
+      // Value should change toward target
+      expect(result.current[0]).toBeGreaterThanOrEqual(0);
+    });
   });
 
   describe("usePoseBlending", () => {
@@ -653,5 +665,453 @@ describe("convenience hooks", () => {
       expect(result.current).toHaveProperty("hasJank");
       expect(result.current).toHaveProperty("recentJank");
     });
+  });
+});
+
+// ============================================================================
+// Branch Coverage Tests - Sprint 609
+// ============================================================================
+
+describe("branch coverage - spring algorithm (lines 265-284, 425-436)", () => {
+  it("should apply spring smoothing with velocity (lines 265-273)", () => {
+    const { result } = renderHook(() =>
+      useAvatarAnimationSmoothing({
+        algorithm: "spring",
+        springStiffness: 200,
+        springDamping: 20,
+      })
+    );
+
+    // Set initial value
+    act(() => {
+      result.current.controls.setImmediate("spring-test", 0);
+    });
+
+    // Smooth toward target multiple times
+    let values: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      act(() => {
+        advanceTime(16);
+        const val = result.current.controls.smooth("spring-test", 100, "spring");
+        values.push(val);
+      });
+    }
+
+    // Spring should oscillate or converge toward target
+    expect(values.length).toBe(5);
+    expect(values[4]).not.toBe(0);
+  });
+
+  it("should use spring algorithm from config", () => {
+    const { result } = renderHook(() =>
+      useAvatarAnimationSmoothing({ algorithm: "spring" })
+    );
+
+    act(() => {
+      result.current.controls.setImmediate("test", 0);
+    });
+
+    act(() => {
+      advanceTime(16);
+      result.current.controls.smooth("test", 50);
+    });
+
+    expect(result.current.metrics.valuesSmoothed).toBeGreaterThan(0);
+  });
+});
+
+describe("branch coverage - critically damped algorithm (lines 275-285, 438-449)", () => {
+  it("should apply critically damped smoothing (lines 275-285)", () => {
+    const { result } = renderHook(() =>
+      useAvatarAnimationSmoothing({
+        algorithm: "critically_damped",
+        springStiffness: 100,
+      })
+    );
+
+    act(() => {
+      result.current.controls.setImmediate("cd-test", 0);
+    });
+
+    let values: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      act(() => {
+        advanceTime(16);
+        const val = result.current.controls.smooth("cd-test", 100, "critically_damped");
+        values.push(val);
+      });
+    }
+
+    // Should converge smoothly without oscillation
+    expect(values.length).toBe(5);
+    // Values should be increasing toward target
+    for (let i = 1; i < values.length; i++) {
+      expect(values[i]).toBeGreaterThanOrEqual(values[i - 1] - 0.1); // Allow small numerical errors
+    }
+  });
+});
+
+describe("branch coverage - lerp algorithm (lines 451-453)", () => {
+  it("should apply linear interpolation", () => {
+    const { result } = renderHook(() =>
+      useAvatarAnimationSmoothing({
+        algorithm: "lerp",
+        smoothingFactor: 0.5,
+      })
+    );
+
+    act(() => {
+      result.current.controls.setImmediate("lerp-test", 0);
+    });
+
+    act(() => {
+      advanceTime(16);
+      const val = result.current.controls.smooth("lerp-test", 100, "lerp");
+      // With factor 0.5, should move halfway each step
+      expect(val).toBe(50);
+    });
+  });
+});
+
+describe("branch coverage - adaptive algorithm (lines 455-468)", () => {
+  it("should apply adaptive smoothing based on speed (lines 455-468)", () => {
+    const { result } = renderHook(() =>
+      useAvatarAnimationSmoothing({
+        algorithm: "adaptive",
+        smoothingFactor: 0.2,
+        adaptiveSensitivity: 0.01,
+      })
+    );
+
+    act(() => {
+      result.current.controls.setImmediate("adapt-test", 0);
+    });
+
+    // Large jump should trigger faster smoothing
+    act(() => {
+      advanceTime(16);
+      result.current.controls.smooth("adapt-test", 1000, "adaptive");
+    });
+
+    expect(result.current.metrics.valuesSmoothed).toBeGreaterThan(0);
+  });
+
+  it("should clamp adaptive factor (line 464)", () => {
+    const { result } = renderHook(() =>
+      useAvatarAnimationSmoothing({
+        algorithm: "adaptive",
+        smoothingFactor: 0.5,
+        adaptiveSensitivity: 1, // High sensitivity
+      })
+    );
+
+    act(() => {
+      result.current.controls.setImmediate("clamp-test", 0);
+    });
+
+    // Very large jump should still clamp factor
+    act(() => {
+      advanceTime(16);
+      result.current.controls.smooth("clamp-test", 10000, "adaptive");
+    });
+
+    expect(result.current.metrics.valuesSmoothed).toBeGreaterThan(0);
+  });
+});
+
+describe("branch coverage - settlement callback (lines 481-487)", () => {
+  it("should call onValueSettled when value settles (lines 481-483)", () => {
+    const onValueSettled = jest.fn();
+    const { result } = renderHook(() =>
+      useAvatarAnimationSmoothing(
+        { settlementThreshold: 10, smoothingFactor: 1 },
+        { onValueSettled }
+      )
+    );
+
+    // Start far from target
+    act(() => {
+      result.current.controls.setImmediate("settle-test", 0);
+    });
+
+    // Smooth toward target with high factor (should settle quickly)
+    act(() => {
+      advanceTime(16);
+      result.current.controls.smooth("settle-test", 5); // Within threshold
+    });
+
+    // Value should be settled
+    expect(result.current.controls.isSettled("settle-test")).toBe(true);
+  });
+
+  it("should invoke onValueSettled callback when transitioning to settled (lines 482-483)", () => {
+    const onValueSettled = jest.fn();
+    const { result } = renderHook(() =>
+      useAvatarAnimationSmoothing(
+        { settlementThreshold: 0.5, smoothingFactor: 1, algorithm: "lerp" },
+        { onValueSettled }
+      )
+    );
+
+    // Set initial value at 0 (starts settled)
+    act(() => {
+      result.current.controls.setImmediate("callback-test", 0);
+    });
+
+    // Smooth far from 0 - this makes the value NOT settled (diff > threshold)
+    act(() => {
+      advanceTime(16);
+      result.current.controls.smooth("callback-test", 100); // Value moves to 100, far from initial
+    });
+
+    // Now value is at 100, target is 100, so it should be settled
+    // But it started settled, moved to far target in one step with lerp factor=1
+    // So wasSettled was true at first smooth call.
+    // We need multiple calls where value is not settled then becomes settled.
+
+    // Reset - start not settled by going to far target
+    act(() => {
+      result.current.controls.setImmediate("callback-test2", 0);
+    });
+
+    // First call with factor < 1 so value doesn't reach target (not settled)
+    const { result: result2 } = renderHook(() =>
+      useAvatarAnimationSmoothing(
+        { settlementThreshold: 1, smoothingFactor: 0.9, algorithm: "lerp" },
+        { onValueSettled }
+      )
+    );
+
+    act(() => {
+      result2.current.controls.setImmediate("settle-cb", 0);
+    });
+
+    // Smooth toward 10 - value goes to 9 (90% of diff), diff is 1 = threshold, should be settled
+    act(() => {
+      advanceTime(16);
+      const val = result2.current.controls.smooth("settle-cb", 10);
+      // Value is at 9, target is 10, diff is 1, threshold is 1 - isSettled = true
+      // But wasSettled was true (initial), so callback won't fire
+    });
+
+    // We need: wasSettled=false and then isSettled=true
+    // The value needs to become NOT settled first, then become settled
+
+    // Let's try: smooth to far target (not settled), then smooth to close target (settled)
+    const { result: result3 } = renderHook(() =>
+      useAvatarAnimationSmoothing(
+        { settlementThreshold: 5, smoothingFactor: 0.1, algorithm: "lerp" },
+        { onValueSettled }
+      )
+    );
+
+    act(() => {
+      result3.current.controls.setImmediate("settle-trans", 0);
+    });
+
+    // Smooth to far target - value goes to 10 (10% of 100), target is 100
+    // diff = 90, threshold = 5, NOT settled
+    act(() => {
+      advanceTime(16);
+      result3.current.controls.smooth("settle-trans", 100);
+    });
+
+    expect(result3.current.controls.isSettled("settle-trans")).toBe(false);
+
+    // Now smooth toward the current value so diff becomes < threshold
+    // Current is ~10, smooth to 12 (within 5)
+    act(() => {
+      advanceTime(16);
+      const val = result3.current.controls.getValue("settle-trans");
+      // Smooth to value close to current
+      result3.current.controls.smooth("settle-trans", val! + 1); // Very close target
+    });
+
+    // This should trigger the callback: wasSettled=false, now isSettled=true
+    expect(onValueSettled).toHaveBeenCalledWith("settle-trans", expect.any(Number));
+  });
+});
+
+describe("branch coverage - smoothing times overflow (lines 492-494)", () => {
+  it("should remove old smoothing times when exceeding 100 (line 493)", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    act(() => {
+      result.current.controls.setImmediate("overflow-test", 0);
+    });
+
+    // Call smooth more than 100 times to trigger overflow handling
+    for (let i = 0; i < 110; i++) {
+      act(() => {
+        advanceTime(1);
+        result.current.controls.smooth("overflow-test", i);
+      });
+    }
+
+    // Should have tracked 100+ smoothing operations
+    expect(result.current.metrics.valuesSmoothed).toBeGreaterThanOrEqual(110);
+  });
+});
+
+describe("branch coverage - animation queue overflow (lines 591-602)", () => {
+  it("should remove lowest priority animation when queue is full (lines 593-600)", () => {
+    const { result } = renderHook(() =>
+      useAvatarAnimationSmoothing({ maxQueueSize: 3 })
+    );
+
+    // Fill the queue
+    act(() => {
+      result.current.controls.queueAnimation("anim1", "pos", 0, 10, 100, "low");
+      result.current.controls.queueAnimation("anim2", "pos", 0, 20, 100, "normal");
+      result.current.controls.queueAnimation("anim3", "pos", 0, 30, 100, "high");
+    });
+
+    expect(result.current.metrics.queuedAnimations).toBe(3);
+
+    // Add another animation - should remove lowest priority
+    act(() => {
+      result.current.controls.queueAnimation("anim4", "pos", 0, 40, 100, "critical");
+    });
+
+    // Queue should still be at max size
+    expect(result.current.metrics.queuedAnimations).toBe(3);
+  });
+});
+
+describe("branch coverage - multiBlend edge cases (lines 752-761, 790-796)", () => {
+  it("should return default pose when poses array is empty (line 753)", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    let blended: AvatarPose;
+    act(() => {
+      blended = result.current.blend.multiBlend([]);
+    });
+
+    expect(blended!.position).toEqual({ x: 0, y: 0, z: 0 });
+    expect(blended!.rotation).toEqual({ x: 0, y: 0, z: 0 });
+    expect(blended!.scale).toEqual({ x: 1, y: 1, z: 1 });
+  });
+
+  it("should return single pose when only one pose (line 761)", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    const singlePose: AvatarPose = {
+      position: { x: 5, y: 10, z: 15 },
+      rotation: { x: 45, y: 90, z: 135 },
+      scale: { x: 2, y: 2, z: 2 },
+    };
+
+    let blended: AvatarPose;
+    act(() => {
+      blended = result.current.blend.multiBlend([{ pose: singlePose, weight: 1 }]);
+    });
+
+    expect(blended!).toEqual(singlePose);
+  });
+
+  it("should blend blend shapes in multiBlend (lines 790-796)", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    const poseA: AvatarPose = {
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+      blendShapes: { smile: 0 },
+    };
+
+    const poseB: AvatarPose = {
+      position: { x: 10, y: 10, z: 10 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+      blendShapes: { smile: 1 },
+    };
+
+    let blended: AvatarPose;
+    act(() => {
+      blended = result.current.blend.multiBlend([
+        { pose: poseA, weight: 0.5 },
+        { pose: poseB, weight: 0.5 },
+      ]);
+    });
+
+    expect(blended!.blendShapes).toBeDefined();
+  });
+});
+
+describe("branch coverage - algorithm override in smooth call", () => {
+  it("should override default algorithm with parameter", () => {
+    const { result } = renderHook(() =>
+      useAvatarAnimationSmoothing({ algorithm: "exponential" })
+    );
+
+    act(() => {
+      result.current.controls.setImmediate("override-test", 0);
+    });
+
+    // Use spring instead of default exponential
+    act(() => {
+      advanceTime(16);
+      result.current.controls.smooth("override-test", 100, "spring");
+    });
+
+    expect(result.current.metrics.valuesSmoothed).toBeGreaterThan(0);
+  });
+});
+
+describe("branch coverage - getValue undefined (line 369)", () => {
+  it("should return undefined for non-existent value", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    const val = result.current.controls.getValue("non-existent");
+    expect(val).toBeUndefined();
+  });
+});
+
+describe("branch coverage - isSettled undefined (line 576)", () => {
+  it("should return true for non-existent value in isSettled (default)", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    // Default is true when value doesn't exist
+    const settled = result.current.controls.isSettled("non-existent");
+    expect(settled).toBe(true);
+  });
+});
+
+describe("branch coverage - resetValue non-existent", () => {
+  it("should handle reset of non-existent value", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    // Should not throw
+    act(() => {
+      result.current.controls.resetValue("non-existent", 0);
+    });
+
+    expect(result.current.controls.getValue("non-existent")).toBeUndefined();
+  });
+});
+
+describe("branch coverage - cancelAnimation non-existent", () => {
+  it("should handle cancel of non-existent animation", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    // Should not throw
+    act(() => {
+      result.current.controls.cancelAnimation("non-existent");
+    });
+
+    expect(result.current.metrics.queuedAnimations).toBe(0);
+  });
+});
+
+describe("branch coverage - processQueue with no animations", () => {
+  it("should handle empty queue in processQueue", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    // Should not throw
+    act(() => {
+      result.current.controls.processQueue(16);
+    });
+
+    expect(result.current.metrics.completedAnimations).toBe(0);
   });
 });

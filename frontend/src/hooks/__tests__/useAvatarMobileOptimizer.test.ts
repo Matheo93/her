@@ -633,8 +633,9 @@ describe("branch coverage - battery state estimation", () => {
 
     await act(async () => {
       await Promise.resolve();
+    });
+    act(() => {
       jest.advanceTimersByTime(100);
-      await Promise.resolve();
     });
 
     expect(result.current.state).toBeDefined();
@@ -658,8 +659,9 @@ describe("branch coverage - battery state estimation", () => {
 
     await act(async () => {
       await Promise.resolve();
+    });
+    act(() => {
       jest.advanceTimersByTime(100);
-      await Promise.resolve();
     });
 
     expect(result.current.state).toBeDefined();
@@ -683,8 +685,9 @@ describe("branch coverage - battery state estimation", () => {
 
     await act(async () => {
       await Promise.resolve();
+    });
+    act(() => {
       jest.advanceTimersByTime(100);
-      await Promise.resolve();
     });
 
     expect(result.current.state).toBeDefined();
@@ -799,8 +802,9 @@ describe("branch coverage - battery callbacks", () => {
     // First check - wait for async battery check to complete
     await act(async () => {
       await Promise.resolve();
+    });
+    act(() => {
       jest.advanceTimersByTime(100);
-      await Promise.resolve();
     });
 
     // Change battery level
@@ -809,8 +813,9 @@ describe("branch coverage - battery callbacks", () => {
     // Second check should detect change
     await act(async () => {
       await Promise.resolve();
+    });
+    act(() => {
       jest.advanceTimersByTime(100);
-      await Promise.resolve();
     });
 
     // Callback may have been called
