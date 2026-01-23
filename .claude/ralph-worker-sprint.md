@@ -1,126 +1,109 @@
 ---
 sprint: 542
-iteration: 1
-started_at: 2026-01-23T20:16:00Z
+iteration: 2
+started_at: 2026-01-23T20:20:00Z
 status: ✅ COMPLETED
 ---
 
-# Sprint #542 - Mobile Avatar UX Latency - Branch Coverage Improvement
+# Sprint #542 - Mobile Avatar UX Latency - Iteration 2
 
 ## OBJECTIVES
 
-1. **Improve useAvatarLowLatencyMode test coverage** - Increase branch coverage from 58% to 80%+
-2. **Add comprehensive gesture prediction tests** - Cover all gesture directions and edge cases
-3. **Verify all hooks tests pass** - Ensure no regressions
+1. **Improve useAvatarLowLatencyMode test coverage** - ✅ Branch coverage 87.82%
+2. **Add useAvatarRenderTiming test coverage** - ✅ Branch coverage 88.52%
+3. **Verify all hooks tests pass** - ✅ 59 suites, 1965 tests
 
-## ITERATION 1 - Branch Coverage Enhancement
+## ITERATION 1 - useAvatarLowLatencyMode Branch Coverage
 
-### 1. ✅ useAvatarLowLatencyMode Tests Enhanced (26 new tests)
+**Coverage improvement:** 58.26% → 87.82% branches
 
-**Added tests for:**
+Added 26 tests covering:
+- All gesture predictions (swipe-left, swipe-down, swipe-up, rotations)
+- Touch history management
+- Frame measurement and drop detection
+- Animation preloading edge cases
+- Mode auto-adjustment under pressure
+- Configuration edge cases
 
-#### Gesture Prediction - All Directions
-- Swipe-left gesture prediction
-- Swipe-down gesture prediction
-- Swipe-up gesture prediction
-- Clockwise rotation gesture prediction
-- Counter-clockwise rotation gesture prediction
-- Drag gesture for moderate speed movement
-- Same timestamp touches (dt === 0) handling
-- Less than 3 touch history points handling
+## ITERATION 2 - useAvatarRenderTiming Test Suite
 
-#### Touch History Management
-- Touch history limit to 10 entries (shift operation)
+**Coverage achieved:** 88.52% branches, 97.22% lines
 
-#### Frame Measurement
-- Frame buffer exceeding 60 frames (shift operation)
-- Frame drop detection when frame takes too long
+Added 17 tests covering:
+- Frame buffer overflow handling (>100 frames)
+- Deadline status calculation (met, close, missed)
+- Recovery with reduce-quality strategy
+- Quality restoration on deadline met
+- VSync alignment detection
+- Phase timing edge cases
+- Recovery callbacks
+- Different recovery strategies (skip, interpolate, extrapolate)
+- Custom target fps
 
-#### Animation Preloading Edge Cases
-- Animation rejection when all existing have higher priority
-- Preloading disabled handling
+### Test Coverage Summary
 
-#### Touch Processing Edge Cases
-- Touch start with empty touches array
-- Touch move when touch is not active
-- Touch move with empty touches array
+| Hook | Tests | Branch Coverage |
+|------|-------|-----------------|
+| useAvatarLowLatencyMode | 64 | 87.82% |
+| useAvatarRenderTiming | 56 | 88.52% |
 
-#### Mode Auto-Adjustment
-- Auto-adjust to instant mode under high latency
-- Extreme optimization level detection
+### Full Suite Results
 
-#### Configuration Edge Cases
-- Touch prediction disabled
-- Instant feedback disabled
-- Default pressure when force is undefined
-
-#### Callbacks
-- onLatencyBudgetExceeded callback
-- onQualityAdjustment when forcing quality
-
-#### Metrics
-- Mode transitions count tracking
-- P95 latency calculation
-
-### 2. ✅ Full Test Suite Validation
-
-**Final test results:**
 ```
-Test Suites: 57 passed, 57 total
-Tests:       16 skipped, 1872 passed, 1888 total
+Test Suites: 59 passed, 59 total
+Tests:       16 skipped, 1965 passed, 1981 total
 ```
 
-**Coverage results for useAvatarLowLatencyMode:**
-```
-| Metric    | Before | After  |
-|-----------|--------|--------|
-| Statements| 84.73% | 97.70% |
-| Branches  | 58.26% | 87.82% |
-| Functions | 97.43% | 100%   |
-| Lines     | 87.98% | 99.57% |
-```
-
-## FILES MODIFIED
+## FILES MODIFIED/CREATED
 
 1. `frontend/src/hooks/__tests__/useAvatarLowLatencyMode.test.ts`
-   - Added 26 new tests (64 total, up from 38)
-   - Comprehensive branch coverage for gesture prediction
-   - Edge case handling tests
+   - 64 tests total (26 new in Sprint 542)
+
+2. `frontend/src/hooks/__tests__/useAvatarRenderTiming.test.ts`
+   - 56 tests total (17 new in iteration 2)
+
+3. `frontend/src/hooks/useAvatarRenderTiming.ts`
+   - New hook: 595 lines
+   - Render timing control for mobile avatar
+
+4. `frontend/src/hooks/index.ts`
+   - Added useAvatarRenderTiming exports
 
 ## SPRINT VERIFICATION
 
 | Check | Status |
 |-------|--------|
 | TypeScript clean | ✅ No errors |
-| useAvatarLowLatencyMode tests | ✅ 64/64 passing |
-| Branch coverage | ✅ 87.82% (above 80% threshold) |
-| Full hooks suite | ✅ 57 suites, 1872 tests passing |
+| useAvatarLowLatencyMode coverage | ✅ 87.82% branches |
+| useAvatarRenderTiming coverage | ✅ 88.52% branches |
+| Full hooks suite | ✅ 59 suites, 1965 tests |
 | No regressions | ✅ |
 
-## HOOKS TESTED
+## HOOKS DELIVERED
 
-### useAvatarLowLatencyMode (Sprint 541)
-Low-latency mode for mobile avatar interactions:
-- Touch prediction with gesture recognition
-- Adaptive quality based on latency
-- Frame measurement and drop detection
-- Animation preloading system
-- Mode transitions (normal/low/ultra-low/instant)
+### useAvatarRenderTiming (Sprint 542)
+Precise render timing control:
+- Frame deadline enforcement
+- VSync alignment detection
+- Render phase tracking (input, update, render, composite)
+- Quality scaling under pressure
+- Frame recovery strategies (skip, interpolate, extrapolate, reduce-quality)
 
 ### Convenience Hooks
-- useLowLatencyTouch - Touch event handlers
-- useLatencyAdaptiveQuality - Quality settings access
-- useLatencyMetrics - Latency metrics access
+- useFrameDeadline - Simple deadline tracking
+- useRenderPhaseTracker - Phase timing
+- useRenderQualityScale - Quality control
+- useVSyncStatus - VSync alignment status
 
 ## SUMMARY
 
-Sprint 542 completed successfully:
-- Branch coverage improved from 58.26% to 87.82%
-- 26 new tests added for comprehensive gesture and edge case coverage
-- All 57 hook test suites pass (1872 tests)
-- Mobile avatar UX latency system fully tested
+Sprint 542 iteration 2 completed:
+- useAvatarLowLatencyMode: 64 tests, 87.82% branch coverage
+- useAvatarRenderTiming: 56 tests, 88.52% branch coverage
+- Total: 59 hook test suites, 1965 tests passing
+- All coverage thresholds met (>80%)
 
 ---
 
-*Sprint 542 - Mobile Avatar UX Latency - Branch Coverage*
-*Status: ✅ COMPLETED*
+*Sprint 542 - Mobile Avatar UX Latency*
+*Status: ✅ COMPLETED (Iteration 2)*

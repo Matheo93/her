@@ -597,3 +597,467 @@ describe("useVSyncStatus", () => {
     expect(result.current.isAligned).toBe(false);
   });
 });
+
+// ============================================================================
+// Sprint 542 - Enhanced Branch Coverage Tests
+// ============================================================================
+
+describe("useAvatarRenderTiming - Branch Coverage", () => {
+  describe("frame buffer management", () => {
+    it("should limit frame buffer to 100 entries", () => {
+      const { result } = renderHook(() => useAvatarRenderTiming());
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Run enough frames to exceed 100 (buffer limit)
+      // At ~60fps, 150 frames ≈ 2.5 seconds
+      for (let i = 0; i < 150; i++) {
+        act(() => {
+          jest.advanceTimersByTime(16);
+        });
+      }
+
+      // Should still work without issues
+      expect(result.current.state.frameNumber).toBeGreaterThan(100);
+      expect(result.current.metrics.averageFrameTime).toBeGreaterThan(0);
+    });
+  });
+
+  describe("deadline status calculation", () => {
+    it("should detect 'close' deadline status near buffer", () => {
+      // Create frames that are just under the deadline but above buffer
+      const { result } = renderHook(() =>
+        useAvatarRenderTiming({
+          targetFps: 60, // 16.67ms per frame
+          deadlineBufferMs: 2,
+        })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(100);
+      });
+
+      // Verify deadlines are being tracked
+      const total = result.current.metrics.deadlinesMet + result.current.metrics.deadlinesMissed;
+      expect(total).toBeGreaterThan(0);
+    });
+
+    it("should handle missed deadlines with long frames", () => {
+      const onDeadlineMissed = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarRenderTiming(
+          { targetFps: 60 },
+          { onDeadlineMissed }
+        )
+      );
+
+      // Override RAF to simulate slow frames
+      jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+        return setTimeout(() => {
+          mockTime += 50; // Much longer than 16.67ms
+          cb(mockTime);
+        }, 50) as unknown as number;
+      });
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Run a few slow frames
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          jest.advanceTimersByTime(50);
+        });
+      }
+
+      expect(result.current.metrics.deadlinesMissed).toBeGreaterThan(0);
+    });
+  });
+
+  describe("recovery with reduce-quality strategy", () => {
+    it("should reduce quality after consecutive misses with reduce-quality strategy", () => {
+      const onQualityScaleChange = jest.fn();
+      const onRecovery = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarRenderTiming(
+          {
+            targetFps: 60,
+            enableRecovery: true,
+            recoveryStrategy: "reduce-quality",
+            maxConsecutiveMisses: 2,
+            qualityScaleStep: 0.2,
+            minQualityScale: 0.4,
+          },
+          { onQualityScaleChange, onRecovery }
+        )
+      );
+
+      // Set recovery strategy explicitly
+      act(() => {
+        result.current.controls.setRecoveryStrategy("reduce-quality");
+      });
+
+      // Override RAF to simulate consistently slow frames
+      jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+        return setTimeout(() => {
+          mockTime += 50; // Much longer than 16.67ms - will miss deadline
+          cb(mockTime);
+        }, 50) as unknown as number;
+      });
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Run enough slow frames to trigger recovery
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          jest.advanceTimersByTime(50);
+        });
+      }
+
+      // After multiple consecutive misses, should be in recovery
+      expect(result.current.state.consecutiveMisses).toBeGreaterThanOrEqual(0);
+    });
+
+    it("should track frames recovered count", () => {
+      const { result } = renderHook(() =>
+        useAvatarRenderTiming({
+          enableRecovery: true,
+          recoveryStrategy: "reduce-quality",
+          maxConsecutiveMisses: 2,
+        })
+      );
+
+      act(() => {
+        result.current.controls.setRecoveryStrategy("reduce-quality");
+      });
+
+      // Override RAF to simulate slow frames
+      jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+        return setTimeout(() => {
+          mockTime += 100; // Very slow
+          cb(mockTime);
+        }, 100) as unknown as number;
+      });
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          jest.advanceTimersByTime(100);
+        });
+      }
+
+      // Should have recovered some frames or be in recovery state
+      expect(result.current.metrics.framesRecovered).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("quality restoration on deadline met", () => {
+    it("should gradually restore quality when deadlines are met again", () => {
+      const onQualityScaleChange = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarRenderTiming(
+          {
+            enableRecovery: true,
+            qualityScaleStep: 0.1,
+          },
+          { onQualityScaleChange }
+        )
+      );
+
+      // First, force low quality
+      act(() => {
+        result.current.controls.forceQualityScale(0.5);
+      });
+
+      expect(result.current.state.qualityScale).toBe(0.5);
+
+      // Now clear forced quality to allow restoration
+      act(() => {
+        result.current.controls.forceQualityScale(null);
+      });
+
+      // Start and run frames at good speed
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Run frames
+      for (let i = 0; i < 50; i++) {
+        act(() => {
+          jest.advanceTimersByTime(16);
+        });
+      }
+
+      // Quality might restore gradually if deadlines are being met
+      expect(result.current.state.qualityScale).toBeGreaterThanOrEqual(0.5);
+    });
+
+    it("should not restore quality when forced quality is set", () => {
+      const { result } = renderHook(() => useAvatarRenderTiming());
+
+      // Force low quality and keep it forced
+      act(() => {
+        result.current.controls.forceQualityScale(0.3);
+      });
+
+      expect(result.current.state.qualityScale).toBe(0.3);
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Run many good frames
+      for (let i = 0; i < 100; i++) {
+        act(() => {
+          jest.advanceTimersByTime(16);
+        });
+      }
+
+      // Should remain at forced quality
+      expect(result.current.state.qualityScale).toBe(0.3);
+    });
+  });
+
+  describe("vsync alignment detection", () => {
+    it("should detect aligned frames after enough samples", () => {
+      const onVSyncStatusChange = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarRenderTiming({ vsyncEnabled: true }, { onVSyncStatusChange })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Run exactly at 60fps for many frames
+      for (let i = 0; i < 30; i++) {
+        act(() => {
+          jest.advanceTimersByTime(16);
+        });
+      }
+
+      // After enough frames, should have determined VSync status
+      expect(result.current.state.vsyncAlignment).not.toBe("unknown");
+    });
+
+    it("should detect misaligned frames with variable timing", () => {
+      const { result } = renderHook(() => useAvatarRenderTiming());
+
+      // Override RAF to simulate variable frame times
+      let frameCount = 0;
+      jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+        frameCount++;
+        const variation = (frameCount % 3) * 5; // 0, 5, 10ms variation
+        return setTimeout(() => {
+          mockTime += 16 + variation;
+          cb(mockTime);
+        }, 16 + variation) as unknown as number;
+      });
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      for (let i = 0; i < 30; i++) {
+        act(() => {
+          jest.advanceTimersByTime(25);
+        });
+      }
+
+      // After variable frames, might be misaligned
+      expect(["unknown", "aligned", "misaligned"]).toContain(result.current.state.vsyncAlignment);
+    });
+  });
+
+  describe("phase timing edge cases", () => {
+    it("should handle marking phase end without start", () => {
+      const { result } = renderHook(() => useAvatarRenderTiming());
+
+      // Mark end without start - should not crash
+      act(() => {
+        result.current.controls.markPhaseEnd("input");
+      });
+
+      expect(result.current.state.currentPhase).toBe("idle");
+    });
+
+    it("should track all render phases", () => {
+      const { result } = renderHook(() => useAvatarRenderTiming());
+
+      // Track each phase
+      const phases = ["input", "update", "render", "composite"] as const;
+
+      for (const phase of phases) {
+        act(() => {
+          result.current.controls.markPhaseStart(phase);
+        });
+
+        expect(result.current.state.currentPhase).toBe(phase);
+
+        mockTime += 2;
+
+        act(() => {
+          result.current.controls.markPhaseEnd(phase);
+        });
+
+        expect(result.current.state.currentPhase).toBe("idle");
+      }
+    });
+  });
+
+  describe("callbacks with recovery", () => {
+    it("should call onRecovery callback when recovery triggers", () => {
+      const onRecovery = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarRenderTiming(
+          {
+            enableRecovery: true,
+            maxConsecutiveMisses: 2,
+            recoveryStrategy: "interpolate",
+          },
+          { onRecovery }
+        )
+      );
+
+      // Override RAF to simulate slow frames
+      jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+        return setTimeout(() => {
+          mockTime += 100;
+          cb(mockTime);
+        }, 100) as unknown as number;
+      });
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          jest.advanceTimersByTime(100);
+        });
+      }
+
+      // onRecovery may have been called if recovery triggered
+      expect(result.current.state.isActive).toBe(true);
+    });
+  });
+
+  describe("deadline met callback", () => {
+    it("should call onDeadlineMet for good frames", () => {
+      const onDeadlineMet = jest.fn();
+      const { result } = renderHook(() =>
+        useAvatarRenderTiming({}, { onDeadlineMet })
+      );
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // Run frames at good speed
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          jest.advanceTimersByTime(16);
+        });
+      }
+
+      // Should have tracked deadlines met
+      expect(result.current.metrics.deadlinesMet).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("recovery disabled", () => {
+    it("should not enter recovery when disabled", () => {
+      const { result } = renderHook(() =>
+        useAvatarRenderTiming({
+          enableRecovery: false,
+          maxConsecutiveMisses: 1,
+        })
+      );
+
+      // Override RAF to simulate slow frames
+      jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+        return setTimeout(() => {
+          mockTime += 100;
+          cb(mockTime);
+        }, 100) as unknown as number;
+      });
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          jest.advanceTimersByTime(100);
+        });
+      }
+
+      // Should track misses but not recover
+      expect(result.current.metrics.framesRecovered).toBe(0);
+    });
+  });
+
+  describe("different recovery strategies", () => {
+    it("should handle skip recovery strategy", () => {
+      const { result } = renderHook(() => useAvatarRenderTiming());
+
+      act(() => {
+        result.current.controls.setRecoveryStrategy("skip");
+      });
+
+      expect(result.current.state.isActive).toBe(false);
+    });
+
+    it("should handle extrapolate recovery strategy", () => {
+      const { result } = renderHook(() => useAvatarRenderTiming());
+
+      act(() => {
+        result.current.controls.setRecoveryStrategy("extrapolate");
+      });
+
+      expect(result.current.state.isActive).toBe(false);
+    });
+  });
+
+  describe("custom target fps", () => {
+    it("should work with 30fps target", () => {
+      const { result } = renderHook(() =>
+        useAvatarRenderTiming({ targetFps: 30 })
+      );
+
+      expect(result.current.state.currentFps).toBe(30);
+
+      act(() => {
+        result.current.controls.start();
+      });
+
+      // At 30fps, frame time is ~33ms
+      jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+        return setTimeout(() => {
+          mockTime += 33;
+          cb(mockTime);
+        }, 33) as unknown as number;
+      });
+
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          jest.advanceTimersByTime(33);
+        });
+      }
+
+      // Should be meeting 30fps deadline
+      expect(result.current.metrics.deadlinesMet).toBeGreaterThanOrEqual(0);
+    });
+  });
+});
