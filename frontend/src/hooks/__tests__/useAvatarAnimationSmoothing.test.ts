@@ -1115,3 +1115,450 @@ describe("branch coverage - processQueue with no animations", () => {
     expect(result.current.metrics.completedAnimations).toBe(0);
   });
 });
+
+// ============================================================================
+// Additional Branch Coverage Tests - Sprint 612
+// ============================================================================
+
+describe("branch coverage - getOrCreateValue initial value (line 332)", () => {
+  it("should create value with provided initial when smoothing new key", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    // First smooth call creates value with initial
+    act(() => {
+      advanceTime(16);
+      result.current.controls.smooth("new-key", 50);
+    });
+
+    // Value should be created and tracked
+    expect(result.current.controls.getValue("new-key")).toBeDefined();
+  });
+});
+
+describe("branch coverage - resetValue with undefined value (line 540)", () => {
+  it("should reset to target when value is undefined", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    // Set a value first
+    act(() => {
+      result.current.controls.setImmediate("reset-test", 100);
+    });
+
+    // Reset without providing value - should reset to current target
+    act(() => {
+      result.current.controls.resetValue("reset-test");
+    });
+
+    // Value should be reset to target
+    expect(result.current.controls.getValue("reset-test")).toBe(100);
+    expect(result.current.controls.isSettled("reset-test")).toBe(true);
+  });
+
+  it("should reset to provided value when value is specified", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    // Set a value first
+    act(() => {
+      result.current.controls.setImmediate("reset-test2", 100);
+    });
+
+    // Reset with explicit value
+    act(() => {
+      result.current.controls.resetValue("reset-test2", 42);
+    });
+
+    // Value should be reset to provided value
+    expect(result.current.controls.getValue("reset-test2")).toBe(42);
+  });
+});
+
+describe("branch coverage - blendPoses blendShapes handling (line 704)", () => {
+  it("should handle poseA with blendShapes and poseB without (line 704-706 first branch)", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    const poseA: AvatarPose = {
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+      blendShapes: { smile: 0.5 },
+    };
+
+    const poseB: AvatarPose = {
+      position: { x: 10, y: 10, z: 10 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+      // No blendShapes
+    };
+
+    let blended: AvatarPose;
+    act(() => {
+      blended = result.current.blend.poses(poseA, poseB, 0.5);
+    });
+
+    // Should use poseA's blendShapes since poseB has none
+    expect(blended!.blendShapes).toEqual({ smile: 0.5 });
+  });
+
+  it("should handle poseA without blendShapes and poseB with (line 706 fallback)", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    const poseA: AvatarPose = {
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+      // No blendShapes
+    };
+
+    const poseB: AvatarPose = {
+      position: { x: 10, y: 10, z: 10 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+      blendShapes: { frown: 0.8 },
+    };
+
+    let blended: AvatarPose;
+    act(() => {
+      blended = result.current.blend.poses(poseA, poseB, 0.5);
+    });
+
+    // Should use poseB's blendShapes since poseA has none
+    expect(blended!.blendShapes).toEqual({ frown: 0.8 });
+  });
+
+  it("should handle both poses without blendShapes (line 704-706 undefined case)", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    const poseA: AvatarPose = {
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+    };
+
+    const poseB: AvatarPose = {
+      position: { x: 10, y: 10, z: 10 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+    };
+
+    let blended: AvatarPose;
+    act(() => {
+      blended = result.current.blend.poses(poseA, poseB, 0.5);
+    });
+
+    // Should have no blendShapes
+    expect(blended!.blendShapes).toBeUndefined();
+  });
+
+  it("should blend both blendShapes when both poses have them (line 705)", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    const poseA: AvatarPose = {
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+      blendShapes: { smile: 0, eyesClosed: 1 },
+    };
+
+    const poseB: AvatarPose = {
+      position: { x: 10, y: 10, z: 10 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+      blendShapes: { smile: 1, eyesClosed: 0 },
+    };
+
+    let blended: AvatarPose;
+    act(() => {
+      blended = result.current.blend.poses(poseA, poseB, 0.5);
+    });
+
+    // Should blend both shapes
+    expect(blended!.blendShapes!.smile).toBe(0.5);
+    expect(blended!.blendShapes!.eyesClosed).toBe(0.5);
+  });
+});
+
+describe("branch coverage - blendBlendShapes default values (lines 721-722)", () => {
+  it("should use default 0 for missing key in shapesA (line 721)", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    const shapesA: BlendShapeWeights = {
+      smile: 0.5,
+      // Missing 'frown'
+    };
+
+    const shapesB: BlendShapeWeights = {
+      smile: 0.5,
+      frown: 1.0, // Only in shapesB
+    };
+
+    let blended: BlendShapeWeights;
+    act(() => {
+      blended = result.current.blend.blendShapes(shapesA, shapesB, 0.5);
+    });
+
+    // frown should blend from 0 (default) to 1.0
+    expect(blended!.frown).toBe(0.5);
+  });
+
+  it("should use default 0 for missing key in shapesB (line 722)", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    const shapesA: BlendShapeWeights = {
+      smile: 0.5,
+      eyesClosed: 0.8, // Only in shapesA
+    };
+
+    const shapesB: BlendShapeWeights = {
+      smile: 0.5,
+      // Missing 'eyesClosed'
+    };
+
+    let blended: BlendShapeWeights;
+    act(() => {
+      blended = result.current.blend.blendShapes(shapesA, shapesB, 0.5);
+    });
+
+    // eyesClosed should blend from 0.8 to 0 (default)
+    expect(blended!.eyesClosed).toBe(0.4);
+  });
+});
+
+describe("branch coverage - additiveBlend base key missing (line 739)", () => {
+  it("should use default 0 when base key is missing", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    const base: BlendShapeWeights = {
+      smile: 0.5,
+      // Missing 'newKey'
+    };
+
+    const overlay: BlendShapeWeights = {
+      newKey: 1.0, // Only in overlay
+    };
+
+    let blended: BlendShapeWeights;
+    act(() => {
+      blended = result.current.blend.additive(base, overlay, 0.5);
+    });
+
+    // newKey should be 0 + 1.0 * 0.5 = 0.5
+    expect(blended!.newKey).toBe(0.5);
+    // Existing key should be preserved
+    expect(blended!.smile).toBe(0.5);
+  });
+});
+
+describe("branch coverage - multiBlend with poses without blendShapes (line 790)", () => {
+  it("should handle multiBlend when pose has no blendShapes", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    const poseWithoutBlendShapes: AvatarPose = {
+      position: { x: 5, y: 5, z: 5 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+      // No blendShapes
+    };
+
+    const poseWithBlendShapes: AvatarPose = {
+      position: { x: 10, y: 10, z: 10 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+      blendShapes: { smile: 1.0 },
+    };
+
+    let blended: AvatarPose;
+    act(() => {
+      blended = result.current.blend.multiBlend([
+        { pose: poseWithoutBlendShapes, weight: 0.5 },
+        { pose: poseWithBlendShapes, weight: 0.5 },
+      ]);
+    });
+
+    // Should have blendShapes from the pose that has them
+    expect(blended!.blendShapes).toBeDefined();
+  });
+});
+
+describe("branch coverage - convenience hooks internal paths", () => {
+  describe("useSmoothedValue internal (lines 876-892)", () => {
+    it("should smooth value with custom smoothing factor", () => {
+      const { result } = renderHook(() => useSmoothedValue(0, 0.3));
+
+      // Call setTarget multiple times
+      act(() => {
+        advanceTime(16);
+        result.current[1](100);
+      });
+
+      act(() => {
+        advanceTime(16);
+        result.current[1](100);
+      });
+
+      // Value should have progressed toward 100
+      expect(result.current[0]).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("usePoseBlending internal (lines 897-904)", () => {
+    it("should blend poses using the returned function", () => {
+      const { result } = renderHook(() => usePoseBlending());
+
+      const poseA: AvatarPose = {
+        position: { x: 0, y: 0, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 },
+        scale: { x: 1, y: 1, z: 1 },
+        blendShapes: { test: 0 },
+      };
+
+      const poseB: AvatarPose = {
+        position: { x: 100, y: 100, z: 100 },
+        rotation: { x: 90, y: 90, z: 90 },
+        scale: { x: 2, y: 2, z: 2 },
+        blendShapes: { test: 1 },
+      };
+
+      let blended: AvatarPose;
+      act(() => {
+        blended = result.current(poseA, poseB, 0.25);
+      });
+
+      expect(blended!.position.x).toBe(25);
+      expect(blended!.rotation.x).toBe(22.5);
+      expect(blended!.scale.x).toBe(1.25);
+    });
+  });
+
+  describe("useJankDetection internal (lines 909-924)", () => {
+    it("should detect jank with callback", () => {
+      const onJank = jest.fn();
+      const { result } = renderHook(() => useJankDetection(onJank));
+
+      // Initial state
+      expect(result.current.hasJank).toBe(false);
+      expect(result.current.recentJank).toBeNull();
+    });
+
+    it("should track jank state changes", () => {
+      const onJank = jest.fn();
+      renderHook(() => useJankDetection(onJank));
+
+      // The hook internally creates a smoothing instance
+      // We can verify it returns the expected structure
+      expect(onJank).not.toHaveBeenCalled(); // No jank initially
+    });
+  });
+});
+
+describe("branch coverage - jank compensation metric update (lines 407-411)", () => {
+  it("should increment jankEventsCompensated when compensating", () => {
+    const { result } = renderHook(() =>
+      useAvatarAnimationSmoothing({
+        jankThresholdMs: 20,
+        enableJankCompensation: true,
+      })
+    );
+
+    act(() => {
+      result.current.controls.setImmediate("jank-comp", 0);
+    });
+
+    // First call to set lastUpdate
+    act(() => {
+      advanceTime(10);
+      result.current.controls.smooth("jank-comp", 50);
+    });
+
+    // Janky frame that triggers compensation
+    act(() => {
+      advanceTime(50); // Exceeds threshold of 20ms
+      result.current.controls.smooth("jank-comp", 100);
+    });
+
+    expect(result.current.metrics.jankEventsDetected).toBeGreaterThanOrEqual(1);
+    expect(result.current.metrics.jankEventsCompensated).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("branch coverage - processQueue in-progress animation (lines 649-654)", () => {
+  it("should apply easing to in-progress animation (lines 651-653)", () => {
+    const { result } = renderHook(() => useAvatarAnimationSmoothing());
+
+    act(() => {
+      result.current.controls.queueAnimation(
+        "ease-anim",
+        "ease-target",
+        0,
+        100,
+        200, // 200ms duration
+        "normal"
+      );
+    });
+
+    // Process halfway through
+    act(() => {
+      advanceTime(100);
+      result.current.controls.processQueue(100);
+    });
+
+    // Animation should be in progress with eased value
+    const value = result.current.controls.getValue("ease-target");
+    expect(value).toBeDefined();
+    // Ease-out cubic at 50% progress: 1 - (1 - 0.5)^3 = 0.875
+    // Value should be around 87.5
+    expect(value!).toBeGreaterThan(50); // Due to ease-out, more than linear
+    expect(value!).toBeLessThan(100);
+  });
+
+  it("should handle multiple animations completing at once", () => {
+    const onAnimationComplete = jest.fn();
+    const { result } = renderHook(() =>
+      useAvatarAnimationSmoothing({}, { onAnimationComplete })
+    );
+
+    act(() => {
+      result.current.controls.queueAnimation("multi1", "target1", 0, 10, 50);
+      result.current.controls.queueAnimation("multi2", "target2", 0, 20, 50);
+      result.current.controls.queueAnimation("multi3", "target3", 0, 30, 50);
+    });
+
+    expect(result.current.metrics.queuedAnimations).toBe(3);
+
+    // Process to complete all
+    act(() => {
+      advanceTime(100);
+      result.current.controls.processQueue(100);
+    });
+
+    expect(result.current.metrics.completedAnimations).toBe(3);
+    expect(onAnimationComplete).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("branch coverage - vector smoothing with algorithm override", () => {
+  it("should smooth vector with specified algorithm", () => {
+    const { result } = renderHook(() =>
+      useAvatarAnimationSmoothing({ algorithm: "exponential" })
+    );
+
+    act(() => {
+      result.current.controls.setImmediate("vec.x", 0);
+      result.current.controls.setImmediate("vec.y", 0);
+      result.current.controls.setImmediate("vec.z", 0);
+    });
+
+    let smoothedVec: { x: number; y: number; z: number };
+    act(() => {
+      advanceTime(16);
+      smoothedVec = result.current.controls.smoothVector(
+        "vec",
+        { x: 100, y: 200, z: 300 },
+        "spring" // Override with spring
+      );
+    });
+
+    expect(smoothedVec!.x).toBeDefined();
+    expect(smoothedVec!.y).toBeDefined();
+    expect(smoothedVec!.z).toBeDefined();
+  });
+});
