@@ -3818,187 +3818,161 @@ describe("Sprint 626 - convenience hooks actual callbacks", () => {
   describe("useTapGesture callback invocation (lines 724-726)", () => {
     it("should invoke onTap callback with correct coordinates", () => {
       const onTap = jest.fn();
-      const { result } = renderHook(() => useTapGesture(onTap));
+      const { result, rerender } = renderHook(() => useTapGesture(onTap));
 
-      act(() => {
-        (result.current.ref as any).current = mockElement;
-      });
+      (result.current.ref as any).current = mockElement;
+      rerender();
 
-      act(() => {
-        jest.runAllTimers();
-      });
+      expect(touchStartHandler).not.toBeNull();
+      expect(touchEndHandler).not.toBeNull();
 
       // Trigger tap via touch events
       const touch = createMockTouch(0, 150, 200);
       const startEvent = createTouchEvent("touchstart", [touch]);
 
-      if (touchStartHandler) {
-        act(() => {
-          touchStartHandler!(startEvent);
-        });
+      act(() => {
+        touchStartHandler!(startEvent);
+      });
 
-        act(() => {
-          jest.advanceTimersByTime(50);
-        });
+      act(() => {
+        jest.advanceTimersByTime(50);
+      });
 
-        const endEvent = createTouchEvent("touchend", [], [touch]);
-        if (touchEndHandler) {
-          act(() => {
-            touchEndHandler!(endEvent);
-          });
+      const endEvent = createTouchEvent("touchend", [], [touch]);
+      act(() => {
+        touchEndHandler!(endEvent);
+      });
 
-          // onTap should have been called with x, y coordinates
-          expect(onTap).toHaveBeenCalledWith({ x: expect.any(Number), y: expect.any(Number) });
-        }
-      }
+      // onTap should have been called with x, y coordinates
+      expect(onTap).toHaveBeenCalledWith({ x: expect.any(Number), y: expect.any(Number) });
     });
 
     it("should invoke onDoubleTap callback when provided", () => {
       const onTap = jest.fn();
       const onDoubleTap = jest.fn();
-      const { result } = renderHook(() => useTapGesture(onTap, onDoubleTap));
+      const { result, rerender } = renderHook(() => useTapGesture(onTap, onDoubleTap));
 
+      (result.current.ref as any).current = mockElement;
+      rerender();
+
+      expect(touchStartHandler).not.toBeNull();
+
+      // First tap
+      const touch1 = createMockTouch(0, 100, 100);
       act(() => {
-        (result.current.ref as any).current = mockElement;
+        touchStartHandler!(createTouchEvent("touchstart", [touch1]));
+      });
+      act(() => {
+        jest.advanceTimersByTime(50);
+        touchEndHandler!(createTouchEvent("touchend", [], [touch1]));
       });
 
+      // Second tap quickly
       act(() => {
-        jest.runAllTimers();
+        jest.advanceTimersByTime(100);
       });
 
-      if (touchStartHandler && touchEndHandler) {
-        // First tap
-        const touch1 = createMockTouch(0, 100, 100);
-        act(() => {
-          touchStartHandler!(createTouchEvent("touchstart", [touch1]));
-        });
-        act(() => {
-          jest.advanceTimersByTime(50);
-          touchEndHandler!(createTouchEvent("touchend", [], [touch1]));
-        });
+      const touch2 = createMockTouch(1, 105, 105);
+      act(() => {
+        touchStartHandler!(createTouchEvent("touchstart", [touch2]));
+      });
+      act(() => {
+        jest.advanceTimersByTime(50);
+        touchEndHandler!(createTouchEvent("touchend", [], [touch2]));
+      });
 
-        // Second tap quickly
-        act(() => {
-          jest.advanceTimersByTime(100);
-        });
-
-        const touch2 = createMockTouch(1, 105, 105);
-        act(() => {
-          touchStartHandler!(createTouchEvent("touchstart", [touch2]));
-        });
-        act(() => {
-          jest.advanceTimersByTime(50);
-          touchEndHandler!(createTouchEvent("touchend", [], [touch2]));
-        });
-
-        expect(onDoubleTap).toHaveBeenCalledWith({ x: expect.any(Number), y: expect.any(Number) });
-      }
+      expect(onDoubleTap).toHaveBeenCalledWith({ x: expect.any(Number), y: expect.any(Number) });
     });
   });
 
   describe("useSwipeGesture callback invocation (lines 744-752)", () => {
     it("should invoke onSwipe callback with direction and velocity", () => {
       const onSwipe = jest.fn();
-      const { result } = renderHook(() => useSwipeGesture(onSwipe));
+      const { result, rerender } = renderHook(() => useSwipeGesture(onSwipe));
 
+      (result.current.ref as any).current = mockElement;
+      rerender();
+
+      expect(touchStartHandler).not.toBeNull();
+
+      // Start touch
+      const startTouch = createMockTouch(0, 100, 100);
       act(() => {
-        (result.current.ref as any).current = mockElement;
+        touchStartHandler!(createTouchEvent("touchstart", [startTouch]));
       });
 
+      // Quick swipe right
       act(() => {
-        jest.runAllTimers();
+        jest.advanceTimersByTime(50);
       });
 
-      if (touchStartHandler && touchEndHandler) {
-        // Start touch
-        const startTouch = createMockTouch(0, 100, 100);
-        act(() => {
-          touchStartHandler!(createTouchEvent("touchstart", [startTouch]));
-        });
+      const endTouch = createMockTouch(0, 300, 100);
+      act(() => {
+        touchEndHandler!(createTouchEvent("touchend", [], [endTouch]));
+      });
 
-        // Quick swipe right
-        act(() => {
-          jest.advanceTimersByTime(50);
-        });
-
-        const endTouch = createMockTouch(0, 300, 100);
-        act(() => {
-          touchEndHandler!(createTouchEvent("touchend", [], [endTouch]));
-        });
-
-        // onSwipe should have been called with direction
-        expect(onSwipe).toHaveBeenCalledWith("right", expect.any(Number));
-      }
+      // onSwipe should have been called with direction
+      expect(onSwipe).toHaveBeenCalledWith("right", expect.any(Number));
     });
 
     it("should map swipe directions correctly", () => {
       const onSwipe = jest.fn();
-      const { result } = renderHook(() => useSwipeGesture(onSwipe));
+      const { result, rerender } = renderHook(() => useSwipeGesture(onSwipe));
 
+      (result.current.ref as any).current = mockElement;
+      rerender();
+
+      expect(touchStartHandler).not.toBeNull();
+
+      // Swipe left
+      const startTouch1 = createMockTouch(0, 300, 100);
       act(() => {
-        (result.current.ref as any).current = mockElement;
+        touchStartHandler!(createTouchEvent("touchstart", [startTouch1]));
+      });
+      act(() => {
+        jest.advanceTimersByTime(50);
+      });
+      const endTouch1 = createMockTouch(0, 100, 100);
+      act(() => {
+        touchEndHandler!(createTouchEvent("touchend", [], [endTouch1]));
       });
 
-      act(() => {
-        jest.runAllTimers();
-      });
-
-      if (touchStartHandler && touchEndHandler) {
-        // Swipe left
-        const startTouch1 = createMockTouch(0, 300, 100);
-        act(() => {
-          touchStartHandler!(createTouchEvent("touchstart", [startTouch1]));
-        });
-        act(() => {
-          jest.advanceTimersByTime(50);
-        });
-        const endTouch1 = createMockTouch(0, 100, 100);
-        act(() => {
-          touchEndHandler!(createTouchEvent("touchend", [], [endTouch1]));
-        });
-
-        expect(onSwipe).toHaveBeenCalledWith("left", expect.any(Number));
-      }
+      expect(onSwipe).toHaveBeenCalledWith("left", expect.any(Number));
     });
   });
 
   describe("usePinchGesture callback invocation (lines 771-772)", () => {
     it("should invoke onPinch callback with scale and center", () => {
       const onPinch = jest.fn();
-      const { result } = renderHook(() => usePinchGesture(onPinch));
+      const { result, rerender } = renderHook(() => usePinchGesture(onPinch));
 
+      (result.current.ref as any).current = mockElement;
+      rerender();
+
+      expect(touchStartHandler).not.toBeNull();
+
+      // Start with two touches
+      const touch1Start = createMockTouch(0, 100, 100);
+      const touch2Start = createMockTouch(1, 200, 200);
       act(() => {
-        (result.current.ref as any).current = mockElement;
+        touchStartHandler!(createTouchEvent("touchstart", [touch1Start, touch2Start]));
       });
 
+      // Move touches closer (pinch in)
       act(() => {
-        jest.runAllTimers();
+        jest.advanceTimersByTime(50);
+      });
+      const touch1Move = createMockTouch(0, 120, 120);
+      const touch2Move = createMockTouch(1, 180, 180);
+      act(() => {
+        touchMoveHandler!(createTouchEvent("touchmove", [touch1Move, touch2Move]));
       });
 
-      if (touchStartHandler && touchMoveHandler) {
-        // Start with two touches
-        const touch1Start = createMockTouch(0, 100, 100);
-        const touch2Start = createMockTouch(1, 200, 200);
-        act(() => {
-          touchStartHandler!(createTouchEvent("touchstart", [touch1Start, touch2Start]));
-        });
-
-        // Move touches closer (pinch in)
-        act(() => {
-          jest.advanceTimersByTime(50);
-        });
-        const touch1Move = createMockTouch(0, 120, 120);
-        const touch2Move = createMockTouch(1, 180, 180);
-        act(() => {
-          touchMoveHandler!(createTouchEvent("touchmove", [touch1Move, touch2Move]));
-        });
-
-        // onPinch should have been called with scale and center
-        expect(onPinch).toHaveBeenCalledWith(
-          expect.any(Number),
-          { x: expect.any(Number), y: expect.any(Number) }
-        );
-      }
+      // onPinch should have been called with scale and center
+      expect(onPinch).toHaveBeenCalledWith(
+        expect.any(Number),
+        { x: expect.any(Number), y: expect.any(Number) }
+      );
     });
   });
 });
