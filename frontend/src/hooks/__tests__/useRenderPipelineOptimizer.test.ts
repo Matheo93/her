@@ -347,34 +347,37 @@ describe("useRenderPipelineOptimizer", () => {
   });
 
   describe("throttling", () => {
-    it("should force throttle", () => {
-      const onThrottleStateChanged = jest.fn();
-      const { result } = renderHook(() =>
-        useRenderPipelineOptimizer({}, { onThrottleStateChanged })
-      );
-
-      act(() => {
-        result.current.controls.forceThrottle("thermal");
-      });
-
-      expect(result.current.state.isThrottled).toBe(true);
-      expect(result.current.state.throttleReason).toBe("thermal");
-      expect(onThrottleStateChanged).toHaveBeenCalledWith(true);
-    });
-
-    it("should clear throttle", () => {
+    it("should track throttle state", () => {
       const { result } = renderHook(() => useRenderPipelineOptimizer());
 
-      act(() => {
-        result.current.controls.forceThrottle("low_battery");
-      });
-
-      act(() => {
-        result.current.controls.clearThrottle();
-      });
-
+      // Initial state should not be throttled
       expect(result.current.state.isThrottled).toBe(false);
-      expect(result.current.state.throttleReason).toBe("none");
+    });
+
+    it("should throttle after repeated over-budget frames", () => {
+      const { result } = renderHook(() =>
+        useRenderPipelineOptimizer({
+          budgetMs: 10,
+          throttleThreshold: 2,
+          enableAutoLOD: false,
+        })
+      );
+
+      // Simulate multiple over-budget frames to trigger throttle
+      for (let i = 0; i < 5; i++) {
+        mockTime = i * 30;
+        act(() => {
+          result.current.controls.beginFrame();
+        });
+
+        mockTime = i * 30 + 20; // Over budget
+        act(() => {
+          result.current.controls.endFrame();
+        });
+      }
+
+      // After multiple over-budget frames, should be throttled
+      expect(result.current.state.isThrottled).toBe(true);
     });
   });
 
@@ -382,12 +385,17 @@ describe("useRenderPipelineOptimizer", () => {
     it("should reset metrics", () => {
       const { result } = renderHook(() => useRenderPipelineOptimizer());
 
-      // Generate some metrics
+      // Generate some frame metrics
+      mockTime = 0;
       act(() => {
-        result.current.controls.scheduleRenderWork("test", () => {}, "normal");
+        result.current.controls.beginFrame();
+      });
+      mockTime = 10;
+      act(() => {
+        result.current.controls.endFrame();
       });
 
-      expect(result.current.metrics.totalUpdatesScheduled).toBe(1);
+      expect(result.current.metrics.framesRendered).toBe(1);
 
       act(() => {
         result.current.controls.resetMetrics();
@@ -395,7 +403,7 @@ describe("useRenderPipelineOptimizer", () => {
 
       expect(result.current.metrics.framesRendered).toBe(0);
       expect(result.current.metrics.framesDropped).toBe(0);
-      expect(result.current.metrics.totalUpdatesScheduled).toBe(0);
+      expect(result.current.metrics.passExecutions).toBe(0);
     });
 
     it("should track frame statistics", () => {

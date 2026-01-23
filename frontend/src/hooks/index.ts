@@ -1051,3 +1051,21 @@ export {
   type PipelineControls as InputPipelineControls,
   type UseMobileInputPipelineResult,
 } from "./useMobileInputPipeline";
+
+// Frame Interpolator (Sprint 524)
+export {
+  useFrameInterpolator,
+  useValueInterpolator,
+  useSubFrameProgress,
+  useStutterDetection,
+  type InterpolationMethod,
+  type FrameData,
+  type InterpolationPoint,
+  type FrameTimingInfo,
+  type MotionBlurConfig,
+  type InterpolatorMetrics,
+  type InterpolatorState,
+  type InterpolatorConfig,
+  type InterpolatorControls,
+  type UseFrameInterpolatorResult,
+} from "./useFrameInterpolator";
