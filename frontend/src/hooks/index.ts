@@ -1466,3 +1466,23 @@ export {
   type BudgetMetrics,
   type BudgetControls,
 } from "./useAvatarFrameBudget";
+
+// Avatar Mobile Optimizer (Sprint 539)
+export {
+  useAvatarMobileOptimizer,
+  useTouchPrediction,
+  useAdaptiveFrameRate,
+  useDevicePerformance,
+  useAnimationVisibility,
+  type DevicePerformanceTier,
+  type ThermalState as MobileOptimizerThermalState,
+  type BatteryState as MobileOptimizerBatteryState,
+  type TouchPrediction,
+  type CoalescedEvent,
+  type PerformanceConstraints,
+  type MobileOptimizerConfig,
+  type MobileOptimizerCallbacks,
+  type MobileOptimizerState,
+  type MobileOptimizerMetrics,
+  type MobileOptimizerControls,
+} from "./useAvatarMobileOptimizer";

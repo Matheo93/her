@@ -129,10 +129,11 @@ describe("useConnectionAwareStreaming", () => {
     jest.spyOn(Date, "now").mockReturnValue(1000);
 
     // Setup WebSocket mock
-    (global as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = jest.fn((url: string, protocols?: string | string[]) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (global as any).WebSocket = jest.fn((url: string, protocols?: string | string[]) => {
       mockWs = new MockWebSocket(url, protocols);
       return mockWs as unknown as WebSocket;
-    }) as unknown as typeof WebSocket;
+    });
 
     // Set static properties
     (global.WebSocket as unknown as typeof MockWebSocket).CONNECTING = 0;
@@ -289,7 +290,7 @@ describe("useConnectionAwareStreaming", () => {
         await Promise.resolve();
       });
 
-      const wsCallCount = (global.WebSocket as jest.Mock).mock.calls.length;
+      const wsCallCount = (((global as unknown) as { WebSocket: jest.Mock }).WebSocket).mock.calls.length;
 
       // Try to connect again
       act(() => {
@@ -297,7 +298,7 @@ describe("useConnectionAwareStreaming", () => {
       });
 
       // Should not create a new WebSocket
-      expect((global.WebSocket as jest.Mock).mock.calls.length).toBe(wsCallCount);
+      expect((((global as unknown) as { WebSocket: jest.Mock }).WebSocket).mock.calls.length).toBe(wsCallCount);
     });
 
     it("should auto-connect if configured", async () => {
