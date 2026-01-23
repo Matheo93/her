@@ -808,3 +808,56 @@ describe("branch coverage - tier change detection (lines 238-240)", () => {
     expect(onQualityChange).toHaveBeenCalledWith("high");
   });
 });
+
+// ============================================================================
+// Branch Coverage Tests - Sprint 617 (lines 188, 212-213, 218, 223)
+// ============================================================================
+
+describe("branch coverage - onPerformanceDegrade callback (line 188)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
+  it("should trigger onPerformanceDegrade when onLowFps is called", () => {
+    const onPerformanceDegrade = jest.fn();
+
+    renderHook(() =>
+      useAvatarPerformance({
+        isActive: true,
+        targetFps: 60,
+        onPerformanceDegrade,
+      })
+    );
+
+    // The storedOnLowFpsCallback should be set by the mock
+    // Trigger it to test line 188
+    if (storedOnLowFpsCallback) {
+      storedOnLowFpsCallback(25);
+    }
+
+    expect(onPerformanceDegrade).toHaveBeenCalled();
+  });
+
+  it("should not throw when onPerformanceDegrade is undefined (optional chaining line 188)", () => {
+    // This tests the ?. optional chaining on line 188
+    renderHook(() =>
+      useAvatarPerformance({
+        isActive: true,
+        targetFps: 60,
+        // No onPerformanceDegrade callback
+      })
+    );
+
+    // Trigger the callback - should not throw due to optional chaining
+    expect(() => {
+      if (storedOnLowFpsCallback) {
+        storedOnLowFpsCallback(25);
+      }
+    }).not.toThrow();
+  });
+});
