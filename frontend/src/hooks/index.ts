@@ -1571,3 +1571,24 @@ export {
   type PredictorControls as GesturePredictorControls,
   type GesturePredictorResult,
 } from "./useAvatarGesturePredictor";
+
+// Avatar Animation Prewarmer (Sprint 545)
+export {
+  useAvatarAnimationPrewarmer,
+  useAnimationWarmStatus,
+  usePrewarmerMetrics,
+  useHotAnimations,
+  type AnimationType as PrewarmerAnimationType,
+  type AnimationPriority as PrewarmerAnimationPriority,
+  type AnimationStatus,
+  type PrewarmStrategy,
+  type AnimationDefinition,
+  type WarmedAnimation,
+  type PrewarmerState,
+  type PrewarmerMetrics,
+  type PrewarmerConfig,
+  type PrewarmerCallbacks,
+  type PrewarmerControls,
+  type AnimationContext,
+  type AnimationPrewarmerResult,
+} from "./useAvatarAnimationPrewarmer";
