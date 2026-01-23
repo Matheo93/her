@@ -1175,6 +1175,25 @@ function createTouchEvent(
   } as unknown as TouchEvent;
 }
 
+// Helper to dispatch touch events directly
+function dispatchTouchEvent(
+  element: HTMLElement,
+  type: string,
+  touches: Touch[],
+  changedTouches: Touch[] = touches
+): TouchEvent {
+  const event = createTouchEvent(type, touches, changedTouches);
+
+  // Manually call handlers since JSDOM doesn't fully support touch events
+  const handlers = (element as any).__handlers || {};
+  const handler = handlers[type];
+  if (handler) {
+    handler(event);
+  }
+
+  return event;
+}
+
 describe("Sprint 619 - actual touch event handling", () => {
   describe("handleTouchStart (lines 410-457)", () => {
     it("should handle single touch start", () => {
@@ -2761,6 +2780,475 @@ describe("Sprint 623 - config merging coverage", () => {
       );
 
       expect(result.current.state).toBeDefined();
+    });
+  });
+});
+
+// ============================================================================
+// Sprint 623 - Direct Utility Function Tests (with exported functions)
+// ============================================================================
+
+describe("Sprint 623 - exported utility functions", () => {
+  describe("createTouchPoint (line 170-179)", () => {
+    it("should create TouchPoint from Touch object", () => {
+      const touch = createMockTouch(1, 100, 200, { force: 0.7, radiusX: 15, radiusY: 20 });
+      const timestamp = 1000;
+
+      const point = createTouchPoint(touch, timestamp);
+
+      expect(point.id).toBe(1);
+      expect(point.x).toBe(100);
+      expect(point.y).toBe(200);
+      expect(point.timestamp).toBe(1000);
+      expect(point.force).toBe(0.7);
+      expect(point.radiusX).toBe(15);
+      expect(point.radiusY).toBe(20);
+    });
+
+    it("should use default force of 0 when not provided", () => {
+      const touch = {
+        identifier: 2,
+        clientX: 50,
+        clientY: 75,
+        // force not provided
+      } as Touch;
+      const timestamp = 2000;
+
+      const point = createTouchPoint(touch, timestamp);
+
+      expect(point.force).toBe(0);
+    });
+
+    it("should use default radiusX/Y of 10 when not provided", () => {
+      const touch = {
+        identifier: 3,
+        clientX: 25,
+        clientY: 35,
+        // radius not provided
+      } as Touch;
+      const timestamp = 3000;
+
+      const point = createTouchPoint(touch, timestamp);
+
+      expect(point.radiusX).toBe(10);
+      expect(point.radiusY).toBe(10);
+    });
+  });
+
+  describe("calculateVelocity (lines 182-196)", () => {
+    it("should calculate zero velocity for identical points", () => {
+      const point1: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1100, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const velocity = calculateVelocity(point1, point2);
+
+      expect(velocity.x).toBe(0);
+      expect(velocity.y).toBe(0);
+      expect(velocity.magnitude).toBe(0);
+    });
+
+    it("should calculate positive x velocity for rightward movement", () => {
+      const point1: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 200, y: 100, timestamp: 1100, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const velocity = calculateVelocity(point1, point2);
+
+      expect(velocity.x).toBe(1); // 100px / 100ms = 1 px/ms
+      expect(velocity.y).toBe(0);
+      expect(velocity.magnitude).toBe(1);
+      expect(velocity.angle).toBe(0); // 0 radians = right
+    });
+
+    it("should calculate negative x velocity for leftward movement", () => {
+      const point1: TouchPoint = { id: 1, x: 200, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1100, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const velocity = calculateVelocity(point1, point2);
+
+      expect(velocity.x).toBe(-1);
+      expect(velocity.y).toBe(0);
+      expect(velocity.angle).toBeCloseTo(Math.PI, 5); // π radians = left
+    });
+
+    it("should calculate positive y velocity for downward movement", () => {
+      const point1: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 100, y: 200, timestamp: 1100, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const velocity = calculateVelocity(point1, point2);
+
+      expect(velocity.x).toBe(0);
+      expect(velocity.y).toBe(1);
+      expect(velocity.angle).toBeCloseTo(Math.PI / 2, 5); // π/2 radians = down
+    });
+
+    it("should calculate negative y velocity for upward movement", () => {
+      const point1: TouchPoint = { id: 1, x: 100, y: 200, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1100, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const velocity = calculateVelocity(point1, point2);
+
+      expect(velocity.x).toBe(0);
+      expect(velocity.y).toBe(-1);
+      expect(velocity.angle).toBeCloseTo(-Math.PI / 2, 5); // -π/2 radians = up
+    });
+
+    it("should calculate diagonal velocity correctly", () => {
+      const point1: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 200, y: 200, timestamp: 1100, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const velocity = calculateVelocity(point1, point2);
+
+      expect(velocity.x).toBe(1);
+      expect(velocity.y).toBe(1);
+      expect(velocity.magnitude).toBeCloseTo(Math.sqrt(2), 5);
+      expect(velocity.angle).toBeCloseTo(Math.PI / 4, 5); // 45 degrees
+    });
+
+    it("should handle zero time difference", () => {
+      const point1: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 200, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const velocity = calculateVelocity(point1, point2);
+
+      // Should use Math.max(1, dt) = 1 to avoid division by zero
+      expect(velocity.x).toBe(100);
+      expect(velocity.magnitude).toBe(100);
+    });
+  });
+
+  describe("calculateDistance (lines 198-202)", () => {
+    it("should return 0 for same point", () => {
+      const point1: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1100, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const distance = calculateDistance(point1, point2);
+
+      expect(distance).toBe(0);
+    });
+
+    it("should calculate horizontal distance", () => {
+      const point1: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 200, y: 100, timestamp: 1100, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const distance = calculateDistance(point1, point2);
+
+      expect(distance).toBe(100);
+    });
+
+    it("should calculate vertical distance", () => {
+      const point1: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 100, y: 200, timestamp: 1100, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const distance = calculateDistance(point1, point2);
+
+      expect(distance).toBe(100);
+    });
+
+    it("should calculate diagonal distance", () => {
+      const point1: TouchPoint = { id: 1, x: 0, y: 0, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 30, y: 40, timestamp: 1100, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const distance = calculateDistance(point1, point2);
+
+      expect(distance).toBe(50); // 3-4-5 triangle
+    });
+  });
+
+  describe("calculateAngle (lines 204-206)", () => {
+    it("should return 0 for rightward direction", () => {
+      const point1: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 200, y: 100, timestamp: 1100, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const angle = calculateAngle(point1, point2);
+
+      expect(angle).toBe(0);
+    });
+
+    it("should return π for leftward direction", () => {
+      const point1: TouchPoint = { id: 1, x: 200, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1100, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const angle = calculateAngle(point1, point2);
+
+      expect(angle).toBeCloseTo(Math.PI, 5);
+    });
+
+    it("should return π/2 for downward direction", () => {
+      const point1: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 100, y: 200, timestamp: 1100, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const angle = calculateAngle(point1, point2);
+
+      expect(angle).toBeCloseTo(Math.PI / 2, 5);
+    });
+
+    it("should return -π/2 for upward direction", () => {
+      const point1: TouchPoint = { id: 1, x: 100, y: 200, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1100, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const angle = calculateAngle(point1, point2);
+
+      expect(angle).toBeCloseTo(-Math.PI / 2, 5);
+    });
+
+    it("should return π/4 for diagonal (45 degrees)", () => {
+      const point1: TouchPoint = { id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 };
+      const point2: TouchPoint = { id: 1, x: 200, y: 200, timestamp: 1100, force: 0.5, radiusX: 10, radiusY: 10 };
+
+      const angle = calculateAngle(point1, point2);
+
+      expect(angle).toBeCloseTo(Math.PI / 4, 5);
+    });
+  });
+
+  describe("detectSwipeDirection (lines 208-224)", () => {
+    it("should return null for velocity below threshold", () => {
+      const velocity = { x: 0.1, y: 0, magnitude: 0.1, angle: 0 };
+      const minVelocity = 0.3;
+
+      const direction = detectSwipeDirection(velocity, minVelocity);
+
+      expect(direction).toBeNull();
+    });
+
+    it("should detect swipe_right for rightward velocity", () => {
+      const velocity = { x: 1, y: 0, magnitude: 1, angle: 0 };
+      const minVelocity = 0.3;
+
+      const direction = detectSwipeDirection(velocity, minVelocity);
+
+      expect(direction).toBe("swipe_right");
+    });
+
+    it("should detect swipe_left for leftward velocity", () => {
+      const velocity = { x: -1, y: 0, magnitude: 1, angle: Math.PI };
+      const minVelocity = 0.3;
+
+      const direction = detectSwipeDirection(velocity, minVelocity);
+
+      expect(direction).toBe("swipe_left");
+    });
+
+    it("should detect swipe_down for downward velocity", () => {
+      const velocity = { x: 0, y: 1, magnitude: 1, angle: Math.PI / 2 };
+      const minVelocity = 0.3;
+
+      const direction = detectSwipeDirection(velocity, minVelocity);
+
+      expect(direction).toBe("swipe_down");
+    });
+
+    it("should detect swipe_up for upward velocity", () => {
+      const velocity = { x: 0, y: -1, magnitude: 1, angle: -Math.PI / 2 };
+      const minVelocity = 0.3;
+
+      const direction = detectSwipeDirection(velocity, minVelocity);
+
+      expect(direction).toBe("swipe_up");
+    });
+
+    it("should detect swipe_left for angle close to -π", () => {
+      const velocity = { x: -1, y: 0, magnitude: 1, angle: -Math.PI };
+      const minVelocity = 0.3;
+
+      const direction = detectSwipeDirection(velocity, minVelocity);
+
+      expect(direction).toBe("swipe_left");
+    });
+
+    it("should detect diagonal as dominant direction", () => {
+      // 30 degrees - should be swipe_right (within 45 degree threshold)
+      const velocity = { x: Math.cos(Math.PI / 6), y: Math.sin(Math.PI / 6), magnitude: 1, angle: Math.PI / 6 };
+      const minVelocity = 0.3;
+
+      const direction = detectSwipeDirection(velocity, minVelocity);
+
+      expect(direction).toBe("swipe_right");
+    });
+
+    it("should return swipe_down for 60 degree angle", () => {
+      // 60 degrees - should be swipe_down (beyond 45 degree threshold for right)
+      const angle = Math.PI / 3; // 60 degrees
+      const velocity = { x: Math.cos(angle), y: Math.sin(angle), magnitude: 1, angle };
+      const minVelocity = 0.3;
+
+      const direction = detectSwipeDirection(velocity, minVelocity);
+
+      expect(direction).toBe("swipe_down");
+    });
+  });
+
+  describe("isPalmTouch (lines 226-229)", () => {
+    it("should return false for small touch", () => {
+      const touch = createMockTouch(1, 100, 100, { radiusX: 5, radiusY: 5 });
+      const maxArea = 2500; // 50x50
+
+      const result = isPalmTouch(touch, maxArea);
+
+      // Area = π * 5 * 5 = ~78.5, which is < 2500
+      expect(result).toBe(false);
+    });
+
+    it("should return true for large palm-like touch", () => {
+      const touch = createMockTouch(1, 100, 100, { radiusX: 50, radiusY: 50 });
+      const maxArea = 2500;
+
+      const result = isPalmTouch(touch, maxArea);
+
+      // Area = π * 50 * 50 = ~7854, which is > 2500
+      expect(result).toBe(true);
+    });
+
+    it("should use default radius of 10 when not provided", () => {
+      const touch = {
+        identifier: 1,
+        clientX: 100,
+        clientY: 100,
+        // No radiusX/radiusY
+      } as Touch;
+      const maxArea = 200; // Small threshold
+
+      const result = isPalmTouch(touch, maxArea);
+
+      // Area = π * 10 * 10 = ~314, which is > 200
+      expect(result).toBe(true);
+    });
+
+    it("should handle elliptical touch area", () => {
+      const touch = createMockTouch(1, 100, 100, { radiusX: 30, radiusY: 15 });
+      const maxArea = 2000;
+
+      const result = isPalmTouch(touch, maxArea);
+
+      // Area = π * 30 * 15 = ~1414, which is < 2000
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("predictGesture (lines 231-268)", () => {
+    const defaultConfig: GestureOptimizerConfig = {
+      enabled: true,
+      filters: {
+        minTouchDuration: 50,
+        maxTouchArea: 2500,
+        minSwipeDistance: 30,
+        minSwipeVelocity: 0.3,
+        doubleTapWindow: 300,
+        longPressThreshold: 500,
+      },
+      enablePrediction: true,
+      enableMomentum: true,
+      momentumFriction: 0.95,
+      throttleInterval: 16,
+      passiveListeners: true,
+      preventDefaultGestures: [],
+    };
+
+    it("should return null prediction for empty touches", () => {
+      const touches: TouchPoint[] = [];
+      const velocity = { x: 0, y: 0, magnitude: 0, angle: 0 };
+
+      const prediction = predictGesture(touches, velocity, 0, defaultConfig);
+
+      expect(prediction.likelyGesture).toBeNull();
+      expect(prediction.confidence).toBe(0);
+    });
+
+    it("should predict tap for quick touch with low velocity", () => {
+      const touches: TouchPoint[] = [{ id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 }];
+      const velocity = { x: 0.05, y: 0, magnitude: 0.05, angle: 0 };
+      const duration = 100; // < 150ms
+
+      const prediction = predictGesture(touches, velocity, duration, defaultConfig);
+
+      expect(prediction.likelyGesture).toBe("tap");
+      expect(prediction.confidence).toBe(0.8);
+    });
+
+    it("should predict long_press for slow stationary touch", () => {
+      const touches: TouchPoint[] = [{ id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 }];
+      const velocity = { x: 0.05, y: 0, magnitude: 0.05, angle: 0 };
+      const duration = 300; // > longPressThreshold * 0.5 = 250ms
+
+      const prediction = predictGesture(touches, velocity, duration, defaultConfig);
+
+      expect(prediction.likelyGesture).toBe("long_press");
+      expect(prediction.confidence).toBeGreaterThan(0);
+    });
+
+    it("should predict swipe for high velocity movement", () => {
+      const touches: TouchPoint[] = [{ id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 }];
+      const velocity = { x: 0.5, y: 0, magnitude: 0.5, angle: 0 }; // > minSwipeVelocity * 0.5
+      const duration = 200;
+
+      const prediction = predictGesture(touches, velocity, duration, defaultConfig);
+
+      expect(prediction.likelyGesture).toBe("swipe_right");
+      expect(prediction.confidence).toBeGreaterThan(0);
+    });
+
+    it("should predict pan for moderate velocity movement", () => {
+      const touches: TouchPoint[] = [{ id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 }];
+      const velocity = { x: 0.12, y: 0, magnitude: 0.12, angle: 0 }; // > 0.1 but < minSwipeVelocity * 0.5
+      const duration = 200;
+
+      const prediction = predictGesture(touches, velocity, duration, defaultConfig);
+
+      expect(prediction.likelyGesture).toBe("pan");
+      expect(prediction.confidence).toBe(0.6);
+    });
+
+    it("should return null for very slow movement", () => {
+      const touches: TouchPoint[] = [{ id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 }];
+      const velocity = { x: 0.05, y: 0, magnitude: 0.05, angle: 0 }; // < 0.1
+      const duration = 200; // Too long for tap, too short for long press
+
+      const prediction = predictGesture(touches, velocity, duration, defaultConfig);
+
+      // Should not match any condition except tap (but duration > 150)
+      // This should fall through to null
+      expect(prediction.likelyGesture).toBeNull();
+    });
+
+    it("should calculate long_press confidence based on duration", () => {
+      const touches: TouchPoint[] = [{ id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 }];
+      const velocity = { x: 0, y: 0, magnitude: 0, angle: 0 };
+
+      // At 300ms (> 250ms = half of threshold), should predict long_press with confidence 0.6
+      const prediction1 = predictGesture(touches, velocity, 300, defaultConfig);
+      expect(prediction1.likelyGesture).toBe("long_press");
+      expect(prediction1.confidence).toBe(0.6); // 300/500 = 0.6
+
+      // At 500ms (full threshold), confidence should be 1.0
+      const prediction2 = predictGesture(touches, velocity, 500, defaultConfig);
+      expect(prediction2.likelyGesture).toBe("long_press");
+      expect(prediction2.confidence).toBe(1);
+
+      // At 750ms (over threshold), confidence should be capped at 1.0
+      const prediction3 = predictGesture(touches, velocity, 750, defaultConfig);
+      expect(prediction3.likelyGesture).toBe("long_press");
+      expect(prediction3.confidence).toBe(1);
+    });
+
+    it("should calculate swipe confidence based on velocity magnitude", () => {
+      const touches: TouchPoint[] = [{ id: 1, x: 100, y: 100, timestamp: 1000, force: 0.5, radiusX: 10, radiusY: 10 }];
+      const duration = 200;
+
+      // Velocity magnitude 0.25 should give confidence 0.5
+      const velocity1 = { x: 0.25, y: 0, magnitude: 0.25, angle: 0 };
+      const prediction1 = predictGesture(touches, velocity1, duration, defaultConfig);
+      expect(prediction1.likelyGesture).toBe("swipe_right");
+      expect(prediction1.confidence).toBe(0.5);
+
+      // Velocity magnitude 0.5 should give confidence 1.0
+      const velocity2 = { x: 0.5, y: 0, magnitude: 0.5, angle: 0 };
+      const prediction2 = predictGesture(touches, velocity2, duration, defaultConfig);
+      expect(prediction2.confidence).toBe(1);
+
+      // Velocity magnitude 1.0 should cap at confidence 1.0
+      const velocity3 = { x: 1.0, y: 0, magnitude: 1.0, angle: 0 };
+      const prediction3 = predictGesture(touches, velocity3, duration, defaultConfig);
+      expect(prediction3.confidence).toBe(1);
     });
   });
 });
