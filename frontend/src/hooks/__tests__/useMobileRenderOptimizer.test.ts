@@ -237,7 +237,7 @@ describe("useMobileRenderOptimizer", () => {
       "should provide correct settings for %s quality",
       (quality) => {
         const { result } = renderHook(() =>
-          useMobileRenderOptimizer({ initialQuality: quality })
+          useMobileRenderOptimizer({ initialQuality: quality, autoAdjust: false })
         );
 
         expect(result.current.settings.quality).toBe(quality);
@@ -252,10 +252,10 @@ describe("useMobileRenderOptimizer", () => {
 
     it("should have higher resolution for higher quality", () => {
       const { result: ultraResult } = renderHook(() =>
-        useMobileRenderOptimizer({ initialQuality: "ultra" })
+        useMobileRenderOptimizer({ initialQuality: "ultra", autoAdjust: false })
       );
       const { result: minimalResult } = renderHook(() =>
-        useMobileRenderOptimizer({ initialQuality: "minimal" })
+        useMobileRenderOptimizer({ initialQuality: "minimal", autoAdjust: false })
       );
 
       expect(ultraResult.current.settings.resolution).toBeGreaterThan(
@@ -265,10 +265,10 @@ describe("useMobileRenderOptimizer", () => {
 
     it("should have more features enabled for higher quality", () => {
       const { result: highResult } = renderHook(() =>
-        useMobileRenderOptimizer({ initialQuality: "high" })
+        useMobileRenderOptimizer({ initialQuality: "high", autoAdjust: false })
       );
       const { result: lowResult } = renderHook(() =>
-        useMobileRenderOptimizer({ initialQuality: "low" })
+        useMobileRenderOptimizer({ initialQuality: "low", autoAdjust: false })
       );
 
       expect(highResult.current.settings.enableShadows).toBe(true);
@@ -278,7 +278,9 @@ describe("useMobileRenderOptimizer", () => {
 
   describe("frame recording", () => {
     it("should record frame times", () => {
-      const { result } = renderHook(() => useMobileRenderOptimizer());
+      const { result } = renderHook(() =>
+        useMobileRenderOptimizer({ autoAdjust: false })
+      );
 
       act(() => {
         result.current.controls.recordFrame(16);
@@ -290,7 +292,9 @@ describe("useMobileRenderOptimizer", () => {
     });
 
     it("should track dropped frames", () => {
-      const { result } = renderHook(() => useMobileRenderOptimizer());
+      const { result } = renderHook(() =>
+        useMobileRenderOptimizer({ autoAdjust: false })
+      );
 
       // Record frames over 33.33ms (below 30fps threshold)
       act(() => {
@@ -302,7 +306,9 @@ describe("useMobileRenderOptimizer", () => {
     });
 
     it("should calculate average frame time", () => {
-      const { result } = renderHook(() => useMobileRenderOptimizer());
+      const { result } = renderHook(() =>
+        useMobileRenderOptimizer({ autoAdjust: false })
+      );
 
       act(() => {
         result.current.controls.recordFrame(16);
@@ -316,7 +322,9 @@ describe("useMobileRenderOptimizer", () => {
 
   describe("pause/resume", () => {
     it("should pause rendering", () => {
-      const { result } = renderHook(() => useMobileRenderOptimizer());
+      const { result } = renderHook(() =>
+        useMobileRenderOptimizer({ autoAdjust: false })
+      );
 
       expect(result.current.isPaused).toBe(false);
 
@@ -328,7 +336,9 @@ describe("useMobileRenderOptimizer", () => {
     });
 
     it("should resume rendering", () => {
-      const { result } = renderHook(() => useMobileRenderOptimizer());
+      const { result } = renderHook(() =>
+        useMobileRenderOptimizer({ autoAdjust: false })
+      );
 
       act(() => {
         result.current.controls.pause();
