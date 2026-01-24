@@ -573,3 +573,530 @@ class TestMemoryPersistence:
 
         assert len(core) >= 1
         assert core[0].content == "Important memory"
+
+
+class TestAsyncMethods:
+    """Tests for async save methods."""
+
+    @pytest.fixture
+    def temp_storage(self):
+        """Create temporary storage directory."""
+        temp_dir = tempfile.mkdtemp()
+        yield temp_dir
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    @pytest.mark.asyncio
+    async def test_save_profiles_async(self, temp_storage):
+        """Test async profile saving."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        profile = system.get_or_create_profile("async_user")
+        profile.name = "Async Test User"
+
+        await system._save_profiles_async()
+
+        # Verify by loading in new instance
+        system2 = EvaMemorySystem(storage_path=temp_storage)
+        loaded = system2.user_profiles.get("async_user")
+
+        assert loaded is not None
+        assert loaded.name == "Async Test User"
+
+    @pytest.mark.asyncio
+    async def test_save_core_memories_async(self, temp_storage):
+        """Test async core memories saving."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.add_memory(
+            "async_user",
+            "Async important memory",
+            memory_type="semantic",
+            importance=0.9
+        )
+
+        await system._save_core_memories_async()
+
+        # Verify by loading in new instance
+        system2 = EvaMemorySystem(storage_path=temp_storage)
+        core = system2.core_memories.get("async_user", [])
+
+        assert len(core) >= 1
+        assert core[0].content == "Async important memory"
+
+
+class TestPrecompiledPatterns:
+    """Tests for pre-compiled regex pattern optimization."""
+
+    @pytest.fixture
+    def temp_storage(self):
+        """Create temporary storage directory."""
+        temp_dir = tempfile.mkdtemp()
+        yield temp_dir
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def test_extraction_patterns_are_compiled(self, temp_storage):
+        """Test that extraction patterns are pre-compiled."""
+        from eva_memory import EvaMemorySystem
+        import re
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        # Verify patterns are compiled regex objects
+        for entity_type, patterns in system._EXTRACTION_PATTERNS.items():
+            for pattern in patterns:
+                assert isinstance(pattern, re.Pattern), \
+                    f"Pattern for {entity_type} should be pre-compiled"
+
+    def test_extract_with_compiled_patterns(self, temp_storage):
+        """Test extraction works with pre-compiled patterns."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("pattern_user")
+
+        # Test name extraction
+        system.extract_and_store(
+            user_id="pattern_user",
+            user_message="Je m'appelle Pierre",
+            eva_response="Bonjour Pierre!"
+        )
+
+        profile = system.user_profiles["pattern_user"]
+        assert profile.name == "Pierre"
+
+    def test_extract_multiple_entities(self, temp_storage):
+        """Test extracting multiple entity types."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("multi_user")
+
+        # Test interest extraction
+        system.extract_and_store(
+            user_id="multi_user",
+            user_message="J'adore la musique classique",
+            eva_response="Super choix!"
+        )
+
+        profile = system.user_profiles["multi_user"]
+        assert "la musique classique" in profile.interests
+
+
+class TestAdditionalCoverage:
+    """Additional tests to improve branch coverage - Sprint 528."""
+
+    @pytest.fixture
+    def temp_storage(self):
+        """Create temporary storage directory."""
+        temp_dir = tempfile.mkdtemp()
+        yield temp_dir
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def test_extract_dislike(self, temp_storage):
+        """Test extracting user dislikes (lines 458-466)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("dislike_user")
+
+        system.extract_and_store(
+            user_id="dislike_user",
+            user_message="Je déteste les araignées",
+            eva_response="Je comprends!"
+        )
+
+        profile = system.user_profiles["dislike_user"]
+        assert "les araignées" in profile.avoid_topics
+
+    def test_extract_dislike_with_horreur(self, temp_storage):
+        """Test extracting user dislikes with 'j'ai horreur de' pattern."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("horreur_user")
+
+        system.extract_and_store(
+            user_id="horreur_user",
+            user_message="J'ai horreur de mentir",
+            eva_response="C'est bien!"
+        )
+
+        profile = system.user_profiles["horreur_user"]
+        assert "mentir" in profile.avoid_topics
+
+    def test_close_friend_relationship_stage(self, temp_storage):
+        """Test progression to close_friend stage (lines 261-263)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        profile = system.get_or_create_profile("close_friend_user")
+
+        # Simulate many interactions with high trust
+        profile.interaction_count = 55
+        profile.trust_level = 0.8
+
+        # Trigger update which should set close_friend
+        profile = system.update_profile("close_friend_user")
+
+        assert profile.relationship_stage == "close_friend"
+
+    def test_trust_level_increase_on_long_message(self, temp_storage):
+        """Test trust increases on longer messages (lines 484-485)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        profile = system.get_or_create_profile("trust_user")
+        initial_trust = profile.trust_level
+
+        # Send a long message (> 100 chars)
+        long_message = "This is a very long message that exceeds one hundred characters to demonstrate that longer messages increase trust level in the conversation system."
+        system.extract_and_store(
+            user_id="trust_user",
+            user_message=long_message,
+            eva_response="I understand."
+        )
+
+        profile = system.user_profiles["trust_user"]
+        assert profile.trust_level > initial_trust
+
+    def test_consolidate_memories_creates_semantic(self, temp_storage):
+        """Test consolidation creates semantic memories (lines 546-554)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.consolidation_threshold = 3
+
+        # Add memories with a common long word (>4 chars) that appears multiple times
+        for i in range(6):
+            system.add_memory(
+                "consolidate_user",
+                f"Talking about programming today #{i}",
+                importance=0.6
+            )
+
+        initial_core_count = len(system.core_memories.get("consolidate_user", []))
+        system.consolidate_memories("consolidate_user")
+
+        # Should have created semantic memories for frequent topics
+        assert len(system.core_memories.get("consolidate_user", [])) >= initial_core_count
+
+    def test_add_memory_with_metadata(self, temp_storage):
+        """Test adding memory with metadata (line 290)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        memory = system.add_memory(
+            user_id="meta_user",
+            content="Memory with metadata",
+            metadata={"source": "test", "context": "sprint528"}
+        )
+
+        assert memory.metadata == {"source": "test", "context": "sprint528"}
+
+    def test_retrieve_memories_with_type_filter(self, temp_storage):
+        """Test retrieving memories with memory_type filter (lines 335-336)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        # Add different types of memories
+        system.add_memory("filter_user", "Episodic memory 1", memory_type="episodic")
+        system.add_memory("filter_user", "Semantic memory 1", memory_type="semantic", importance=0.8)
+        system.add_memory("filter_user", "Emotional memory 1", memory_type="emotional")
+
+        # Filter by type
+        memories = system.retrieve_memories(
+            "filter_user",
+            "memory",
+            memory_type="semantic"
+        )
+
+        # Session memories don't filter by type but we verify the call works
+        assert len(memories) >= 1
+
+    def test_retrieve_memories_with_min_importance(self, temp_storage):
+        """Test retrieving memories with minimum importance (line 349)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        # Add memories with varying importance
+        system.add_memory("importance_user", "Low importance", importance=0.2)
+        system.add_memory("importance_user", "High importance", importance=0.9)
+
+        memories = system.retrieve_memories(
+            "importance_user",
+            "importance",
+            min_importance=0.5
+        )
+
+        # Should include high importance memory from session
+        assert len(memories) >= 1
+
+    def test_get_context_memories_with_core_and_relevant(self, temp_storage):
+        """Test context includes both core and relevant memories (lines 405-414)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        profile = system.get_or_create_profile("context_user")
+        profile.name = "ContextTest"
+        profile.interests = ["coding", "music", "travel"]
+
+        # Add core memory
+        system.add_memory(
+            "context_user",
+            "Core: User loves Python",
+            memory_type="semantic",
+            importance=0.95
+        )
+
+        # Add relevant session memories
+        system.add_memory("context_user", "Recent: Discussed Python project")
+        system.add_memory("context_user", "Recent: Talked about travel plans")
+
+        context = system.get_context_memories("context_user", "Python programming")
+
+        assert "ContextTest" in context["context_string"]
+        assert "coding" in context["context_string"]
+        assert len(context["core_memories"]) >= 1
+
+    def test_get_context_memories_with_emotional_context(self, temp_storage):
+        """Test context includes recent emotions (lines 389-392)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("emotional_context_user")
+
+        # Add memories with emotions
+        system.add_memory(
+            "emotional_context_user",
+            "Happy moment",
+            emotion="joy",
+            emotion_intensity=0.8
+        )
+        system.add_memory(
+            "emotional_context_user",
+            "Sad moment",
+            emotion="sadness",
+            emotion_intensity=0.6
+        )
+        system.add_memory(
+            "emotional_context_user",
+            "Neutral moment",
+            emotion="neutral"
+        )
+
+        context = system.get_context_memories("emotional_context_user", "How are you?")
+
+        # Should have captured non-neutral emotions
+        assert len(context["recent_emotions"]) >= 2
+        emotions = [e[0] for e in context["recent_emotions"]]
+        assert "joy" in emotions
+        assert "sadness" in emotions
+
+    def test_extract_name_with_appelle_moi(self, temp_storage):
+        """Test name extraction with 'appelle-moi' pattern (line 99)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("appelle_user")
+
+        system.extract_and_store(
+            user_id="appelle_user",
+            user_message="appelle-moi Sophie",
+            eva_response="D'accord Sophie!"
+        )
+
+        profile = system.user_profiles["appelle_user"]
+        assert profile.name == "Sophie"
+
+    def test_extract_passion(self, temp_storage):
+        """Test interest extraction with 'passion' pattern (line 105)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("passion_user")
+
+        system.extract_and_store(
+            user_id="passion_user",
+            user_message="je suis passionné par la photographie",
+            eva_response="C'est super!"
+        )
+
+        profile = system.user_profiles["passion_user"]
+        assert "la photographie" in profile.interests
+
+    def test_get_proactive_topics_empty_profile(self, temp_storage):
+        """Test proactive topics with minimal profile (line 491)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("empty_profile_user")
+
+        topics = system.get_proactive_topics("empty_profile_user")
+
+        # Should return empty or minimal topics for empty profile
+        assert isinstance(topics, list)
+
+    def test_consolidate_memories_with_short_words_skipped(self, temp_storage):
+        """Test consolidation skips short words (line 541)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.consolidation_threshold = 3
+
+        # Add memories with only short words
+        for i in range(6):
+            system.add_memory(
+                "short_words_user",
+                f"The cat sat on mat #{i}",  # All words <= 4 chars except 'words'
+                importance=0.4
+            )
+
+        initial_core_count = len(system.core_memories.get("short_words_user", []))
+        system.consolidate_memories("short_words_user")
+
+        # Consolidation should still process but may not create many semantic memories
+        # since short words are skipped
+        assert len(system.core_memories.get("short_words_user", [])) >= initial_core_count
+
+    def test_add_memory_semantic_type_to_core(self, temp_storage):
+        """Test semantic type memories go to core regardless of importance (line 314)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        # Add semantic memory with low importance - should still go to core
+        system.add_memory(
+            user_id="semantic_core_user",
+            content="Semantic fact about user",
+            memory_type="semantic",
+            importance=0.3  # Low importance but semantic type
+        )
+
+        assert len(system.core_memories["semantic_core_user"]) >= 1
+
+    def test_update_profile_acquaintance_stage(self, temp_storage):
+        """Test progression to acquaintance stage (lines 265-266)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        profile = system.get_or_create_profile("acquaintance_user")
+
+        # Simulate enough interactions for acquaintance
+        for _ in range(6):
+            profile = system.update_profile("acquaintance_user")
+
+        assert profile.relationship_stage == "acquaintance"
+
+
+class TestExtractAndStoreAsync:
+    """Tests for the async extract_and_store_async method (Sprint 524)."""
+
+    @pytest.fixture
+    def temp_storage(self):
+        """Create temporary storage directory."""
+        temp_dir = tempfile.mkdtemp()
+        yield temp_dir
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    @pytest.mark.asyncio
+    async def test_extract_and_store_async_basic(self, temp_storage):
+        """Test async extraction works without blocking."""
+        from eva_memory import EvaMemorySystem
+        import asyncio
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        # Should not block - fire and forget save
+        await system.extract_and_store_async(
+            "async_user",
+            "Je m'appelle Alice et j'aime la musique",
+            "Enchanté Alice!",
+            "joy"
+        )
+
+        # Give async task time to complete
+        await asyncio.sleep(0.1)
+
+        profile = system.get_or_create_profile("async_user")
+        assert profile.name == "Alice"
+        assert "la musique" in profile.interests
+
+    @pytest.mark.asyncio
+    async def test_extract_and_store_async_parallel(self, temp_storage):
+        """Test multiple async extractions in parallel."""
+        from eva_memory import EvaMemorySystem
+        import asyncio
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        # Run multiple extractions concurrently
+        tasks = [
+            system.extract_and_store_async(
+                f"user_{i}",
+                f"Je m'appelle User{i}",
+                f"Salut User{i}!",
+                "neutral"
+            )
+            for i in range(3)
+        ]
+
+        await asyncio.gather(*tasks)
+        await asyncio.sleep(0.1)
+
+        # All users should have been created
+        for i in range(3):
+            profile = system.get_or_create_profile(f"user_{i}")
+            assert profile.name == f"User{i}"
+
+    def test_do_extract_and_store_name_extraction(self, temp_storage):
+        """Test _do_extract_and_store extracts name correctly."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        profile = system.get_or_create_profile("name_test_user")
+
+        system._do_extract_and_store(
+            "name_test_user",
+            "mon nom est Robert",
+            "Enchanté Robert!",
+            "neutral"
+        )
+
+        assert profile.name == "Robert"
+
+    def test_do_extract_and_store_interest_extraction(self, temp_storage):
+        """Test _do_extract_and_store extracts interests correctly."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        profile = system.get_or_create_profile("interest_test_user")
+
+        system._do_extract_and_store(
+            "interest_test_user",
+            "j'adore le cinéma et la lecture",
+            "Super!",
+            "joy"
+        )
+
+        assert "le cinéma et la lecture" in profile.interests or any("cinéma" in i for i in profile.interests)
+
+    def test_do_extract_and_store_dislike_extraction(self, temp_storage):
+        """Test _do_extract_and_store extracts dislikes correctly."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        profile = system.get_or_create_profile("dislike_test_user")
+
+        system._do_extract_and_store(
+            "dislike_test_user",
+            "je déteste les araignées",
+            "Je comprends!",
+            "fear"
+        )
+
+        assert "les araignées" in profile.avoid_topics

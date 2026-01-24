@@ -194,7 +194,15 @@ class EvaMemorySystem:
             print(f"⚠️ Failed to save profiles: {e}")
 
     async def _save_profiles_async(self):
-        """Save user profiles to disk asynchronously for better latency"""
+        """Save user profiles to disk asynchronously for better latency.
+
+        Falls back to sync version if aiofiles is not available.
+        """
+        if not AIOFILES_AVAILABLE:
+            # Fallback to sync in thread pool
+            await asyncio.to_thread(self._save_profiles)
+            return
+
         profiles_path = os.path.join(self.storage_path, "profiles.json")
         try:
             data = {uid: profile.to_dict() for uid, profile in self.user_profiles.items()}
@@ -232,7 +240,15 @@ class EvaMemorySystem:
             print(f"⚠️ Failed to save core memories: {e}")
 
     async def _save_core_memories_async(self):
-        """Save core memories to disk asynchronously for better latency"""
+        """Save core memories to disk asynchronously for better latency.
+
+        Falls back to sync version if aiofiles is not available.
+        """
+        if not AIOFILES_AVAILABLE:
+            # Fallback to sync in thread pool
+            await asyncio.to_thread(self._save_core_memories)
+            return
+
         core_path = os.path.join(self.storage_path, "core_memories.json")
         try:
             data = {
@@ -245,14 +261,16 @@ class EvaMemorySystem:
             print(f"⚠️ Failed to save core memories async: {e}")
 
     def get_or_create_profile(self, user_id: str) -> UserProfile:
-        """Get or create user profile"""
-        if user_id not in self.user_profiles:
-            self.user_profiles[user_id] = UserProfile(
+        """Get or create user profile with O(1) lookup"""
+        profile = self.user_profiles.get(user_id)
+        if profile is None:
+            profile = UserProfile(
                 user_id=user_id,
                 first_interaction=time.time()
             )
+            self.user_profiles[user_id] = profile
             self._save_profiles()
-        return self.user_profiles[user_id]
+        return profile
 
     def update_profile(self, user_id: str, **kwargs):
         """Update user profile fields"""
@@ -430,10 +448,25 @@ class EvaMemorySystem:
         }
 
     def extract_and_store(self, user_id: str, user_message: str, eva_response: str, detected_emotion: str = "neutral"):
-        """Extract important information and store as memories.
+        """Extract important information and store as memories (sync version).
 
         Uses pre-compiled regex patterns for optimized performance.
         """
+        self._do_extract_and_store(user_id, user_message, eva_response, detected_emotion)
+        self._save_profiles()
+
+    async def extract_and_store_async(self, user_id: str, user_message: str, eva_response: str, detected_emotion: str = "neutral"):
+        """Extract important information and store as memories (async version for lower latency).
+
+        Uses pre-compiled regex patterns for optimized performance.
+        Saves profiles asynchronously to avoid blocking the response.
+        """
+        self._do_extract_and_store(user_id, user_message, eva_response, detected_emotion)
+        # Fire-and-forget async save - don't block the response
+        asyncio.create_task(self._save_profiles_async())
+
+    def _do_extract_and_store(self, user_id: str, user_message: str, eva_response: str, detected_emotion: str):
+        """Internal extraction logic shared by sync and async versions."""
         profile = self.get_or_create_profile(user_id)
         message_lower = user_message.lower()
 
@@ -489,8 +522,6 @@ class EvaMemorySystem:
         # Update trust based on conversation depth
         if len(user_message) > 100:  # Longer messages = more trust
             profile.trust_level = min(1.0, profile.trust_level + 0.01)
-
-        self._save_profiles()
 
     def get_proactive_topics(self, user_id: str) -> List[Dict[str, Any]]:
         """Get topics Eva could proactively bring up"""
