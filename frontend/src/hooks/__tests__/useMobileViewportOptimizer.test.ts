@@ -1395,3 +1395,139 @@ describe("Sprint 628 - Additional edge cases", () => {
     expect(result.current.metrics.viewportUpdates).toBeGreaterThan(initialUpdates);
   });
 });
+
+// ============================================================================
+// Sprint 521 - SSR and edge case coverage for lines 114, 133
+// ============================================================================
+
+describe("SSR and edge case coverage", () => {
+  describe("getSafeAreaInsets SSR fallback (line 114)", () => {
+    it("should return zero insets when CSS custom properties return empty strings", () => {
+      // Mock getComputedStyle to return empty strings (simulates non-mobile browsers)
+      const mockStyle = {
+        getPropertyValue: jest.fn().mockReturnValue(""),
+      } as unknown as CSSStyleDeclaration;
+
+      jest.spyOn(window, "getComputedStyle").mockReturnValue(mockStyle);
+
+      const { result } = renderHook(() => useMobileViewportOptimizer());
+
+      // Safe area should default to zeros when CSS properties are empty
+      expect(result.current.state.safeAreaInsets).toEqual({
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+      });
+
+      jest.restoreAllMocks();
+    });
+
+    it("should parse safe area insets from CSS custom properties", () => {
+      const mockComputedStyle = {
+        getPropertyValue: (prop: string) => {
+          const values: Record<string, string> = {
+            "--sat": "44",
+            "--sar": "0",
+            "--sab": "34",
+            "--sal": "0",
+          };
+          return values[prop] || "";
+        },
+      } as unknown as CSSStyleDeclaration;
+
+      jest.spyOn(window, "getComputedStyle").mockReturnValue(mockComputedStyle);
+
+      const { result } = renderHook(() => useMobileViewportOptimizer());
+
+      expect(result.current.state.safeAreaInsets.top).toBe(44);
+      expect(result.current.state.safeAreaInsets.bottom).toBe(34);
+
+      jest.restoreAllMocks();
+    });
+  });
+
+  describe("getViewportDimensions edge cases (line 133)", () => {
+    it("should handle missing visualViewport gracefully", () => {
+      // Remove visualViewport
+      const originalVisualViewport = window.visualViewport;
+      Object.defineProperty(window, "visualViewport", {
+        value: null,
+        writable: true,
+        configurable: true,
+      });
+
+      const { result } = renderHook(() => useMobileViewportOptimizer());
+
+      // Should fall back to innerWidth/innerHeight
+      expect(result.current.state.dimensions.visualWidth).toBe(window.innerWidth);
+      expect(result.current.state.dimensions.visualHeight).toBe(window.innerHeight);
+
+      // Restore
+      Object.defineProperty(window, "visualViewport", {
+        value: originalVisualViewport,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it("should use document.documentElement dimensions", () => {
+      const { result } = renderHook(() => useMobileViewportOptimizer());
+
+      // Width and height should come from clientWidth/clientHeight
+      expect(typeof result.current.state.dimensions.width).toBe("number");
+      expect(typeof result.current.state.dimensions.height).toBe("number");
+    });
+  });
+
+  describe("getOrientation edge cases", () => {
+    it("should fall back to width/height comparison when screen.orientation missing", () => {
+      const originalOrientation = screen.orientation;
+      Object.defineProperty(screen, "orientation", {
+        value: undefined,
+        writable: true,
+        configurable: true,
+      });
+
+      // Set portrait dimensions
+      Object.defineProperty(window, "innerWidth", { value: 375, writable: true, configurable: true });
+      Object.defineProperty(window, "innerHeight", { value: 812, writable: true, configurable: true });
+
+      const { result } = renderHook(() => useMobileViewportOptimizer());
+
+      // Should determine portrait from dimensions
+      expect(result.current.state.orientation).toBe("portrait");
+
+      // Restore
+      Object.defineProperty(screen, "orientation", {
+        value: originalOrientation,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it("should detect landscape when width > height", () => {
+      const originalOrientation = screen.orientation;
+      Object.defineProperty(screen, "orientation", {
+        value: undefined,
+        writable: true,
+        configurable: true,
+      });
+
+      // Set landscape dimensions
+      Object.defineProperty(window, "innerWidth", { value: 812, writable: true, configurable: true });
+      Object.defineProperty(window, "innerHeight", { value: 375, writable: true, configurable: true });
+
+      const { result } = renderHook(() => useMobileViewportOptimizer());
+
+      expect(result.current.state.orientation).toBe("landscape");
+
+      // Restore
+      Object.defineProperty(screen, "orientation", {
+        value: originalOrientation,
+        writable: true,
+        configurable: true,
+      });
+    });
+  });
+});
