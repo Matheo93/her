@@ -369,13 +369,19 @@ describe("useTouchToVisualBridge coverage - Sprint 765", () => {
       });
 
       // First frame at time 0
-      advanceFrame(0);
+      act(() => {
+        advanceFrame(0);
+      });
 
       // Frame at 8ms (should be debounced)
-      advanceFrame(8);
+      act(() => {
+        advanceFrame(8);
+      });
 
       // Frame at 16ms (should pass)
-      advanceFrame(16);
+      act(() => {
+        advanceFrame(16);
+      });
 
       expect(result.current.state.isActive).toBe(true);
     });
@@ -756,7 +762,9 @@ describe("useTouchToVisualBridge coverage - Sprint 765", () => {
         );
       });
 
-      advanceFrame(16);
+      act(() => {
+        advanceFrame(16);
+      });
 
       expect(result.current.state.visualState).toBeDefined();
     });

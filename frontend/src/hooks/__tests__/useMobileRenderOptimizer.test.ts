@@ -2463,3 +2463,179 @@ describe("Sprint 543 - getNextHigherQuality direct tests (lines 411-414)", () =>
     expect(getNextHigherQuality("high")).toBe("ultra");
   });
 });
+
+// ============================================================================
+// Sprint 543 - Auto-adjustment useEffect coverage (lines 538-588)
+// These tests run autoAdjust for a single render cycle to cover branches
+// ============================================================================
+
+describe("Sprint 543 - Auto-adjustment branches (lines 538-588)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    // Set Date.now to return a time that allows quality changes
+    jest.spyOn(Date, "now").mockReturnValue(0);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it("should exit early when paused (line 534)", () => {
+    const { result } = renderHook(() =>
+      useMobileRenderOptimizer({
+        autoAdjust: true,
+        initialQuality: "medium",
+      })
+    );
+
+    // First pause
+    act(() => {
+      result.current.controls.pause();
+    });
+
+    // Record frames while paused
+    act(() => {
+      result.current.controls.recordFrame(30);
+    });
+
+    expect(result.current.isPaused).toBe(true);
+    // Quality should remain unchanged
+    expect(result.current.settings.quality).toBe("medium");
+  });
+
+  it("should exit early when forcedQuality is set (line 534)", () => {
+    const { result } = renderHook(() =>
+      useMobileRenderOptimizer({
+        autoAdjust: true,
+        initialQuality: "medium",
+      })
+    );
+
+    act(() => {
+      result.current.controls.forceQuality("high");
+    });
+
+    // Record slow frames
+    act(() => {
+      result.current.controls.recordFrame(30);
+    });
+
+    // Quality should stay at forced level
+    expect(result.current.settings.quality).toBe("high");
+  });
+
+  it("should calculate frame averages when frames recorded (line 538)", () => {
+    const { result } = renderHook(() =>
+      useMobileRenderOptimizer({
+        autoAdjust: false, // Disable to safely record frames
+        targetFPS: 60,
+      })
+    );
+
+    // Record multiple frames
+    act(() => {
+      for (let i = 0; i < 5; i++) {
+        result.current.controls.recordFrame(15);
+      }
+    });
+
+    // Metrics should be updated with average
+    expect(result.current.metrics.frameTime).toBeCloseTo(15, 0);
+  });
+
+  it("should not adjust quality before 2 seconds since last change (line 569)", () => {
+    // Mock Date.now to return a recent time
+    jest.spyOn(Date, "now").mockReturnValue(1000);
+
+    const { result } = renderHook(() =>
+      useMobileRenderOptimizer({
+        autoAdjust: true,
+        initialQuality: "high",
+        adjustmentThreshold: 1,
+      })
+    );
+
+    const initialQuality = result.current.settings.quality;
+
+    // Record slow frames
+    act(() => {
+      result.current.controls.recordFrame(30);
+    });
+
+    // Advance time less than 2 seconds
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    // Quality should not have changed due to cooldown
+    expect(result.current.settings.quality).toBe(initialQuality);
+  });
+
+  it("should track dropped frames above 33.33ms (line 644)", () => {
+    const { result } = renderHook(() =>
+      useMobileRenderOptimizer({
+        autoAdjust: false,
+      })
+    );
+
+    // Record a fast frame (not dropped)
+    act(() => {
+      result.current.controls.recordFrame(16);
+    });
+
+    const droppedBefore = result.current.metrics.droppedFrames;
+
+    // Record a slow frame (dropped)
+    act(() => {
+      result.current.controls.recordFrame(40);
+    });
+
+    expect(result.current.metrics.droppedFrames).toBeGreaterThan(droppedBefore);
+  });
+
+  it("should limit frame history to 60 frames (lines 631-633)", () => {
+    const { result } = renderHook(() =>
+      useMobileRenderOptimizer({
+        autoAdjust: false,
+      })
+    );
+
+    // Record more than 60 frames
+    act(() => {
+      for (let i = 0; i < 70; i++) {
+        result.current.controls.recordFrame(16);
+      }
+    });
+
+    // FPS should still be calculated (not infinite)
+    expect(result.current.metrics.fps).toBeGreaterThan(0);
+    expect(result.current.metrics.fps).toBeLessThan(100);
+  });
+
+  it("should reset metrics when resetMetrics called (lines 662-673)", () => {
+    const { result } = renderHook(() =>
+      useMobileRenderOptimizer({
+        autoAdjust: false,
+      })
+    );
+
+    // Record frames to generate metrics
+    act(() => {
+      for (let i = 0; i < 10; i++) {
+        result.current.controls.recordFrame(20);
+      }
+    });
+
+    expect(result.current.metrics.frameTime).toBeGreaterThan(0);
+
+    // Reset metrics
+    act(() => {
+      result.current.controls.resetMetrics();
+    });
+
+    expect(result.current.metrics.frameTime).toBe(16.67);
+    expect(result.current.metrics.fps).toBe(60);
+    expect(result.current.metrics.droppedFrames).toBe(0);
+  });
+});

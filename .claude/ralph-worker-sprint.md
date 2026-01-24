@@ -32,9 +32,17 @@ status: COMPLETED
 - Health: `{"status":"healthy","groq":true,"whisper":true,"tts":true,"database":true}`
 
 ### Coverage Progress
-- useMobileRenderOptimizer: 58.51% → 69.62% (+11.11%)
+- useMobileRenderOptimizer: 58.51% → 75.55% (+17.04%)
 - useTouchToVisualBridge: 65.54% → 80.67% (+15.13%)
 - Sprint 543 added direct tests for lines 372, 377, 405-414
+
+### useMobileRenderOptimizer Design Limitation
+The auto-adjust useEffect (lines 538-588) cannot be tested without causing infinite loops because:
+- `recordFrame()` updates `metrics.frameTime` state
+- This triggers the useEffect which may call `setSettings()` or `setMetrics()`
+- Which causes re-renders triggering more state updates
+
+**Fix required:** Refactor to use ref-based debounced updates instead of state-based triggers.
 
 ## MOBILE LATENCY HOOKS STATUS
 
@@ -60,10 +68,10 @@ status: COMPLETED
 | useTouchToVisualBridge | 80.67% | ✅ IMPROVED |
 | useMobileRenderPredictor | 80.39% | ✅ |
 | useMobileDetect | 80.00% | ✅ |
-| useMobileRenderOptimizer | ~80%+ | ✅ With direct tests |
+| useMobileRenderOptimizer | 75.55% | ⚠️ Design issue blocks 80% (lines 538-588) |
 
 ---
 
 *Sprint 524 - Mobile Avatar UX Latency*
 *Status: COMPLETED*
-*"TypeScript errors fixed. Backend running. 21 mobile hooks at 80%+ branch coverage."*
+*"TypeScript errors fixed. Backend running. 20/21 mobile hooks at 80%+ branch coverage. useMobileRenderOptimizer at 75.55% (design issue)."*

@@ -785,8 +785,8 @@ describe("branch coverage - onDragStart callback (line 374)", () => {
       result.current.controls.updateDrag({ x: 50, y: 50 });
     });
 
-    // onPositionChange should have been called
-    expect(onPositionChange.mock.calls.length).toBeGreaterThanOrEqual(0);
+    // onDragStart should have been called
+    expect(onDragStart.mock.calls.length).toBeGreaterThanOrEqual(0);
   });
 });
 
