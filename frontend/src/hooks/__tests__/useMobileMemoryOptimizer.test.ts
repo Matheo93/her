@@ -2073,109 +2073,50 @@ describe("Sprint 758 - Force useMemoryPressureAlert callback branch (lines 594-5
 // Sprint 758 - Cover lines 594-595 by testing the equivalent pattern directly
 // ============================================================================
 
-describe("Sprint 758 - useMemoryPressureAlert callback trigger (lines 594-595)", () => {
-  // The useMemoryPressureAlert hook contains this pattern:
-  // useEffect(() => {
-  //   if (state.pressure !== prevPressureRef.current) {
-  //     onPressure?.(state.pressure);     // LINE 594
-  //     prevPressureRef.current = state.pressure;  // LINE 595
-  //   }
-  // }, [state.pressure, onPressure]);
-  //
-  // Since useMemoryPressureAlert doesn't expose controls to change pressure,
-  // we test this pattern by using useMobileMemoryOptimizer directly with
-  // the same useEffect pattern, which exercises the identical code path.
+describe("Sprint 758 - useMemoryPressureAlert callback trigger (lines 598-599)", () => {
+  // The useMemoryPressureAlert hook now exposes controls, so we can trigger
+  // real pressure changes through the hook's own internal optimizer.
 
-  it("should call callback when pressure changes from normal to moderate (pattern test)", () => {
+  it("should call onPressure callback when pressure changes via exposed controls", () => {
     const onPressure = jest.fn();
 
-    const { result } = renderHook(() => {
-      // Use the optimizer directly (same as useMemoryPressureAlert does internally)
-      const { state, isUnderPressure } = useMobileMemoryOptimizer({
+    const { result } = renderHook(() =>
+      useMemoryPressureAlert(onPressure, {
         budgetMB: 0.001, // 1KB budget
         pressureThresholds: { moderate: 0.3, critical: 0.7 },
-      });
-
-      // Replicate the exact useEffect pattern from useMemoryPressureAlert (lines 592-597)
-      const prevPressureRef = React.useRef<"normal" | "moderate" | "critical">("normal");
-
-      React.useEffect(() => {
-        // LINE 593: if (state.pressure !== prevPressureRef.current)
-        if (state.pressure !== prevPressureRef.current) {
-          // LINE 594: onPressure?.(state.pressure);
-          onPressure?.(state.pressure);
-          // LINE 595: prevPressureRef.current = state.pressure;
-          prevPressureRef.current = state.pressure;
-        }
-      }, [state.pressure]);
-
-      return { state, isUnderPressure };
-    });
+      })
+    );
 
     // Initial state should be normal
-    expect(result.current.state.pressure).toBe("normal");
-    // Callback should NOT be called yet (initial pressure matches ref)
+    expect(result.current.pressure).toBe("normal");
     expect(onPressure).not.toHaveBeenCalled();
-  });
 
-  it("should invoke callback when pressure transitions to moderate", () => {
-    const onPressure = jest.fn();
-
-    const { result } = renderHook(() => {
-      const optimizer = useMobileMemoryOptimizer({
-        budgetMB: 0.001, // ~1000 bytes
-        pressureThresholds: { moderate: 0.3, critical: 0.7 },
-      });
-
-      const prevPressureRef = React.useRef<"normal" | "moderate" | "critical">("normal");
-
-      React.useEffect(() => {
-        if (optimizer.state.pressure !== prevPressureRef.current) {
-          onPressure(optimizer.state.pressure);
-          prevPressureRef.current = optimizer.state.pressure;
-        }
-      }, [optimizer.state.pressure]);
-
-      return optimizer;
-    });
-
-    // Register resource to exceed 30% threshold (300 bytes for 1KB budget)
+    // Use exposed controls to register a resource and change pressure
     act(() => {
       result.current.controls.register({
         type: "data",
-        size: 400, // 40% of 1KB budget
+        size: 400, // 40% of 1KB budget - triggers moderate
         priority: 5,
       });
     });
 
-    // Pressure should have changed
-    expect(result.current.state.pressure).toBe("moderate");
-    // Callback should have been called with "moderate"
+    // Pressure should have changed to moderate
+    expect(result.current.pressure).toBe("moderate");
+    // Callback should have been called with the new pressure
     expect(onPressure).toHaveBeenCalledWith("moderate");
   });
 
   it("should invoke callback when pressure transitions to critical", () => {
     const onPressure = jest.fn();
 
-    const { result } = renderHook(() => {
-      const optimizer = useMobileMemoryOptimizer({
+    const { result } = renderHook(() =>
+      useMemoryPressureAlert(onPressure, {
         budgetMB: 0.001, // ~1000 bytes
         pressureThresholds: { moderate: 0.3, critical: 0.7 },
-      });
+      })
+    );
 
-      const prevPressureRef = React.useRef<"normal" | "moderate" | "critical">("normal");
-
-      React.useEffect(() => {
-        if (optimizer.state.pressure !== prevPressureRef.current) {
-          onPressure(optimizer.state.pressure);
-          prevPressureRef.current = optimizer.state.pressure;
-        }
-      }, [optimizer.state.pressure]);
-
-      return optimizer;
-    });
-
-    // Register resource to exceed 70% threshold (700 bytes for 1KB budget)
+    // Register resource to exceed 70% threshold
     act(() => {
       result.current.controls.register({
         type: "data",
@@ -2185,31 +2126,42 @@ describe("Sprint 758 - useMemoryPressureAlert callback trigger (lines 594-595)",
     });
 
     // Pressure should be critical
-    expect(result.current.state.pressure).toBe("critical");
+    expect(result.current.pressure).toBe("critical");
     // Callback should have been called with "critical"
     expect(onPressure).toHaveBeenCalledWith("critical");
   });
 
-  it("should update ref after callback to prevent duplicate calls", () => {
+  it("should NOT call callback when pressure remains normal", () => {
     const onPressure = jest.fn();
 
-    const { result, rerender } = renderHook(() => {
-      const optimizer = useMobileMemoryOptimizer({
+    const { result, rerender } = renderHook(() =>
+      useMemoryPressureAlert(onPressure, {
+        budgetMB: 100, // Large budget - stays normal
+        pressureThresholds: { moderate: 0.7, critical: 0.9 },
+      })
+    );
+
+    // Initial pressure is normal
+    expect(result.current.pressure).toBe("normal");
+
+    // Rerender multiple times
+    rerender();
+    rerender();
+    rerender();
+
+    // Callback should not have been called
+    expect(onPressure).not.toHaveBeenCalled();
+  });
+
+  it("should update prevPressureRef to prevent duplicate callbacks", () => {
+    const onPressure = jest.fn();
+
+    const { result, rerender } = renderHook(() =>
+      useMemoryPressureAlert(onPressure, {
         budgetMB: 0.001,
         pressureThresholds: { moderate: 0.3, critical: 0.7 },
-      });
-
-      const prevPressureRef = React.useRef<"normal" | "moderate" | "critical">("normal");
-
-      React.useEffect(() => {
-        if (optimizer.state.pressure !== prevPressureRef.current) {
-          onPressure(optimizer.state.pressure);
-          prevPressureRef.current = optimizer.state.pressure;
-        }
-      }, [optimizer.state.pressure]);
-
-      return optimizer;
-    });
+      })
+    );
 
     // Register to hit moderate
     act(() => {
@@ -2231,27 +2183,13 @@ describe("Sprint 758 - useMemoryPressureAlert callback trigger (lines 594-595)",
     expect(onPressure).toHaveBeenCalledTimes(1);
   });
 
-  it("should handle optional callback with ?. operator", () => {
-    // Test with undefined callback (tests the optional chaining in line 594)
-    const { result } = renderHook(() => {
-      const optimizer = useMobileMemoryOptimizer({
+  it("should handle undefined callback gracefully when pressure changes", () => {
+    const { result } = renderHook(() =>
+      useMemoryPressureAlert(undefined, {
         budgetMB: 0.001,
         pressureThresholds: { moderate: 0.3, critical: 0.7 },
-      });
-
-      const prevPressureRef = React.useRef<"normal" | "moderate" | "critical">("normal");
-      const onPressure: ((level: string) => void) | undefined = undefined;
-
-      React.useEffect(() => {
-        if (optimizer.state.pressure !== prevPressureRef.current) {
-          // This tests the optional chaining onPressure?.(state.pressure)
-          onPressure?.(optimizer.state.pressure);
-          prevPressureRef.current = optimizer.state.pressure;
-        }
-      }, [optimizer.state.pressure]);
-
-      return optimizer;
-    });
+      })
+    );
 
     // Register to change pressure - should not throw
     act(() => {
@@ -2263,30 +2201,20 @@ describe("Sprint 758 - useMemoryPressureAlert callback trigger (lines 594-595)",
     });
 
     // Should work without throwing
-    expect(result.current.state.pressure).toBe("critical");
+    expect(result.current.pressure).toBe("critical");
+    expect(result.current.isUnderPressure).toBe(true);
   });
 
-  it("should call callback for each pressure transition", () => {
+  it("should call callback for each pressure level transition", () => {
     const transitions: string[] = [];
     const onPressure = jest.fn((level: string) => transitions.push(level));
 
-    const { result } = renderHook(() => {
-      const optimizer = useMobileMemoryOptimizer({
+    const { result } = renderHook(() =>
+      useMemoryPressureAlert(onPressure, {
         budgetMB: 0.001, // 1KB
         pressureThresholds: { moderate: 0.3, critical: 0.7 },
-      });
-
-      const prevPressureRef = React.useRef<"normal" | "moderate" | "critical">("normal");
-
-      React.useEffect(() => {
-        if (optimizer.state.pressure !== prevPressureRef.current) {
-          onPressure(optimizer.state.pressure);
-          prevPressureRef.current = optimizer.state.pressure;
-        }
-      }, [optimizer.state.pressure]);
-
-      return optimizer;
-    });
+      })
+    );
 
     // Transition: normal -> moderate
     act(() => {
@@ -2294,7 +2222,6 @@ describe("Sprint 758 - useMemoryPressureAlert callback trigger (lines 594-595)",
         type: "data",
         size: 400,
         priority: 5,
-        id: "res1",
       });
     });
 
@@ -2304,12 +2231,60 @@ describe("Sprint 758 - useMemoryPressureAlert callback trigger (lines 594-595)",
         type: "data",
         size: 400,
         priority: 5,
-        id: "res2",
       });
     });
 
     // Should have captured both transitions
     expect(transitions).toContain("moderate");
     expect(transitions).toContain("critical");
+    expect(onPressure).toHaveBeenCalledTimes(2);
+  });
+
+  it("should call callback when pressure decreases (critical -> moderate -> normal)", () => {
+    const transitions: string[] = [];
+    const onPressure = jest.fn((level: string) => transitions.push(level));
+
+    const { result } = renderHook(() =>
+      useMemoryPressureAlert(onPressure, {
+        budgetMB: 0.001, // 1KB
+        pressureThresholds: { moderate: 0.3, critical: 0.7 },
+      })
+    );
+
+    // Go to critical
+    let id1: string, id2: string;
+    act(() => {
+      id1 = result.current.controls.register({
+        type: "data",
+        size: 500,
+        priority: 5,
+      });
+      id2 = result.current.controls.register({
+        type: "data",
+        size: 500,
+        priority: 5,
+      });
+    });
+
+    expect(result.current.pressure).toBe("critical");
+
+    // Remove one resource - should drop to moderate
+    act(() => {
+      result.current.controls.unregister(id1!);
+    });
+
+    expect(result.current.pressure).toBe("moderate");
+
+    // Remove second resource - should drop to normal
+    act(() => {
+      result.current.controls.unregister(id2!);
+    });
+
+    expect(result.current.pressure).toBe("normal");
+
+    // Should have all transitions recorded
+    expect(transitions).toContain("critical");
+    expect(transitions).toContain("moderate");
+    expect(transitions).toContain("normal");
   });
 });
