@@ -2,6 +2,43 @@
 
 ---
 
+## Sprint 536 - Autocritique (BACKEND)
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - test_ultra_fast_tts.py
+
+**Ce que j'ai fait:**
+1. **Créé 19 tests** pour ultra_fast_tts.py
+2. **Tests couvrent:** module state, backend initialization, init_ultra_fast_tts, ultra_fast_tts, async wrapper, benchmark
+3. **Tests avec mocks** pour simuler les backends externes (gpu_tts, fast_tts, sherpa_onnx)
+4. **Tests de fallback** - vérifie l'ordre GPU > MMS > Sherpa
+
+**Note: 8/10**
+
+**Points positifs:**
+- Tests complets avec mocks pour module dépendant de backends externes
+- Tests du comportement de fallback (GPU → MMS → Sherpa)
+- Tests de gestion d'erreurs
+- Tous les 19 tests passent
+
+**Points négatifs (sois HONNÊTE):**
+- Pas de tests pour le backend sherpa avec audio réel
+- Test async simplifié (run_in_executor difficile à mocker)
+- Pas de tests de performance
+
+**Ce que j'aurais dû faire différemment:**
+- Ajouter des tests d'intégration si les backends sont disponibles
+- Tester la conversion audio pour sherpa backend
+
+**Risques introduits:**
+- Aucun risque - tests seulement
+
+**Amélioration pour le prochain sprint:**
+- Sprint 537 FRONTEND - Optimiser un hook frontend
+- Focus sur hooks avec potentiel d'optimisation mémoire
+
+---
+
 ## Sprint 546 (BACKEND) - Autocritique
 
 **Date:** 2026-01-24
