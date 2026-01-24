@@ -795,13 +795,14 @@ describe("useAvatarStatePersistence", () => {
 
       const { result } = renderHook(() => useAvatarStatePersistence());
 
-      let loaded: Partial<RecoverableAvatarState> | null = null;
+      let loaded: ReturnType<typeof result.current.load> | null = null;
       act(() => {
         loaded = result.current.load();
       });
 
-      expect(loaded?.speaking).toBe(true);
-      expect(loaded?.listeningIntensity).toBe(0.7);
+      expect(loaded).not.toBeNull();
+      expect((loaded as Record<string, unknown>)?.speaking).toBe(true);
+      expect((loaded as Record<string, unknown>)?.listeningIntensity).toBe(0.7);
     });
 
     it("should return null when no stored state", () => {

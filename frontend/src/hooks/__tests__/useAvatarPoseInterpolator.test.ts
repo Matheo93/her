@@ -560,7 +560,7 @@ describe("branch coverage - easing functions", () => {
 
   it("should apply easeIn easing (line 299)", () => {
     const { result } = renderHook(() =>
-      useAvatarPoseInterpolator({ mode: "smooth" })
+      useAvatarPoseInterpolator({ mode: "cubic" })
     );
 
     act(() => {

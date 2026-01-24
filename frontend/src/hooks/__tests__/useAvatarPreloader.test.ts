@@ -588,12 +588,12 @@ describe("useAvatarAssetsPreload", () => {
   });
 
   it("should add new assets when assets change (lines 1060-1063)", async () => {
-    const initialAssets = [
+    const initialAssets: Array<{ type: "model" | "texture" | "audio" | "animation"; url: string }> = [
       { type: "model" as const, url: "/avatar/model1.glb" },
     ];
 
     const { result, rerender } = renderHook(
-      ({ assets }) => useAvatarAssetsPreload(assets, { autoStart: false }),
+      ({ assets }: { assets: Array<{ type: "model" | "texture" | "audio" | "animation"; url: string }> }) => useAvatarAssetsPreload(assets, { autoStart: false }),
       { initialProps: { assets: initialAssets } }
     );
 
@@ -603,9 +603,9 @@ describe("useAvatarAssetsPreload", () => {
 
     expect(result.current.progress.total).toBe(1);
 
-    const newAssets = [
-      { type: "model" as const, url: "/avatar/model2.glb" },
-      { type: "texture" as const, url: "/avatar/texture2.png" },
+    const newAssets: Array<{ type: "model" | "texture" | "audio" | "animation"; url: string }> = [
+      { type: "model", url: "/avatar/model2.glb" },
+      { type: "texture", url: "/avatar/texture2.png" },
     ];
 
     rerender({ assets: newAssets });
@@ -1672,7 +1672,7 @@ describe("branch coverage - texture timeout (line 272)", () => {
 
     const onAssetFailed = jest.fn();
     const { result } = renderHook(() =>
-      useAvatarPreloader({ loadTimeout: 100 }, { onAssetFailed })
+      useAvatarPreloader({ assetTimeout: 100 }, { onAssetFailed })
     );
 
     act(() => {

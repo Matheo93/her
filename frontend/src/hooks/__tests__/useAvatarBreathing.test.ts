@@ -573,14 +573,15 @@ describe("useActivityBreathing", () => {
   });
 
   it("should update pattern when activity changes", () => {
+    type ActivityType = "idle" | "speaking" | "listening" | "excited";
     const { result, rerender } = renderHook(
-      ({ activity }) => useActivityBreathing(activity),
-      { initialProps: { activity: "idle" as const } }
+      ({ activity }: { activity: ActivityType }) => useActivityBreathing(activity),
+      { initialProps: { activity: "idle" as ActivityType } }
     );
 
     expect(result.current.pattern).toBe("relaxed");
 
-    rerender({ activity: "speaking" as const });
+    rerender({ activity: "speaking" as ActivityType });
 
     expect(result.current.pattern).toBe("speaking");
   });

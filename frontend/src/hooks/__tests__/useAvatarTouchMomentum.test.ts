@@ -768,11 +768,11 @@ describe("branch coverage - reset (lines 306-310)", () => {
   });
 });
 
-describe("branch coverage - onPositionChange callback (line 374)", () => {
-  it("should call onPositionChange during drag", () => {
-    const onPositionChange = jest.fn();
+describe("branch coverage - onDragStart callback (line 374)", () => {
+  it("should call onDragStart during drag", () => {
+    const onDragStart = jest.fn();
     const { result } = renderHook(() =>
-      useAvatarTouchMomentum({}, { onPositionChange })
+      useAvatarTouchMomentum({}, { onDragStart })
     );
 
     mockTime = 0;

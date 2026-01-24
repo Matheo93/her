@@ -1478,7 +1478,7 @@ describe("branch coverage - throttledFrames increment (line 538)", () => {
     const { result } = renderHook(() =>
       useAvatarRenderScheduler({
         targetFPS: 30, // Low FPS
-        throttleOnHidden: true,
+        visibilityAware: true,
       })
     );
 
@@ -1494,9 +1494,8 @@ describe("branch coverage - throttledFrames increment (line 538)", () => {
   it("should track updates scheduled correctly", () => {
     const { result } = renderHook(() =>
       useAvatarRenderScheduler({
-        enableAdaptiveFPS: true,
+        adaptiveTargetFPS: true,
         minFPS: 15,
-        maxFPS: 60,
       })
     );
 

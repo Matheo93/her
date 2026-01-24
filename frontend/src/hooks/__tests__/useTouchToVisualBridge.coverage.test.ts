@@ -763,7 +763,10 @@ describe("useTouchToVisualBridge coverage - Sprint 765", () => {
         );
       });
 
-      advanceFrame(16);
+      // Advance frame within act() to ensure React state updates are processed
+      act(() => {
+        advanceFrame(16);
+      });
 
       expect(result.current.cssFilter).toContain("brightness");
       expect(result.current.cssFilter).toContain("blur");
