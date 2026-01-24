@@ -8,6 +8,13 @@ started_at: "2026-01-24T13:16:40Z"
 
 Sprint 539 Alterne backend frontend. Autocritique note sur 10. GO.
 
+## Sprint 561 - COMPLETED
+
+**Domain:** FRONTEND
+**Work done:** Created 115 tests for useLipSync hook (exports, VISEME_BLEND_SHAPES mapping, PHONEME_TO_VISEME mapping, initialization, options, controls, useSimpleLipSync, useVisemeSequence, blend shape smoothing, audio analysis, edge cases)
+**Commit:** 4e1bf8d
+**Note:** 8/10
+
 ## Sprint 560 - COMPLETED
 
 **Domain:** BACKEND
@@ -162,4 +169,4 @@ Sprint 539 Alterne backend frontend. Autocritique note sur 10. GO.
 **Commit:** 1ea67a3
 **Note:** 7/10
 
-Ready for Sprint 561 (FRONTEND)
+Ready for Sprint 562 (BACKEND)
