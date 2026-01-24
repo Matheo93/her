@@ -2150,6 +2150,14 @@ describe("Sprint 749 - startGroup sets pending to running (line 710)", () => {
 // ============================================================================
 
 describe("Sprint 750 - shouldSkipFrame low priority modulo branch (lines 328-329)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should schedule low priority animation and track metrics", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       enableFrameSkipping: true,
@@ -2217,6 +2225,14 @@ describe("Sprint 750 - shouldSkipFrame low priority modulo branch (lines 328-329
 });
 
 describe("Sprint 750 - shouldSkipFrame deferred always true (line 332)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should always skip deferred priority regardless of frame count", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       enableFrameSkipping: true,

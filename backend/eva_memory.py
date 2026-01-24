@@ -15,6 +15,7 @@ from dataclasses import dataclass, field, asdict
 from collections import defaultdict
 from functools import lru_cache
 import asyncio
+from threading import Lock
 
 # Optional async file I/O
 try:
@@ -165,6 +166,14 @@ class EvaMemorySystem:
         self._profiles_dirty = False
         self._core_memories_dirty = False
         self._pending_save_task: Optional[asyncio.Task] = None
+
+        # Context cache for repeated calls with same user/message (latency optimization)
+        self._context_cache: Dict[str, tuple] = {}  # key -> (timestamp, result)
+        self._context_cache_ttl = 5.0  # Cache valid for 5 seconds
+        self._cache_lock = Lock()
+
+        # ID counter for faster generation (avoids MD5 when possible)
+        self._id_counter = 0
 
         # Load persisted data
         self._load_profiles()
