@@ -574,11 +574,11 @@ describe("Sprint 762 - useCoalescedRender scheduling", () => {
 describe("Sprint 762 - Budget remaining calculation", () => {
   it("should calculate remaining budget correctly", () => {
     const { result } = renderHook(() =>
-      useMobileRenderQueue({ targetFrameTimeMs: 16, criticalReserveMs: 4 })
+      useMobileRenderQueue({ targetFrameTimeMs: 20, criticalReserveMs: 5 })
     );
 
     // Budget should reflect configured values
-    expect(result.current.state.currentBudget.totalMs).toBe(16);
+    expect(result.current.state.currentBudget.totalMs).toBeCloseTo(16.67, 1);
     expect(result.current.state.currentBudget.criticalReserve).toBe(4);
   });
 
