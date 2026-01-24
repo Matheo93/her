@@ -1394,6 +1394,14 @@ describe("Sprint 749 - stagger delay in processFrame (lines 449-452)", () => {
 });
 
 describe("Sprint 749 - frame budget break (line 444)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should break loop when max animations per frame exceeded", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       maxAnimationsPerFrame: 2,

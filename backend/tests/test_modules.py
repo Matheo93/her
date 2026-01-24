@@ -311,13 +311,13 @@ class TestEvaExpressionDataStructures:
 
     def test_emotion_patterns_dict(self):
         """Test EMOTION_PATTERNS dictionary has patterns for emotions."""
-        from eva_expression import EMOTION_PATTERNS
+        from eva_expression import EMOTION_PATTERNS_COMPILED
 
-        assert "joy" in EMOTION_PATTERNS
-        assert "sadness" in EMOTION_PATTERNS
+        assert "joy" in EMOTION_PATTERNS_COMPILED
+        assert "sadness" in EMOTION_PATTERNS_COMPILED
 
-        # Each emotion should have at least one pattern
-        for emotion, patterns in EMOTION_PATTERNS.items():
+        # Each emotion should have at least one compiled pattern
+        for emotion, patterns in EMOTION_PATTERNS_COMPILED.items():
             assert len(patterns) > 0
 
 

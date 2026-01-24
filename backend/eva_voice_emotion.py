@@ -2,11 +2,17 @@
 EVA Voice Emotion Detection
 Prosodic analysis to detect emotions from voice audio
 Uses librosa for feature extraction + rules/ML for classification
+
+Optimizations:
+- Pre-computed emotion profile means for O(1) lookup
+- Module-level constants for default returns
+- Deque for history with maxlen for O(1) removal
 """
 
 import numpy as np
 from typing import Dict, Any, Optional, Tuple, List
 from dataclasses import dataclass
+from collections import deque
 import io
 import time
 
@@ -36,6 +42,17 @@ class VoiceEmotion:
     valence: float  # -1 (negative) to 1 (positive)
     arousal: float  # 0 (calm) to 1 (excited)
     features: Dict[str, float]
+
+
+# Pre-computed default VoiceEmotion for neutral/error returns (module-level for performance)
+_DEFAULT_NEUTRAL_EMOTION = VoiceEmotion(
+    emotion="neutral",
+    confidence=0.3,
+    intensity=0.5,
+    valence=0.0,
+    arousal=0.3,
+    features={}
+)
 
 
 @dataclass

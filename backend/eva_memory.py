@@ -119,15 +119,21 @@ class EvaMemorySystem:
             re.compile(r"j'ai horreur de (.+?)(?:\.|,|$)")
         ],
         "work": [
-            re.compile(r"je travaille (?:comme |en tant que )?(.+?)(?:\.|,|$)"),
-            re.compile(r"je suis (.+?) de profession"),
-            re.compile(r"mon (?:métier|travail|job) c'est (.+?)(?:\.|,|$)")
+            re.compile(r"je travaille (?:comme |en tant que )?(.+?)(?:\.|,|$)", re.IGNORECASE),
+            re.compile(r"je suis (.+?) de profession", re.IGNORECASE),
+            re.compile(r"mon (?:métier|travail|job|boulot) c'est (.+?)(?:\.|,|$)", re.IGNORECASE),
+            re.compile(r"je bosse (?:comme |en tant que )?(.+?)(?:\.|,|$)", re.IGNORECASE),
+            re.compile(r"dans la vie je suis (.+?)(?:\.|,|$)", re.IGNORECASE),
+            re.compile(r"je fais du (.+?) comme travail", re.IGNORECASE)
         ],
         "goal": [
-            re.compile(r"je veux (.+?)(?:\.|,|$)"),
-            re.compile(r"j'aimerais (.+?)(?:\.|,|$)"),
-            re.compile(r"mon objectif c'est (.+?)(?:\.|,|$)"),
-            re.compile(r"je rêve de (.+?)(?:\.|,|$)")
+            re.compile(r"je veux (.+?)(?:\.|,|$)", re.IGNORECASE),
+            re.compile(r"j'aimerais (.+?)(?:\.|,|$)", re.IGNORECASE),
+            re.compile(r"mon objectif c'est (.+?)(?:\.|,|$)", re.IGNORECASE),
+            re.compile(r"je rêve de (.+?)(?:\.|,|$)", re.IGNORECASE),
+            re.compile(r"mon but c'est (.+?)(?:\.|,|$)", re.IGNORECASE),
+            re.compile(r"j'ai pour projet de (.+?)(?:\.|,|$)", re.IGNORECASE),
+            re.compile(r"un jour je voudrais (.+?)(?:\.|,|$)", re.IGNORECASE)
         ]
     }
 

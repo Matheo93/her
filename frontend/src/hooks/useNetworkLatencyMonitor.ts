@@ -151,9 +151,26 @@ const QUALITY_THRESHOLDS = {
 
 function calculatePercentile(values: number[], percentile: number): number {
   if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
+  // Use slice() instead of spread for slightly better performance
+  const sorted = values.slice().sort((a, b) => a - b);
   const index = Math.ceil((percentile / 100) * sorted.length) - 1;
   return sorted[Math.max(0, index)];
+}
+
+/**
+ * Calculate multiple percentiles in a single pass (optimization for multiple percentile calculations)
+ */
+function calculateMultiplePercentiles(
+  values: number[],
+  percentiles: number[]
+): number[] {
+  if (values.length === 0) return percentiles.map(() => 0);
+  // Sort once, then calculate all percentiles
+  const sorted = values.slice().sort((a, b) => a - b);
+  return percentiles.map((p) => {
+    const index = Math.ceil((p / 100) * sorted.length) - 1;
+    return sorted[Math.max(0, index)];
+  });
 }
 
 function calculateStandardDeviation(values: number[]): number {
