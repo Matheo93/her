@@ -303,40 +303,59 @@ describe("useRequestCoalescer - Request Caching", () => {
   test("should clear cache on clearCache call", async () => {
     const executor = jest.fn().mockResolvedValue({ result: true });
     const { result } = renderHook(() =>
-      useRequestCoalescer({ executor, batchWindow: 0, enableCache: true })
+      useRequestCoalescer({ executor, batchWindow: 0, enableCache: true, cacheTTL: 10000 })
     );
 
-    // Store reference to controls before async
     const controls = result.current.controls;
 
+    // Make a request that gets cached
     await act(async () => {
       await controls.request("/api/test", { id: 1 });
     });
 
-    expect(result.current.state.cacheSize).toBe(1);
+    // Second request should hit cache
+    let response: any;
+    await act(async () => {
+      response = await controls.request("/api/test", { id: 1 });
+    });
+    expect(response.fromCache).toBe(true);
 
+    // Clear cache
     act(() => {
       controls.clearCache();
     });
 
-    expect(result.current.state.cacheSize).toBe(0);
+    // After clearing, third request should NOT hit cache
+    await act(async () => {
+      response = await controls.request("/api/test", { id: 1 });
+    });
+    expect(response.fromCache).toBe(false);
   });
 
-  test("should track cache size", async () => {
+  test("should track cache behavior with multiple requests", async () => {
     const executor = jest.fn().mockResolvedValue({ result: true });
     const { result } = renderHook(() =>
-      useRequestCoalescer({ executor, batchWindow: 0, enableCache: true })
+      useRequestCoalescer({ executor, batchWindow: 0, enableCache: true, cacheTTL: 10000 })
     );
 
-    // Store reference before async
     const controls = result.current.controls;
 
+    // Make two different requests
     await act(async () => {
       await controls.request("/api/test1");
       await controls.request("/api/test2");
     });
 
-    expect(result.current.state.cacheSize).toBe(2);
+    // Both should be cached now, verify by making same requests
+    let response1: any, response2: any;
+    await act(async () => {
+      response1 = await controls.request("/api/test1");
+      response2 = await controls.request("/api/test2");
+    });
+
+    expect(response1.fromCache).toBe(true);
+    expect(response2.fromCache).toBe(true);
+    expect(result.current.metrics.cacheHits).toBe(2);
   });
 
   test("should generate unique cache keys for different data", async () => {
@@ -357,17 +376,26 @@ describe("useRequestCoalescer - Request Caching", () => {
   test("should use custom cache key when provided", async () => {
     const executor = jest.fn().mockResolvedValue({ result: true });
     const { result } = renderHook(() =>
-      useRequestCoalescer({ executor, batchWindow: 0, enableCache: true })
+      useRequestCoalescer({ executor, batchWindow: 0, enableCache: true, cacheTTL: 10000 })
     );
 
     const controls = result.current.controls;
 
+    // First request with custom cache key
     await act(async () => {
       await controls.request("/api/test", { id: 1 }, { cacheKey: "custom-key" });
     });
 
     expect(executor).toHaveBeenCalled();
-    expect(result.current.state.cacheSize).toBe(1);
+
+    // Second request with same cache key should hit cache
+    let response: any;
+    await act(async () => {
+      response = await controls.request("/api/different-endpoint", { id: 2 }, { cacheKey: "custom-key" });
+    });
+
+    expect(response.fromCache).toBe(true);
+    expect(result.current.metrics.cacheHits).toBe(1);
   });
 });
 
