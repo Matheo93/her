@@ -80,6 +80,8 @@ class UserProfile:
     last_interaction: Optional[float] = None
     favorite_topics: List[str] = field(default_factory=list)
     avoid_topics: List[str] = field(default_factory=list)
+    work: Optional[str] = None  # User's profession/job
+    goals: List[str] = field(default_factory=list)  # User's goals/aspirations
 
     def to_dict(self) -> dict:
         return asdict(self)
