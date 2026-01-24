@@ -9,7 +9,11 @@
  * Sprint 226: Mobile UX improvements
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+
+// Pre-compiled regex patterns for O(1) lookup (Sprint 531)
+const IOS_REGEX = /iphone|ipad|ipod/;
+const ANDROID_REGEX = /android/;
 
 interface MobileDetectResult {
   isMobile: boolean;
@@ -41,9 +45,9 @@ export function useMobileDetect(): MobileDetectResult {
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
 
-    // User agent detection
-    const isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    const isAndroid = /android/.test(ua);
+    // User agent detection (using pre-compiled regex - Sprint 531)
+    const isIOS = IOS_REGEX.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const isAndroid = ANDROID_REGEX.test(ua);
     const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
 
     // Breakpoint-based detection
@@ -66,18 +70,31 @@ export function useMobileDetect(): MobileDetectResult {
     });
   }, []);
 
+  // Debounce ref to avoid excessive re-renders during resize
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const debouncedDetect = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(detectDevice, 100);
+  }, [detectDevice]);
+
   useEffect(() => {
     detectDevice();
 
-    // Listen for resize and orientation changes
-    window.addEventListener("resize", detectDevice);
+    // Listen for resize (debounced) and orientation changes (immediate)
+    window.addEventListener("resize", debouncedDetect);
     window.addEventListener("orientationchange", detectDevice);
 
     return () => {
-      window.removeEventListener("resize", detectDevice);
+      window.removeEventListener("resize", debouncedDetect);
       window.removeEventListener("orientationchange", detectDevice);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
     };
-  }, [detectDevice]);
+  }, [detectDevice, debouncedDetect]);
 
   return state;
 }

@@ -149,9 +149,39 @@ const DEFAULT_MAX_SKIP: Record<TaskPriority, number> = {
   idle: 10,
 };
 
+// Task ID counter for more efficient ID generation (avoids Date.now() syscall)
+let taskIdCounter = 0;
+
 function generateId(): string {
-  return `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `task-${++taskIdCounter}-${Math.random().toString(36).substr(2, 9)}`;
 }
+
+// Pre-computed initial states (module-level for performance)
+const INITIAL_STATE: SchedulerState = {
+  isRunning: false,
+  currentFps: 60,
+  targetFps: 60,
+  frameBudget: 16.67,
+  budgetUtilization: 0,
+  activeTaskCount: 0,
+  pendingTaskCount: 0,
+  droppedFrames: 0,
+  frameNumber: 0,
+};
+
+const INITIAL_METRICS: SchedulerMetrics = {
+  totalFrames: 0,
+  droppedFrames: 0,
+  averageFps: 60,
+  minFps: 60,
+  maxFps: 60,
+  averageBudgetUsage: 0,
+  taskExecutions: 0,
+  deferredTasks: 0,
+};
+
+// History buffer size for FPS/budget tracking
+const HISTORY_SIZE = 60;
 
 export function useMobileFrameScheduler(
   initialConfig: Partial<SchedulerConfig> = {}
@@ -161,28 +191,15 @@ export function useMobileFrameScheduler(
     ...initialConfig,
   });
 
-  const [state, setState] = useState<SchedulerState>({
-    isRunning: false,
-    currentFps: 60,
+  // Using pre-computed initial state with config overrides
+  const [state, setState] = useState<SchedulerState>(() => ({
+    ...INITIAL_STATE,
     targetFps: config.targetFps,
     frameBudget: config.frameBudgetMs,
-    budgetUtilization: 0,
-    activeTaskCount: 0,
-    pendingTaskCount: 0,
-    droppedFrames: 0,
-    frameNumber: 0,
-  });
+  }));
 
-  const [metrics, setMetrics] = useState<SchedulerMetrics>({
-    totalFrames: 0,
-    droppedFrames: 0,
-    averageFps: 60,
-    minFps: 60,
-    maxFps: 60,
-    averageBudgetUsage: 0,
-    taskExecutions: 0,
-    deferredTasks: 0,
-  });
+  // Using pre-computed initial metrics
+  const [metrics, setMetrics] = useState<SchedulerMetrics>(INITIAL_METRICS);
 
   const [frameInfo, setFrameInfo] = useState<FrameInfo | null>(null);
 
@@ -353,18 +370,19 @@ export function useMobileFrameScheduler(
 
       setFrameInfo(currentFrameInfo);
 
-      // Update FPS history
+      // Update FPS history (using HISTORY_SIZE constant, slice instead of shift for better performance)
       const currentFps = 1000 / deltaTime;
       fpsHistoryRef.current.push(currentFps);
-      if (fpsHistoryRef.current.length > 60) {
-        fpsHistoryRef.current.shift();
+      if (fpsHistoryRef.current.length > HISTORY_SIZE) {
+        // Use slice to remove oldest instead of shift (avoids O(n) reindex in some engines)
+        fpsHistoryRef.current = fpsHistoryRef.current.slice(-HISTORY_SIZE);
       }
 
-      // Update budget history
+      // Update budget history (using HISTORY_SIZE constant)
       const budgetUtilization = (budgetUsed / frameBudget) * 100;
       budgetHistoryRef.current.push(budgetUtilization);
-      if (budgetHistoryRef.current.length > 60) {
-        budgetHistoryRef.current.shift();
+      if (budgetHistoryRef.current.length > HISTORY_SIZE) {
+        budgetHistoryRef.current = budgetHistoryRef.current.slice(-HISTORY_SIZE);
       }
 
       // Adaptive frame rate

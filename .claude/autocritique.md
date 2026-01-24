@@ -2,6 +2,47 @@
 
 ---
 
+## Sprint 525 - Autocritique (FRONTEND)
+
+**Date:** 2026-01-24
+**Domaine:** Frontend TypeScript - useNetworkLatencyMonitor.ts optimization
+
+**Ce que j'ai fait:**
+1. **`calculateMultiplePercentiles()`** - Nouvelle fonction pour calculer p50/p90/p95/p99 en un seul tri
+2. **`values.slice().sort()` au lieu de `[...values].sort()`** - Légèrement plus efficace
+3. **Réduit 4 opérations de tri à 1** dans updateMetrics
+4. **60 tests passent** (2 nouveaux tests ajoutés)
+
+**Note: 7/10**
+
+**Points positifs:**
+- Vraie optimisation de performance (4 tris → 1 tri)
+- Algorithme optimal pour le cas d'usage (multiple percentiles)
+- Tests ajoutés pour valider l'optimisation
+- Respect de l'alternance BACKEND/FRONTEND
+- Code backward compatible
+
+**Points négatifs (sois HONNÊTE):**
+- Pas de benchmark avant/après pour mesurer l'impact réel
+- L'impact est probablement marginal (50 samples max)
+- N'ai pas optimisé d'autres parties du hook
+- calculatePercentile() original toujours présent (dead code potentiel)
+
+**Ce que j'aurais dû faire différemment:**
+- Supprimer calculatePercentile() inutilisée ou la réutiliser en interne
+- Créer un benchmark pour mesurer l'impact
+- Optimiser aussi calculateJitter et calculateStandardDeviation
+
+**Risques introduits:**
+- Aucun risque majeur (optimisation interne)
+- Si les percentiles demandés changent, il faut mettre à jour l'appel
+
+**Amélioration pour le prochain sprint:**
+- Sprint 526 BACKEND - Alterner comme requis
+- Mesurer les performances avant/après
+
+---
+
 ## Sprint 524 BIS - Autocritique (BACKEND)
 
 **Date:** 2026-01-24
@@ -1370,5 +1411,127 @@
 **Amélioration pour le prochain sprint:**
 - Sprint 550 BACKEND - alterner comme requis
 - Audit des autres hooks pour le même bug potentiel
+
+---
+
+## Sprint 550 (BACKEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - fix test_modules.py
+
+**Ce que j'ai fait:**
+- Corrigé test_emotion_patterns_dict qui échouait (ImportError)
+- Changé l'import de EMOTION_PATTERNS vers EMOTION_PATTERNS_COMPILED
+- 38 tests passent maintenant (vs 37 avant la correction)
+
+**Note: 4/10**
+
+**Points positifs:**
+- Bug corrigé rapidement
+- Tous les tests passent maintenant
+- Correction minime mais nécessaire
+
+**Points négatifs (sois HONNÊTE):**
+- Travail MINUSCULE - une seule ligne changée
+- Ce bug existait probablement depuis un refactoring précédent non testé
+- Je n'ai pas cherché d'autres tests cassés similaires
+- Pas d'amélioration de performance ou de fonctionnalité
+
+**Ce que j'aurais dû faire différemment:**
+- Chercher tous les tests qui importent des noms changés/supprimés
+- Ajouter des tests de régression pour les exports publics
+- Profiter de ce sprint pour faire une vraie amélioration en plus du fix
+
+**Risques introduits:**
+- Aucun risque (correction de test seulement)
+
+**Amélioration pour le prochain sprint:**
+- Sprint 551 FRONTEND - alterner comme requis
+- Faire plus qu'un simple fix - vraie amélioration
+
+---
+
+## Sprint 547 (BACKEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - eva_expression.py tests
+
+**Ce que j'ai fait:**
+- Créé test_eva_expression.py avec 38 tests complets
+- Tests couvrent: Emotion dataclass, EMOTIONS dict, EMOTION_PATTERNS_COMPILED
+- Tests couvrent: _NEGATIVE_WORDS, _AFFIRMATIVE_WORDS frozensets
+- Tests couvrent: EvaExpressionSystem (init, detect_emotion, get_voice_params)
+- Tests couvrent: get_animation_suggestion, get_breathing_sound, get_emotion_sound
+- Tests couvrent: process_for_expression, global functions
+- Tous les 38 tests passent en ~17s
+
+**Note: 7/10**
+
+**Points positifs:**
+- Couverture complète de eva_expression.py (était partiellement couvert)
+- Tests bien structurés par fonctionnalité (12 classes de tests)
+- Tests pour tous les types d'émotion (joy, sadness, surprise, etc.)
+- Tests pour les animations, breathing sounds, emotion sounds
+- Tests pour les fonctions globales (detect_emotion, get_expression_data)
+
+**Points négatifs (sois HONNÊTE):**
+- Je n'ai PAS optimisé le code, juste ajouté des tests
+- Pas de mesure de couverture précise avec pytest-cov
+- Les tests manuels pour sounds dépendent d'un état interne simulé
+- Le fichier test_eva_expression.py existait peut-être déjà (auto-commité Sprint 530)
+
+**Ce que j'aurais dû faire différemment:**
+- Vérifier si le fichier test existait déjà avant de créer
+- Mesurer la couverture avec --cov pour savoir ce qui manque
+- Ajouter des tests pour l'initialisation avec TTS réel (si disponible)
+
+**Risques introduits:**
+- Aucun risque (tests seulement)
+- Tests peuvent échouer si les patterns d'émotion changent
+
+**Amélioration pour le prochain sprint:**
+- Sprint 548 FRONTEND - Alterner comme requis
+- Focus sur les optimisations de latence mobile
+- Mesurer la couverture avant d'ajouter des tests
+
+---
+
+## Sprint 551 (FRONTEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Frontend TypeScript - useAvatarEyebrowController tests
+
+**Ce que j'ai fait:**
+- Créé fichier de test pour useAvatarEyebrowController (34 tests)
+- Tests couvrent: initialization, setExpression (12 expressions), playAnimation, stopAnimation
+- Tests pour: triggerMicroExpression, triggerEmphasis, syncWithEmotion (5 emotions)
+- Tests pour: reset, updateConfig, cleanup
+- Tous les 34 tests passent en ~1.6s
+
+**Note: 6/10**
+
+**Points positifs:**
+- 34 tests complets pour un hook complexe
+- Couverture de toutes les 12 expressions (neutral à flirty)
+- Tests pour les 3 modes (both, left, right)
+- Tests pour enable/disable des fonctionnalités
+
+**Points négatifs (sois HONNÊTE):**
+- Pas pu mesurer la couverture (ressources système saturées)
+- Je n'ai PAS amélioré le hook, juste ajouté des tests
+- Les tests d'animation (RAF frames) sont superficiels
+- Pas de tests pour idle variation et micro-expression auto-trigger
+
+**Ce que j'aurais dû faire différemment:**
+- Attendre que les ressources se libèrent pour mesurer la couverture
+- Ajouter des tests pour le loop d'animation avec RAF callbacks
+- Tester les easings (linear, ease-in, ease-out, ease-in-out)
+
+**Risques introduits:**
+- Aucun risque (tests seulement)
+
+**Amélioration pour le prochain sprint:**
+- Sprint 552 BACKEND - alterner comme requis
+- Mesurer la couverture quand le système est stable
 
 ---

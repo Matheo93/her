@@ -135,14 +135,34 @@ class VoiceEmotionDetector:
         }
     }
 
+    # Pre-computed profile means for O(1) lookup in detect_emotion (class-level for performance)
+    _PROFILE_MEANS: Dict[str, Dict[str, float]] = {}
+
+    @classmethod
+    def _compute_profile_means(cls) -> None:
+        """Pre-compute mean values for each emotion profile."""
+        if cls._PROFILE_MEANS:
+            return  # Already computed
+        for emotion, profile in cls.EMOTION_PROFILES.items():
+            cls._PROFILE_MEANS[emotion] = {
+                "pitch_mean": (profile["pitch_mean"][0] + profile["pitch_mean"][1]) / 2,
+                "pitch_std": (profile["pitch_std"][0] + profile["pitch_std"][1]) / 2,
+                "energy_mean": (profile["energy_mean"][0] + profile["energy_mean"][1]) / 2,
+                "speech_rate": (profile["speech_rate"][0] + profile["speech_rate"][1]) / 2,
+            }
+
     def __init__(self, sample_rate: int = 16000):
         self.sample_rate = sample_rate
         self.baseline_features: Optional[ProsodicFeatures] = None
         self._calibration_samples = []
 
         # Running averages for baseline (user-specific calibration)
-        self._pitch_history = []
-        self._energy_history = []
+        # Use deque with maxlen for O(1) removal instead of list slicing
+        self._pitch_history: deque = deque(maxlen=20)
+        self._energy_history: deque = deque(maxlen=20)
+
+        # Pre-compute profile means once at class level
+        self._compute_profile_means()
 
         if not LIBROSA_AVAILABLE:
             print("⚠️ VoiceEmotionDetector: librosa not available")
@@ -230,14 +250,13 @@ class VoiceEmotionDetector:
             return None
 
     def update_baseline(self, features: ProsodicFeatures):
-        """Update baseline with new sample (for calibration)"""
+        """Update baseline with new sample (for calibration).
+
+        Uses deque with maxlen=20 for O(1) removal instead of list slicing.
+        """
         self._pitch_history.append(features.pitch_mean)
         self._energy_history.append(features.energy_mean)
-
-        # Keep last 20 samples
-        if len(self._pitch_history) > 20:
-            self._pitch_history = self._pitch_history[-20:]
-            self._energy_history = self._energy_history[-20:]
+        # Note: deque with maxlen automatically removes oldest items, no manual slicing needed
 
         # Update baseline as running average
         if len(self._pitch_history) >= 3:
@@ -256,18 +275,14 @@ class VoiceEmotionDetector:
             )
 
     def detect_emotion(self, audio_data: np.ndarray, sr: int = None) -> VoiceEmotion:
-        """Detect emotion from audio"""
+        """Detect emotion from audio.
+
+        Optimized: Uses pre-computed profile means for O(1) lookup.
+        """
         features = self.extract_features(audio_data, sr)
 
         if features is None:
-            return VoiceEmotion(
-                emotion="neutral",
-                confidence=0.3,
-                intensity=0.5,
-                valence=0.0,
-                arousal=0.3,
-                features={}
-            )
+            return _DEFAULT_NEUTRAL_EMOTION
 
         # Update baseline
         self.update_baseline(features)
@@ -279,38 +294,39 @@ class VoiceEmotionDetector:
         rel_energy = features.energy_mean / baseline.energy_mean if baseline.energy_mean > 0 else 1.0
         rel_speech_rate = features.speech_rate / 4.0  # Normalize to ~4 syllables/sec
 
-        # Match against emotion profiles
+        # Match against emotion profiles (using pre-computed means for O(1) lookup)
         scores = {}
         for emotion, profile in self.EMOTION_PROFILES.items():
             score = 0.0
             checks = 0
+            means = self._PROFILE_MEANS[emotion]
 
-            # Pitch mean
+            # Pitch mean (using pre-computed mean)
             if profile["pitch_mean"][0] <= rel_pitch <= profile["pitch_mean"][1]:
                 score += 1.0
             else:
-                score += 1.0 - min(1.0, abs(rel_pitch - np.mean(profile["pitch_mean"])))
+                score += 1.0 - min(1.0, abs(rel_pitch - means["pitch_mean"]))
             checks += 1
 
-            # Pitch variation
+            # Pitch variation (using pre-computed mean)
             if profile["pitch_std"][0] <= rel_pitch_std <= profile["pitch_std"][1]:
                 score += 1.0
             else:
-                score += 1.0 - min(1.0, abs(rel_pitch_std - np.mean(profile["pitch_std"])))
+                score += 1.0 - min(1.0, abs(rel_pitch_std - means["pitch_std"]))
             checks += 1
 
-            # Energy
+            # Energy (using pre-computed mean)
             if profile["energy_mean"][0] <= rel_energy <= profile["energy_mean"][1]:
                 score += 1.0
             else:
-                score += 1.0 - min(1.0, abs(rel_energy - np.mean(profile["energy_mean"])))
+                score += 1.0 - min(1.0, abs(rel_energy - means["energy_mean"]))
             checks += 1
 
-            # Speech rate
+            # Speech rate (using pre-computed mean)
             if profile["speech_rate"][0] <= rel_speech_rate <= profile["speech_rate"][1]:
                 score += 1.0
             else:
-                score += 1.0 - min(1.0, abs(rel_speech_rate - np.mean(profile["speech_rate"])))
+                score += 1.0 - min(1.0, abs(rel_speech_rate - means["speech_rate"]))
             checks += 1
 
             scores[emotion] = score / checks
@@ -351,7 +367,7 @@ class VoiceEmotionDetector:
         )
 
     def detect_from_bytes(self, audio_bytes: bytes) -> VoiceEmotion:
-        """Detect emotion from audio bytes (WAV format)"""
+        """Detect emotion from audio bytes (WAV format)."""
         try:
             # Load audio from bytes
             audio_io = io.BytesIO(audio_bytes)
@@ -359,14 +375,7 @@ class VoiceEmotionDetector:
             return self.detect_emotion(audio_data, sr)
         except Exception as e:
             print(f"⚠️ Error processing audio bytes: {e}")
-            return VoiceEmotion(
-                emotion="neutral",
-                confidence=0.3,
-                intensity=0.5,
-                valence=0.0,
-                arousal=0.3,
-                features={}
-            )
+            return _DEFAULT_NEUTRAL_EMOTION
 
     def is_user_about_to_speak(self, audio_data: np.ndarray, sr: int = None) -> Tuple[bool, float]:
         """Detect if user is about to speak (breathing/preparation sounds)"""

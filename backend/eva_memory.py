@@ -129,10 +129,12 @@ class EvaMemorySystem:
         "goal": [
             re.compile(r"je veux (.+?)(?:\.|,|$)", re.IGNORECASE),
             re.compile(r"j'aimerais (.+?)(?:\.|,|$)", re.IGNORECASE),
-            re.compile(r"mon objectif c'est (.+?)(?:\.|,|$)", re.IGNORECASE),
+            re.compile(r"mon objectif c['']?est (?:de )?(.+?)(?:\.|,|$)", re.IGNORECASE),
+            re.compile(r"mon objectif c est (?:de )?(.+?)(?:\.|,|$)", re.IGNORECASE),
             re.compile(r"je rêve de (.+?)(?:\.|,|$)", re.IGNORECASE),
-            re.compile(r"mon but c'est (.+?)(?:\.|,|$)", re.IGNORECASE),
-            re.compile(r"j'ai pour projet de (.+?)(?:\.|,|$)", re.IGNORECASE),
+            re.compile(r"mon but c['']?est (?:de )?(.+?)(?:\.|,|$)", re.IGNORECASE),
+            re.compile(r"mon but c est (?:de )?(.+?)(?:\.|,|$)", re.IGNORECASE),
+            re.compile(r"j['']?ai pour projet de (.+?)(?:\.|,|$)", re.IGNORECASE),
             re.compile(r"un jour je voudrais (.+?)(?:\.|,|$)", re.IGNORECASE)
         ]
     }

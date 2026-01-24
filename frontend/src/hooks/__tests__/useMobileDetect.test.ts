@@ -179,6 +179,14 @@ describe("useMobileDetect", () => {
   });
 
   describe("resize handling", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it("should update on resize", () => {
       const { result } = renderHook(() => useMobileDetect());
 
@@ -190,6 +198,11 @@ describe("useMobileDetect", () => {
 
       act(() => {
         window.dispatchEvent(new Event("resize"));
+      });
+
+      // Resize is debounced (100ms) - advance timer (Sprint 531)
+      act(() => {
+        jest.advanceTimersByTime(100);
       });
 
       expect(result.current.isMobile).toBe(true);
