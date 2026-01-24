@@ -1667,3 +1667,118 @@ class TestWorkGoalPatterns:
         data = profile.to_dict()
         assert data["work"] == "ingénieur"
         assert data["goals"] == ["voyager", "apprendre"]
+
+
+class TestContextCacheOptimization:
+    """Tests for context cache optimization (Sprint 524)."""
+
+    @pytest.fixture
+    def temp_storage(self):
+        """Create temporary storage directory."""
+        temp_dir = tempfile.mkdtemp()
+        yield temp_dir
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def test_context_cache_hit(self, temp_storage):
+        """Test that repeated calls use cache."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("cache_user")
+
+        # First call should compute
+        ctx1 = system.get_context_memories("cache_user", "hello world")
+
+        # Second call should hit cache
+        ctx2 = system.get_context_memories("cache_user", "hello world")
+
+        assert ctx1 == ctx2
+
+    def test_context_cache_disabled(self, temp_storage):
+        """Test use_cache=False bypasses cache."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("no_cache_user")
+
+        # Call with cache
+        ctx1 = system.get_context_memories("no_cache_user", "test msg", use_cache=True)
+
+        # Call without cache
+        ctx2 = system.get_context_memories("no_cache_user", "test msg", use_cache=False)
+
+        # Both should return valid results
+        assert ctx1["relationship_stage"] == ctx2["relationship_stage"]
+
+    def test_invalidate_context_cache_single_user(self, temp_storage):
+        """Test cache invalidation for single user."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("invalidate_user")
+
+        # Populate cache
+        system.get_context_memories("invalidate_user", "hello")
+
+        # Invalidate
+        system.invalidate_context_cache("invalidate_user")
+
+        # Cache should be empty for this user
+        cache_key = "invalidate_user:hello"
+        assert cache_key not in system._context_cache
+
+    def test_invalidate_context_cache_all(self, temp_storage):
+        """Test cache invalidation for all users."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("user1")
+        system.get_or_create_profile("user2")
+
+        # Populate cache for both users
+        system.get_context_memories("user1", "msg1")
+        system.get_context_memories("user2", "msg2")
+
+        # Invalidate all
+        system.invalidate_context_cache()
+
+        # Cache should be empty
+        assert len(system._context_cache) == 0
+
+    def test_generate_id_with_timestamp(self, temp_storage):
+        """Test _generate_id with pre-computed timestamp."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        # Same timestamp, different IDs due to counter
+        id1 = system._generate_id("content1", now=1000.0)
+        id2 = system._generate_id("content2", now=1000.0)
+
+        assert id1 != id2
+        assert len(id1) == 16  # 10 digits + 6 digits
+
+    def test_generate_id_without_timestamp(self, temp_storage):
+        """Test _generate_id uses time.time() when now is None."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        id1 = system._generate_id("content")
+        id2 = system._generate_id("content")
+
+        assert id1 != id2
+
+    def test_cache_size_limit(self, temp_storage):
+        """Test cache doesn't grow unbounded."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("limit_user")
+
+        # Add many entries to cache
+        for i in range(150):
+            system.get_context_memories("limit_user", f"message {i}")
+
+        # Cache should be limited to ~100 entries (pruned to 50 when exceeding)
+        assert len(system._context_cache) <= 100
