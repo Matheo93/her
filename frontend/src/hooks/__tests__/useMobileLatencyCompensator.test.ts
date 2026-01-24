@@ -806,4 +806,52 @@ describe("useMobileLatencyCompensator - branch coverage", () => {
       expect(result.current.metrics.latencySamples).toBe(1);
     });
   });
+
+  describe("Sprint 538 - clearPending with timeouts (line 633)", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("should clear all timeouts when clearPending is called (line 633)", () => {
+      const clearTimeoutSpy = jest.spyOn(global, "clearTimeout");
+
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({ timeoutThreshold: 5000, autoRollbackOnTimeout: true })
+      );
+
+      // Start optimistic updates using the compensate API to create timeouts
+      act(() => {
+        result.current.controls.compensate(
+          () => {}, // apply function
+          () => {}, // rollback function
+          { value: 1 }, // optimistic value
+          { value: 0 } // previous value
+        );
+      });
+
+      // Start another to have multiple pending updates
+      act(() => {
+        result.current.controls.compensate(
+          () => {},
+          () => {},
+          { value: 2 },
+          { value: 0 }
+        );
+      });
+
+      // Clear all pending updates (should clear timeouts)
+      act(() => {
+        result.current.controls.clearPending();
+      });
+
+      // Verify clearTimeout was called (for each pending update's timeout)
+      expect(clearTimeoutSpy).toHaveBeenCalled();
+
+      clearTimeoutSpy.mockRestore();
+    });
+  });
 });
