@@ -8,6 +8,20 @@ started_at: "2026-01-24T13:16:40Z"
 
 Sprint 539 Alterne backend frontend. Autocritique note sur 10. GO.
 
+## Sprint 563 - COMPLETED
+
+**Domain:** FRONTEND
+**Work done:** Created 90 tests for useAvatarBreathingSystem hook (exports, initialization, config, metrics, controls, 10 patterns, keyframe, sub-hooks, disabled/subtle mode, cleanup, edge cases)
+**Commit:** 57bb4e4
+**Note:** 8/10
+
+## Sprint 562 - COMPLETED
+
+**Domain:** BACKEND
+**Work done:** Created 59 tests for generate_visemes_solid.py (constants, VISEMES dictionary, composite_on_background, warp_triangle, warp_mouth_region, main function, integration, edge cases)
+**Commit:** 87dda23
+**Note:** 8/10
+
 ## Sprint 561 - COMPLETED
 
 **Domain:** FRONTEND
@@ -169,4 +183,4 @@ Sprint 539 Alterne backend frontend. Autocritique note sur 10. GO.
 **Commit:** 1ea67a3
 **Note:** 7/10
 
-Ready for Sprint 562 (BACKEND)
+Ready for Sprint 564 (BACKEND)
