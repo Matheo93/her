@@ -124,7 +124,31 @@ class EvaEmotionalTTS:
         EmotionStyle.NEUTRAL: "Speak naturally and conversationally",
     }
 
+    # Pre-computed intensity prompts for all 30 combinations (10 emotions × 3 levels)
+    # Eliminates string concatenation at runtime for O(1) lookup
+    _INTENSITY_PROMPTS: Dict[EmotionStyle, Dict[str, str]] = {}
+
+    @classmethod
+    def _compute_intensity_prompts(cls) -> None:
+        """Pre-compute all intensity prompt variations once at class level.
+
+        Creates 30 pre-computed strings (10 emotions × 3 intensity levels)
+        to eliminate string concatenation at runtime.
+        """
+        if cls._INTENSITY_PROMPTS:
+            return  # Already computed
+
+        for emotion in EmotionStyle:
+            base_prompt = cls._EMOTION_PROMPTS.get(emotion, cls._EMOTION_PROMPTS[EmotionStyle.NEUTRAL])
+            cls._INTENSITY_PROMPTS[emotion] = {
+                "high": base_prompt + " with strong emotional expression",
+                "normal": base_prompt,
+                "low": base_prompt + " with subtle emotional undertones",
+            }
+
     def __init__(self, model_cache_dir: str = "./tts_models"):
+        # Pre-compute intensity prompts once at class level
+        self._compute_intensity_prompts()
         self.model_cache_dir = model_cache_dir
         self.cosyvoice = None
         self.sample_rate = 22050  # CosyVoice default
@@ -157,16 +181,17 @@ class EvaEmotionalTTS:
     def _get_emotion_prompt(self, emotion: EmotionStyle, intensity: float) -> str:
         """Generate emotion instruction for CosyVoice.
 
-        Optimized: Uses pre-computed class-level prompts for O(1) lookup.
+        Optimized: Uses pre-computed class-level prompts for O(1) dict lookup.
+        Eliminates string concatenation at runtime.
         """
-        base_prompt = self._EMOTION_PROMPTS.get(emotion, self._EMOTION_PROMPTS[EmotionStyle.NEUTRAL])
+        prompts = self._INTENSITY_PROMPTS.get(emotion, self._INTENSITY_PROMPTS[EmotionStyle.NEUTRAL])
 
         if intensity > 0.7:
-            return base_prompt + " with strong emotional expression"
+            return prompts["high"]
         elif intensity < 0.3:
-            return base_prompt + " with subtle emotional undertones"
+            return prompts["low"]
 
-        return base_prompt
+        return prompts["normal"]
 
     def _apply_prosody_effects(
         self,

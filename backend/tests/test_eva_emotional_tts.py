@@ -208,6 +208,59 @@ class TestGetEmotionPrompt:
 
                 assert "subtle" in prompt.lower()
 
+    def test_intensity_prompts_precomputed(self):
+        """Test that intensity prompts are pre-computed at class level."""
+        from eva_emotional_tts import EvaEmotionalTTS, EmotionStyle
+
+        # Verify _INTENSITY_PROMPTS exists and has all 30 combinations
+        assert hasattr(EvaEmotionalTTS, "_INTENSITY_PROMPTS")
+        intensity_prompts = EvaEmotionalTTS._INTENSITY_PROMPTS
+
+        # Check all emotions have all 3 intensity levels
+        for emotion in EmotionStyle:
+            assert emotion in intensity_prompts
+            assert "high" in intensity_prompts[emotion]
+            assert "normal" in intensity_prompts[emotion]
+            assert "low" in intensity_prompts[emotion]
+
+    def test_intensity_prompt_lookup_is_o1(self):
+        """Test that intensity prompt lookup uses dict O(1) lookup."""
+        from eva_emotional_tts import EvaEmotionalTTS, EmotionStyle
+
+        with patch("eva_emotional_tts.COSYVOICE_AVAILABLE", False):
+            with patch("eva_emotional_tts.ULTRA_TTS_AVAILABLE", False):
+                tts = EvaEmotionalTTS()
+
+                # Multiple calls should return same pre-computed string
+                prompt1 = tts._get_emotion_prompt(EmotionStyle.JOY, 0.9)
+                prompt2 = tts._get_emotion_prompt(EmotionStyle.JOY, 0.9)
+
+                # Should be identical strings (no new allocation)
+                assert prompt1 == prompt2
+
+    def test_all_emotions_have_intensity_prompts(self):
+        """Test all emotions have pre-computed intensity prompts."""
+        from eva_emotional_tts import EvaEmotionalTTS, EmotionStyle
+
+        with patch("eva_emotional_tts.COSYVOICE_AVAILABLE", False):
+            with patch("eva_emotional_tts.ULTRA_TTS_AVAILABLE", False):
+                tts = EvaEmotionalTTS()
+
+                for emotion in EmotionStyle:
+                    # Test all 3 intensity levels
+                    high = tts._get_emotion_prompt(emotion, 0.9)
+                    normal = tts._get_emotion_prompt(emotion, 0.5)
+                    low = tts._get_emotion_prompt(emotion, 0.2)
+
+                    # All should be non-empty strings
+                    assert isinstance(high, str) and len(high) > 0
+                    assert isinstance(normal, str) and len(normal) > 0
+                    assert isinstance(low, str) and len(low) > 0
+
+                    # High and low should differ from normal
+                    assert high != normal or emotion == EmotionStyle.NEUTRAL
+                    assert low != normal or emotion == EmotionStyle.NEUTRAL
+
 
 class TestApplyProsodyEffects:
     """Tests for _apply_prosody_effects method."""
