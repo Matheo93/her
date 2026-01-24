@@ -1100,3 +1100,170 @@ class TestExtractAndStoreAsync:
         )
 
         assert "les araignées" in profile.avoid_topics
+
+    def test_do_extract_and_store_emotional_pattern(self, temp_storage):
+        """Test _do_extract_and_store updates emotional patterns (line 567-571)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        profile = system.get_or_create_profile("emotion_pattern_user")
+
+        # Use non-neutral emotion
+        system._do_extract_and_store(
+            "emotion_pattern_user",
+            "Bonjour!",
+            "Salut!",
+            "joy"
+        )
+
+        # Emotional patterns should be updated
+        assert "joy" in profile.emotional_patterns
+        assert profile.emotional_patterns["joy"] >= 0.1
+
+    def test_do_extract_and_store_trust_increase(self, temp_storage):
+        """Test _do_extract_and_store increases trust for long messages (line 573-575)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        profile = system.get_or_create_profile("trust_user")
+        initial_trust = profile.trust_level
+
+        # Long message (> 100 chars) should increase trust
+        long_message = "Je voudrais te raconter une longue histoire sur ma vie et mes aventures incroyables à travers le monde entier pendant plusieurs années."
+        assert len(long_message) > 100
+
+        system._do_extract_and_store(
+            "trust_user",
+            long_message,
+            "C'est fascinant!",
+            "neutral"
+        )
+
+        # Trust should have increased
+        assert profile.trust_level > initial_trust
+
+    def test_get_proactive_topics_with_interests(self, temp_storage):
+        """Test get_proactive_topics returns interest-based topics (lines 577-612)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        profile = system.get_or_create_profile("topics_user")
+        profile.interests = ["la musique", "le cinéma"]
+        profile.name = "Alice"
+
+        topics = system.get_proactive_topics("topics_user")
+
+        # Should return topics based on interests
+        assert len(topics) > 0
+        assert any(t["type"] == "interest" for t in topics)
+
+    def test_get_proactive_topics_with_name(self, temp_storage):
+        """Test get_proactive_topics includes personal topics when name known (line 603)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        profile = system.get_or_create_profile("named_user")
+        profile.name = "Bob"
+
+        topics = system.get_proactive_topics("named_user")
+
+        # Should include personal topic with name
+        personal_topics = [t for t in topics if t["type"] == "personal"]
+        assert len(personal_topics) > 0
+        assert "Bob" in personal_topics[0]["prompt"]
+
+
+class TestDirtyTracking:
+    """Tests for Sprint 530 - Dirty tracking for batch saves."""
+
+    @pytest.fixture
+    def temp_storage(self):
+        """Create temporary storage directory."""
+        temp_dir = tempfile.mkdtemp()
+        yield temp_dir
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def test_dirty_flag_initially_false(self, temp_storage):
+        """Test that dirty flags are initially False."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        assert system._profiles_dirty is False
+        assert system._core_memories_dirty is False
+
+    def test_mark_profiles_dirty(self, temp_storage):
+        """Test _mark_profiles_dirty sets the flag."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system._mark_profiles_dirty()
+
+        assert system._profiles_dirty is True
+
+    def test_mark_core_memories_dirty(self, temp_storage):
+        """Test _mark_core_memories_dirty sets the flag."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system._mark_core_memories_dirty()
+
+        assert system._core_memories_dirty is True
+
+    def test_flush_pending_saves_clears_dirty_flags(self, temp_storage):
+        """Test flush_pending_saves clears dirty flags and saves."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        # Create a profile with deferred save
+        system.get_or_create_profile("test_user", immediate_save=False)
+        assert system._profiles_dirty is True
+
+        # Flush should clear the flag
+        system.flush_pending_saves()
+
+        assert system._profiles_dirty is False
+
+    def test_get_or_create_profile_deferred_save(self, temp_storage):
+        """Test get_or_create_profile with immediate_save=False."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        # With immediate_save=False, should mark dirty instead of saving
+        profile = system.get_or_create_profile("deferred_user", immediate_save=False)
+
+        assert profile.user_id == "deferred_user"
+        assert system._profiles_dirty is True
+
+    def test_update_profile_deferred_save(self, temp_storage):
+        """Test update_profile with immediate_save=False."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        # First create with immediate save
+        system.get_or_create_profile("update_user")
+        system._profiles_dirty = False  # Reset flag
+
+        # Update with deferred save
+        system.update_profile("update_user", immediate_save=False, name="John")
+
+        assert system._profiles_dirty is True
+
+    @pytest.mark.asyncio
+    async def test_flush_pending_saves_async(self, temp_storage):
+        """Test async flush_pending_saves."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        # Create profile with deferred save
+        system.get_or_create_profile("async_user", immediate_save=False)
+        assert system._profiles_dirty is True
+
+        # Async flush should clear the flag
+        await system.flush_pending_saves_async()
+
+        assert system._profiles_dirty is False

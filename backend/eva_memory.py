@@ -159,6 +159,11 @@ class EvaMemorySystem:
         self.decay_rate = 0.1  # Memory importance decay per day
         self.max_context_memories = 10  # Max memories to include in context
 
+        # Dirty tracking for batch saves (performance optimization)
+        self._profiles_dirty = False
+        self._core_memories_dirty = False
+        self._pending_save_task: Optional[asyncio.Task] = None
+
         # Load persisted data
         self._load_profiles()
         self._load_core_memories()
@@ -260,8 +265,42 @@ class EvaMemorySystem:
         except Exception as e:
             print(f"⚠️ Failed to save core memories async: {e}")
 
-    def get_or_create_profile(self, user_id: str) -> UserProfile:
-        """Get or create user profile with O(1) lookup"""
+    def _mark_profiles_dirty(self):
+        """Mark profiles as needing save (batch optimization)"""
+        self._profiles_dirty = True
+
+    def _mark_core_memories_dirty(self):
+        """Mark core memories as needing save (batch optimization)"""
+        self._core_memories_dirty = True
+
+    def flush_pending_saves(self):
+        """Force save all dirty data immediately (sync)"""
+        if self._profiles_dirty:
+            self._save_profiles()
+            self._profiles_dirty = False
+        if self._core_memories_dirty:
+            self._save_core_memories()
+            self._core_memories_dirty = False
+
+    async def flush_pending_saves_async(self):
+        """Force save all dirty data immediately (async)"""
+        tasks = []
+        if self._profiles_dirty:
+            tasks.append(self._save_profiles_async())
+            self._profiles_dirty = False
+        if self._core_memories_dirty:
+            tasks.append(self._save_core_memories_async())
+            self._core_memories_dirty = False
+        if tasks:
+            await asyncio.gather(*tasks)
+
+    def get_or_create_profile(self, user_id: str, immediate_save: bool = True) -> UserProfile:
+        """Get or create user profile with O(1) lookup
+
+        Args:
+            user_id: User identifier
+            immediate_save: If True, save immediately. If False, mark dirty for batch save.
+        """
         profile = self.user_profiles.get(user_id)
         if profile is None:
             profile = UserProfile(
@@ -269,12 +308,21 @@ class EvaMemorySystem:
                 first_interaction=time.time()
             )
             self.user_profiles[user_id] = profile
-            self._save_profiles()
+            if immediate_save:
+                self._save_profiles()
+            else:
+                self._mark_profiles_dirty()
         return profile
 
-    def update_profile(self, user_id: str, **kwargs):
-        """Update user profile fields"""
-        profile = self.get_or_create_profile(user_id)
+    def update_profile(self, user_id: str, immediate_save: bool = True, **kwargs):
+        """Update user profile fields
+
+        Args:
+            user_id: User identifier
+            immediate_save: If True, save immediately. If False, mark dirty for batch save.
+            **kwargs: Profile fields to update
+        """
+        profile = self.get_or_create_profile(user_id, immediate_save=False)
         for key, value in kwargs.items():
             if hasattr(profile, key):
                 setattr(profile, key, value)
@@ -289,7 +337,10 @@ class EvaMemorySystem:
         elif profile.interaction_count > 5:
             profile.relationship_stage = "acquaintance"
 
-        self._save_profiles()
+        if immediate_save:
+            self._save_profiles()
+        else:
+            self._mark_profiles_dirty()
         return profile
 
     def add_memory(
