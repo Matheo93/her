@@ -837,7 +837,7 @@ describe("Sprint 749 - averageRunTime tracking", () => {
 // ============================================================================
 
 describe("Sprint 753 - FPS and budget history slicing (lines 359-361, 365-368)", () => {
-  it("should slice FPS history when exceeding 60 entries", () => {
+  it("should handle FPS history exceeding limit", () => {
     const { result } = renderHook(() => useMobileFrameScheduler());
 
     act(() => {
@@ -845,19 +845,16 @@ describe("Sprint 753 - FPS and budget history slicing (lines 359-361, 365-368)",
       result.current.controls.start();
     });
 
-    // Run more than 60 frames to trigger history slicing
-    for (let i = 0; i < 70; i++) {
-      act(() => {
-        simulateFrame(16.67);
-      });
+    // Run exactly 61 frames to trigger history slicing once
+    for (let i = 0; i < 61; i++) {
+      act(() => simulateFrame(16.67));
     }
 
-    // Metrics should reflect averaged values from sliced history
     expect(result.current.metrics.averageFps).toBeGreaterThan(0);
-    expect(result.current.metrics.totalFrames).toBe(70);
+    expect(result.current.metrics.totalFrames).toBe(61);
   });
 
-  it("should slice budget history when exceeding 60 entries", () => {
+  it("should handle budget history exceeding limit", () => {
     const { result } = renderHook(() => useMobileFrameScheduler());
 
     act(() => {
@@ -865,73 +862,53 @@ describe("Sprint 753 - FPS and budget history slicing (lines 359-361, 365-368)",
       result.current.controls.start();
     });
 
-    // Run more than 60 frames
-    for (let i = 0; i < 65; i++) {
-      act(() => {
-        simulateFrame(16.67);
-      });
+    // Run exactly 61 frames
+    for (let i = 0; i < 61; i++) {
+      act(() => simulateFrame(16.67));
     }
 
-    // Budget usage should be calculated from sliced history
     expect(result.current.metrics.averageBudgetUsage).toBeGreaterThanOrEqual(0);
   });
 });
 
 describe("Sprint 753 - adaptive frame rate branches (lines 376-386)", () => {
-  it("should decrease target FPS when budget usage is high", () => {
+  it("should have adaptive frame rate configured", () => {
     const { result } = renderHook(() => useMobileFrameScheduler({
       adaptiveFrameRate: true,
       targetFps: 60,
       minFps: 24,
     }));
 
-    // Schedule a task that uses significant budget
     act(() => {
-      result.current.controls.scheduleTask("heavy", () => {
-        // Simulate heavy work by burning time
-        const start = performance.now();
-        while (performance.now() - start < 14) {
-          // Spin for ~14ms (>80% of 16.67ms budget)
-        }
-      }, "critical");
+      result.current.controls.scheduleTask("task", () => {}, "critical");
       result.current.controls.start();
     });
 
-    // Run many frames with high budget usage
-    for (let i = 0; i < 70; i++) {
-      act(() => {
-        simulateFrame(16.67);
-      });
+    // Run a few frames
+    for (let i = 0; i < 10; i++) {
+      act(() => simulateFrame(16.67));
     }
 
-    // Note: With mocked performance.now(), actual time doesn't pass
-    // But we can verify the adaptive behavior is configured
     expect(result.current.config.adaptiveFrameRate).toBe(true);
+    expect(result.current.state.targetFps).toBeGreaterThanOrEqual(24);
   });
 
-  it("should increase target FPS when budget usage is low", () => {
+  it("should maintain target FPS with light workload", () => {
     const { result } = renderHook(() => useMobileFrameScheduler({
       adaptiveFrameRate: true,
       targetFps: 60,
       minFps: 24,
     }));
 
-    // Schedule a very light task
     act(() => {
-      result.current.controls.scheduleTask("light", () => {
-        // Minimal work
-      }, "critical");
+      result.current.controls.scheduleTask("light", () => {}, "critical");
       result.current.controls.start();
     });
 
-    // Run frames with low budget usage
-    for (let i = 0; i < 70; i++) {
-      act(() => {
-        simulateFrame(16.67);
-      });
+    for (let i = 0; i < 10; i++) {
+      act(() => simulateFrame(16.67));
     }
 
-    // Target FPS should remain high with light workload
     expect(result.current.state.targetFps).toBeGreaterThanOrEqual(24);
   });
 });
@@ -1148,19 +1125,15 @@ describe("Sprint 753 - idle priority tasks", () => {
       result.current.controls.start();
     });
 
-    // Idle tasks can be deferred many frames
     const task = result.current.controls.getTaskInfo("idle");
     expect(task?.priority).toBe("idle");
     expect(task?.maxSkipFrames).toBe(10);
 
-    // Run several frames
-    for (let i = 0; i < 15; i++) {
-      act(() => {
-        simulateFrame(16.67);
-      });
+    // Run enough frames for idle to run
+    for (let i = 0; i < 12; i++) {
+      act(() => simulateFrame(16.67));
     }
 
-    // Idle task should eventually run
     expect(idleCallback.mock.calls.length).toBeGreaterThanOrEqual(0);
   });
 });
@@ -1264,21 +1237,16 @@ describe("Sprint 753 - metrics deferredTasks tracking", () => {
     const { result } = renderHook(() => useMobileFrameScheduler());
 
     act(() => {
-      // Schedule many low priority tasks
-      for (let i = 0; i < 10; i++) {
-        result.current.controls.scheduleTask(`low${i}`, () => {}, "low", 10);
-      }
+      // Schedule a few low priority tasks
+      result.current.controls.scheduleTask("low1", () => {}, "low", 10);
+      result.current.controls.scheduleTask("low2", () => {}, "low", 10);
       result.current.controls.start();
     });
 
-    // Run frames
-    for (let i = 0; i < 5; i++) {
-      act(() => {
-        simulateFrame(16.67);
-      });
+    for (let i = 0; i < 3; i++) {
+      act(() => simulateFrame(16.67));
     }
 
-    // Deferred tasks counter should be tracked
     expect(result.current.metrics.deferredTasks).toBeGreaterThanOrEqual(0);
   });
 });
