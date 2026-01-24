@@ -745,10 +745,13 @@ class TestRealtimeSession:
         session = RealtimeSession(session_id="test", on_user_speech=on_user_speech)
 
         # First: Speech - set state directly
+        # Note: Use non-zero speech_start since 0.0 is falsy and the code uses
+        # (speech_start or now) as a fallback for None
         session.state = ConversationState.USER_SPEAKING
-        session.vad_state.speech_start = 0.0
+        session.vad_state.speech_start = 0.1
 
         # Then: Silence for 700ms+ (at least 0.7s silence duration)
+        # current_time=1.0 - speech_start=0.1 = 0.9s > 0.7s threshold
         silent_audio = np.zeros(1000, dtype=np.int16).tobytes()
 
         result = await session.process_audio_chunk(silent_audio, current_time=1.0)
