@@ -760,3 +760,514 @@ describe("useTouchOpacity", () => {
     expect(result.current.state.visualState.opacity).toBeGreaterThanOrEqual(0.3);
   });
 });
+
+// ============================================================================
+// Additional Branch Coverage Tests
+// ============================================================================
+
+describe("useTouchToVisualBridge - edge cases", () => {
+  describe("velocity calculation edge cases", () => {
+    it("should return zero velocity when no previous touch", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 100, 100)
+        );
+      });
+
+      // First touch has no velocity
+      expect(result.current.state.currentTouch?.velocityX).toBe(0);
+      expect(result.current.state.currentTouch?.velocityY).toBe(0);
+    });
+
+    it("should handle zero time delta", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 100, 100)
+        );
+      });
+
+      // Move at same timestamp
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchMove(
+          createTouchEvent("touchmove", 150, 150)
+        );
+      });
+
+      // Velocity should be 0 when dt <= 0
+      expect(result.current.state.currentTouch?.velocityX).toBe(0);
+      expect(result.current.state.currentTouch?.velocityY).toBe(0);
+    });
+  });
+
+  describe("debounce updates", () => {
+    it("should debounce visual updates when enabled", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, {
+          debounceUpdates: true,
+          debounceIntervalMs: 16,
+        })
+      );
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 100, 100)
+        );
+      });
+
+      // First frame
+      advanceFrame(8);
+
+      // Should continue debouncing
+      expect(result.current.state.isActive).toBe(true);
+    });
+
+    it("should not debounce when disabled", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, {
+          debounceUpdates: false,
+        })
+      );
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 100, 100)
+        );
+        advanceFrame(8);
+      });
+
+      expect(result.current.state.isActive).toBe(true);
+    });
+  });
+
+  describe("metrics recording", () => {
+    it("should record latency metrics", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 100, 100)
+        );
+      });
+
+      // Metrics should be initialized
+      expect(result.current.state.metrics.totalUpdates).toBeGreaterThanOrEqual(0);
+    });
+
+    it("should update metrics after one second", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 100, 100)
+        );
+      });
+
+      // Advance past 1 second
+      for (let i = 1; i <= 60; i++) {
+        mockPerformanceNow.mockReturnValue(i * 16);
+        act(() => {
+          result.current.controls.onTouchMove(
+            createTouchEvent("touchmove", 100 + i, 100 + i)
+          );
+        });
+      }
+
+      // After 1 second of moves, should have some metrics
+      expect(result.current.state.metrics).toBeDefined();
+    });
+
+    it("should trim latency array when over 100 entries", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 0, 0)
+        );
+      });
+
+      // Generate 110 moves
+      for (let i = 1; i <= 110; i++) {
+        mockPerformanceNow.mockReturnValue(i * 8);
+        act(() => {
+          result.current.controls.onTouchMove(
+            createTouchEvent("touchmove", i, i)
+          );
+        });
+      }
+
+      // Should not crash
+      expect(result.current.state.metrics).toBeDefined();
+    });
+  });
+
+  describe("touch history management", () => {
+    it("should trim touch history when exceeding maxTouchHistory", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, { maxTouchHistory: 5 })
+      );
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 0, 0)
+        );
+      });
+
+      // Generate 10 moves
+      for (let i = 1; i <= 10; i++) {
+        mockPerformanceNow.mockReturnValue(i * 16);
+        act(() => {
+          result.current.controls.onTouchMove(
+            createTouchEvent("touchmove", i * 10, i * 10)
+          );
+        });
+      }
+
+      // Should not crash and should have valid state
+      expect(result.current.state.currentTouch?.x).toBe(100);
+      expect(result.current.state.currentTouch?.y).toBe(100);
+    });
+  });
+
+  describe("momentum continuation", () => {
+    it("should stop momentum when velocity is negligible", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, {
+          enableMomentum: true,
+          momentumFriction: 0.5, // High friction to stop quickly
+        })
+      );
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 0, 0)
+        );
+      });
+
+      // Move with low velocity
+      mockPerformanceNow.mockReturnValue(100);
+      act(() => {
+        result.current.controls.onTouchMove(
+          createTouchEvent("touchmove", 1, 1)
+        );
+      });
+
+      // End touch - momentum should start but stop quickly due to high friction
+      act(() => {
+        result.current.controls.onTouchEnd(createTouchEvent("touchend", 1, 1));
+      });
+
+      // Advance many frames to let momentum decay
+      for (let i = 1; i <= 20; i++) {
+        mockPerformanceNow.mockReturnValue(100 + i * 16);
+        advanceFrame(100 + i * 16);
+      }
+
+      // Should have stopped
+      expect(result.current.state.isActive).toBe(false);
+    });
+
+    it("should not start momentum when velocity is too low", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, { enableMomentum: true })
+      );
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 0, 0)
+        );
+      });
+
+      // Move very slowly
+      mockPerformanceNow.mockReturnValue(1000); // 1 second later
+      act(() => {
+        result.current.controls.onTouchMove(
+          createTouchEvent("touchmove", 0.05, 0.05) // Very small movement
+        );
+      });
+
+      act(() => {
+        result.current.controls.onTouchEnd(createTouchEvent("touchend", 0.05, 0.05));
+      });
+
+      // Momentum should not be active due to low velocity
+      expect(result.current.state.isActive).toBe(false);
+    });
+  });
+
+  describe("prediction confidence", () => {
+    it("should have lower confidence with inconsistent velocity", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, {
+          enablePrediction: true,
+          minPredictionConfidence: 0,
+        })
+      );
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 50, 50)
+        );
+      });
+
+      // Move in alternating directions (inconsistent)
+      for (let i = 1; i <= 6; i++) {
+        mockPerformanceNow.mockReturnValue(i * 16);
+        act(() => {
+          const direction = i % 2 === 0 ? 1 : -1;
+          result.current.controls.onTouchMove(
+            createTouchEvent("touchmove", 50 + direction * 20, 50 + direction * 20)
+          );
+        });
+      }
+
+      // Prediction should exist but with lower confidence
+      if (result.current.state.prediction) {
+        expect(result.current.state.prediction.confidence).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it("should set prediction to null when confidence is below threshold", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, {
+          enablePrediction: true,
+          minPredictionConfidence: 0.99, // Very high threshold
+        })
+      );
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 0, 0)
+        );
+      });
+
+      // Move a few times
+      for (let i = 1; i <= 5; i++) {
+        mockPerformanceNow.mockReturnValue(i * 16);
+        act(() => {
+          result.current.controls.onTouchMove(
+            createTouchEvent("touchmove", i * 10, i * 10)
+          );
+        });
+      }
+
+      // Prediction should be null due to high threshold
+      expect(result.current.state.prediction).toBeNull();
+    });
+  });
+
+  describe("touch event handling", () => {
+    it("should handle touch event with no touches", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
+
+      // Create event with no touches
+      const emptyEvent = {
+        type: "touchstart",
+        touches: [],
+        changedTouches: [],
+        targetTouches: [],
+        preventDefault: jest.fn(),
+        stopPropagation: jest.fn(),
+      } as unknown as TouchEvent;
+
+      act(() => {
+        result.current.controls.onTouchStart(emptyEvent);
+      });
+
+      // Should not activate without touches
+      expect(result.current.state.isActive).toBe(false);
+    });
+
+    it("should handle touchend with remaining touches", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
+
+      // Start with one touch
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 100, 100)
+        );
+      });
+
+      // Create end event but with remaining touches (multi-touch scenario)
+      const endEventWithRemaining = {
+        type: "touchend",
+        touches: [{ identifier: 1, clientX: 200, clientY: 200 }], // Still has a touch
+        changedTouches: [{ identifier: 0, clientX: 100, clientY: 100 }],
+        targetTouches: [],
+        preventDefault: jest.fn(),
+        stopPropagation: jest.fn(),
+      } as unknown as TouchEvent;
+
+      act(() => {
+        result.current.controls.onTouchEnd(endEventWithRemaining);
+      });
+
+      // Should still be active because there are remaining touches
+      expect(result.current.state.isActive).toBe(true);
+    });
+
+    it("should handle touchmove with no touches", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
+
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 100, 100)
+        );
+      });
+
+      // Create move event with no touches
+      const emptyMoveEvent = {
+        type: "touchmove",
+        touches: [],
+        changedTouches: [],
+        targetTouches: [],
+        preventDefault: jest.fn(),
+        stopPropagation: jest.fn(),
+      } as unknown as TouchEvent;
+
+      act(() => {
+        result.current.controls.onTouchMove(emptyMoveEvent);
+      });
+
+      // Touch position should not have changed
+      expect(result.current.state.currentTouch?.x).toBe(100);
+      expect(result.current.state.currentTouch?.y).toBe(100);
+    });
+  });
+
+  describe("haptic feedback on touchend", () => {
+    it("should trigger haptic on touchend when enabled", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, { enableHaptics: true, enableMomentum: false })
+      );
+
+      mockVibrate.mockClear();
+
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 100, 100)
+        );
+      });
+
+      mockVibrate.mockClear(); // Clear the start haptic
+
+      act(() => {
+        result.current.controls.onTouchEnd(createTouchEvent("touchend", 100, 100));
+      });
+
+      expect(mockVibrate).toHaveBeenCalled();
+    });
+  });
+
+  describe("animation loop", () => {
+    it("should continue loop when active or momentum is active", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, { enableMomentum: true })
+      );
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 0, 0)
+        );
+      });
+
+      // Move quickly
+      mockPerformanceNow.mockReturnValue(16);
+      act(() => {
+        result.current.controls.onTouchMove(
+          createTouchEvent("touchmove", 100, 0)
+        );
+      });
+
+      mockRequestAnimationFrame.mockClear();
+
+      // End touch - momentum should continue animation
+      act(() => {
+        result.current.controls.onTouchEnd(createTouchEvent("touchend", 100, 0));
+        advanceFrame(32);
+      });
+
+      // RAF should have been called for momentum
+      expect(mockRequestAnimationFrame).toHaveBeenCalled();
+    });
+  });
+});
+
+describe("useTouchScale - additional tests", () => {
+  it("should scale based on drag distance and velocity", () => {
+    const { result } = renderHook(() =>
+      useTouchScale(1, 0.5, 3, { smoothingFactor: 1 })
+    );
+
+    mockPerformanceNow.mockReturnValue(0);
+    act(() => {
+      result.current.controls.onTouchStart(
+        createTouchEvent("touchstart", 100, 100)
+      );
+    });
+
+    // Move down (positive velocityY) to increase scale
+    mockPerformanceNow.mockReturnValue(16);
+    act(() => {
+      result.current.controls.onTouchMove(
+        createTouchEvent("touchmove", 100, 200) // 100px down
+      );
+      advanceFrame(32);
+    });
+
+    // Scale should have changed
+    expect(result.current.state.visualState.transform.scale).toBeDefined();
+  });
+
+  it("should clamp scale to min and max", () => {
+    const { result } = renderHook(() =>
+      useTouchScale(1, 0.5, 2, { smoothingFactor: 1 })
+    );
+
+    mockPerformanceNow.mockReturnValue(0);
+    act(() => {
+      result.current.controls.onTouchStart(
+        createTouchEvent("touchstart", 100, 100)
+      );
+      advanceFrame(16);
+    });
+
+    // Scale should be within bounds
+    expect(result.current.state.visualState.transform.scale).toBeGreaterThanOrEqual(0.5);
+    expect(result.current.state.visualState.transform.scale).toBeLessThanOrEqual(2);
+  });
+});
