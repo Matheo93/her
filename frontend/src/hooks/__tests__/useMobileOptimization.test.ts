@@ -288,6 +288,32 @@ describe("useMobileOptimization", () => {
       // The implementation prioritizes good network/memory over low-end device flag
       expect(result.current.animations.enableBlurEffects).toBe(false); // Mobile mid-tier has no blur
     });
+
+    it("should return minimal animation settings when reduced motion is preferred with slow connection", () => {
+      // Set up for slow connection to skip mid-tier check
+      (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "3g";
+      (global.navigator as unknown as typeof mockNavigator).deviceMemory = 4;
+      (global.navigator as unknown as typeof mockNavigator).hardwareConcurrency = 4;
+
+      Object.defineProperty(window, 'matchMedia', {
+        writable: true,
+        configurable: true,
+        value: jest.fn().mockReturnValue({
+          matches: true, // prefers-reduced-motion: reduce
+          addEventListener: jest.fn(),
+          removeEventListener: jest.fn(),
+        }),
+      });
+
+      const { result } = renderHook(() => useMobileOptimization());
+
+      // With reduced motion, it should hit the reduced motion branch
+      expect(result.current.device.hasReducedMotion).toBe(true);
+      // Reduced motion on medium connection + medium memory triggers low-end path
+      // Because isLowEndDevice=true from reduced motion
+      expect(result.current.animations.enableParticles).toBe(false);
+      expect(result.current.animations.enableGlowEffects).toBe(false);
+    });
   });
 
   describe("websocket settings", () => {
@@ -308,10 +334,40 @@ describe("useMobileOptimization", () => {
       expect(result.current.websocket.reconnectMaxDelay).toBe(30000);
     });
 
+    it("should return mobile-optimized settings for mobile with medium connection", () => {
+      // Set up mobile device with medium connection
+      (global.navigator as unknown as typeof mockNavigator).userAgent =
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X)";
+      (global.navigator as unknown as typeof mockNavigator).maxTouchPoints = 5;
+      window.innerWidth = 375;
+      (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "3g";
+
+      const { result } = renderHook(() => useMobileOptimization());
+
+      expect(result.current.device.isMobile).toBe(true);
+      expect(result.current.device.connectionType).toBe("medium");
+      expect(result.current.websocket.reconnectDelay).toBe(1500);
+      expect(result.current.websocket.pingInterval).toBe(15000);
+      expect(result.current.websocket.reconnectMaxDelay).toBe(20000);
+      expect(result.current.websocket.connectionTimeout).toBe(10000);
+    });
+
     it("should enable exponential backoff", () => {
       const { result } = renderHook(() => useMobileOptimization());
 
       expect(result.current.websocket.enableBackoff).toBe(true);
+    });
+
+    it("should return default websocket settings for desktop with medium connection", () => {
+      // Desktop with medium connection - should hit the default case
+      (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "3g";
+
+      const { result } = renderHook(() => useMobileOptimization());
+
+      expect(result.current.device.isMobile).toBe(false);
+      expect(result.current.device.connectionType).toBe("medium");
+      expect(result.current.websocket.reconnectDelay).toBe(1500);
+      expect(result.current.websocket.pingInterval).toBe(12000);
     });
   });
 
