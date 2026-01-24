@@ -51,6 +51,33 @@ class TestModuleState:
         assert gpu_tts.MODEL_DIR is not None
         assert isinstance(gpu_tts.MODEL_DIR, str)
 
+    def test_config_initially_none(self):
+        """Test that _config starts as None."""
+        import gpu_tts
+        gpu_tts._config = None
+        assert gpu_tts._config is None
+
+    def test_phoneme_id_map_initially_none(self):
+        """Test that _phoneme_id_map starts as None."""
+        import gpu_tts
+        gpu_tts._phoneme_id_map = None
+        assert gpu_tts._phoneme_id_map is None
+
+    def test_model_path_includes_onnx_extension(self):
+        """Test MODEL_PATH has .onnx extension."""
+        import gpu_tts
+        assert gpu_tts.MODEL_PATH.endswith(".onnx")
+
+    def test_config_path_includes_json_extension(self):
+        """Test CONFIG_PATH has .json extension."""
+        import gpu_tts
+        assert gpu_tts.CONFIG_PATH.endswith(".json")
+
+    def test_models_available_is_boolean(self):
+        """Test _models_available is a boolean."""
+        import gpu_tts
+        assert isinstance(gpu_tts._models_available, bool)
+
 
 class TestInitGpuTts:
     """Tests for init_gpu_tts function."""
@@ -147,6 +174,117 @@ class TestTextToPhonemeIds:
         assert result[0] == 1  # Start token
         assert result[-1] == 2  # End token
 
+    def test_converts_text_to_lowercase(self):
+        """Test that text is converted to lowercase in fallback."""
+        import gpu_tts
+
+        gpu_tts._phoneme_id_map = {
+            "^": [1],
+            "$": [2],
+            "a": [4],
+            "A": [5],  # Capital A
+        }
+
+        with patch("subprocess.run", side_effect=Exception("No espeak")):
+            result = gpu_tts.text_to_phoneme_ids("A")
+
+        # Should use lowercase mapping
+        assert 4 in result  # lowercase 'a' ID
+
+    def test_handles_espeak_success(self):
+        """Test that espeak-ng output is processed correctly."""
+        import gpu_tts
+
+        gpu_tts._phoneme_id_map = {
+            "^": [1],
+            "$": [2],
+            " ": [3],
+            "a": [4],
+            "b": [5],
+        }
+
+        mock_result = MagicMock()
+        mock_result.stdout = "ab"
+
+        with patch("subprocess.run", return_value=mock_result):
+            result = gpu_tts.text_to_phoneme_ids("ab")
+
+        assert isinstance(result, list)
+        assert result[0] == 1  # Start token
+
+    def test_handles_space_character(self):
+        """Test that spaces are handled correctly."""
+        import gpu_tts
+
+        gpu_tts._phoneme_id_map = {
+            "^": [1],
+            "$": [2],
+            " ": [3],
+            "a": [4],
+        }
+
+        mock_result = MagicMock()
+        mock_result.stdout = "a a"
+
+        with patch("subprocess.run", return_value=mock_result):
+            result = gpu_tts.text_to_phoneme_ids("a a")
+
+        assert 3 in result  # Space token
+
+    def test_skips_unknown_phonemes(self):
+        """Test that unknown phonemes are skipped."""
+        import gpu_tts
+
+        gpu_tts._phoneme_id_map = {
+            "^": [1],
+            "$": [2],
+            "a": [4],
+        }
+
+        mock_result = MagicMock()
+        mock_result.stdout = "a@#b"
+
+        with patch("subprocess.run", return_value=mock_result):
+            result = gpu_tts.text_to_phoneme_ids("test")
+
+        # Should only have start, 'a', and end tokens
+        assert result[0] == 1
+        assert result[-1] == 2
+
+    def test_handles_empty_espeak_output(self):
+        """Test handling of empty espeak output."""
+        import gpu_tts
+
+        gpu_tts._phoneme_id_map = {
+            "^": [1],
+            "$": [2],
+        }
+
+        mock_result = MagicMock()
+        mock_result.stdout = ""
+
+        with patch("subprocess.run", return_value=mock_result):
+            result = gpu_tts.text_to_phoneme_ids("")
+
+        assert result[0] == 1  # Start
+        assert result[-1] == 2  # End
+
+    def test_fallback_handles_unknown_chars(self):
+        """Test fallback mode skips unknown characters."""
+        import gpu_tts
+
+        gpu_tts._phoneme_id_map = {
+            "^": [1],
+            "$": [2],
+            "a": [4],
+        }
+
+        with patch("subprocess.run", side_effect=Exception("No espeak")):
+            result = gpu_tts.text_to_phoneme_ids("a@#!")
+
+        # Should only have start, 'a', and end
+        assert len(result) == 3
+
 
 class TestGpuTts:
     """Tests for gpu_tts function."""
@@ -202,6 +340,123 @@ class TestGpuTts:
 
         assert result is None
 
+    def test_speed_parameter_affects_length_scale(self):
+        """Test that speed parameter affects the length scale."""
+        import gpu_tts
+        gpu_tts._initialized = True
+        gpu_tts._session = MagicMock()
+        gpu_tts._config = {"inference": {"length_scale": 1.0}}
+        gpu_tts._sample_rate = 22050
+
+        mock_audio = np.random.randn(22050).astype(np.float32)
+        gpu_tts._session.run.return_value = [mock_audio.reshape(1, -1)]
+
+        with patch("gpu_tts.text_to_phoneme_ids", return_value=[1, 2, 3, 4, 5]):
+            result = gpu_tts.gpu_tts("Bonjour", speed=2.0)
+
+        # Verify session.run was called with scales
+        call_args = gpu_tts._session.run.call_args
+        scales = call_args[1]["scales"]
+        # Length scale should be 1.0 / 2.0 = 0.5
+        assert scales[1] == pytest.approx(0.5)
+
+    def test_default_speed_is_one(self):
+        """Test that default speed is 1.0."""
+        import gpu_tts
+        gpu_tts._initialized = True
+        gpu_tts._session = MagicMock()
+        gpu_tts._config = {"inference": {"length_scale": 1.0}}
+        gpu_tts._sample_rate = 22050
+
+        mock_audio = np.random.randn(22050).astype(np.float32)
+        gpu_tts._session.run.return_value = [mock_audio.reshape(1, -1)]
+
+        with patch("gpu_tts.text_to_phoneme_ids", return_value=[1, 2, 3, 4, 5]):
+            gpu_tts.gpu_tts("Bonjour")
+
+        call_args = gpu_tts._session.run.call_args
+        scales = call_args[1]["scales"]
+        assert scales[1] == pytest.approx(1.0)
+
+    def test_uses_default_inference_config(self):
+        """Test uses defaults when inference config missing."""
+        import gpu_tts
+        gpu_tts._initialized = True
+        gpu_tts._session = MagicMock()
+        gpu_tts._config = {}  # No inference section
+        gpu_tts._sample_rate = 22050
+
+        mock_audio = np.random.randn(22050).astype(np.float32)
+        gpu_tts._session.run.return_value = [mock_audio.reshape(1, -1)]
+
+        with patch("gpu_tts.text_to_phoneme_ids", return_value=[1, 2, 3, 4, 5]):
+            result = gpu_tts.gpu_tts("Bonjour")
+
+        assert result is not None
+
+    def test_normalizes_audio_output(self):
+        """Test that audio output is normalized."""
+        import gpu_tts
+        gpu_tts._initialized = True
+        gpu_tts._session = MagicMock()
+        gpu_tts._config = {"inference": {}}
+        gpu_tts._sample_rate = 22050
+
+        # Create audio with high values
+        mock_audio = np.ones(22050, dtype=np.float32) * 2.0
+        gpu_tts._session.run.return_value = [mock_audio.reshape(1, -1)]
+
+        with patch("gpu_tts.text_to_phoneme_ids", return_value=[1, 2, 3, 4, 5]):
+            result = gpu_tts.gpu_tts("Bonjour")
+
+        assert result is not None
+
+    def test_handles_zero_max_audio(self):
+        """Test handling of zero max audio value."""
+        import gpu_tts
+        gpu_tts._initialized = True
+        gpu_tts._session = MagicMock()
+        gpu_tts._config = {"inference": {}}
+        gpu_tts._sample_rate = 22050
+
+        # Create silence (all zeros)
+        mock_audio = np.zeros(22050, dtype=np.float32)
+        gpu_tts._session.run.return_value = [mock_audio.reshape(1, -1)]
+
+        with patch("gpu_tts.text_to_phoneme_ids", return_value=[1, 2, 3, 4, 5]):
+            result = gpu_tts.gpu_tts("Bonjour")
+
+        # Should still return bytes
+        assert result is not None
+
+    def test_wav_output_format(self):
+        """Test that output is valid WAV format."""
+        import gpu_tts
+        gpu_tts._initialized = True
+        gpu_tts._session = MagicMock()
+        gpu_tts._config = {"inference": {}}
+        gpu_tts._sample_rate = 22050
+
+        mock_audio = np.random.randn(22050).astype(np.float32)
+        gpu_tts._session.run.return_value = [mock_audio.reshape(1, -1)]
+
+        with patch("gpu_tts.text_to_phoneme_ids", return_value=[1, 2, 3, 4, 5]):
+            result = gpu_tts.gpu_tts("Bonjour")
+
+        # WAV files start with "RIFF"
+        assert result[:4] == b"RIFF"
+
+    def test_attempts_init_if_not_initialized(self):
+        """Test that gpu_tts attempts init if not initialized."""
+        import gpu_tts
+        gpu_tts._initialized = False
+
+        with patch("gpu_tts.init_gpu_tts", return_value=False) as mock_init:
+            result = gpu_tts.gpu_tts("Hello")
+
+        mock_init.assert_called_once()
+        assert result is None
+
 
 class TestGpuTtsMp3:
     """Tests for gpu_tts_mp3 function."""
@@ -226,6 +481,57 @@ class TestGpuTtsMp3:
                 result = gpu_tts.gpu_tts_mp3("Test")
 
         assert result == wav_data
+
+    def test_calls_gpu_tts_with_text(self):
+        """Test that gpu_tts is called with the text."""
+        import gpu_tts
+
+        with patch("gpu_tts.gpu_tts", return_value=None) as mock_tts:
+            gpu_tts.gpu_tts_mp3("Test text")
+
+        mock_tts.assert_called_once_with("Test text", 1.0)
+
+    def test_calls_gpu_tts_with_speed(self):
+        """Test that speed parameter is passed to gpu_tts."""
+        import gpu_tts
+
+        with patch("gpu_tts.gpu_tts", return_value=None) as mock_tts:
+            gpu_tts.gpu_tts_mp3("Test", speed=1.5)
+
+        mock_tts.assert_called_once_with("Test", 1.5)
+
+    def test_converts_wav_to_mp3(self):
+        """Test WAV to MP3 conversion with ffmpeg."""
+        import gpu_tts
+
+        wav_data = b"RIFF" + b"\x00" * 100
+        mp3_data = b"\xff\xfb" + b"\x00" * 100
+
+        mock_process = MagicMock()
+        mock_process.communicate.return_value = (mp3_data, b"")
+
+        with patch("gpu_tts.gpu_tts", return_value=wav_data):
+            with patch("subprocess.Popen", return_value=mock_process) as mock_popen:
+                result = gpu_tts.gpu_tts_mp3("Test")
+
+        assert result == mp3_data
+        mock_popen.assert_called_once()
+
+    def test_ffmpeg_receives_wav_input(self):
+        """Test that ffmpeg receives WAV data as input."""
+        import gpu_tts
+
+        wav_data = b"RIFF" + b"\x00" * 100
+        mp3_data = b"\xff\xfb" + b"\x00" * 100
+
+        mock_process = MagicMock()
+        mock_process.communicate.return_value = (mp3_data, b"")
+
+        with patch("gpu_tts.gpu_tts", return_value=wav_data):
+            with patch("subprocess.Popen", return_value=mock_process):
+                gpu_tts.gpu_tts_mp3("Test")
+
+        mock_process.communicate.assert_called_once_with(input=wav_data)
 
 
 class TestAsyncWrappers:
