@@ -52,9 +52,9 @@ function createErrorResponse(status: number, statusText: string) {
 
 // Reset mocks before each test
 beforeEach(() => {
+  jest.useFakeTimers();
   jest.clearAllMocks();
   jest.clearAllTimers();
-  jest.useRealTimers();
   mockOnLine = true;
   mockFetch.mockReset();
   mockFetch.mockImplementation(() => createSuccessResponse({ data: "test" }));
@@ -62,7 +62,7 @@ beforeEach(() => {
 
 // Clean up after each test
 afterEach(() => {
-  jest.clearAllTimers();
+  jest.runOnlyPendingTimers();
   jest.useRealTimers();
 });
 
@@ -600,15 +600,15 @@ describe("useRequestCoalescer - Retry Logic", () => {
 
 describe("useRequestCoalescer - Request Cancellation", () => {
   test("should cancel all pending requests", () => {
-    const { result } = renderHook(() =>
+    const { result, unmount } = renderHook(() =>
       useRequestCoalescer({ batchWindow: 100 })
     );
 
     // Start multiple requests (they'll be queued)
     act(() => {
-      result.current.controls.request("/api/test1");
-      result.current.controls.request("/api/test2");
-      result.current.controls.request("/api/test3");
+      result.current.controls.request("/api/cancel-test1");
+      result.current.controls.request("/api/cancel-test2");
+      result.current.controls.request("/api/cancel-test3");
     });
 
     // Cancel all
@@ -617,6 +617,9 @@ describe("useRequestCoalescer - Request Cancellation", () => {
     });
 
     expect(result.current.state.pendingRequests).toBe(0);
+
+    // Cleanup
+    unmount();
   });
 
   test("should cleanup on unmount", () => {
@@ -626,7 +629,7 @@ describe("useRequestCoalescer - Request Cancellation", () => {
 
     // Start a request
     act(() => {
-      result.current.controls.request("/api/test");
+      result.current.controls.request("/api/unmount-test");
     });
 
     // Unmount should cancel all
@@ -636,17 +639,23 @@ describe("useRequestCoalescer - Request Cancellation", () => {
   });
 
   test("should get pending count", () => {
-    const { result } = renderHook(() => useRequestCoalescer());
+    const { result, unmount } = renderHook(() => useRequestCoalescer());
 
     const initialCount = result.current.controls.getPendingCount();
     expect(initialCount).toBe(0);
+
+    // Cleanup
+    unmount();
   });
 
   test("should return null for unknown request ID", () => {
-    const { result } = renderHook(() => useRequestCoalescer());
+    const { result, unmount } = renderHook(() => useRequestCoalescer());
 
     const status = result.current.controls.getRequestStatus("unknown-id");
     expect(status).toBeNull();
+
+    // Cleanup
+    unmount();
   });
 });
 
