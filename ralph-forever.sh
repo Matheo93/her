@@ -25,8 +25,12 @@ force_restart_ralph() {
     tmux new-window -t eva-steroids -n ralph "cd $PROJECT && claude --dangerously-skip-permissions"
     sleep 15
 
-    # Send command AND press Enter twice
+    # Send command AND press Enter multiple times
     tmux send-keys -t eva-steroids:ralph "/ralph-loop:ralph-loop Sprint $SPRINT Ameliore avatar UX latence mobile. Code teste valide. Boucle infinie." Enter
+    sleep 3
+    tmux send-keys -t eva-steroids:ralph Enter
+    sleep 2
+    tmux send-keys -t eva-steroids:ralph Enter
     sleep 2
     tmux send-keys -t eva-steroids:ralph Enter
 
