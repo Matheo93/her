@@ -747,7 +747,7 @@ describe("Sprint 635 - Battery level error handling (line 165)", () => {
 
     // Acquire wake lock
     await act(async () => {
-      await result.current.controls.acquire("test");
+      await result.current.controls.acquire("custom");
     });
 
     // Should still work even if battery API fails
@@ -761,19 +761,19 @@ describe("Sprint 635 - Wake lock release and re-acquire (lines 222-224)", () => 
 
     // First acquisition
     await act(async () => {
-      await result.current.controls.acquire("first");
+      await result.current.controls.acquire("conversation");
     });
 
     expect(result.current.status.isActive).toBe(true);
 
     // Second acquisition should release first
     await act(async () => {
-      await result.current.controls.acquire("second");
+      await result.current.controls.acquire("media_playback");
     });
 
     // Release should have been called for the first lock
     expect(mockWakeLockSentinel.release).toHaveBeenCalled();
-    expect(result.current.status.currentReason).toBe("second");
+    expect(result.current.status.currentReason).toBe("media_playback");
   });
 });
 
@@ -783,7 +783,7 @@ describe("Sprint 635 - Wake lock release event handler (lines 243-250)", () => {
 
     // Acquire wake lock
     await act(async () => {
-      await result.current.controls.acquire("test");
+      await result.current.controls.acquire("custom");
     });
 
     expect(result.current.status.isActive).toBe(true);
@@ -806,7 +806,7 @@ describe("Sprint 635 - Visibility change handling (lines 376-403)", () => {
 
     // Acquire wake lock
     await act(async () => {
-      await result.current.controls.acquire("test");
+      await result.current.controls.acquire("custom");
     });
 
     expect(result.current.status.isActive).toBe(true);
@@ -835,7 +835,7 @@ describe("Sprint 635 - Visibility change handling (lines 376-403)", () => {
 
     // Acquire wake lock
     await act(async () => {
-      await result.current.controls.acquire("test");
+      await result.current.controls.acquire("custom");
     });
 
     // Simulate tab hidden then visible
@@ -872,7 +872,7 @@ describe("Sprint 635 - Visibility change handling (lines 376-403)", () => {
 
     // Acquire wake lock
     await act(async () => {
-      await result.current.controls.acquire("test");
+      await result.current.controls.acquire("custom");
     });
 
     const requestSpy = navigator.wakeLock.request as jest.Mock;
@@ -910,7 +910,7 @@ describe("Sprint 635 - Cleanup on unmount (line 425)", () => {
 
     // Acquire wake lock
     await act(async () => {
-      await result.current.controls.acquire("test");
+      await result.current.controls.acquire("custom");
     });
 
     expect(result.current.status.isActive).toBe(true);

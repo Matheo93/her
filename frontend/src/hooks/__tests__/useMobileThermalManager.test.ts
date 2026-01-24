@@ -657,7 +657,7 @@ describe("Sprint 634 - History trimming (line 449)", () => {
 
     // Report workload and let interval run
     act(() => {
-      result.current.controls.reportWorkload("cpu", 0.5);
+      result.current.controls.reportWorkload("computation", 0.5);
     });
 
     act(() => {
@@ -681,7 +681,7 @@ describe("Sprint 634 - Performance scale calculations", () => {
     // Heat up a bit
     for (let i = 0; i < 10; i++) {
       act(() => {
-        result.current.controls.reportWorkload("cpu", 0.8);
+        result.current.controls.reportWorkload("computation", 0.8);
         jest.advanceTimersByTime(1100);
         mockTime += 1100;
       });
@@ -703,7 +703,7 @@ describe("Sprint 634 - Performance scale calculations", () => {
     // Heat up towards serious threshold
     for (let i = 0; i < 15; i++) {
       act(() => {
-        result.current.controls.reportWorkload("cpu", 0.9);
+        result.current.controls.reportWorkload("computation", 0.9);
         result.current.controls.reportWorkload("rendering", 0.8);
         jest.advanceTimersByTime(1100);
         mockTime += 1100;
