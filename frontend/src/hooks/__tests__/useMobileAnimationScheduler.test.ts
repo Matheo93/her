@@ -1882,6 +1882,14 @@ describe("Sprint 749 - easing edge cases", () => {
 // ============================================================================
 
 describe("Sprint 749 - shouldSkipFrame deferred always true (lines 328-332)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should return true for deferred priority regardless of frame count", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       enableFrameSkipping: true,
@@ -1916,6 +1924,14 @@ describe("Sprint 749 - shouldSkipFrame deferred always true (lines 328-332)", ()
 });
 
 describe("Sprint 749 - processFrame isPaused early return (lines 403-404)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should call requestAnimationFrame but not process when paused", () => {
     const rafSpy = jest.spyOn(window, 'requestAnimationFrame');
     const { result } = renderHook(() => useMobileAnimationScheduler());

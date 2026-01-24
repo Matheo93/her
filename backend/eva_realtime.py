@@ -42,34 +42,60 @@ class ConversationState(Enum):
     PROCESSING = "processing"  # Processing user input
 
 
+# Pre-computed state sets for O(1) lookup (module-level for performance)
+_CAN_RESPOND_STATES = frozenset({ConversationState.IDLE, ConversationState.PROCESSING})
+
+
 @dataclass
 class AudioBuffer:
-    """Buffer for audio chunks"""
+    """Buffer for audio chunks.
+
+    Optimizations:
+    - Pre-computed max_chunks at init time
+    - Cached total_samples for duration calculation
+    - Efficient slicing instead of reassignment
+    """
     chunks: List[bytes] = field(default_factory=list)
     sample_rate: int = 16000
     max_duration: float = 30.0  # Max seconds to buffer
+    _total_samples: int = field(default=0, repr=False)  # Cache for performance
+    _max_chunks: int = field(default=0, init=False, repr=False)
+
+    def __post_init__(self):
+        # Pre-compute max chunks at init (avoids repeated calculation)
+        self._max_chunks = int(self.max_duration * self.sample_rate / 512)
 
     def add(self, chunk: bytes):
         self.chunks.append(chunk)
+        self._total_samples += len(chunk) // 2  # 2 bytes per int16 sample
         # Limit buffer size
-        max_chunks = int(self.max_duration * self.sample_rate / 512)  # Assuming 512 samples per chunk
-        if len(self.chunks) > max_chunks:
-            self.chunks = self.chunks[-max_chunks:]
+        if len(self.chunks) > self._max_chunks:
+            # Track removed samples
+            removed = self.chunks[0]
+            self._total_samples -= len(removed) // 2
+            self.chunks = self.chunks[-self._max_chunks:]
 
     def get_audio(self) -> np.ndarray:
         if not self.chunks:
             return np.array([], dtype=np.float32)
-        return np.concatenate([
-            np.frombuffer(chunk, dtype=np.int16).astype(np.float32) / 32768.0
-            for chunk in self.chunks
-        ])
+        # Pre-allocate output array for better performance
+        total_len = sum(len(c) // 2 for c in self.chunks)
+        result = np.empty(total_len, dtype=np.float32)
+        idx = 0
+        for chunk in self.chunks:
+            arr = np.frombuffer(chunk, dtype=np.int16).astype(np.float32)
+            arr_len = len(arr)
+            result[idx:idx + arr_len] = arr
+            idx += arr_len
+        result /= 32768.0
+        return result
 
     def clear(self):
         self.chunks = []
+        self._total_samples = 0
 
     def duration(self) -> float:
-        total_samples = sum(len(c) // 2 for c in self.chunks)  # 2 bytes per int16 sample
-        return total_samples / self.sample_rate
+        return self._total_samples / self.sample_rate
 
 
 @dataclass
@@ -153,8 +179,13 @@ class RealtimeSession:
 
         return energy > threshold
 
-    def _check_interrupt(self, audio_chunk: np.ndarray) -> bool:
-        """Check if user is interrupting Eva's speech"""
+    def _check_interrupt(self, audio_chunk: np.ndarray, current_time: Optional[float] = None) -> bool:
+        """Check if user is interrupting Eva's speech.
+
+        Args:
+            audio_chunk: Audio samples to analyze
+            current_time: Optional timestamp to avoid repeated time.time() calls
+        """
         if self.state != ConversationState.EVA_SPEAKING:
             return False
 
@@ -162,10 +193,11 @@ class RealtimeSession:
         energy = np.sqrt(np.mean(audio_chunk ** 2))
 
         if energy > self.interrupt_threshold:
+            now = current_time if current_time is not None else time.time()
             # Track duration of potential interrupt
-            if not hasattr(self, '_interrupt_start'):
-                self._interrupt_start = time.time()
-            elif time.time() - self._interrupt_start > self.min_interrupt_duration:
+            if not hasattr(self, '_interrupt_start') or self._interrupt_start is None:
+                self._interrupt_start = now
+            elif now - self._interrupt_start > self.min_interrupt_duration:
                 return True
         else:
             self._interrupt_start = None
@@ -246,14 +278,22 @@ class RealtimeSession:
 
         return result
 
-    def start_eva_speech(self):
-        """Mark that Eva has started speaking"""
-        self.state = ConversationState.EVA_SPEAKING
-        self.eva_speech_start = time.time()
+    def start_eva_speech(self, current_time: Optional[float] = None):
+        """Mark that Eva has started speaking.
 
-    def end_eva_speech(self):
-        """Mark that Eva has finished speaking"""
-        now = time.time()
+        Args:
+            current_time: Optional timestamp to avoid repeated time.time() calls
+        """
+        self.state = ConversationState.EVA_SPEAKING
+        self.eva_speech_start = current_time if current_time is not None else time.time()
+
+    def end_eva_speech(self, current_time: Optional[float] = None):
+        """Mark that Eva has finished speaking.
+
+        Args:
+            current_time: Optional timestamp to avoid repeated time.time() calls
+        """
+        now = current_time if current_time is not None else time.time()
         self.last_eva_speech_end = now
         self.total_eva_speech_time += now - self.eva_speech_start
         self.state = ConversationState.IDLE
@@ -270,9 +310,13 @@ class RealtimeSession:
         except asyncio.TimeoutError:
             return None
 
-    def get_turn_state(self) -> Dict[str, Any]:
-        """Get current turn-taking state"""
-        now = time.time()
+    def get_turn_state(self, current_time: Optional[float] = None) -> Dict[str, Any]:
+        """Get current turn-taking state.
+
+        Args:
+            current_time: Optional timestamp to avoid repeated time.time() calls
+        """
+        now = current_time if current_time is not None else time.time()
         return {
             "state": self.state.value,
             "user_speaking": self.state == ConversationState.USER_SPEAKING,
@@ -280,7 +324,7 @@ class RealtimeSession:
             "silence_duration": now - max(self.last_user_speech_end, self.last_eva_speech_end),
             "user_speech_duration": self.user_audio_buffer.duration(),
             "energy_level": self.vad_state.energy_level,
-            "can_respond": self.state in [ConversationState.IDLE, ConversationState.PROCESSING],
+            "can_respond": self.state in _CAN_RESPOND_STATES,
             "interrupted": self.state == ConversationState.INTERRUPTED
         }
 

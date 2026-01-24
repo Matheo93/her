@@ -286,11 +286,14 @@ export const EASING = {
 // Utility Functions
 // ============================================================================
 
+// Animation ID counter (more efficient than Date.now() for unique IDs)
+let animationIdCounter = 0;
+
 /**
  * Generate unique animation ID
  */
 function generateAnimationId(): string {
-  return `anim_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `anim_${++animationIdCounter}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
 /**
