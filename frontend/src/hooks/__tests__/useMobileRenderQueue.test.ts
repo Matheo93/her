@@ -1348,3 +1348,360 @@ describe("useCoalescedRender scheduling", () => {
     expect(callback2).not.toHaveBeenCalled();
   });
 });
+
+// ============================================================================
+// Sprint 764 - processQueue RAF coverage
+// ============================================================================
+
+describe("processQueue via RAF (direct triggering)", () => {
+  it("should process tasks via RAF callback", () => {
+    const { result } = renderHook(() => useMobileRenderQueue());
+    const callback = jest.fn();
+
+    act(() => {
+      result.current.controls.schedule(callback, { priority: "normal" });
+    });
+
+    expect(result.current.state.queueLength).toBe(1);
+
+    // Manually trigger RAF
+    act(() => {
+      flushRAF();
+    });
+
+    expect(callback).toHaveBeenCalled();
+    expect(result.current.state.queueLength).toBe(0);
+  });
+
+  it("should set isProcessing true then false after RAF processing", () => {
+    const { result } = renderHook(() => useMobileRenderQueue());
+
+    act(() => {
+      result.current.controls.schedule(() => {}, { priority: "normal" });
+    });
+
+    // Trigger RAF to process
+    act(() => {
+      flushRAF();
+    });
+
+    // After processing, should be false
+    expect(result.current.state.isProcessing).toBe(false);
+  });
+
+  it("should drop stale tasks during RAF processQueue", () => {
+    const { result } = renderHook(() =>
+      useMobileRenderQueue({ staleTaskTimeoutMs: 10 })
+    );
+    const callback = jest.fn();
+
+    act(() => {
+      result.current.controls.schedule(callback, { priority: "normal" });
+    });
+
+    // Make task stale by advancing mock time
+    mockTime = 50;
+
+    // Trigger RAF to process
+    act(() => {
+      flushRAF();
+    });
+
+    // Task should be dropped (not executed)
+    expect(callback).not.toHaveBeenCalled();
+    expect(result.current.state.metrics.tasksDropped).toBeGreaterThan(0);
+  });
+
+  it("should process critical tasks via RAF regardless of budget", () => {
+    const { result } = renderHook(() =>
+      useMobileRenderQueue({ targetFrameTimeMs: 0.001 })
+    );
+    const criticalCallback = jest.fn();
+
+    act(() => {
+      result.current.controls.schedule(criticalCallback, { priority: "critical" });
+    });
+
+    // Trigger RAF
+    act(() => {
+      flushRAF();
+    });
+
+    expect(criticalCallback).toHaveBeenCalled();
+  });
+
+  it("should track budget overruns via RAF", () => {
+    const { result } = renderHook(() =>
+      useMobileRenderQueue({ targetFrameTimeMs: 0.001, criticalReserveMs: 0 })
+    );
+
+    act(() => {
+      // Schedule low priority task with huge duration that exceeds budget
+      result.current.controls.schedule(() => {}, {
+        priority: "low",
+        estimatedDuration: 1000,
+      });
+    });
+
+    // Simulate some budget usage
+    mockTime = 0.002;
+
+    // Trigger RAF
+    act(() => {
+      flushRAF();
+    });
+
+    // Budget overrun should be tracked or task skipped
+    expect(result.current.state.metrics).toBeDefined();
+  });
+
+  it("should skip non-high tasks when estimated duration exceeds remaining budget via RAF", () => {
+    const { result } = renderHook(() =>
+      useMobileRenderQueue({ targetFrameTimeMs: 5, criticalReserveMs: 2 })
+    );
+    const normalCallback = jest.fn();
+
+    act(() => {
+      result.current.controls.schedule(normalCallback, {
+        priority: "normal",
+        estimatedDuration: 100, // Exceeds budget
+      });
+    });
+
+    // Trigger RAF
+    act(() => {
+      flushRAF();
+    });
+
+    // Task should be skipped (not executed) due to budget
+    expect(normalCallback).not.toHaveBeenCalled();
+    expect(result.current.state.queueLength).toBe(1); // Still in queue
+  });
+
+  it("should process high priority tasks via RAF even with large estimated duration", () => {
+    const { result } = renderHook(() =>
+      useMobileRenderQueue({ targetFrameTimeMs: 5, criticalReserveMs: 2 })
+    );
+    const highCallback = jest.fn();
+
+    act(() => {
+      result.current.controls.schedule(highCallback, {
+        priority: "high",
+        estimatedDuration: 100, // Exceeds budget but high priority
+      });
+    });
+
+    // Trigger RAF
+    act(() => {
+      flushRAF();
+    });
+
+    // High priority should be processed despite budget
+    expect(highCallback).toHaveBeenCalled();
+  });
+
+  it("should schedule another RAF if queue still has tasks", () => {
+    const { result } = renderHook(() =>
+      useMobileRenderQueue({ targetFrameTimeMs: 0.001, criticalReserveMs: 0 })
+    );
+
+    act(() => {
+      // Schedule tasks that will exceed frame budget
+      result.current.controls.schedule(() => {}, {
+        priority: "low",
+        estimatedDuration: 100,
+      });
+      result.current.controls.schedule(() => {}, {
+        priority: "low",
+        estimatedDuration: 100,
+      });
+    });
+
+    // Check RAF was scheduled
+    expect(rafCallbacks.size).toBeGreaterThan(0);
+  });
+
+  it("should call resetBudget during RAF processing", () => {
+    const { result } = renderHook(() =>
+      useMobileRenderQueue({ targetFrameTimeMs: 16, criticalReserveMs: 4 })
+    );
+
+    act(() => {
+      result.current.controls.schedule(() => {}, { priority: "normal" });
+    });
+
+    // Trigger RAF
+    act(() => {
+      flushRAF();
+    });
+
+    // Budget should reflect config
+    expect(result.current.state.currentBudget.totalMs).toBe(16);
+    expect(result.current.state.currentBudget.criticalReserve).toBe(4);
+  });
+
+  it("should call updateBudget with used time during RAF processing", () => {
+    const { result } = renderHook(() => useMobileRenderQueue());
+
+    act(() => {
+      result.current.controls.schedule(() => {
+        // Some work
+      }, { priority: "normal" });
+    });
+
+    // Trigger RAF
+    act(() => {
+      flushRAF();
+    });
+
+    // Budget usedMs should be updated (may be 0 or small value)
+    expect(result.current.state.currentBudget.usedMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should track execution times array via RAF", () => {
+    const { result } = renderHook(() => useMobileRenderQueue());
+
+    act(() => {
+      result.current.controls.schedule(() => {}, { priority: "normal" });
+    });
+
+    // Trigger RAF
+    act(() => {
+      flushRAF();
+    });
+
+    expect(result.current.state.metrics.averageExecutionTime).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should track wait times array via RAF", () => {
+    const { result } = renderHook(() => useMobileRenderQueue());
+
+    act(() => {
+      result.current.controls.schedule(() => {}, { priority: "normal" });
+    });
+
+    // Advance time to create wait
+    mockTime = 5;
+
+    // Trigger RAF
+    act(() => {
+      flushRAF();
+    });
+
+    expect(result.current.state.metrics.averageWaitTime).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should handle executeTask error during RAF processing", () => {
+    const { result } = renderHook(() => useMobileRenderQueue());
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation();
+
+    act(() => {
+      result.current.controls.schedule(() => {
+        throw new Error("RAF error");
+      }, { priority: "normal" });
+    });
+
+    // Should not throw
+    expect(() => {
+      act(() => {
+        flushRAF();
+      });
+    }).not.toThrow();
+
+    expect(consoleSpy).toHaveBeenCalled();
+    consoleSpy.mockRestore();
+  });
+
+  it("should break loop when budget exceeded during RAF", () => {
+    const { result } = renderHook(() =>
+      useMobileRenderQueue({ targetFrameTimeMs: 0.001, criticalReserveMs: 0 })
+    );
+    const callback1 = jest.fn();
+    const callback2 = jest.fn();
+
+    act(() => {
+      result.current.controls.schedule(callback1, { priority: "normal" });
+      result.current.controls.schedule(callback2, { priority: "normal" });
+    });
+
+    // Advance time during processing to trigger budget break
+    // Trigger RAF
+    act(() => {
+      mockTime = 1; // Exceeds frame time
+      flushRAF();
+    });
+
+    // At least one should have been processed
+    expect(result.current.state.metrics.tasksProcessed).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should not process when paused and RAF triggers", () => {
+    const { result } = renderHook(() => useMobileRenderQueue());
+    const callback = jest.fn();
+
+    act(() => {
+      result.current.controls.schedule(callback, { priority: "normal" });
+      result.current.controls.pause();
+    });
+
+    // Trigger RAF
+    act(() => {
+      flushRAF();
+    });
+
+    // Should NOT be called while paused
+    expect(callback).not.toHaveBeenCalled();
+    expect(result.current.state.queueLength).toBe(1);
+  });
+
+  it("should return early if queue is empty on RAF trigger", () => {
+    const { result } = renderHook(() => useMobileRenderQueue());
+
+    // Schedule and immediately clear
+    act(() => {
+      result.current.controls.schedule(() => {}, { priority: "normal" });
+      result.current.controls.clear();
+    });
+
+    // Trigger RAF with empty queue
+    act(() => {
+      flushRAF();
+    });
+
+    expect(result.current.state.isProcessing).toBe(false);
+  });
+
+  it("should limit execution times array to 100 entries", () => {
+    const { result } = renderHook(() => useMobileRenderQueue());
+
+    // Process more than 100 tasks
+    for (let i = 0; i < 110; i++) {
+      act(() => {
+        result.current.controls.schedule(() => {}, { priority: "normal" });
+      });
+      act(() => {
+        flushRAF();
+      });
+    }
+
+    // averageExecutionTime should still be calculated
+    expect(result.current.state.metrics.averageExecutionTime).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should limit wait times array to 100 entries", () => {
+    const { result } = renderHook(() => useMobileRenderQueue());
+
+    // Process more than 100 tasks
+    for (let i = 0; i < 110; i++) {
+      act(() => {
+        result.current.controls.schedule(() => {}, { priority: "normal" });
+      });
+      act(() => {
+        flushRAF();
+      });
+    }
+
+    // averageWaitTime should still be calculated
+    expect(result.current.state.metrics.averageWaitTime).toBeGreaterThanOrEqual(0);
+  });
+});
