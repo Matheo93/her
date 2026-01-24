@@ -64,18 +64,12 @@ class MotivationFactors:
     dynamics: float = 0.0  # Adds energy to conversation
 
     def total(self) -> float:
-        """Calculate total motivation score (0-1)"""
-        factors = [
-            self.relevance,
-            self.information_gap,
-            self.expected_impact,
-            self.urgency,
-            self.coherence,
-            self.originality,
-            self.balance,
-            self.dynamics
-        ]
-        return sum(factors) / len(factors)
+        """Calculate total motivation score (0-1). Optimized: no list allocation."""
+        return (
+            self.relevance + self.information_gap + self.expected_impact +
+            self.urgency + self.coherence + self.originality +
+            self.balance + self.dynamics
+        ) / 8
 
 
 class EvaInnerThoughts:
@@ -89,6 +83,21 @@ class EvaInnerThoughts:
     4. EVALUATION: Score thoughts on 8 motivation factors
     5. PARTICIPATION: Decide if/what to speak
     """
+
+    # O(1) lookup tables for motivation scoring (replaces if/elif chains)
+    _INFORMATION_GAP_BY_TYPE: Dict[ThoughtType, float] = {
+        ThoughtType.CURIOSITY: 0.7,
+        ThoughtType.REMINDER: 0.4,
+    }
+    _INFORMATION_GAP_DEFAULT: float = 0.2
+
+    _HIGH_IMPACT_TYPES: frozenset = frozenset({ThoughtType.EMPATHY, ThoughtType.CONCERN})
+    _MEDIUM_IMPACT_TYPES: frozenset = frozenset({ThoughtType.SUGGESTION})
+
+    _ENERGY_BOOST_EMOTIONS: frozenset = frozenset({"joy", "excitement"})
+    _ENERGY_DROP_EMOTIONS: frozenset = frozenset({"sadness", "anger"})
+    _NEGATIVE_EMOTIONS: frozenset = frozenset({"sadness", "anger", "fear"})
+    _ENERGY_THOUGHT_TYPES: frozenset = frozenset({ThoughtType.PLAYFUL, ThoughtType.EXCITEMENT})
 
     # Thought templates by type
     THOUGHT_TEMPLATES = {
@@ -187,24 +196,27 @@ class EvaInnerThoughts:
         eva_spoke: bool = False,
         message_length: int = 0,
         detected_emotion: str = "neutral"
-    ):
-        """Update conversation state after each turn"""
+    ) -> None:
+        """Update conversation state after each turn.
+
+        Uses O(1) frozenset lookups for emotion categorization.
+        """
         now = time.time()
 
         if user_spoke:
             self.user_last_spoke = now
             self.turn_count += 1
 
-            # Update energy based on message
+            # Update energy based on message length
             if message_length > 100:
                 self.conversation_energy = min(1.0, self.conversation_energy + 0.1)
             elif message_length < 20:
                 self.conversation_energy = max(0.0, self.conversation_energy - 0.1)
 
-            # Emotional boost
-            if detected_emotion in ["joy", "excitement"]:
+            # Emotional boost: O(1) frozenset lookup
+            if detected_emotion in self._ENERGY_BOOST_EMOTIONS:
                 self.conversation_energy = min(1.0, self.conversation_energy + 0.15)
-            elif detected_emotion in ["sadness", "anger"]:
+            elif detected_emotion in self._ENERGY_DROP_EMOTIONS:
                 self.conversation_energy = max(0.2, self.conversation_energy - 0.1)
 
         if eva_spoke:
@@ -222,7 +234,11 @@ class EvaInnerThoughts:
         user_id: str,
         context: Dict[str, Any]
     ) -> InnerThought:
-        """Generate a single inner thought"""
+        """Generate a single inner thought.
+
+        Optimized: single time.time() call reused across motivation calculation.
+        """
+        now = time.time()  # Single timestamp for consistency and performance
         templates = self.THOUGHT_TEMPLATES.get(thought_type, ["..."])
         template = random.choice(templates)
 
@@ -239,98 +255,100 @@ class EvaInnerThoughts:
             suggestion=suggestion
         )
 
-        # Calculate motivation factors
-        motivation = self._calculate_motivation(thought_type, context)
+        # Calculate motivation factors (pass timestamp to avoid repeated time.time())
+        motivation = self._calculate_motivation(thought_type, context, current_time=now)
 
         return InnerThought(
             thought_type=thought_type,
             content=content,
             motivation_score=motivation.total(),
-            trigger=context.get("trigger", "spontaneous")
+            trigger=context.get("trigger", "spontaneous"),
+            timestamp=now  # Reuse same timestamp
         )
 
     def _calculate_motivation(
         self,
         thought_type: ThoughtType,
-        context: Dict[str, Any]
+        context: Dict[str, Any],
+        current_time: Optional[float] = None
     ) -> MotivationFactors:
-        """Calculate motivation factors for a thought"""
-        factors = MotivationFactors()
+        """Calculate motivation factors for a thought.
 
-        # Relevance: How related to current conversation
-        if context.get("topic_mentioned_recently"):
-            factors.relevance = 0.8
-        elif context.get("topic_in_memory"):
-            factors.relevance = 0.5
-        else:
-            factors.relevance = 0.2
+        Optimized with O(1) frozenset lookups instead of if/elif chains.
 
-        # Information gap: Do we need more info?
-        if thought_type == ThoughtType.CURIOSITY:
-            factors.information_gap = 0.7
-        elif thought_type == ThoughtType.REMINDER:
-            factors.information_gap = 0.4
-        else:
-            factors.information_gap = 0.2
+        Args:
+            thought_type: Type of thought to evaluate
+            context: Conversation context
+            current_time: Optional pre-computed timestamp (avoids repeated time.time() calls)
+        """
+        now = current_time if current_time is not None else time.time()
 
-        # Expected impact: Will this add value?
-        if thought_type in [ThoughtType.EMPATHY, ThoughtType.CONCERN]:
-            factors.expected_impact = 0.8
-        elif thought_type in [ThoughtType.SUGGESTION]:
-            factors.expected_impact = 0.7
+        # Relevance: O(1) conditional chain
+        relevance = (
+            0.8 if context.get("topic_mentioned_recently")
+            else 0.5 if context.get("topic_in_memory")
+            else 0.2
+        )
+
+        # Information gap: O(1) dict lookup with default
+        information_gap = self._INFORMATION_GAP_BY_TYPE.get(
+            thought_type, self._INFORMATION_GAP_DEFAULT
+        )
+
+        # Expected impact: O(1) frozenset lookup
+        if thought_type in self._HIGH_IMPACT_TYPES:
+            expected_impact = 0.8
+        elif thought_type in self._MEDIUM_IMPACT_TYPES:
+            expected_impact = 0.7
         elif thought_type == ThoughtType.PLAYFUL:
-            factors.expected_impact = 0.5 if self.conversation_energy > 0.5 else 0.2
+            expected_impact = 0.5 if self.conversation_energy > 0.5 else 0.2
         else:
-            factors.expected_impact = 0.4
+            expected_impact = 0.4
 
-        # Urgency: Time-sensitive?
-        if context.get("emotional_urgency"):
-            factors.urgency = 0.9
-        elif thought_type == ThoughtType.CONCERN:
-            factors.urgency = 0.6
-        else:
-            factors.urgency = 0.1
+        # Urgency: O(1) conditional chain
+        urgency = (
+            0.9 if context.get("emotional_urgency")
+            else 0.6 if thought_type == ThoughtType.CONCERN
+            else 0.1
+        )
 
-        # Coherence: Fits conversation flow?
-        silence_duration = time.time() - self.user_last_spoke
-        if silence_duration < 5:  # User just spoke
-            factors.coherence = 0.9
-        elif silence_duration < 30:
-            factors.coherence = 0.6
-        else:
-            factors.coherence = 0.3
+        # Coherence: based on silence duration
+        silence_duration = now - self.user_last_spoke
+        coherence = (
+            0.9 if silence_duration < 5
+            else 0.6 if silence_duration < 30
+            else 0.3
+        )
 
-        # Originality: Novel contribution?
-        recent_types = [t.thought_type for t in self.thought_history[-5:]]
-        if thought_type not in recent_types:
-            factors.originality = 0.7
-        else:
-            factors.originality = 0.3
+        # Originality: set lookup for recent types (O(1) membership test)
+        recent_types = {t.thought_type for t in self.thought_history[-5:]}
+        originality = 0.3 if thought_type in recent_types else 0.7
 
-        # Balance: Turn-taking equilibrium
+        # Balance: turn-taking equilibrium
         if self.turn_count > 0:
             eva_ratio = sum(1 for t in self.thought_history[-10:] if t.spoken) / max(1, self.turn_count)
-            if eva_ratio < 0.3:  # Eva hasn't spoken much
-                factors.balance = 0.8
-            elif eva_ratio > 0.7:  # Eva has spoken a lot
-                factors.balance = 0.2
-            else:
-                factors.balance = 0.5
+            balance = 0.8 if eva_ratio < 0.3 else 0.2 if eva_ratio > 0.7 else 0.5
         else:
-            factors.balance = 0.5
+            balance = 0.5
 
-        # Dynamics: Add energy?
+        # Dynamics: O(1) frozenset lookup
         if self.conversation_energy < 0.3:
-            if thought_type in [ThoughtType.PLAYFUL, ThoughtType.EXCITEMENT]:
-                factors.dynamics = 0.8
-            else:
-                factors.dynamics = 0.4
+            dynamics = 0.8 if thought_type in self._ENERGY_THOUGHT_TYPES else 0.4
         elif self.conversation_energy > 0.7:
-            factors.dynamics = 0.3  # Don't need more energy
+            dynamics = 0.3
         else:
-            factors.dynamics = 0.5
+            dynamics = 0.5
 
-        return factors
+        return MotivationFactors(
+            relevance=relevance,
+            information_gap=information_gap,
+            expected_impact=expected_impact,
+            urgency=urgency,
+            coherence=coherence,
+            originality=originality,
+            balance=balance,
+            dynamics=dynamics
+        )
 
     def should_speak(self, thought: InnerThought) -> bool:
         """Decide if Eva should express this thought"""
@@ -448,8 +466,8 @@ class EvaInnerThoughts:
             "topic_mentioned_recently": True
         }
 
-        # Empathy thought for emotional content
-        if detected_emotion in ["sadness", "anger", "fear"]:
+        # Empathy thought for emotional content: O(1) frozenset lookup
+        if detected_emotion in self._NEGATIVE_EMOTIONS:
             thought_context["emotional_urgency"] = True
             thoughts.append(self.generate_thought(
                 ThoughtType.EMPATHY,
@@ -465,8 +483,8 @@ class EvaInnerThoughts:
                 thought_context
             ))
 
-        # Playful for positive energy
-        if detected_emotion in ["joy", "excitement"] or self.conversation_energy > 0.7:
+        # Playful for positive energy: O(1) frozenset lookup
+        if detected_emotion in self._ENERGY_BOOST_EMOTIONS or self.conversation_energy > 0.7:
             thoughts.append(self.generate_thought(
                 ThoughtType.PLAYFUL,
                 user_id,

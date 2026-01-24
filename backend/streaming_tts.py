@@ -20,6 +20,10 @@ import numpy as np
 # WAV header constants
 WAV_HEADER_SIZE = 44
 
+# Pre-compiled regex patterns for better latency
+_SENTENCE_SPLIT_PATTERN = re.compile(r'(?<=[.!?])\s+')
+_SUB_CHUNK_PATTERN = re.compile(r'(?<=,)\s+|(?<=;)\s+|\s+(?:et|ou|mais|donc|car)\s+')
+
 
 def split_into_chunks(text: str, max_chunk_words: int = 8, first_chunk_words: int = 3) -> list[str]:
     """Split text into small speakable chunks for ultra-fast TTFA.
@@ -36,9 +40,8 @@ def split_into_chunks(text: str, max_chunk_words: int = 8, first_chunk_words: in
     # Clean text
     text = text.strip()
 
-    # First split by sentences
-    sentence_pattern = r'(?<=[.!?])\s+'
-    sentences = re.split(sentence_pattern, text)
+    # First split by sentences using pre-compiled pattern
+    sentences = _SENTENCE_SPLIT_PATTERN.split(text)
 
     chunks = []
     is_first_chunk = True
@@ -73,9 +76,8 @@ def split_into_chunks(text: str, max_chunk_words: int = 8, first_chunk_words: in
             chunks.append(sentence)
             is_first_chunk = False
         else:
-            # Split long sentences by commas or conjunctions
-            sub_pattern = r'(?<=,)\s+|(?<=;)\s+|\s+(?:et|ou|mais|donc|car)\s+'
-            sub_chunks = re.split(sub_pattern, sentence)
+            # Split long sentences by commas or conjunctions using pre-compiled pattern
+            sub_chunks = _SUB_CHUNK_PATTERN.split(sentence)
 
             for sub in sub_chunks:
                 sub = sub.strip()

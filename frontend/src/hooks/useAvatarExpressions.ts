@@ -227,6 +227,26 @@ interface TransitionOptions {
 type EasingFunction = (t: number) => number;
 type MicroExpressionType = "blink" | "twitch" | "smirk" | "eyebrow-raise" | "squint";
 
+// Micro-expression definitions (hoisted to module level for O(1) lookup)
+const MICRO_EXPRESSIONS: Record<MicroExpressionType, BlendShapeValues> = {
+  blink: { eyeBlinkLeft: 1, eyeBlinkRight: 1 },
+  twitch: { eyeSquintLeft: 0.3, cheekSquintLeft: 0.2 },
+  smirk: { mouthSmileLeft: 0.4 },
+  "eyebrow-raise": { browOuterUpLeft: 0.5, browOuterUpRight: 0.5 },
+  squint: { eyeSquintLeft: 0.4, eyeSquintRight: 0.4 },
+} as const;
+
+// Weighted random pool for micro-expressions (blinks more frequent)
+const MICRO_EXPRESSION_POOL: readonly MicroExpressionType[] = [
+  "blink",
+  "blink", // More frequent blinks
+  "blink",
+  "twitch",
+  "smirk",
+  "eyebrow-raise",
+  "squint",
+] as const;
+
 // Easing functions
 const EASINGS: Record<string, EasingFunction> = {
   linear: (t) => t,
@@ -452,18 +472,10 @@ export function useAvatarExpressions(
     setLayers([]);
   }, [setExpression]);
 
-  // Trigger micro-expression
+  // Trigger micro-expression (uses module-level MICRO_EXPRESSIONS for O(1) lookup)
   const triggerMicroExpression = useCallback(
     (type: MicroExpressionType) => {
-      const microExpressions: Record<MicroExpressionType, BlendShapeValues> = {
-        blink: { eyeBlinkLeft: 1, eyeBlinkRight: 1 },
-        twitch: { eyeSquintLeft: 0.3, cheekSquintLeft: 0.2 },
-        smirk: { mouthSmileLeft: 0.4 },
-        "eyebrow-raise": { browOuterUpLeft: 0.5, browOuterUpRight: 0.5 },
-        squint: { eyeSquintLeft: 0.4, eyeSquintRight: 0.4 },
-      };
-
-      const microValues = microExpressions[type];
+      const microValues = MICRO_EXPRESSIONS[type];
       const duration = type === "blink" ? 150 : 200;
 
       // Apply micro-expression as a layer
@@ -486,17 +498,9 @@ export function useAvatarExpressions(
       const delay = min + Math.random() * (max - min);
 
       microExpressionTimeoutRef.current = setTimeout(() => {
-        // Random micro-expression
-        const types: MicroExpressionType[] = [
-          "blink",
-          "blink", // More frequent blinks
-          "blink",
-          "twitch",
-          "smirk",
-          "eyebrow-raise",
-          "squint",
-        ];
-        const type = types[Math.floor(Math.random() * types.length)];
+        // Random micro-expression from module-level pool (avoids array allocation per call)
+        const type =
+          MICRO_EXPRESSION_POOL[Math.floor(Math.random() * MICRO_EXPRESSION_POOL.length)];
         triggerMicroExpression(type);
         scheduleMicroExpression();
       }, delay);
@@ -580,30 +584,9 @@ export function useLipSyncVisemes(): {
 } {
   const [visemeBlendShapes, setVisemeBlendShapes] = useState<BlendShapeValues>({});
 
-  // Viseme to blend shape mapping
-  const visemeMap: Record<string, BlendShapeValues> = {
-    // Silence
-    sil: {},
-    // Consonants
-    PP: { mouthClose: 0.8, mouthPucker: 0.3 },
-    FF: { mouthFunnel: 0.4, mouthUpperUpLeft: 0.2, mouthUpperUpRight: 0.2 },
-    TH: { tongueOut: 0.3, jawOpen: 0.2 },
-    DD: { jawOpen: 0.3, mouthClose: 0.2 },
-    kk: { jawOpen: 0.3, mouthStretchLeft: 0.2, mouthStretchRight: 0.2 },
-    CH: { mouthFunnel: 0.5, jawOpen: 0.3 },
-    SS: { mouthStretchLeft: 0.4, mouthStretchRight: 0.4, jawOpen: 0.1 },
-    nn: { jawOpen: 0.2, mouthClose: 0.3 },
-    RR: { mouthPucker: 0.4, jawOpen: 0.2 },
-    // Vowels
-    aa: { jawOpen: 0.7, mouthFunnel: 0.2 },
-    E: { jawOpen: 0.4, mouthStretchLeft: 0.5, mouthStretchRight: 0.5 },
-    ih: { jawOpen: 0.3, mouthStretchLeft: 0.4, mouthStretchRight: 0.4 },
-    oh: { jawOpen: 0.5, mouthFunnel: 0.5, mouthPucker: 0.3 },
-    ou: { mouthPucker: 0.7, mouthFunnel: 0.3, jawOpen: 0.2 },
-  };
-
+  // Uses module-level VISEME_MAP for O(1) lookup (avoids re-creating object on every render)
   const setViseme = useCallback((viseme: string, intensity: number = 1) => {
-    const shapes = visemeMap[viseme] || {};
+    const shapes = VISEME_MAP[viseme] || {};
     const scaled: BlendShapeValues = {};
     for (const [key, value] of Object.entries(shapes)) {
       scaled[key as ExpressionBlendShape] = value * intensity;
@@ -659,5 +642,27 @@ export function useExpressionGaze(
   return gazeBlendShapes;
 }
 
+// Viseme to blend shape mapping (hoisted to module level for O(1) lookup)
+const VISEME_MAP: Readonly<Record<string, BlendShapeValues>> = {
+  // Silence
+  sil: {},
+  // Consonants
+  PP: { mouthClose: 0.8, mouthPucker: 0.3 },
+  FF: { mouthFunnel: 0.4, mouthUpperUpLeft: 0.2, mouthUpperUpRight: 0.2 },
+  TH: { tongueOut: 0.3, jawOpen: 0.2 },
+  DD: { jawOpen: 0.3, mouthClose: 0.2 },
+  kk: { jawOpen: 0.3, mouthStretchLeft: 0.2, mouthStretchRight: 0.2 },
+  CH: { mouthFunnel: 0.5, jawOpen: 0.3 },
+  SS: { mouthStretchLeft: 0.4, mouthStretchRight: 0.4, jawOpen: 0.1 },
+  nn: { jawOpen: 0.2, mouthClose: 0.3 },
+  RR: { mouthPucker: 0.4, jawOpen: 0.2 },
+  // Vowels
+  aa: { jawOpen: 0.7, mouthFunnel: 0.2 },
+  E: { jawOpen: 0.4, mouthStretchLeft: 0.5, mouthStretchRight: 0.5 },
+  ih: { jawOpen: 0.3, mouthStretchLeft: 0.4, mouthStretchRight: 0.4 },
+  oh: { jawOpen: 0.5, mouthFunnel: 0.5, mouthPucker: 0.3 },
+  ou: { mouthPucker: 0.7, mouthFunnel: 0.3, jawOpen: 0.2 },
+};
+
 // Export preset definitions for external use
-export { EXPRESSION_PRESETS };
+export { EXPRESSION_PRESETS, VISEME_MAP };

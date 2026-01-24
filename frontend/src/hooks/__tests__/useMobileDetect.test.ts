@@ -302,3 +302,197 @@ describe("useBreakpoint", () => {
     expect(result.current).toBe("desktop");
   });
 });
+
+describe("Sprint 520 - iOS detection branch coverage", () => {
+  it("should detect iOS via iPhone user agent", () => {
+    // Mock iPhone user agent
+    Object.defineProperty(navigator, "userAgent", {
+      value: "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15",
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useMobileDetect());
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    expect(result.current.isIOS).toBe(true);
+  });
+
+  it("should detect iOS via iPad user agent", () => {
+    Object.defineProperty(navigator, "userAgent", {
+      value: "Mozilla/5.0 (iPad; CPU OS 15_0 like Mac OS X) AppleWebKit/605.1.15",
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useMobileDetect());
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    expect(result.current.isIOS).toBe(true);
+  });
+
+  it("should detect iOS via iPod user agent", () => {
+    Object.defineProperty(navigator, "userAgent", {
+      value: "Mozilla/5.0 (iPod touch; CPU iPhone OS 15_0 like Mac OS X)",
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useMobileDetect());
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    expect(result.current.isIOS).toBe(true);
+  });
+
+  it("should detect iPad Pro via MacIntel platform with touch", () => {
+    Object.defineProperty(navigator, "userAgent", {
+      value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15",
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "platform", {
+      value: "MacIntel",
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "maxTouchPoints", {
+      value: 5,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useMobileDetect());
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    expect(result.current.isIOS).toBe(true);
+  });
+
+  it("should not detect iOS for Mac without touch", () => {
+    Object.defineProperty(navigator, "userAgent", {
+      value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15",
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "platform", {
+      value: "MacIntel",
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "maxTouchPoints", {
+      value: 0,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useMobileDetect());
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    expect(result.current.isIOS).toBe(false);
+  });
+});
+
+describe("Sprint 520 - Android detection branch coverage", () => {
+  it("should detect Android via user agent", () => {
+    Object.defineProperty(navigator, "userAgent", {
+      value: "Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36",
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useMobileDetect());
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    expect(result.current.isAndroid).toBe(true);
+  });
+
+  it("should not detect Android for desktop user agent", () => {
+    Object.defineProperty(navigator, "userAgent", {
+      value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useMobileDetect());
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    expect(result.current.isAndroid).toBe(false);
+  });
+});
+
+describe("Sprint 520 - orientation branch coverage", () => {
+  it("should detect exact square as portrait", () => {
+    Object.defineProperty(window, "innerWidth", { value: 800, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 800, configurable: true });
+
+    const { result } = renderHook(() => useMobileDetect());
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    // When width equals height, it's considered portrait (width > height is landscape)
+    expect(result.current.orientation).toBe("portrait");
+  });
+});
+
+describe("Sprint 520 - touch detection edge cases", () => {
+  it("should detect touch via maxTouchPoints when ontouchstart is undefined", () => {
+    // Delete ontouchstart to ensure it's not in window
+    const descriptor = Object.getOwnPropertyDescriptor(window, "ontouchstart");
+    delete (window as unknown as Record<string, unknown>).ontouchstart;
+
+    // Set maxTouchPoints > 0
+    Object.defineProperty(navigator, "maxTouchPoints", {
+      value: 2,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useMobileDetect());
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    expect(result.current.isTouchDevice).toBe(true);
+
+    // Restore if it existed
+    if (descriptor) {
+      Object.defineProperty(window, "ontouchstart", descriptor);
+    }
+  });
+
+  it("should detect non-touch when both ontouchstart is missing and maxTouchPoints is 0", () => {
+    // Delete ontouchstart
+    const descriptor = Object.getOwnPropertyDescriptor(window, "ontouchstart");
+    delete (window as unknown as Record<string, unknown>).ontouchstart;
+
+    // Set maxTouchPoints to 0
+    Object.defineProperty(navigator, "maxTouchPoints", {
+      value: 0,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useMobileDetect());
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    expect(result.current.isTouchDevice).toBe(false);
+
+    // Restore if it existed
+    if (descriptor) {
+      Object.defineProperty(window, "ontouchstart", descriptor);
+    }
+  });
+});

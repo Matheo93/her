@@ -82,31 +82,33 @@ class BlinkingSystem:
     }
 
     def __init__(self):
-        self.last_blink = time.time()
+        now = time.time()
+        self.last_blink = now
         self.current_state = "neutral"
-        self.next_blink_time = self._calc_next_blink()
+        self._cached_pattern = self.BLINK_PATTERNS["neutral"]
+        self.next_blink_time = self._calc_next_blink(now)
 
-    def _calc_next_blink(self) -> float:
-        pattern = self.BLINK_PATTERNS.get(self.current_state, self.BLINK_PATTERNS["neutral"])
-        interval = random.uniform(pattern["min_interval"], pattern["max_interval"])
-        return time.time() + interval
+    def _calc_next_blink(self, current_time: Optional[float] = None) -> float:
+        now = current_time if current_time is not None else time.time()
+        interval = random.uniform(self._cached_pattern["min_interval"], self._cached_pattern["max_interval"])
+        return now + interval
 
     def set_state(self, state: str):
         """Change l'état émotionnel pour ajuster le clignement."""
         if state in self.BLINK_PATTERNS:
             self.current_state = state
+            self._cached_pattern = self.BLINK_PATTERNS[state]
 
-    def generate_blink(self) -> Optional[List[MicroExpression]]:
+    def generate_blink(self, current_time: Optional[float] = None) -> Optional[List[MicroExpression]]:
         """Génère un clignement si c'est le moment."""
-        now = time.time()
+        now = current_time if current_time is not None else time.time()
         if now < self.next_blink_time:
             return None
 
-        pattern = self.BLINK_PATTERNS.get(self.current_state, self.BLINK_PATTERNS["neutral"])
-        blink_type = random.choice(pattern["types"])
+        blink_type = random.choice(self._cached_pattern["types"])
         duration = self.BLINK_DURATIONS[blink_type]
 
-        self.next_blink_time = self._calc_next_blink()
+        self.next_blink_time = self._calc_next_blink(now)
 
         expressions = []
 
@@ -154,6 +156,25 @@ class GazeSystem:
     # Micro-saccades naturelles toutes les 200-500ms
     # Changements de direction toutes les 2-5 secondes
 
+    # Pre-computed gaze coordinates (class-level for performance)
+    GAZE_COORDS = {
+        GazeDirection.CENTER: (0.0, 0.0),
+        GazeDirection.UP_LEFT: (-0.15, 0.1),
+        GazeDirection.UP_RIGHT: (0.15, 0.1),
+        GazeDirection.LEFT: (-0.2, 0.0),
+        GazeDirection.RIGHT: (0.2, 0.0),
+        GazeDirection.DOWN_LEFT: (-0.1, -0.15),
+        GazeDirection.DOWN_RIGHT: (0.1, -0.15),
+    }
+
+    # Pre-computed direction lists for each context
+    CONTEXT_DIRECTIONS = {
+        "thinking": [GazeDirection.UP_LEFT, GazeDirection.UP_RIGHT],
+        "listening": [GazeDirection.CENTER, GazeDirection.LEFT, GazeDirection.RIGHT],
+        "emotional": [GazeDirection.DOWN_LEFT, GazeDirection.DOWN_RIGHT],
+    }
+    ALL_DIRECTIONS = list(GazeDirection)
+
     def __init__(self):
         self.current_gaze = GazeDirection.CENTER
         self.last_shift = time.time()
@@ -173,56 +194,34 @@ class GazeSystem:
             easing="linear"
         )
 
-    def generate_gaze_shift(self, context: str = "idle") -> List[MicroExpression]:
+    def generate_gaze_shift(self, context: str = "idle", current_time: Optional[float] = None) -> List[MicroExpression]:
         """Génère un changement de direction du regard."""
-        expressions = []
+        # Use pre-computed direction lists (O(1) lookup instead of list creation)
+        directions = self.CONTEXT_DIRECTIONS.get(context, self.ALL_DIRECTIONS)
+        direction = random.choice(directions)
 
-        if context == "thinking":
-            # Regarder en haut à gauche (rappel visuel)
-            directions = [GazeDirection.UP_LEFT, GazeDirection.UP_RIGHT]
-            direction = random.choice(directions)
-        elif context == "listening":
-            # Alterner entre centre et légèrement à côté
-            directions = [GazeDirection.CENTER, GazeDirection.LEFT, GazeDirection.RIGHT]
-            direction = random.choice(directions)
-        elif context == "emotional":
-            # Regarder vers le bas (émotions, introspection)
-            directions = [GazeDirection.DOWN_LEFT, GazeDirection.DOWN_RIGHT]
-            direction = random.choice(directions)
-        else:
-            # Idle - mouvements aléatoires subtils
-            direction = random.choice(list(GazeDirection))
+        # Use pre-computed gaze coordinates (class-level dict)
+        x, y = self.GAZE_COORDS.get(direction, (0.0, 0.0))
 
-        # Convertir direction en coordonnées
-        gaze_coords = {
-            GazeDirection.CENTER: (0.0, 0.0),
-            GazeDirection.UP_LEFT: (-0.15, 0.1),
-            GazeDirection.UP_RIGHT: (0.15, 0.1),
-            GazeDirection.LEFT: (-0.2, 0.0),
-            GazeDirection.RIGHT: (0.2, 0.0),
-            GazeDirection.DOWN_LEFT: (-0.1, -0.15),
-            GazeDirection.DOWN_RIGHT: (0.1, -0.15),
-        }
-
-        x, y = gaze_coords.get(direction, (0.0, 0.0))
-
-        expressions.append(MicroExpression(
-            type="gaze_x",
-            target="eyes",
-            value=x,
-            duration=0.2,
-            easing="ease_out"
-        ))
-        expressions.append(MicroExpression(
-            type="gaze_y",
-            target="eyes",
-            value=y,
-            duration=0.2,
-            easing="ease_out"
-        ))
+        expressions = [
+            MicroExpression(
+                type="gaze_x",
+                target="eyes",
+                value=x,
+                duration=0.2,
+                easing="ease_out"
+            ),
+            MicroExpression(
+                type="gaze_y",
+                target="eyes",
+                value=y,
+                duration=0.2,
+                easing="ease_out"
+            ),
+        ]
 
         self.current_gaze = direction
-        self.last_shift = time.time()
+        self.last_shift = current_time if current_time is not None else time.time()
 
         return expressions
 
@@ -347,9 +346,9 @@ class IdleBehaviors:
         for b in self.BEHAVIORS:
             self.last_behavior_time[b["name"]] = 0
 
-    def generate_idle_behavior(self) -> Optional[List[MicroExpression]]:
+    def generate_idle_behavior(self, current_time: Optional[float] = None) -> Optional[List[MicroExpression]]:
         """Génère un comportement idle aléatoire."""
-        now = time.time()
+        now = current_time if current_time is not None else time.time()
 
         for behavior in self.BEHAVIORS:
             name = behavior["name"]
@@ -439,12 +438,12 @@ class ListeningBehaviors:
         self.is_listening = listening
         self.engagement_level = max(0, min(1, engagement))
 
-    def generate_listening_behavior(self) -> Optional[List[MicroExpression]]:
+    def generate_listening_behavior(self, current_time: Optional[float] = None) -> Optional[List[MicroExpression]]:
         """Génère des comportements d'écoute."""
         if not self.is_listening:
             return None
 
-        now = time.time()
+        now = current_time if current_time is not None else time.time()
         expressions = []
 
         # Hochements de tête occasionnels
@@ -484,6 +483,12 @@ class ListeningBehaviors:
 
 class EvaMicroExpressionEngine:
     """Moteur principal des micro-expressions."""
+
+    # Pre-compiled sets for O(1) text matching (class-level for performance)
+    SMILE_WORDS = frozenset({"haha", "hihi", "mdr", "adore", "super", "cool"})
+    SURPRISE_WORDS = frozenset({"quoi", "vraiment", "serieux"})
+    THINKING_WORDS = frozenset({"hmm", "peut-etre", "je pense"})
+    SPEAKING_EMOTIONS = frozenset({"joy", "playful", "tenderness"})
 
     def __init__(self):
         self.blinking = BlinkingSystem()
@@ -527,15 +532,18 @@ class EvaMicroExpressionEngine:
         self.listening.set_listening(not speaking)
 
     def generate_frame(self) -> Dict:
-        """Génère un frame complet de micro-expressions."""
-        now = time.time()
+        """Génère un frame complet de micro-expressions.
+
+        Optimized: Single time.time() call passed to all subsystems.
+        """
+        now = time.time()  # Single timestamp for entire frame
         delta = now - self.last_update
         self.last_update = now
 
         all_expressions = []
 
-        # 1. Clignements
-        blink = self.blinking.generate_blink()
+        # 1. Clignements (pass timestamp for efficiency)
+        blink = self.blinking.generate_blink(now)
         if blink:
             all_expressions.extend(blink)
 
@@ -547,29 +555,29 @@ class EvaMicroExpressionEngine:
         if self.is_speaking:
             # Pendant la parole: regard engagé, expressions selon l'émotion
             if random.random() < 0.05:
-                gaze = self.gaze.generate_gaze_shift("emotional")
+                gaze = self.gaze.generate_gaze_shift("emotional", now)
                 all_expressions.extend(gaze)
 
-            # Micro-sourires selon l'émotion
-            if self.current_emotion in ["joy", "playful", "tenderness"]:
+            # Micro-sourires selon l'émotion (use pre-compiled frozenset)
+            if self.current_emotion in self.SPEAKING_EMOTIONS:
                 if random.random() < 0.1:
                     smile_type = "warm" if self.current_emotion == "tenderness" else "amused"
                     smile = self.smile.generate_micro_smile(smile_type)
                     all_expressions.extend(smile)
 
         else:
-            # Mode écoute ou idle
-            listening = self.listening.generate_listening_behavior()
+            # Mode écoute ou idle (pass timestamp)
+            listening = self.listening.generate_listening_behavior(now)
             if listening:
                 all_expressions.extend(listening)
 
-            idle = self.idle.generate_idle_behavior()
+            idle = self.idle.generate_idle_behavior(now)
             if idle:
                 all_expressions.extend(idle)
 
             # Regard en mode écoute
             if random.random() < 0.02:
-                gaze = self.gaze.generate_gaze_shift("listening")
+                gaze = self.gaze.generate_gaze_shift("listening", now)
                 all_expressions.extend(gaze)
 
         # Convertir en dictionnaire pour JSON
@@ -589,18 +597,23 @@ class EvaMicroExpressionEngine:
         }
 
     def generate_expression_for_text(self, text: str) -> Dict:
-        """Génère des expressions appropriées pour un texte."""
+        """Génère des expressions appropriées pour un texte.
+
+        Optimized: Uses pre-compiled frozensets for O(1) word lookups.
+        """
         expressions = []
 
         # Analyse du texte pour expressions
         text_lower = text.lower()
+        # Split once for word-level matching (more accurate than substring)
+        words = set(text_lower.split())
 
-        # Sourire si contenu joyeux
-        if any(w in text_lower for w in ["haha", "hihi", "mdr", "adore", "super", "cool"]):
+        # Sourire si contenu joyeux (O(1) intersection check)
+        if words & self.SMILE_WORDS:
             expressions.extend(self.smile.generate_micro_smile("amused"))
 
         # Sourcils levés pour surprise/question
-        if "?" in text or any(w in text_lower for w in ["quoi", "vraiment", "serieux"]):
+        if "?" in text or (words & self.SURPRISE_WORDS):
             expressions.append(MicroExpression(
                 type="brows_raise",
                 target="brows",
@@ -609,8 +622,8 @@ class EvaMicroExpressionEngine:
                 easing="ease_out"
             ))
 
-        # Regard pensif pour réflexion
-        if any(w in text_lower for w in ["hmm", "peut-etre", "je pense"]):
+        # Regard pensif pour réflexion - check substring for multi-word phrases
+        if any(w in text_lower for w in self.THINKING_WORDS):
             expressions.extend(self.gaze.generate_gaze_shift("thinking"))
 
         return {

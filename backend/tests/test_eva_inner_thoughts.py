@@ -547,6 +547,147 @@ class TestGlobalFunctions:
         assert result is None or isinstance(result, str)
 
 
+class TestOptimizations:
+    """Tests for O(1) optimizations."""
+
+    def test_information_gap_lookup_curiosity(self):
+        """Test O(1) dict lookup for information gap."""
+        from eva_inner_thoughts import EvaInnerThoughts, ThoughtType
+
+        thoughts = EvaInnerThoughts()
+        context = {"trigger": "test"}
+
+        result = thoughts._calculate_motivation(ThoughtType.CURIOSITY, context)
+        assert result.information_gap == 0.7  # From _INFORMATION_GAP_BY_TYPE
+
+    def test_information_gap_lookup_reminder(self):
+        """Test O(1) dict lookup for reminder type."""
+        from eva_inner_thoughts import EvaInnerThoughts, ThoughtType
+
+        thoughts = EvaInnerThoughts()
+        context = {"trigger": "test"}
+
+        result = thoughts._calculate_motivation(ThoughtType.REMINDER, context)
+        assert result.information_gap == 0.4
+
+    def test_information_gap_lookup_default(self):
+        """Test default value for types not in lookup dict."""
+        from eva_inner_thoughts import EvaInnerThoughts, ThoughtType
+
+        thoughts = EvaInnerThoughts()
+        context = {"trigger": "test"}
+
+        # AFFECTION is not in _INFORMATION_GAP_BY_TYPE
+        result = thoughts._calculate_motivation(ThoughtType.AFFECTION, context)
+        assert result.information_gap == 0.2  # _INFORMATION_GAP_DEFAULT
+
+    def test_high_impact_frozenset_lookup(self):
+        """Test O(1) frozenset lookup for high impact types."""
+        from eva_inner_thoughts import EvaInnerThoughts, ThoughtType
+
+        thoughts = EvaInnerThoughts()
+        context = {"trigger": "test"}
+
+        # EMPATHY and CONCERN are in _HIGH_IMPACT_TYPES
+        empathy_result = thoughts._calculate_motivation(ThoughtType.EMPATHY, context)
+        concern_result = thoughts._calculate_motivation(ThoughtType.CONCERN, context)
+
+        assert empathy_result.expected_impact == 0.8
+        assert concern_result.expected_impact == 0.8
+
+    def test_medium_impact_frozenset_lookup(self):
+        """Test O(1) frozenset lookup for medium impact types."""
+        from eva_inner_thoughts import EvaInnerThoughts, ThoughtType
+
+        thoughts = EvaInnerThoughts()
+        context = {"trigger": "test"}
+
+        result = thoughts._calculate_motivation(ThoughtType.SUGGESTION, context)
+        assert result.expected_impact == 0.7
+
+    def test_energy_thought_types_frozenset_low_energy(self):
+        """Test O(1) frozenset lookup for energy dynamics."""
+        from eva_inner_thoughts import EvaInnerThoughts, ThoughtType
+
+        thoughts = EvaInnerThoughts()
+        thoughts.conversation_energy = 0.2  # Low energy
+        context = {"trigger": "test"}
+
+        # PLAYFUL and EXCITEMENT should get high dynamics
+        playful_result = thoughts._calculate_motivation(ThoughtType.PLAYFUL, context)
+        excitement_result = thoughts._calculate_motivation(ThoughtType.EXCITEMENT, context)
+
+        assert playful_result.dynamics == 0.8
+        assert excitement_result.dynamics == 0.8
+
+    def test_energy_thought_types_frozenset_other_types(self):
+        """Test other types get lower dynamics when energy is low."""
+        from eva_inner_thoughts import EvaInnerThoughts, ThoughtType
+
+        thoughts = EvaInnerThoughts()
+        thoughts.conversation_energy = 0.2  # Low energy
+        context = {"trigger": "test"}
+
+        # AFFECTION is not in _ENERGY_THOUGHT_TYPES
+        result = thoughts._calculate_motivation(ThoughtType.AFFECTION, context)
+        assert result.dynamics == 0.4
+
+    def test_originality_set_lookup(self):
+        """Test set lookup for originality is O(1)."""
+        from eva_inner_thoughts import EvaInnerThoughts, ThoughtType, InnerThought
+
+        thoughts = EvaInnerThoughts()
+        context = {"trigger": "test"}
+
+        # Add some thoughts to history
+        for thought_type in [ThoughtType.EMPATHY, ThoughtType.CURIOSITY]:
+            thoughts.thought_history.append(InnerThought(
+                thought_type=thought_type,
+                content="Test",
+                motivation_score=0.5,
+                trigger="test"
+            ))
+
+        # EMPATHY is in recent history, so originality should be low
+        empathy_result = thoughts._calculate_motivation(ThoughtType.EMPATHY, context)
+        assert empathy_result.originality == 0.3
+
+        # AFFECTION is not in recent history, so originality should be high
+        affection_result = thoughts._calculate_motivation(ThoughtType.AFFECTION, context)
+        assert affection_result.originality == 0.7
+
+    def test_emotion_frozenset_update_state(self):
+        """Test emotion frozenset lookups in update_conversation_state."""
+        from eva_inner_thoughts import EvaInnerThoughts
+
+        thoughts = EvaInnerThoughts()
+        initial = thoughts.conversation_energy
+
+        # Test joy (in _ENERGY_BOOST_EMOTIONS)
+        thoughts.update_conversation_state(user_spoke=True, message_length=50, detected_emotion="joy")
+        after_joy = thoughts.conversation_energy
+        assert after_joy > initial
+
+        # Reset and test excitement
+        thoughts.conversation_energy = 0.5
+        thoughts.update_conversation_state(user_spoke=True, message_length=50, detected_emotion="excitement")
+        after_excitement = thoughts.conversation_energy
+        assert after_excitement > 0.5
+
+    def test_negative_emotions_process_message(self):
+        """Test negative emotion frozenset in process_user_message."""
+        from eva_inner_thoughts import EvaInnerThoughts, ThoughtType
+
+        thoughts = EvaInnerThoughts(motivation_threshold=0.0)
+
+        with patch('eva_inner_thoughts.get_memory_system', return_value=None):
+            # All three negative emotions should trigger empathy
+            for emotion in ["sadness", "anger", "fear"]:
+                result = thoughts.process_user_message("user123", "test", emotion)
+                types = [t.thought_type for t in result]
+                assert ThoughtType.EMPATHY in types, f"Failed for {emotion}"
+
+
 class TestProactiveMessage:
     """Tests for proactive message generation."""
 

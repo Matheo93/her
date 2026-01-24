@@ -223,11 +223,27 @@ const DEFAULT_METRICS: PredictorMetrics = {
 // Utility Functions
 // ============================================================================
 
+// Pre-computed interaction types for prediction fallback (module-level for performance)
+const FALLBACK_INTERACTION_TYPES: readonly InteractionType[] = [
+  "tap",
+  "swipe_left",
+  "swipe_right",
+  "swipe_up",
+  "swipe_down",
+  "pinch_in",
+  "pinch_out",
+  "scroll",
+  "idle",
+] as const;
+
+// Frame ID counter for uniqueness without Date.now() overhead
+let frameIdCounter = 0;
+
 /**
- * Generate unique frame ID
+ * Generate unique frame ID (optimized: uses counter instead of Date.now())
  */
 function generateFrameId(): string {
-  return `frame_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `frame_${++frameIdCounter}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
 /**
@@ -342,23 +358,11 @@ function predictNextInteraction(
   });
 
   if (matchingPatterns.length === 0) {
-    // Fall back to transition probability
-    const interactionTypes: InteractionType[] = [
-      "tap",
-      "swipe_left",
-      "swipe_right",
-      "swipe_up",
-      "swipe_down",
-      "pinch_in",
-      "pinch_out",
-      "scroll",
-      "idle",
-    ];
-
+    // Fall back to transition probability (use pre-computed array)
     let bestPrediction: PredictedInteraction | null = null;
     let bestConfidence = 0;
 
-    for (const type of interactionTypes) {
+    for (const type of FALLBACK_INTERACTION_TYPES) {
       const confidence = calculateTransitionProbability(
         history,
         lastInteraction.type,
@@ -438,9 +442,11 @@ function evictLRU(cache: Map<string, CacheEntry>, maxSize: number): void {
 
 /**
  * Clean expired frames from cache
+ * @param cache - The cache map to clean
+ * @param currentTime - Optional current timestamp (avoids Date.now() call)
  */
-function cleanExpiredFrames(cache: Map<string, CacheEntry>): void {
-  const now = Date.now();
+function cleanExpiredFrames(cache: Map<string, CacheEntry>, currentTime?: number): void {
+  const now = currentTime ?? Date.now();
 
   for (const [key, entry] of cache.entries()) {
     if (entry.frame.expiresAt < now) {
@@ -596,21 +602,22 @@ export function useMobileRenderPredictor(
           totalPredictions: prev.totalPredictions + 1,
         }));
 
-        // Pre-render frame for prediction
+        // Pre-render frame for prediction (single timestamp for consistency)
+        const now = Date.now();
         const frame = renderer(prediction.type, currentState);
-        frame.expiresAt = Date.now() + effectiveConfig.frameTtlMs;
+        frame.expiresAt = now + effectiveConfig.frameTtlMs;
         frame.priority =
           prediction.confidence * (isLowPowerMode ? 0.5 : 1);
 
-        // Add to cache
+        // Add to cache (pass timestamp to avoid extra Date.now() calls)
         const cache = cacheRef.current;
-        cleanExpiredFrames(cache);
+        cleanExpiredFrames(cache, now);
 
         const cacheEntry: CacheEntry = {
           frame,
           rendered: false,
           useCount: 0,
-          lastUsed: Date.now(),
+          lastUsed: now,
         };
 
         cache.set(prediction.type, cacheEntry);
@@ -642,11 +649,12 @@ export function useMobileRenderPredictor(
     (interaction: InteractionType): PreRenderFrame | null => {
       const cache = cacheRef.current;
       const entry = cache.get(interaction);
+      const now = Date.now(); // Single timestamp for consistency
 
-      if (entry && entry.frame.expiresAt > Date.now()) {
+      if (entry && entry.frame.expiresAt > now) {
         metricsRef.current.cacheHits++;
         entry.useCount++;
-        entry.lastUsed = Date.now();
+        entry.lastUsed = now;
 
         setMetrics((prev) => ({
           ...prev,
@@ -727,12 +735,13 @@ export function useMobileRenderPredictor(
    */
   const markFrameUsed = useCallback((frameId: string) => {
     const cache = cacheRef.current;
+    const now = Date.now(); // Single timestamp
 
     for (const entry of cache.values()) {
       if (entry.frame.id === frameId) {
         entry.rendered = true;
         entry.useCount++;
-        entry.lastUsed = Date.now();
+        entry.lastUsed = now;
         break;
       }
     }

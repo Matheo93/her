@@ -1101,6 +1101,203 @@ class TestExtractAndStoreAsync:
 
         assert "les araignées" in profile.avoid_topics
 
+
+class TestWorkAndGoalPatterns:
+    """Tests for work and goal extraction patterns (Sprint 528)."""
+
+    @pytest.fixture
+    def temp_storage(self):
+        """Create temporary storage directory."""
+        temp_dir = tempfile.mkdtemp()
+        yield temp_dir
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def test_extract_work_pattern_travaille_comme(self, temp_storage):
+        """Test work extraction with 'je travaille comme' pattern (line 119)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("work_user1")
+
+        # The work pattern should match but since we don't store it in profile,
+        # we verify the pattern matching works by checking session memories
+        system.extract_and_store(
+            user_id="work_user1",
+            user_message="je travaille comme développeur",
+            eva_response="Cool!"
+        )
+
+        # Verify memory was created with work info
+        memories = system.session_memories["work_user1"]
+        assert len(memories) >= 1
+
+    def test_extract_work_pattern_profession(self, temp_storage):
+        """Test work extraction with 'de profession' pattern (line 120)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("work_user2")
+
+        system.extract_and_store(
+            user_id="work_user2",
+            user_message="je suis médecin de profession",
+            eva_response="Wow!"
+        )
+
+        memories = system.session_memories["work_user2"]
+        assert len(memories) >= 1
+
+    def test_extract_work_pattern_metier(self, temp_storage):
+        """Test work extraction with 'mon métier c'est' pattern (line 121)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("work_user3")
+
+        system.extract_and_store(
+            user_id="work_user3",
+            user_message="mon métier c'est la pâtisserie",
+            eva_response="Miam!"
+        )
+
+        memories = system.session_memories["work_user3"]
+        assert len(memories) >= 1
+
+    def test_extract_goal_pattern_je_veux(self, temp_storage):
+        """Test goal extraction with 'je veux' pattern (line 124)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("goal_user1")
+
+        system.extract_and_store(
+            user_id="goal_user1",
+            user_message="je veux apprendre le piano",
+            eva_response="Belle ambition!"
+        )
+
+        memories = system.session_memories["goal_user1"]
+        assert len(memories) >= 1
+
+    def test_extract_goal_pattern_aimerais(self, temp_storage):
+        """Test goal extraction with 'j'aimerais' pattern (line 125)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("goal_user2")
+
+        system.extract_and_store(
+            user_id="goal_user2",
+            user_message="j'aimerais voyager en Asie",
+            eva_response="Super!"
+        )
+
+        memories = system.session_memories["goal_user2"]
+        assert len(memories) >= 1
+
+    def test_extract_goal_pattern_objectif(self, temp_storage):
+        """Test goal extraction with 'mon objectif c'est' pattern (line 126)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("goal_user3")
+
+        system.extract_and_store(
+            user_id="goal_user3",
+            user_message="mon objectif c'est de courir un marathon",
+            eva_response="Courage!"
+        )
+
+        memories = system.session_memories["goal_user3"]
+        assert len(memories) >= 1
+
+    def test_extract_goal_pattern_reve(self, temp_storage):
+        """Test goal extraction with 'je rêve de' pattern (line 127)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("goal_user4")
+
+        system.extract_and_store(
+            user_id="goal_user4",
+            user_message="je rêve de vivre au bord de la mer",
+            eva_response="C'est beau!"
+        )
+
+        memories = system.session_memories["goal_user4"]
+        assert len(memories) >= 1
+
+    def test_flush_pending_saves(self, temp_storage):
+        """Test flush_pending_saves method (lines 276-283)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        # Use immediate_save=False to dirty the flags
+        system.get_or_create_profile("flush_user", immediate_save=False)
+        system.add_memory(
+            "flush_user",
+            "Important memory",
+            memory_type="semantic",
+            importance=0.9
+        )
+
+        # Mark dirty flags
+        system._mark_profiles_dirty()
+        system._mark_core_memories_dirty()
+
+        # Flush should save both
+        system.flush_pending_saves()
+
+        # Verify flags are reset
+        assert not system._profiles_dirty
+        assert not system._core_memories_dirty
+
+    @pytest.mark.asyncio
+    async def test_flush_pending_saves_async(self, temp_storage):
+        """Test flush_pending_saves_async method (lines 285-295)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        # Create profile and memory
+        system.get_or_create_profile("async_flush_user", immediate_save=False)
+        system.add_memory(
+            "async_flush_user",
+            "Important async memory",
+            memory_type="semantic",
+            importance=0.9
+        )
+
+        # Mark dirty flags
+        system._mark_profiles_dirty()
+        system._mark_core_memories_dirty()
+
+        # Flush async
+        await system.flush_pending_saves_async()
+
+        # Verify flags are reset
+        assert not system._profiles_dirty
+        assert not system._core_memories_dirty
+
+    def test_update_profile_with_immediate_save_false(self, temp_storage):
+        """Test update_profile with immediate_save=False (lines 340-343)."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system.get_or_create_profile("batch_user")
+
+        # Update with immediate_save=False
+        profile = system.update_profile("batch_user", immediate_save=False, name="BatchUser")
+
+        # Flag should be dirty
+        assert system._profiles_dirty
+        assert profile.name == "BatchUser"
+
+        # Flush to save
+        system.flush_pending_saves()
+        assert not system._profiles_dirty
+
     def test_do_extract_and_store_emotional_pattern(self, temp_storage):
         """Test _do_extract_and_store updates emotional patterns (line 567-571)."""
         from eva_memory import EvaMemorySystem

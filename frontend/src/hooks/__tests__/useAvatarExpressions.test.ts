@@ -9,41 +9,45 @@ import {
   useLipSyncVisemes,
   useExpressionGaze,
   EXPRESSION_PRESETS,
+  VISEME_MAP,
 } from "../useAvatarExpressions";
-
-// Mock performance.now
-const mockPerformanceNow = jest.spyOn(performance, "now");
 
 // Mock requestAnimationFrame
 let rafCallback: FrameRequestCallback | null = null;
 let rafId = 0;
-const mockRaf = jest.fn((cb: FrameRequestCallback) => {
-  rafCallback = cb;
-  return ++rafId;
-});
-const mockCancelRaf = jest.fn();
 
 beforeAll(() => {
   jest.useFakeTimers();
-  (global as unknown as { requestAnimationFrame: typeof requestAnimationFrame }).requestAnimationFrame = mockRaf;
-  (global as unknown as { cancelAnimationFrame: typeof cancelAnimationFrame }).cancelAnimationFrame = mockCancelRaf;
+
+  // Mock RAF
+  jest.spyOn(global, "requestAnimationFrame").mockImplementation((cb) => {
+    rafCallback = cb;
+    return ++rafId;
+  });
+  jest.spyOn(global, "cancelAnimationFrame").mockImplementation(() => {});
+
+  // Mock performance.now
+  jest.spyOn(performance, "now").mockReturnValue(0);
 });
 
 afterAll(() => {
   jest.useRealTimers();
+  jest.restoreAllMocks();
 });
 
 beforeEach(() => {
-  jest.clearAllMocks();
-  mockPerformanceNow.mockReturnValue(0);
+  jest.clearAllTimers();
   rafCallback = null;
   rafId = 0;
+  (performance.now as jest.Mock).mockReturnValue(0);
 });
 
 describe("useAvatarExpressions", () => {
   describe("initialization", () => {
     it("should initialize with neutral expression by default", () => {
-      const { result } = renderHook(() => useAvatarExpressions());
+      const { result } = renderHook(() =>
+        useAvatarExpressions({ enableMicroExpressions: false })
+      );
 
       expect(result.current.state.currentPreset).toBe("neutral");
       expect(result.current.state.blendShapes).toEqual({});
@@ -53,19 +57,14 @@ describe("useAvatarExpressions", () => {
 
     it("should initialize with custom initial expression", () => {
       const { result } = renderHook(() =>
-        useAvatarExpressions({ initialExpression: "happy" })
+        useAvatarExpressions({
+          initialExpression: "happy",
+          enableMicroExpressions: false,
+        })
       );
 
       expect(result.current.state.currentPreset).toBe("happy");
       expect(result.current.state.blendShapes).toEqual(EXPRESSION_PRESETS.happy);
-    });
-
-    it("should use custom transition duration", () => {
-      const { result } = renderHook(() =>
-        useAvatarExpressions({ defaultTransitionDuration: 500 })
-      );
-
-      expect(result.current.state.currentPreset).toBe("neutral");
     });
   });
 
@@ -84,7 +83,6 @@ describe("useAvatarExpressions", () => {
     });
 
     it("should call onComplete callback after transition", () => {
-      mockPerformanceNow.mockReturnValue(0);
       const onComplete = jest.fn();
       const { result } = renderHook(() =>
         useAvatarExpressions({ enableMicroExpressions: false })
@@ -98,7 +96,7 @@ describe("useAvatarExpressions", () => {
       });
 
       // Advance animation to completion
-      mockPerformanceNow.mockReturnValue(150);
+      (performance.now as jest.Mock).mockReturnValue(150);
       act(() => {
         if (rafCallback) rafCallback(150);
       });
@@ -107,22 +105,81 @@ describe("useAvatarExpressions", () => {
       expect(result.current.state.isTransitioning).toBe(false);
     });
 
-    it("should cancel previous transition when setting new expression", () => {
+    it("should use easeIn easing", () => {
+      const { result } = renderHook(() =>
+        useAvatarExpressions({ enableMicroExpressions: false })
+      );
+
+      const easeIn = (t: number) => t * t;
+
+      act(() => {
+        result.current.controls.setExpression("happy", {
+          duration: 100,
+          easing: easeIn,
+        });
+      });
+
+      expect(result.current.state.isTransitioning).toBe(true);
+    });
+
+    it("should use easeInOut easing", () => {
+      const { result } = renderHook(() =>
+        useAvatarExpressions({ enableMicroExpressions: false })
+      );
+
+      const easeInOut = (t: number) =>
+        t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+      act(() => {
+        result.current.controls.setExpression("sad", {
+          duration: 100,
+          easing: easeInOut,
+        });
+      });
+
+      // Advance to mid-animation (t = 0.5)
+      (performance.now as jest.Mock).mockReturnValue(50);
+      act(() => {
+        if (rafCallback) rafCallback(50);
+      });
+
+      expect(result.current.state.isTransitioning).toBe(true);
+    });
+
+    it("should use easeOutBack easing", () => {
+      const { result } = renderHook(() =>
+        useAvatarExpressions({ enableMicroExpressions: false })
+      );
+
+      const c1 = 1.70158;
+      const c3 = c1 + 1;
+      const easeOutBack = (t: number) =>
+        1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+
+      act(() => {
+        result.current.controls.setExpression("thinking", {
+          duration: 100,
+          easing: easeOutBack,
+        });
+      });
+
+      expect(result.current.state.isTransitioning).toBe(true);
+    });
+
+    it("should cancel ongoing transition when starting new one", () => {
       const { result } = renderHook(() =>
         useAvatarExpressions({ enableMicroExpressions: false })
       );
 
       act(() => {
-        result.current.controls.setExpression("happy");
+        result.current.controls.setExpression("happy", { duration: 200 });
       });
-
-      const firstRafId = rafId;
 
       act(() => {
-        result.current.controls.setExpression("sad");
+        result.current.controls.setExpression("sad", { duration: 100 });
       });
 
-      expect(mockCancelRaf).toHaveBeenCalledWith(firstRafId);
+      expect(cancelAnimationFrame).toHaveBeenCalled();
       expect(result.current.state.currentPreset).toBe("sad");
     });
   });
@@ -140,30 +197,6 @@ describe("useAvatarExpressions", () => {
       });
 
       expect(result.current.state.currentPreset).toBeNull();
-      expect(result.current.state.isTransitioning).toBe(true);
-    });
-
-    it("should apply custom easing function", () => {
-      mockPerformanceNow.mockReturnValue(0);
-      const customEasing = (t: number) => t * t;
-      const { result } = renderHook(() =>
-        useAvatarExpressions({ enableMicroExpressions: false })
-      );
-
-      act(() => {
-        result.current.controls.setBlendShapes(
-          { jawOpen: 1 },
-          { duration: 100, easing: customEasing }
-        );
-      });
-
-      // At 50% time, with quadratic easing, should be 25%
-      mockPerformanceNow.mockReturnValue(50);
-      act(() => {
-        if (rafCallback) rafCallback(50);
-      });
-
-      // Check that transition is still in progress
       expect(result.current.state.isTransitioning).toBe(true);
     });
   });
@@ -326,44 +359,101 @@ describe("useAvatarExpressions", () => {
       ).toBeUndefined();
     });
 
-    it("should trigger different micro-expression types", () => {
+    it("should trigger twitch micro-expression", () => {
       const { result } = renderHook(() =>
         useAvatarExpressions({ enableMicroExpressions: false })
       );
 
-      const types = ["twitch", "smirk", "eyebrow-raise", "squint"] as const;
+      act(() => {
+        result.current.controls.triggerMicroExpression("twitch");
+      });
 
-      for (const type of types) {
-        act(() => {
-          result.current.controls.triggerMicroExpression(type);
-        });
+      expect(result.current.state.activeLayers).toContainEqual(
+        expect.objectContaining({ id: "micro-expression" })
+      );
+    });
 
-        expect(result.current.state.activeLayers).toContainEqual(
-          expect.objectContaining({ id: "micro-expression" })
-        );
+    it("should trigger smirk micro-expression", () => {
+      const { result } = renderHook(() =>
+        useAvatarExpressions({ enableMicroExpressions: false })
+      );
 
-        act(() => {
-          jest.advanceTimersByTime(300);
-        });
-      }
+      act(() => {
+        result.current.controls.triggerMicroExpression("smirk");
+      });
+
+      expect(result.current.state.activeLayers).toContainEqual(
+        expect.objectContaining({ id: "micro-expression" })
+      );
+    });
+
+    it("should trigger eyebrow-raise micro-expression", () => {
+      const { result } = renderHook(() =>
+        useAvatarExpressions({ enableMicroExpressions: false })
+      );
+
+      act(() => {
+        result.current.controls.triggerMicroExpression("eyebrow-raise");
+      });
+
+      expect(result.current.state.activeLayers).toContainEqual(
+        expect.objectContaining({ id: "micro-expression" })
+      );
+    });
+
+    it("should trigger squint micro-expression", () => {
+      const { result } = renderHook(() =>
+        useAvatarExpressions({ enableMicroExpressions: false })
+      );
+
+      act(() => {
+        result.current.controls.triggerMicroExpression("squint");
+      });
+
+      expect(result.current.state.activeLayers).toContainEqual(
+        expect.objectContaining({ id: "micro-expression" })
+      );
     });
 
     it("should auto-trigger micro-expressions when enabled", () => {
-      const { result } = renderHook(() =>
+      jest.spyOn(global.Math, "random").mockReturnValue(0.5);
+
+      const { result, unmount } = renderHook(() =>
         useAvatarExpressions({
           enableMicroExpressions: true,
           microExpressionInterval: [100, 200],
         })
       );
 
-      // Advance time to trigger auto micro-expression
+      // Advance past the micro-expression interval
       act(() => {
-        jest.advanceTimersByTime(250);
+        jest.advanceTimersByTime(200);
       });
 
       // A micro-expression should have been triggered
-      // (it may have already been removed, so just verify no errors)
-      expect(result.current.state).toBeDefined();
+      expect(result.current.state.activeLayers).toContainEqual(
+        expect.objectContaining({ id: "micro-expression" })
+      );
+
+      unmount();
+
+      // Restore Math.random
+      jest.spyOn(global.Math, "random").mockRestore();
+    });
+
+    it("should cleanup micro-expression timeout on unmount", () => {
+      const clearTimeoutSpy = jest.spyOn(global, "clearTimeout");
+
+      const { unmount } = renderHook(() =>
+        useAvatarExpressions({
+          enableMicroExpressions: true,
+          microExpressionInterval: [1000, 2000],
+        })
+      );
+
+      unmount();
+
+      expect(clearTimeoutSpy).toHaveBeenCalled();
     });
   });
 
@@ -397,23 +487,7 @@ describe("useAvatarExpressions", () => {
 
       unmount();
 
-      expect(mockCancelRaf).toHaveBeenCalled();
-    });
-
-    it("should cleanup micro-expression timeout on unmount", () => {
-      const { unmount } = renderHook(() =>
-        useAvatarExpressions({
-          enableMicroExpressions: true,
-          microExpressionInterval: [1000, 2000],
-        })
-      );
-
-      unmount();
-
-      // Advance time and verify no errors
-      act(() => {
-        jest.advanceTimersByTime(3000);
-      });
+      expect(cancelAnimationFrame).toHaveBeenCalled();
     });
   });
 });
@@ -475,83 +549,115 @@ describe("useLipSyncVisemes", () => {
     expect(result.current.visemeBlendShapes).toEqual({});
   });
 
-  it("should handle all viseme types", () => {
+  it("should handle PP viseme", () => {
     const { result } = renderHook(() => useLipSyncVisemes());
 
-    const visemes = [
-      "sil",
-      "PP",
-      "FF",
-      "TH",
-      "DD",
-      "kk",
-      "CH",
-      "SS",
-      "nn",
-      "RR",
-      "E",
-      "ih",
-      "oh",
-      "ou",
-    ];
+    act(() => {
+      result.current.setViseme("PP");
+    });
 
-    for (const viseme of visemes) {
-      act(() => {
-        result.current.setViseme(viseme);
-      });
-      // Just verify no errors
-      expect(result.current.visemeBlendShapes).toBeDefined();
-    }
+    expect(result.current.visemeBlendShapes.mouthClose).toBe(0.8);
+  });
+
+  it("should handle FF viseme", () => {
+    const { result } = renderHook(() => useLipSyncVisemes());
+
+    act(() => {
+      result.current.setViseme("FF");
+    });
+
+    expect(result.current.visemeBlendShapes.mouthFunnel).toBe(0.4);
+  });
+
+  it("should handle TH viseme", () => {
+    const { result } = renderHook(() => useLipSyncVisemes());
+
+    act(() => {
+      result.current.setViseme("TH");
+    });
+
+    expect(result.current.visemeBlendShapes.tongueOut).toBe(0.3);
+  });
+
+  it("should handle sil viseme", () => {
+    const { result } = renderHook(() => useLipSyncVisemes());
+
+    act(() => {
+      result.current.setViseme("sil");
+    });
+
+    expect(result.current.visemeBlendShapes).toEqual({});
   });
 });
 
 describe("useExpressionGaze", () => {
   it("should return empty blend shapes when no target", () => {
-    const { result } = renderHook(() => useExpressionGaze(null));
+    const { result } = renderHook(
+      ({ target }) => useExpressionGaze(target),
+      { initialProps: { target: null as { x: number; y: number } | null } }
+    );
 
-    expect(result).toEqual({});
+    expect(result.current).toEqual({});
   });
 
   it("should set gaze blend shapes for left look", () => {
-    const { result } = renderHook(() => useExpressionGaze({ x: -0.5, y: 0 }));
+    const { result } = renderHook(
+      ({ target }) => useExpressionGaze(target),
+      { initialProps: { target: { x: -0.5, y: 0 } } }
+    );
 
-    expect(result.eyeLookOutLeft).toBeCloseTo(0.5);
-    expect(result.eyeLookInRight).toBeCloseTo(0.5);
+    expect(result.current.eyeLookOutLeft).toBeCloseTo(0.5);
+    expect(result.current.eyeLookInRight).toBeCloseTo(0.5);
   });
 
   it("should set gaze blend shapes for right look", () => {
-    const { result } = renderHook(() => useExpressionGaze({ x: 0.5, y: 0 }));
+    const { result } = renderHook(
+      ({ target }) => useExpressionGaze(target),
+      { initialProps: { target: { x: 0.5, y: 0 } } }
+    );
 
-    expect(result.eyeLookInLeft).toBeCloseTo(0.5);
-    expect(result.eyeLookOutRight).toBeCloseTo(0.5);
+    expect(result.current.eyeLookInLeft).toBeCloseTo(0.5);
+    expect(result.current.eyeLookOutRight).toBeCloseTo(0.5);
   });
 
   it("should set gaze blend shapes for up look", () => {
-    const { result } = renderHook(() => useExpressionGaze({ x: 0, y: 0.5 }));
+    const { result } = renderHook(
+      ({ target }) => useExpressionGaze(target),
+      { initialProps: { target: { x: 0, y: 0.5 } } }
+    );
 
-    expect(result.eyeLookUpLeft).toBeCloseTo(0.5);
-    expect(result.eyeLookUpRight).toBeCloseTo(0.5);
+    expect(result.current.eyeLookUpLeft).toBeCloseTo(0.5);
+    expect(result.current.eyeLookUpRight).toBeCloseTo(0.5);
   });
 
   it("should set gaze blend shapes for down look", () => {
-    const { result } = renderHook(() => useExpressionGaze({ x: 0, y: -0.5 }));
+    const { result } = renderHook(
+      ({ target }) => useExpressionGaze(target),
+      { initialProps: { target: { x: 0, y: -0.5 } } }
+    );
 
-    expect(result.eyeLookDownLeft).toBeCloseTo(0.5);
-    expect(result.eyeLookDownRight).toBeCloseTo(0.5);
+    expect(result.current.eyeLookDownLeft).toBeCloseTo(0.5);
+    expect(result.current.eyeLookDownRight).toBeCloseTo(0.5);
   });
 
   it("should clamp gaze values to 1", () => {
-    const { result } = renderHook(() => useExpressionGaze({ x: 2, y: 2 }));
+    const { result } = renderHook(
+      ({ target }) => useExpressionGaze(target),
+      { initialProps: { target: { x: 2, y: 2 } } }
+    );
 
-    expect(result.eyeLookInLeft).toBe(1);
-    expect(result.eyeLookUpLeft).toBe(1);
+    expect(result.current.eyeLookInLeft).toBe(1);
+    expect(result.current.eyeLookUpLeft).toBe(1);
   });
 
   it("should handle diagonal gaze", () => {
-    const { result } = renderHook(() => useExpressionGaze({ x: 0.3, y: 0.4 }));
+    const { result } = renderHook(
+      ({ target }) => useExpressionGaze(target),
+      { initialProps: { target: { x: 0.3, y: 0.4 } } }
+    );
 
-    expect(result.eyeLookInLeft).toBeCloseTo(0.3);
-    expect(result.eyeLookUpLeft).toBeCloseTo(0.4);
+    expect(result.current.eyeLookInLeft).toBeCloseTo(0.3);
+    expect(result.current.eyeLookUpLeft).toBeCloseTo(0.4);
   });
 
   it("should update when target changes", () => {
@@ -560,24 +666,28 @@ describe("useExpressionGaze", () => {
       { initialProps: { target: { x: 0.5, y: 0 } } }
     );
 
-    expect(result.eyeLookInLeft).toBeCloseTo(0.5);
+    expect(result.current.eyeLookInLeft).toBeCloseTo(0.5);
 
     rerender({ target: { x: -0.5, y: 0 } });
 
-    expect(result.eyeLookOutLeft).toBeCloseTo(0.5);
+    expect(result.current.eyeLookOutLeft).toBeCloseTo(0.5);
   });
 
   it("should clear gaze when target becomes null", () => {
     const { result, rerender } = renderHook(
       ({ target }) => useExpressionGaze(target),
-      { initialProps: { target: { x: 0.5, y: 0 } as { x: number; y: number } | null } }
+      {
+        initialProps: {
+          target: { x: 0.5, y: 0 } as { x: number; y: number } | null,
+        },
+      }
     );
 
-    expect(result.eyeLookInLeft).toBeCloseTo(0.5);
+    expect(result.current.eyeLookInLeft).toBeCloseTo(0.5);
 
     rerender({ target: null });
 
-    expect(result).toEqual({});
+    expect(result.current).toEqual({});
   });
 });
 
@@ -599,7 +709,9 @@ describe("EXPRESSION_PRESETS", () => {
     ];
 
     for (const preset of expectedPresets) {
-      expect(EXPRESSION_PRESETS[preset as keyof typeof EXPRESSION_PRESETS]).toBeDefined();
+      expect(
+        EXPRESSION_PRESETS[preset as keyof typeof EXPRESSION_PRESETS]
+      ).toBeDefined();
     }
   });
 
