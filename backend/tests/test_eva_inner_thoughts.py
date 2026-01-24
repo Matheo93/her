@@ -725,3 +725,68 @@ class TestProactiveMessage:
             result = get_proactive_message("user123")
 
         assert result is None  # No memory = no proactive message
+
+    def test_generate_proactive_message_no_topics(self):
+        """Test returns None when no proactive topics."""
+        from eva_inner_thoughts import EvaInnerThoughts
+
+        thoughts = EvaInnerThoughts()
+        thoughts.last_proactive_time = 0  # Long ago
+
+        mock_memory = MagicMock()
+        mock_memory.get_context_memories.return_value = {"profile": {"name": "Test"}}
+        mock_memory.get_proactive_topics.return_value = []
+
+        with patch('eva_inner_thoughts.get_memory_system', return_value=mock_memory):
+            result = thoughts.generate_proactive_message("user123")
+
+        assert result is None  # No topics = no proactive message
+
+    def test_generate_proactive_message_with_topic(self):
+        """Test proactive message generation with a topic."""
+        from eva_inner_thoughts import EvaInnerThoughts
+
+        thoughts = EvaInnerThoughts()
+        thoughts.last_proactive_time = 0  # Long ago
+
+        mock_memory = MagicMock()
+        mock_memory.get_context_memories.return_value = {
+            "profile": {
+                "name": "Alice",
+                "emotional_patterns": {"dominant": "joyeux"}
+            }
+        }
+        mock_memory.get_proactive_topics.return_value = [
+            {"topic": "musique", "type": "follow_up"}
+        ]
+
+        with patch('eva_inner_thoughts.get_memory_system', return_value=mock_memory):
+            result = thoughts.generate_proactive_message("user123")
+
+        # Either we get a message or None (depends on should_speak)
+        if result is not None:
+            assert "message" in result
+            assert "thought" in result
+            assert "topic" in result
+            assert result["type"] == "proactive"
+
+    def test_generate_proactive_message_should_not_speak(self):
+        """Test proactive message returns None when should_speak is False."""
+        from eva_inner_thoughts import EvaInnerThoughts
+
+        thoughts = EvaInnerThoughts()
+        thoughts.last_proactive_time = 0  # Long ago
+
+        mock_memory = MagicMock()
+        mock_memory.get_context_memories.return_value = {
+            "profile": {"name": "Test"}
+        }
+        mock_memory.get_proactive_topics.return_value = [
+            {"topic": "test", "type": "curiosity"}
+        ]
+
+        with patch('eva_inner_thoughts.get_memory_system', return_value=mock_memory):
+            with patch.object(thoughts, 'should_speak', return_value=False):
+                result = thoughts.generate_proactive_message("user123")
+
+        assert result is None

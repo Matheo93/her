@@ -724,3 +724,42 @@ describe("EXPRESSION_PRESETS", () => {
     }
   });
 });
+
+describe("VISEME_MAP", () => {
+  it("should export all viseme mappings", () => {
+    const expectedVisemes = [
+      "sil",
+      "PP",
+      "FF",
+      "TH",
+      "DD",
+      "kk",
+      "CH",
+      "SS",
+      "nn",
+      "RR",
+      "aa",
+      "E",
+      "ih",
+      "oh",
+      "ou",
+    ];
+
+    for (const viseme of expectedVisemes) {
+      expect(VISEME_MAP[viseme]).toBeDefined();
+    }
+  });
+
+  it("should have valid blend shape values in visemes", () => {
+    for (const [, values] of Object.entries(VISEME_MAP)) {
+      for (const [, value] of Object.entries(values)) {
+        expect(value).toBeGreaterThanOrEqual(0);
+        expect(value).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it("should have sil as empty object for silence", () => {
+    expect(VISEME_MAP.sil).toEqual({});
+  });
+});

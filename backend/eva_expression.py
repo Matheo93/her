@@ -46,8 +46,8 @@ EMOTIONS = {
     "neutral": Emotion("neutral", 0.3, 1.0, 0, "idle"),
 }
 
-# Patterns pour détecter les émotions dans le texte
-EMOTION_PATTERNS = {
+# Patterns pour détecter les émotions dans le texte (pré-compilés pour performance)
+_EMOTION_PATTERNS_RAW = {
     "joy": [
         r"\bhaha\b", r"\bhihi\b", r"\bmdr\b", r"j'adore", r"trop bien",
         r"génial", r"super", r"cool", r"😊", r"😄", r"❤️"
@@ -83,6 +83,16 @@ EMOTION_PATTERNS = {
         r"je pense", r"peut-être", r"hmm", r"intéressant", r"réfléchis"
     ],
 }
+
+# Pre-compile all regex patterns at module load (significant performance gain)
+EMOTION_PATTERNS_COMPILED = {
+    emotion: [re.compile(pattern, re.IGNORECASE) for pattern in patterns]
+    for emotion, patterns in _EMOTION_PATTERNS_RAW.items()
+}
+
+# Pre-compiled sets for fast keyword lookup in get_animation_suggestion
+_NEGATIVE_WORDS = frozenset({"non", "pas", "jamais"})
+_AFFIRMATIVE_WORDS = frozenset({"oui", "ouais", "bien sûr"})
 
 
 class EvaExpressionSystem:
@@ -144,15 +154,18 @@ class EvaExpressionSystem:
             return False
 
     def detect_emotion(self, text: str) -> Emotion:
-        """Détecte l'émotion dominante dans le texte."""
+        """Détecte l'émotion dominante dans le texte.
+
+        Optimized: Uses pre-compiled regex patterns for faster matching.
+        """
         text_lower = text.lower()
         scores = {}
 
-        for emotion_name, patterns in EMOTION_PATTERNS.items():
+        # Use pre-compiled patterns (faster than re.findall with string patterns)
+        for emotion_name, compiled_patterns in EMOTION_PATTERNS_COMPILED.items():
             score = 0
-            for pattern in patterns:
-                matches = len(re.findall(pattern, text_lower, re.IGNORECASE))
-                score += matches
+            for pattern in compiled_patterns:
+                score += len(pattern.findall(text_lower))
             if score > 0:
                 scores[emotion_name] = score
 
@@ -228,7 +241,10 @@ class EvaExpressionSystem:
         }
 
     def get_animation_suggestion(self, text: str) -> List[Dict]:
-        """Suggère des animations basées sur le texte."""
+        """Suggère des animations basées sur le texte.
+
+        Optimized: Uses pre-computed frozensets and single text.lower() call.
+        """
         emotion = self.detect_emotion(text)
         animations = []
 
@@ -239,6 +255,9 @@ class EvaExpressionSystem:
             "duration": 0.5
         })
 
+        # Single lower() call for all word checks
+        text_lower = text.lower()
+
         # Animations additionnelles selon le contenu
         if "?" in text:
             animations.append({"type": "head_tilt", "intensity": 0.5, "duration": 0.3})
@@ -246,10 +265,12 @@ class EvaExpressionSystem:
         if "!" in text:
             animations.append({"type": "eyebrows_up", "intensity": 0.6, "duration": 0.2})
 
-        if any(w in text.lower() for w in ["non", "pas", "jamais"]):
+        # Use pre-computed frozensets for O(1) word lookup
+        words = set(text_lower.split())
+        if words & _NEGATIVE_WORDS:
             animations.append({"type": "head_shake", "intensity": 0.4, "duration": 0.4})
 
-        if any(w in text.lower() for w in ["oui", "ouais", "bien sûr"]):
+        if words & _AFFIRMATIVE_WORDS:
             animations.append({"type": "nod", "intensity": 0.5, "duration": 0.3})
 
         return animations

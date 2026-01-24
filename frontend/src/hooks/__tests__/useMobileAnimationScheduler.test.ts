@@ -2647,6 +2647,14 @@ describe("Sprint 751 - budget 80% break (line 444 budget condition)", () => {
 });
 
 describe("Sprint 751 - callback error console.error (line 467)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should handle callback errors gracefully and log them", () => {
     const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
@@ -2683,6 +2691,14 @@ describe("Sprint 751 - callback error console.error (line 467)", () => {
 });
 
 describe("Sprint 751 - deadline progress=1 and onComplete (lines 487-490)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should handle deadline scheduling", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       enableFrameSkipping: false,
@@ -2762,6 +2778,14 @@ describe("Sprint 751 - deadline progress=1 and onComplete (lines 487-490)", () =
 });
 
 describe("Sprint 751 - frameTimes shift at 60 (line 507)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should handle frame time tracking over many frames", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       enableFrameSkipping: false,

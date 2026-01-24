@@ -17,10 +17,24 @@ import {
 const mockNow = jest.spyOn(performance, "now");
 let currentTime = 1000;
 
+// Default mock battery for all tests
+const defaultMockBattery = {
+  level: 0.8,
+  charging: true,
+  addEventListener: jest.fn(),
+};
+
 beforeEach(() => {
   currentTime = 1000;
   mockNow.mockImplementation(() => currentTime);
   jest.useFakeTimers();
+
+  // Mock getBattery globally for all tests
+  Object.defineProperty(navigator, "getBattery", {
+    value: jest.fn().mockResolvedValue(defaultMockBattery),
+    writable: true,
+    configurable: true,
+  });
 });
 
 afterEach(() => {
@@ -1029,6 +1043,27 @@ describe("Sprint 532 - Battery API coverage (lines 506-507, 514-520)", () => {
 });
 
 describe("Sprint 520 - Additional branch coverage", () => {
+  beforeEach(() => {
+    currentTime = 1000;
+    mockNow.mockImplementation(() => currentTime);
+    jest.useFakeTimers();
+
+    // Mock getBattery for these tests
+    Object.defineProperty(navigator, "getBattery", {
+      value: jest.fn().mockResolvedValue({
+        level: 0.8,
+        charging: true,
+        addEventListener: jest.fn(),
+      }),
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should return null prediction with less than 2 history items (line 330)", () => {
     const renderer = createRenderer();
     const { result } = renderHook(() =>
