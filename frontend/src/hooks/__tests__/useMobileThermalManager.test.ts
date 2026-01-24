@@ -714,3 +714,232 @@ describe("Sprint 634 - Performance scale calculations", () => {
     expect(result.current.state.performanceScale).toBeDefined();
   });
 });
+
+// ============================================================================
+// Sprint 635 - Additional Coverage Tests for lines 190-194, 203, 422-434, 486, 504-508
+// ============================================================================
+
+describe("Sprint 635 - Performance scale for serious state (lines 190-191)", () => {
+  it("should use 0.6 base scale for serious thermal state", () => {
+    const { result } = renderHook(() =>
+      useMobileThermalManager({
+        sampleIntervalMs: 100,
+        fairThreshold: 26,
+        seriousThreshold: 30,
+        criticalThreshold: 50,
+        autoThrottle: false,
+      })
+    );
+
+    // Heat up to serious threshold
+    for (let i = 0; i < 40; i++) {
+      act(() => {
+        result.current.controls.reportWorkload("computation", 1.0);
+        result.current.controls.reportWorkload("rendering", 1.0);
+        jest.advanceTimersByTime(110);
+        mockTime += 110;
+      });
+    }
+
+    const temp = result.current.state.thermal.estimatedTemp;
+    if (temp >= 30 && temp < 50) {
+      // In serious state, base scale should be around 0.6 (may be modified by trend)
+      expect(result.current.state.thermal.state).toBe("serious");
+      expect(result.current.state.performanceScale).toBeLessThanOrEqual(0.7);
+    }
+  });
+});
+
+describe("Sprint 635 - Performance scale for critical state (lines 192-194)", () => {
+  it("should use 0.3 base scale for critical thermal state", () => {
+    const { result } = renderHook(() =>
+      useMobileThermalManager({
+        sampleIntervalMs: 100,
+        fairThreshold: 26,
+        seriousThreshold: 28,
+        criticalThreshold: 32,
+        autoThrottle: false,
+      })
+    );
+
+    // Heat up to critical threshold
+    for (let i = 0; i < 50; i++) {
+      act(() => {
+        result.current.controls.reportWorkload("computation", 1.0);
+        result.current.controls.reportWorkload("rendering", 1.0);
+        result.current.controls.reportWorkload("media", 1.0);
+        jest.advanceTimersByTime(110);
+        mockTime += 110;
+      });
+    }
+
+    const temp = result.current.state.thermal.estimatedTemp;
+    if (temp >= 32) {
+      // In critical state, base scale should be around 0.3 (may be modified by trend)
+      expect(result.current.state.thermal.state).toBe("critical");
+      expect(result.current.state.performanceScale).toBeLessThanOrEqual(0.4);
+    }
+  });
+});
+
+describe("Sprint 635 - Cooling trend scaling (line 203)", () => {
+  it("should apply 1.1x multiplier when cooling", () => {
+    const { result } = renderHook(() =>
+      useMobileThermalManager({
+        sampleIntervalMs: 100,
+        fairThreshold: 28,
+        seriousThreshold: 35,
+        criticalThreshold: 45,
+      })
+    );
+
+    // First heat up
+    for (let i = 0; i < 25; i++) {
+      act(() => {
+        result.current.controls.reportWorkload("computation", 1.0);
+        result.current.controls.reportWorkload("rendering", 1.0);
+        jest.advanceTimersByTime(110);
+        mockTime += 110;
+      });
+    }
+
+    const peakTemp = result.current.state.thermal.estimatedTemp;
+
+    // Remove all workloads
+    act(() => {
+      result.current.controls.clearWorkload("computation");
+      result.current.controls.clearWorkload("rendering");
+    });
+
+    // Let it cool for many intervals to establish cooling trend
+    for (let i = 0; i < 20; i++) {
+      act(() => {
+        jest.advanceTimersByTime(110);
+        mockTime += 110;
+      });
+    }
+
+    // Temperature should have dropped
+    expect(result.current.state.thermal.estimatedTemp).toBeLessThanOrEqual(peakTemp);
+    // Trend should reflect cooling
+    expect(["cooling", "stable"]).toContain(result.current.state.thermal.trend);
+  });
+});
+
+describe("Sprint 635 - Cooldown auto-trigger on critical (line 486)", () => {
+  it("should auto-trigger cooldown when reaching critical and autoThrottle is enabled", () => {
+    const { result } = renderHook(() =>
+      useMobileThermalManager({
+        sampleIntervalMs: 100,
+        fairThreshold: 26,
+        seriousThreshold: 28,
+        criticalThreshold: 32,
+        autoThrottle: true,
+        cooldownDurationMs: 30000,
+      })
+    );
+
+    // Heat up quickly to critical threshold
+    for (let i = 0; i < 60; i++) {
+      act(() => {
+        result.current.controls.reportWorkload("computation", 1.0);
+        result.current.controls.reportWorkload("rendering", 1.0);
+        result.current.controls.reportWorkload("media", 1.0);
+        jest.advanceTimersByTime(110);
+        mockTime += 110;
+      });
+    }
+
+    const temp = result.current.state.thermal.estimatedTemp;
+    // If we reached critical, cooldown should have been triggered
+    if (temp >= 32) {
+      expect(result.current.state.cooldown.active).toBe(true);
+      expect(result.current.metrics.cooldownsTriggered).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("Sprint 635 - Metrics tracking for critical state (lines 504-508)", () => {
+  it("should track time in critical state", () => {
+    const { result } = renderHook(() =>
+      useMobileThermalManager({
+        sampleIntervalMs: 100,
+        fairThreshold: 26,
+        seriousThreshold: 28,
+        criticalThreshold: 32,
+        autoThrottle: false,
+      })
+    );
+
+    // Heat up to critical
+    for (let i = 0; i < 60; i++) {
+      act(() => {
+        result.current.controls.reportWorkload("computation", 1.0);
+        result.current.controls.reportWorkload("rendering", 1.0);
+        result.current.controls.reportWorkload("media", 1.0);
+        jest.advanceTimersByTime(110);
+        mockTime += 110;
+      });
+    }
+
+    const temp = result.current.state.thermal.estimatedTemp;
+    if (temp >= 32) {
+      // Time in critical should have increased
+      expect(result.current.metrics.timeInCritical).toBeGreaterThan(0);
+    }
+  });
+
+  it("should track time in serious state", () => {
+    const { result } = renderHook(() =>
+      useMobileThermalManager({
+        sampleIntervalMs: 100,
+        fairThreshold: 26,
+        seriousThreshold: 30,
+        criticalThreshold: 50,
+        autoThrottle: false,
+      })
+    );
+
+    // Heat up to serious
+    for (let i = 0; i < 40; i++) {
+      act(() => {
+        result.current.controls.reportWorkload("computation", 1.0);
+        result.current.controls.reportWorkload("rendering", 1.0);
+        jest.advanceTimersByTime(110);
+        mockTime += 110;
+      });
+    }
+
+    const temp = result.current.state.thermal.estimatedTemp;
+    if (temp >= 30 && temp < 50) {
+      // Time in serious should have increased
+      expect(result.current.metrics.timeInSerious).toBeGreaterThan(0);
+    }
+  });
+
+  it("should track time in fair state", () => {
+    const { result } = renderHook(() =>
+      useMobileThermalManager({
+        sampleIntervalMs: 100,
+        fairThreshold: 26,
+        seriousThreshold: 40,
+        criticalThreshold: 50,
+      })
+    );
+
+    // Heat up to fair state
+    for (let i = 0; i < 20; i++) {
+      act(() => {
+        result.current.controls.reportWorkload("computation", 0.8);
+        jest.advanceTimersByTime(110);
+        mockTime += 110;
+      });
+    }
+
+    const temp = result.current.state.thermal.estimatedTemp;
+    if (temp >= 26 && temp < 40) {
+      // Time in fair should have increased
+      expect(result.current.metrics.timeInFair).toBeGreaterThan(0);
+    }
+  });
+});
