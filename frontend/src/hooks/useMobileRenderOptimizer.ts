@@ -465,6 +465,12 @@ export function useMobileRenderOptimizer(
   const frameTimesRef = useRef<number[]>([]);
   const adjustmentCounterRef = useRef(0);
   const lastQualityChangeRef = useRef(Date.now());
+  const settingsQualityRef = useRef<RenderQuality>(mergedConfig.initialQuality);
+
+  // Keep quality ref in sync with settings
+  useEffect(() => {
+    settingsQualityRef.current = settings.quality;
+  }, [settings.quality]);
 
   // Recommended quality based on device
   const recommendedQuality = useMemo(
@@ -530,69 +536,79 @@ export function useMobileRenderOptimizer(
   }, [mergedConfig.memoryPressureAware, settings.quality]);
 
   // Auto quality adjustment based on frame times
+  // Uses interval to periodically check frame times and adjust quality
   useEffect(() => {
     if (!isAutoAdjusting || forcedQuality || isPaused) return;
 
-    const avgFrameTime =
-      frameTimesRef.current.length > 0
-        ? frameTimesRef.current.reduce((a, b) => a + b, 0) / frameTimesRef.current.length
-        : 0;
+    const checkAndAdjust = () => {
+      const avgFrameTime =
+        frameTimesRef.current.length > 0
+          ? frameTimesRef.current.reduce((a, b) => a + b, 0) / frameTimesRef.current.length
+          : 0;
 
-    if (avgFrameTime === 0) return;
+      if (avgFrameTime === 0) return;
 
-    const targetMs = 1000 / settings.targetFPS;
-    const isOverBudget = avgFrameTime > targetMs * 1.1; // 10% tolerance
-    const hasHeadroom = avgFrameTime < targetMs * 0.7; // 30% headroom
+      const targetMs = 1000 / settings.targetFPS;
+      const isOverBudget = avgFrameTime > targetMs * 1.1; // 10% tolerance
+      const hasHeadroom = avgFrameTime < targetMs * 0.7; // 30% headroom
 
-    // Update frame budget only if values changed (avoid infinite loops)
-    setFrameBudget((prev) => {
-      const newConsecutiveDrops = isOverBudget ? prev.consecutiveDrops + 1 : 0;
-      // Check if anything actually changed
-      if (
-        Math.abs(prev.currentMs - avgFrameTime) < 0.001 &&
-        prev.isOverBudget === isOverBudget &&
-        prev.consecutiveDrops === newConsecutiveDrops
-      ) {
-        return prev; // No change, return same object to prevent re-render
-      }
-      return {
-        ...prev,
-        currentMs: avgFrameTime,
-        headroom: targetMs - avgFrameTime,
-        isOverBudget,
-        consecutiveDrops: newConsecutiveDrops,
-      };
-    });
-
-    // Check if we need to adjust
-    const timeSinceLastChange = Date.now() - lastQualityChangeRef.current;
-    if (timeSinceLastChange < 2000) return; // Min 2s between changes
-
-    adjustmentCounterRef.current++;
-
-    if (adjustmentCounterRef.current >= mergedConfig.adjustmentThreshold) {
-      adjustmentCounterRef.current = 0;
-
-      if (isOverBudget) {
-        const lower = getNextLowerQuality(settings.quality);
-        if (lower && QUALITY_ORDER.indexOf(lower) >= QUALITY_ORDER.indexOf(mergedConfig.minQuality)) {
-          setSettings(QUALITY_PRESETS[lower]);
-          setMetrics((prev) => ({ ...prev, qualityChanges: prev.qualityChanges + 1 }));
-          lastQualityChangeRef.current = Date.now();
+      // Update frame budget only if values changed (avoid infinite loops)
+      setFrameBudget((prev) => {
+        const newConsecutiveDrops = isOverBudget ? prev.consecutiveDrops + 1 : 0;
+        // Check if anything actually changed
+        if (
+          Math.abs(prev.currentMs - avgFrameTime) < 0.001 &&
+          prev.isOverBudget === isOverBudget &&
+          prev.consecutiveDrops === newConsecutiveDrops
+        ) {
+          return prev; // No change, return same object to prevent re-render
         }
-      } else if (hasHeadroom) {
-        const higher = getNextHigherQuality(settings.quality);
-        if (higher && QUALITY_ORDER.indexOf(higher) <= QUALITY_ORDER.indexOf(mergedConfig.maxQuality)) {
-          setSettings(QUALITY_PRESETS[higher]);
-          setMetrics((prev) => ({ ...prev, qualityChanges: prev.qualityChanges + 1 }));
-          lastQualityChangeRef.current = Date.now();
+        return {
+          ...prev,
+          currentMs: avgFrameTime,
+          headroom: targetMs - avgFrameTime,
+          isOverBudget,
+          consecutiveDrops: newConsecutiveDrops,
+        };
+      });
+
+      // Check if we need to adjust
+      const timeSinceLastChange = Date.now() - lastQualityChangeRef.current;
+      if (timeSinceLastChange < 2000) return; // Min 2s between changes
+
+      adjustmentCounterRef.current++;
+
+      if (adjustmentCounterRef.current >= mergedConfig.adjustmentThreshold) {
+        adjustmentCounterRef.current = 0;
+
+        // Use ref to avoid dependency on settings.quality which would cause infinite loop
+        const currentQuality = settingsQualityRef.current;
+
+        if (isOverBudget) {
+          const lower = getNextLowerQuality(currentQuality);
+          if (lower && QUALITY_ORDER.indexOf(lower) >= QUALITY_ORDER.indexOf(mergedConfig.minQuality)) {
+            setSettings(QUALITY_PRESETS[lower]);
+            setMetrics((prev) => ({ ...prev, qualityChanges: prev.qualityChanges + 1 }));
+            lastQualityChangeRef.current = Date.now();
+          }
+        } else if (hasHeadroom) {
+          const higher = getNextHigherQuality(currentQuality);
+          if (higher && QUALITY_ORDER.indexOf(higher) <= QUALITY_ORDER.indexOf(mergedConfig.maxQuality)) {
+            setSettings(QUALITY_PRESETS[higher]);
+            setMetrics((prev) => ({ ...prev, qualityChanges: prev.qualityChanges + 1 }));
+            lastQualityChangeRef.current = Date.now();
+          }
         }
       }
-    }
+    };
+
+    // Run check periodically (every 500ms)
+    const intervalId = setInterval(checkAndAdjust, 500);
+
+    return () => clearInterval(intervalId);
   }, [
-    // Note: metrics.frameTime removed to prevent infinite update loop
-    // The effect reads from frameTimesRef.current directly (lines 536-539)
-    settings.quality,
+    // Note: settings.quality and metrics.frameTime removed to prevent infinite update loop
+    // The effect reads from settingsQualityRef.current and frameTimesRef.current directly
     settings.targetFPS,
     isAutoAdjusting,
     forcedQuality,

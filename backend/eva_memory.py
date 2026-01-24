@@ -8,11 +8,20 @@ import os
 import json
 import time
 import hashlib
+import re
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field, asdict
 from collections import defaultdict
+from functools import lru_cache
 import asyncio
+
+# Optional async file I/O
+try:
+    import aiofiles
+    AIOFILES_AVAILABLE = True
+except ImportError:
+    AIOFILES_AVAILABLE = False
 
 # Vector database for semantic search
 try:
@@ -87,6 +96,38 @@ class EvaMemorySystem:
     - Emotional Memory: Emotional context and patterns
     """
 
+    # Pre-compiled regex patterns for entity extraction (performance optimization)
+    _EXTRACTION_PATTERNS: Dict[str, List[re.Pattern]] = {
+        "name": [
+            re.compile(r"je m'appelle (\w+)"),
+            re.compile(r"mon nom est (\w+)"),
+            re.compile(r"c'est (\w+)"),
+            re.compile(r"appelle[- ]moi (\w+)")
+        ],
+        "interest": [
+            re.compile(r"j'aime (?:bien )?(.+?)(?:\.|,|$)"),
+            re.compile(r"j'adore (.+?)(?:\.|,|$)"),
+            re.compile(r"je suis passionné par (.+?)(?:\.|,|$)"),
+            re.compile(r"(?:mon|ma) passion c'est (.+?)(?:\.|,|$)")
+        ],
+        "dislike": [
+            re.compile(r"je n'aime pas (.+?)(?:\.|,|$)"),
+            re.compile(r"je déteste (.+?)(?:\.|,|$)"),
+            re.compile(r"j'ai horreur de (.+?)(?:\.|,|$)")
+        ],
+        "work": [
+            re.compile(r"je travaille (?:comme |en tant que )?(.+?)(?:\.|,|$)"),
+            re.compile(r"je suis (.+?) de profession"),
+            re.compile(r"mon (?:métier|travail|job) c'est (.+?)(?:\.|,|$)")
+        ],
+        "goal": [
+            re.compile(r"je veux (.+?)(?:\.|,|$)"),
+            re.compile(r"j'aimerais (.+?)(?:\.|,|$)"),
+            re.compile(r"mon objectif c'est (.+?)(?:\.|,|$)"),
+            re.compile(r"je rêve de (.+?)(?:\.|,|$)")
+        ]
+    }
+
     def __init__(self, storage_path: str = "./eva_memory"):
         self.storage_path = storage_path
         os.makedirs(storage_path, exist_ok=True)
@@ -143,7 +184,7 @@ class EvaMemorySystem:
                 print(f"⚠️ Failed to load profiles: {e}")
 
     def _save_profiles(self):
-        """Save user profiles to disk"""
+        """Save user profiles to disk (sync version for backwards compat)"""
         profiles_path = os.path.join(self.storage_path, "profiles.json")
         try:
             data = {uid: profile.to_dict() for uid, profile in self.user_profiles.items()}
@@ -151,6 +192,16 @@ class EvaMemorySystem:
                 json.dump(data, f, indent=2)
         except Exception as e:
             print(f"⚠️ Failed to save profiles: {e}")
+
+    async def _save_profiles_async(self):
+        """Save user profiles to disk asynchronously for better latency"""
+        profiles_path = os.path.join(self.storage_path, "profiles.json")
+        try:
+            data = {uid: profile.to_dict() for uid, profile in self.user_profiles.items()}
+            async with aiofiles.open(profiles_path, 'w') as f:
+                await f.write(json.dumps(data, indent=2))
+        except Exception as e:
+            print(f"⚠️ Failed to save profiles async: {e}")
 
     def _load_core_memories(self):
         """Load core memories from disk"""
@@ -168,7 +219,7 @@ class EvaMemorySystem:
                 print(f"⚠️ Failed to load core memories: {e}")
 
     def _save_core_memories(self):
-        """Save core memories to disk"""
+        """Save core memories to disk (sync version for backwards compat)"""
         core_path = os.path.join(self.storage_path, "core_memories.json")
         try:
             data = {
@@ -179,6 +230,19 @@ class EvaMemorySystem:
                 json.dump(data, f, indent=2)
         except Exception as e:
             print(f"⚠️ Failed to save core memories: {e}")
+
+    async def _save_core_memories_async(self):
+        """Save core memories to disk asynchronously for better latency"""
+        core_path = os.path.join(self.storage_path, "core_memories.json")
+        try:
+            data = {
+                uid: [m.to_dict() for m in memories]
+                for uid, memories in self.core_memories.items()
+            }
+            async with aiofiles.open(core_path, 'w') as f:
+                await f.write(json.dumps(data, indent=2))
+        except Exception as e:
+            print(f"⚠️ Failed to save core memories async: {e}")
 
     def get_or_create_profile(self, user_id: str) -> UserProfile:
         """Get or create user profile"""
@@ -366,47 +430,17 @@ class EvaMemorySystem:
         }
 
     def extract_and_store(self, user_id: str, user_message: str, eva_response: str, detected_emotion: str = "neutral"):
-        """Extract important information and store as memories"""
-        # Simple extraction patterns
-        patterns = {
-            "name": [
-                r"je m'appelle (\w+)",
-                r"mon nom est (\w+)",
-                r"c'est (\w+)",
-                r"appelle[- ]moi (\w+)"
-            ],
-            "interest": [
-                r"j'aime (?:bien )?(.+?)(?:\.|,|$)",
-                r"j'adore (.+?)(?:\.|,|$)",
-                r"je suis passionné par (.+?)(?:\.|,|$)",
-                r"(?:mon|ma) passion c'est (.+?)(?:\.|,|$)"
-            ],
-            "dislike": [
-                r"je n'aime pas (.+?)(?:\.|,|$)",
-                r"je déteste (.+?)(?:\.|,|$)",
-                r"j'ai horreur de (.+?)(?:\.|,|$)"
-            ],
-            "work": [
-                r"je travaille (?:comme |en tant que )?(.+?)(?:\.|,|$)",
-                r"je suis (.+?) de profession",
-                r"mon (?:métier|travail|job) c'est (.+?)(?:\.|,|$)"
-            ],
-            "goal": [
-                r"je veux (.+?)(?:\.|,|$)",
-                r"j'aimerais (.+?)(?:\.|,|$)",
-                r"mon objectif c'est (.+?)(?:\.|,|$)",
-                r"je rêve de (.+?)(?:\.|,|$)"
-            ]
-        }
+        """Extract important information and store as memories.
 
-        import re
+        Uses pre-compiled regex patterns for optimized performance.
+        """
         profile = self.get_or_create_profile(user_id)
         message_lower = user_message.lower()
 
-        # Extract entities
-        for entity_type, regexes in patterns.items():
-            for pattern in regexes:
-                match = re.search(pattern, message_lower)
+        # Extract entities using pre-compiled patterns
+        for entity_type, compiled_patterns in self._EXTRACTION_PATTERNS.items():
+            for pattern in compiled_patterns:
+                match = pattern.search(message_lower)
                 if match:
                     value = match.group(1).strip()
 

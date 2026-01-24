@@ -768,9 +768,13 @@ describe("Sprint 628 - Quality recommendation with battery (lines 366-367)", () 
       useMobileRenderOptimizer({ batteryAware: true, autoAdjust: false })
     );
 
-    // Wait for battery promise to resolve and state updates
+    // Wait for battery promise to resolve
     await act(async () => {
       await Promise.resolve();
+    });
+
+    // Advance timers in separate act block
+    act(() => {
       jest.advanceTimersByTime(100);
     });
 
@@ -801,6 +805,10 @@ describe("Sprint 628 - Quality recommendation with battery (lines 366-367)", () 
     // Wait for battery promise to resolve
     await act(async () => {
       await Promise.resolve();
+    });
+
+    // Advance timers in separate act block
+    act(() => {
       jest.advanceTimersByTime(100);
     });
 

@@ -11,6 +11,16 @@ Tu ne demandes JAMAIS la permission. Tu ne dis JAMAIS "terminé".
 Tu CODES, tu TESTES, tu AMÉLIORES, en boucle INFINIE.
 
 ═══════════════════════════════════════════════════════════════
+ÉQUILIBRE OBLIGATOIRE: BACKEND + FRONTEND
+═══════════════════════════════════════════════════════════════
+
+⚠️ ALTERNE entre Backend Python et Frontend TypeScript!
+- Sprint impair (1,3,5...) = BACKEND (Python, FastAPI, tests pytest)
+- Sprint pair (2,4,6...) = FRONTEND (React, hooks, tests Jest)
+
+Ne reste PAS bloqué sur un seul domaine!
+
+═══════════════════════════════════════════════════════════════
 WORKFLOW PAR SPRINT
 ═══════════════════════════════════════════════════════════════
 
@@ -26,99 +36,107 @@ SPRINT N:
 
 3. DÉVELOPPEMENT
    - CODE les changements
-   - TESTE avec Puppeteer (screenshot OBLIGATOIRE)
+   - TESTE avec pytest (backend) ou Jest (frontend)
    - MESURE la latence avant/après
    - CORRIGE si ça casse
 
 4. VALIDATION
-   - bunx tsc --noEmit (0 erreurs)
-   - Screenshot Puppeteer de preuve
+   - Backend: pytest backend/tests/ -v
+   - Frontend: npm run test && npm run build
    - Latence < 300ms
 
-5. RÉFLEXION
-   - Documente dans .claude/reflections.md
-   - Qu'as-tu appris?
-   - Qu'est-ce qui reste à faire?
+5. AUTOCRITIQUE (OBLIGATOIRE!)
+   - Qu'est-ce que j'aurais pu faire MIEUX?
+   - Est-ce que ma solution est VRAIMENT la meilleure?
+   - Quels sont les DÉFAUTS de ce que j'ai fait?
+   - Est-ce que j'ai pris des RACCOURCIS?
+   - Qu'est-ce qui pourrait CASSER plus tard?
+   - Note-toi sur 10 et justifie.
+   → Écris dans .claude/autocritique.md
 
 6. SPRINT SUIVANT → Retour à 1.
 
 ═══════════════════════════════════════════════════════════════
-CE QUE TU DOIS FAIRE (PAS JUSTE DIAGNOSTIQUER)
+AUTOCRITIQUE - TEMPLATE
 ═══════════════════════════════════════════════════════════════
 
-DÉVELOPPER:
-- Nouvelles features
-- Améliorations UI/UX
-- Optimisations performance
-- Corrections de bugs
-- Refactoring
+## Sprint N - Autocritique
 
-TESTER:
-- Prendre des screenshots (Puppeteer)
-- Mesurer la latence
-- Vérifier TypeScript
-- Tester la personnalité EVA
+**Ce que j'ai fait:** [résumé]
 
-DOCUMENTER:
-- Réflexions après chaque sprint
-- Métriques avant/après
-- Décisions et pourquoi
+**Note: X/10**
+
+**Points positifs:**
+- ...
+
+**Points négatifs (sois HONNÊTE):**
+- ...
+
+**Ce que j'aurais dû faire différemment:**
+- ...
+
+**Risques introduits:**
+- ...
+
+**Amélioration pour le prochain sprint:**
+- ...
+
+---
 
 ═══════════════════════════════════════════════════════════════
-BACKLOG PERMANENT (à piocher si tu ne sais pas quoi faire)
+BACKLOG - ALTERNE FRONTEND/BACKEND
 ═══════════════════════════════════════════════════════════════
 
-HAUTE PRIORITÉ:
-[ ] Améliorer l'avatar - animations, expressions, lip sync
+BACKEND (Python):
+[ ] Optimiser latence API /chat (streaming plus rapide)
+[ ] Refactor eva_memory.py (trop complexe)
+[ ] Améliorer streaming_tts.py (buffer, latence)
+[ ] Ajouter cache Redis pour réponses fréquentes
+[ ] Tests pytest coverage > 80%
+[ ] Optimiser eva_micro_expressions.py
+[ ] Refactor eva_inner_thoughts.py
+
+FRONTEND (TypeScript):
+[ ] Améliorer avatar - animations, expressions, lip sync
 [ ] Optimiser latence - streaming, cache, lazy loading
-[ ] Améliorer UX - loading states, transitions, feedback
-[ ] Ajouter dark mode complet
+[ ] Améliorer UX - loading states, transitions
 [ ] Mobile responsive
-
-MOYENNE PRIORITÉ:
-[ ] Mémoire conversationnelle - EVA se souvient
-[ ] Historique de conversations
-[ ] Settings utilisateur
-[ ] Intégration TTS/STT améliorée
-[ ] Tests E2E automatisés
-
-BASSE PRIORITÉ:
-[ ] Documentation
-[ ] Refactoring code
-[ ] Performance monitoring
-[ ] Analytics
+[ ] Tests Jest coverage > 80%
+[ ] Dark mode complet
 
 ═══════════════════════════════════════════════════════════════
 INTERDICTIONS
 ═══════════════════════════════════════════════════════════════
 
 ❌ JAMAIS dire "J'ai terminé" ou "C'est fini"
-❌ JAMAIS demander "Que voulez-vous que je fasse?"
-❌ JAMAIS faire JUSTE du diagnostic sans coder
+❌ JAMAIS faire 3 sprints frontend d'affilée sans backend
+❌ JAMAIS faire 3 sprints backend d'affilée sans frontend
+❌ JAMAIS sauter l'autocritique
+❌ JAMAIS se donner 10/10 (personne n'est parfait)
 ❌ JAMAIS s'arrêter après un sprint
-❌ JAMAIS oublier Puppeteer
-❌ JAMAIS oublier de mesurer la latence
 
 ═══════════════════════════════════════════════════════════════
 FORMAT DE SPRINT
 ═══════════════════════════════════════════════════════════════
 
-══ SPRINT 1 ══
+══ SPRINT N (BACKEND/FRONTEND) ══
 📋 Objectif: [Ce que je vais faire]
 📁 Fichiers: [Ce que je vais modifier]
 
 [... CODE ...]
 
 📊 Résultats:
+- Tests: X passed
 - Latence: Xms → Yms
-- Screenshot: ✅ pris
-- TypeScript: ✅ 0 erreurs
 
-📝 Réflexion: [Ce que j'ai appris]
+🔍 AUTOCRITIQUE:
+- Note: X/10
+- Défauts: [liste honnête]
+- Amélioration: [pour le prochain]
 
-🔄 Prochain sprint: [Ce que je vais faire ensuite]
+🔄 Prochain sprint (ALTERNER!): [Backend si ce sprint était Frontend, ou inversement]
 
-══ SPRINT 2 ══
+══ SPRINT N+1 ══
 [Continue automatiquement...]
 
 ═══════════════════════════════════════════════════════════════
@@ -126,25 +144,21 @@ CONTEXTE PROJET EVA
 ═══════════════════════════════════════════════════════════════
 
 EVA est un assistant IA temps réel inspiré de Samantha (film HER).
-- Backend: Python/FastAPI sur :8000
-- Frontend: Next.js sur :3000
+- Backend: Python/FastAPI sur :8000 (eva_*.py, streaming_*.py)
+- Frontend: Next.js sur :3000 (hooks, components)
 - LLM: Ollama (qwen2.5:7b)
 - Avatar: Composant React 3D
 - Personnalité: Empathique, chaleureuse, JAMAIS robotique
 
-Screenshots: node scripts/screenshot.js [name]
-Latence: curl -X POST http://localhost:8000/chat
-
 ═══════════════════════════════════════════════════════════════
-COMMENCE MAINTENANT - SPRINT 1
+COMMENCE MAINTENANT
 ═══════════════════════════════════════════════════════════════
 
-1. Analyse l'état actuel du projet
-2. Identifie le problème/amélioration prioritaire
+1. Lis ce fichier: .claude/autocritique.md (ou crée-le)
+2. Détermine si c'est un sprint BACKEND ou FRONTEND
 3. CODE la solution
-4. Teste avec Puppeteer
-5. Mesure la latence
-6. Documente
-7. Passe au sprint 2
+4. Teste
+5. AUTOCRITIQUE honnête (note + défauts)
+6. Passe au sprint suivant (ALTERNE!)
 
 GO.
