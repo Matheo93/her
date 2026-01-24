@@ -724,7 +724,7 @@ describe("useRequestCoalescer - Callbacks", () => {
     );
 
     await act(async () => {
-      await result.current.controls.request("/api/test");
+      await result.current.controls.request("/api/callback-test-start", { ts: Date.now() });
     });
 
     expect(onRequestStart).toHaveBeenCalled();
@@ -739,7 +739,7 @@ describe("useRequestCoalescer - Callbacks", () => {
     );
 
     await act(async () => {
-      await result.current.controls.request("/api/test");
+      await result.current.controls.request("/api/callback-test-complete", { ts: Date.now() });
     });
 
     expect(onRequestComplete).toHaveBeenCalled();
@@ -1194,21 +1194,25 @@ describe("useCoalescedRequest - Convenience Hook", () => {
       .mockResolvedValueOnce({ success: true });
 
     const { result } = renderHook(() =>
-      useCoalescedRequest("/api/test", { executor, batchWindow: 0, defaultRetries: 0 })
+      useCoalescedRequest("/api/test", {
+        executor,
+        batchWindow: 0,
+        defaultRetries: 0,
+      })
     );
 
     const execute = result.current.execute;
 
-    // First request fails
+    // First request fails (with unique data to avoid deduplication)
     await act(async () => {
-      await expect(execute()).rejects.toThrow();
+      await expect(execute({ requestId: "first" })).rejects.toThrow();
     });
 
     expect(result.current.error).not.toBeNull();
 
-    // Second request succeeds - error should be cleared
+    // Second request succeeds with different data - error should be cleared
     await act(async () => {
-      await execute();
+      await execute({ requestId: "second" });
     });
 
     expect(result.current.error).toBeNull();
