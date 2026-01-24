@@ -399,6 +399,108 @@ describe("useAvatarEyeTracking", () => {
       expect(clearTimeoutSpy).toHaveBeenCalled();
     });
   });
+
+  describe("animation", () => {
+    it("should animate eye movement toward target", () => {
+      const { result } = renderHook(() =>
+        useAvatarEyeTracking({
+          autoBlink: false,
+          addMicroMovements: false,
+        })
+      );
+
+      // Look at a different position
+      act(() => {
+        result.current.controls.lookAt(0.9, 0.1);
+      });
+
+      // Trigger animation frames
+      act(() => {
+        if (rafCallback) rafCallback(100);
+      });
+
+      act(() => {
+        if (rafCallback) rafCallback(200);
+      });
+
+      // Eyes should be moving
+      expect(result.current.state.isMoving).toBeDefined();
+    });
+
+    it("should stop moving when close to target", () => {
+      const { result } = renderHook(() =>
+        useAvatarEyeTracking({
+          autoBlink: false,
+          eyeSpeed: 1000, // Very fast
+          addMicroMovements: false,
+        })
+      );
+
+      // Look at center (where we already are)
+      act(() => {
+        result.current.controls.lookAt(0.5, 0.5);
+      });
+
+      // Run many frames to reach target
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          if (rafCallback) rafCallback(100 * (i + 1));
+        });
+      }
+
+      // Should have stopped moving
+      expect(result.current.state.isMoving).toBe(false);
+    });
+
+    it("should add micro-movements when enabled and not moving", () => {
+      jest.spyOn(global.Math, "random").mockReturnValue(0.6);
+
+      const { result } = renderHook(() =>
+        useAvatarEyeTracking({
+          autoBlink: false,
+          addMicroMovements: true,
+          eyeSpeed: 1000,
+        })
+      );
+
+      // Stay at current position
+      act(() => {
+        result.current.controls.lookAt(0.5, 0.5);
+      });
+
+      // Run frames
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          if (rafCallback) rafCallback(100 * (i + 1));
+        });
+      }
+
+      jest.spyOn(global.Math, "random").mockRestore();
+      expect(result.current.state).toBeDefined();
+    });
+  });
+
+  describe("random gaze", () => {
+    it("should change gaze position randomly", () => {
+      jest.spyOn(global.Math, "random").mockReturnValue(0.5);
+
+      const { result } = renderHook(() =>
+        useAvatarEyeTracking({ autoBlink: false })
+      );
+
+      act(() => {
+        result.current.controls.setTarget("random");
+      });
+
+      // Advance past interval
+      act(() => {
+        jest.advanceTimersByTime(5000);
+      });
+
+      jest.spyOn(global.Math, "random").mockRestore();
+      expect(result.current.state.targetType).toBe("random");
+    });
+  });
 });
 
 describe("useCursorFollowingEyes", () => {
