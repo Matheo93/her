@@ -973,7 +973,7 @@ describe("connection type fallback (lines 276-281)", () => {
       useNetworkLatencyMonitor({ enabled: false })
     );
 
-    expect(result.current.quality.connectionType).toBe("wifi");
+    expect(result.current.metrics.connectionType).toBe("wifi");
   });
 
   it("should detect ethernet connection type when effectiveType is undefined", () => {
@@ -993,7 +993,7 @@ describe("connection type fallback (lines 276-281)", () => {
       useNetworkLatencyMonitor({ enabled: false })
     );
 
-    expect(result.current.quality.connectionType).toBe("ethernet");
+    expect(result.current.metrics.connectionType).toBe("ethernet");
   });
 
   it("should detect cellular as 4g when effectiveType is undefined", () => {
@@ -1013,7 +1013,7 @@ describe("connection type fallback (lines 276-281)", () => {
       useNetworkLatencyMonitor({ enabled: false })
     );
 
-    expect(result.current.quality.connectionType).toBe("4g");
+    expect(result.current.metrics.connectionType).toBe("4g");
   });
 
   it("should return unknown when neither effectiveType nor type is available", () => {
@@ -1033,7 +1033,7 @@ describe("connection type fallback (lines 276-281)", () => {
       useNetworkLatencyMonitor({ enabled: false })
     );
 
-    expect(result.current.quality.connectionType).toBe("unknown");
+    expect(result.current.metrics.connectionType).toBe("unknown");
   });
 });
 
