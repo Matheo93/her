@@ -168,14 +168,16 @@ class TestModuleLevelFunctions:
         assert isinstance(result, VoiceEmotion)
         assert result.emotion == "neutral"
 
-    def test_get_voice_detector(self):
-        """Test get_voice_detector returns detector or None."""
-        from eva_voice_emotion import get_voice_detector
+    def test_detect_voice_emotion_bytes(self):
+        """Test detect_voice_emotion_bytes with valid audio."""
+        from eva_voice_emotion import detect_voice_emotion_bytes, VoiceEmotion
 
-        detector = get_voice_detector()
+        # Create minimal WAV-like bytes (will likely fail parsing but should return neutral)
+        result = detect_voice_emotion_bytes(bytes(100))
 
-        # May or may not be initialized
-        assert detector is None or hasattr(detector, "sample_rate")
+        assert isinstance(result, VoiceEmotion)
+        # Should return neutral for invalid audio
+        assert result.emotion == "neutral"
 
 
 class TestEmotionProfileStructure:

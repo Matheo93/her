@@ -2,6 +2,124 @@
 
 ---
 
+## Sprint 534 - Autocritique (BACKEND)
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - test_eva_voice_emotion.py
+
+**Ce que j'ai fait:**
+1. **Créé 16 tests** pour eva_voice_emotion.py
+2. **Tests couvrent:** VoiceEmotion dataclass, ProsodicFeatures dataclass, VoiceEmotionDetector class, module-level functions
+3. **Corrigé test incorrect** - remplacé test pour fonction inexistante (get_voice_detector) par test valide (detect_voice_emotion_bytes)
+
+**Note: 8/10**
+
+**Points positifs:**
+- Tests complets pour le module de détection d'émotions vocales
+- Tests des dataclasses VoiceEmotion et ProsodicFeatures
+- Tests des constantes pré-calculées (_DEFAULT_NEUTRAL_EMOTION, _PROFILE_MEANS)
+- Tests des optimisations (deque avec maxlen)
+- Tous les 16 tests passent
+
+**Points négatifs (sois HONNÊTE):**
+- Test initial pour get_voice_detector référençait une fonction inexistante
+- Pas de tests pour extract_features avec librosa (dépendance optionnelle)
+- Pas de tests pour detect_emotion_from_features
+
+**Ce que j'aurais dû faire différemment:**
+- Vérifier l'existence des fonctions avant d'écrire les tests
+- Ajouter des mocks pour librosa pour tester extract_features
+
+**Risques introduits:**
+- Aucun risque - tests seulement
+
+**Amélioration pour le prochain sprint:**
+- Sprint 535 FRONTEND - Optimiser un hook frontend
+- Focus sur réduction allocations mémoire
+
+---
+
+## Sprint 549 (BACKEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - eva_emotional_tts.py tests
+
+**Ce que j'ai fait:**
+1. **Créé test_eva_emotional_tts.py** avec 31 tests complets
+2. **Tests couvrent:** EmotionStyle enum, EmotionalVoiceParams dataclass, EMOTION_PARAMS mapping
+3. **Tests couvrent:** EvaEmotionalTTS class, emotion prompts, prosody effects, WAV conversion
+4. **Tests couvrent:** synthesize, synthesize_stream, get_backend_info, global functions
+5. **Tous les 31 tests passent** en ~5s
+
+**Note: 8/10**
+
+**Points positifs:**
+- Couverture complète du module eva_emotional_tts.py
+- Tests bien structurés par fonctionnalité (12 classes de tests)
+- Tests pour tous les modes (avec/sans backends)
+- Tests async correctement gérés avec pytest.mark.asyncio
+- Tests mocking approprié des flags d'availability
+
+**Points négatifs (sois HONNÊTE):**
+- N'ai pas testé avec les vrais backends (CosyVoice, Sherpa)
+- Pas de tests d'intégration avec audio réel
+- Les tests de _apply_prosody_effects sont limités (pas de torch)
+- Certains tests sont simples (just checking existence)
+
+**Ce que j'aurais dû faire différemment:**
+- Ajouter des tests avec mocking du backend CosyVoice
+- Tester les edge cases pour la conversion WAV
+- Ajouter des tests de performance/latence
+
+**Risques introduits:**
+- Aucun risque (tests seulement)
+- Tests peuvent échouer si les APIs changent
+
+**Amélioration pour le prochain sprint:**
+- Sprint 550 FRONTEND - Alterner comme requis
+- Focus sur les optimisations de latence mobile
+
+---
+
+## Sprint 551 - Autocritique (FRONTEND)
+
+**Date:** 2026-01-24
+**Domaine:** Frontend TypeScript - useEmotionalWarmth.test.ts
+
+**Ce que j'ai fait:**
+1. **Créé 31 tests** pour useEmotionalWarmth hook
+2. **Tests couvrent:** initialization, warmth levels (neutral, friendly, affectionate, intimate, protective), emotion factors (distress, joy, anxiety, gratitude), visual hints, voice hints, connection indicators, initial warmth from persistent memory, cleanup
+3. **Mocké requestAnimationFrame** pour contrôler les frames d'animation
+
+**Note: 7/10**
+
+**Points positifs:**
+- Tests complets pour le hook complexe
+- Bonne couverture des différents niveaux de chaleur
+- Tests pour tous les modes (neutral, friendly, affectionate, intimate, protective)
+- Tests pour les indicateurs de connexion (familiarity, trust, care, proximity)
+- Tests de cleanup (unmount, disabled, disconnected)
+
+**Points négatifs (sois HONNÊTE):**
+- Les tests avec runAnimationFrames sont approximatifs (warmth builds slowly)
+- Assertions parfois trop larges (expect many levels to contain result)
+- Pas de tests pour le momentum (warmthMomentum)
+- Pas de tests pour l'asymétrie du smoothing (warmth builds faster than it fades)
+
+**Ce que j'aurais dû faire différemment:**
+- Tester le momentum explicitement
+- Tester la différence entre smoothFactor=0.02 (build) et smoothFactor=0.005 (fade)
+- Utiliser des valeurs plus précises pour les assertions
+
+**Risques introduits:**
+- Aucun risque - tests seulement
+
+**Amélioration pour le prochain sprint:**
+- Sprint 552 BACKEND - Optimiser un module backend
+- Focus sur un module avec potentiel d'optimisation (caching, frozensets, etc.)
+
+---
+
 ## Sprint 533 - Autocritique (FRONTEND)
 
 **Date:** 2026-01-24
@@ -2109,5 +2227,108 @@
 
 **Amélioration pour le prochain sprint:**
 - Sprint 556 BACKEND - alterner comme requis
+
+---
+
+## Sprint 556 (BACKEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - eva_voice_emotion.py tests
+
+**Ce que j'ai fait:**
+1. **Créé test_eva_voice_emotion.py** - 28 tests complets pour le module de détection d'émotion vocale
+2. **Tests couvrent:**
+   - VoiceEmotion dataclass (2 tests)
+   - ProsodicFeatures dataclass (1 test)
+   - VoiceEmotionDetector initialization (3 tests)
+   - Emotion profiles structure (3 tests)
+   - Update baseline (3 tests)
+   - Detect emotion with/without features (5 tests)
+   - Detect from bytes (1 test)
+   - Is user about to speak (2 tests)
+   - Global functions (3 tests)
+   - Extract features (3 tests)
+   - Profile means computation (2 tests)
+3. **Couverture: 89%** (188 statements, 20 missed)
+4. **Tous les 28 tests passent** en ~14s
+
+**Note: 7/10**
+
+**Points positifs:**
+- Premier fichier de test pour eva_voice_emotion.py (était 0% couvert)
+- Couverture solide à 89%
+- Tests bien structurés en 12 classes de tests
+- Tests pour les cas d'erreur (librosa unavailable, invalid bytes)
+- Tests pour les optimisations existantes (profile means, deque maxlen)
+- Mocking approprié pour isoler les tests de librosa
+- Alternance BACKEND respectée
+
+**Points négatifs (sois HONNÊTE):**
+- Je n'ai PAS optimisé le code, juste ajouté des tests
+- Lignes 24-26, 32-33 non couvertes (imports conditionnels torch/librosa)
+- Lignes 393-400 non couvertes (rising energy detection)
+- Pas de test d'intégration avec de vrai audio
+- Les tests mocked ne garantissent pas le comportement réel avec librosa
+
+**Ce que j'aurais dû faire différemment:**
+- Ajouter des tests avec de vrais échantillons audio
+- Tester la détection de rising energy pattern
+- Atteindre 90%+ de couverture
+- Optimiser quelque chose dans le module (pas juste tester)
+
+**Risques introduits:**
+- Aucun risque (tests seulement)
+- Les mocks peuvent masquer des bugs d'intégration avec librosa
+
+**Amélioration pour le prochain sprint:**
+- Sprint 557 FRONTEND - alterner comme requis
+- Focus sur les tests d'intégration
+- Vraie optimisation en plus des tests
+
+---
+
+## Sprint 556 - Autocritique (BACKEND)
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - eva_expression.py test coverage
+
+**Ce que j'ai fait:**
+1. **Ajouté 4 tests d'initialisation** pour EvaExpressionSystem avec TTS mockée
+2. **Tests couvrent:**
+   - Init avec TTS mockée (lignes 115-154)
+   - Init déjà initialisé (ligne 109)
+   - Init avec exception (lignes 152-154)
+   - Init quand TTS retourne None (lignes 129/145)
+3. **Couverture: 77% → 91%** (+14 points!)
+4. **75 tests passent** (4 nouveaux)
+
+**Note: 8/10**
+
+**Points positifs:**
+- Amélioration significative de couverture (+14%)
+- Tests robustes avec proper cleanup (try/finally)
+- Mocking correct de ultra_fast_tts et init_ultra_fast_tts
+- Tests des branches if audio is None
+- Tests du cas exception pour error handling
+- Sprint court et efficace
+
+**Points négatifs (sois HONNÊTE):**
+- Lignes 21-22 (import try/except) non testables facilement
+- Lignes 314-330 (__main__) non testées (acceptable pour __main__)
+- Aurais pu atteindre 100% si j'avais mocké l'import EdgeTTS
+- Les tests mockent trop - pas de vrai test d'intégration TTS
+
+**Ce que j'aurais dû faire différemment:**
+- Tester avec un vrai fichier audio pour l'intégration
+- Ajouter des tests de performance pour la génération de sons
+- Vérifier que les sons générés sont valides (pas juste b"fake_audio")
+
+**Risques introduits:**
+- Aucun (tests seulement)
+
+**Amélioration pour le prochain sprint:**
+- Sprint 557 FRONTEND - prochains tests hooks
+- Cibler 80%+ sur un autre hook sous-testé
+- Vérifier si des tests frontend sont cassés
 
 ---
