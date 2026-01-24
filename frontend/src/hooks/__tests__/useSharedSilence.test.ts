@@ -360,6 +360,10 @@ describe("useSharedSilence", () => {
         })
       );
 
+      act(() => {
+        triggerInitialRaf();
+      });
+
       // Need 8+ seconds for intrinsic, 3+ for micro move
       act(() => {
         advanceTimeAndRaf(9000, 10);
@@ -377,6 +381,10 @@ describe("useSharedSilence", () => {
           timeSinceLastInteraction: 15,
         })
       );
+
+      act(() => {
+        triggerInitialRaf();
+      });
 
       act(() => {
         advanceTimeAndRaf(9000, 10);
@@ -414,6 +422,10 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
+        triggerInitialRaf();
+      });
+
+      act(() => {
         advanceTimeAndRaf(16000, 20);
       });
 
@@ -432,6 +444,10 @@ describe("useSharedSilence", () => {
           timeSinceLastInteraction: 15,
         })
       );
+
+      act(() => {
+        triggerInitialRaf();
+      });
 
       act(() => {
         advanceTimeAndRaf(9000, 10);

@@ -117,6 +117,12 @@ export interface UseMobileBatteryOptimizerResult {
 // Constants
 // ============================================================================
 
+// Module-level counter for session IDs (avoids Date.now() overhead)
+let sessionIdCounter = 0;
+
+// History size limit
+const LEVEL_HISTORY_SIZE = 60;
+
 const DEFAULT_CONFIG: BatteryOptimizerConfig = {
   enabled: true,
   thresholds: {

@@ -523,6 +523,173 @@ class TestEvaExpressionProcess:
         assert "animations" in result
 
 
+class TestEvaExpressionBreathingSounds:
+    """Tests for breathing sound generation."""
+
+    def test_get_breathing_sound_no_sounds(self):
+        """Test get_breathing_sound returns None when no sounds."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        # No sounds loaded (not initialized)
+        result = system.get_breathing_sound()
+
+        assert result is None
+
+    def test_get_breathing_sound_with_sounds(self):
+        """Test get_breathing_sound with loaded sounds."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        # Simulate loaded sounds
+        system._breathing_sounds = {
+            "inhale": b"test_audio",
+            "exhale_soft": b"test_audio2",
+        }
+
+        result = system.get_breathing_sound("before_speech")
+        assert result is not None
+
+    def test_get_breathing_sound_after_speech(self):
+        """Test get_breathing_sound for after_speech context."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        system._breathing_sounds = {
+            "exhale_soft": b"audio1",
+            "sigh": b"audio2",
+        }
+
+        result = system.get_breathing_sound("after_speech")
+        assert result is not None
+
+    def test_get_breathing_sound_thinking(self):
+        """Test get_breathing_sound for thinking context."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        system._breathing_sounds = {
+            "exhale_thinking": b"audio",
+            "inhale": b"audio2",
+        }
+
+        result = system.get_breathing_sound("thinking")
+        assert result is not None
+
+    def test_get_breathing_sound_random(self):
+        """Test get_breathing_sound for random context."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        system._breathing_sounds = {
+            "inhale": b"audio",
+        }
+
+        result = system.get_breathing_sound("random")
+        assert result is not None
+
+
+class TestEvaExpressionEmotionSounds:
+    """Tests for emotion sound generation."""
+
+    def test_get_emotion_sound_no_sounds(self):
+        """Test get_emotion_sound returns None when no sounds."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        result = system.get_emotion_sound("joy")
+
+        assert result is None
+
+    def test_get_emotion_sound_joy(self):
+        """Test get_emotion_sound for joy."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        system._emotion_sounds = {
+            "laugh_soft": b"audio",
+            "laugh": b"audio2",
+        }
+
+        result = system.get_emotion_sound("joy")
+        assert result is not None
+
+    def test_get_emotion_sound_excitement(self):
+        """Test get_emotion_sound for excitement."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        system._emotion_sounds = {
+            "surprise": b"audio",
+            "interest": b"audio2",
+        }
+
+        result = system.get_emotion_sound("excitement")
+        assert result is not None
+
+    def test_get_emotion_sound_surprise(self):
+        """Test get_emotion_sound for surprise."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        system._emotion_sounds = {
+            "surprise": b"audio",
+        }
+
+        result = system.get_emotion_sound("surprise")
+        assert result is not None
+
+    def test_get_emotion_sound_playful(self):
+        """Test get_emotion_sound for playful."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        system._emotion_sounds = {
+            "playful": b"audio",
+            "laugh_soft": b"audio2",
+        }
+
+        result = system.get_emotion_sound("playful")
+        assert result is not None
+
+    def test_get_emotion_sound_thoughtful(self):
+        """Test get_emotion_sound for thoughtful."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        system._emotion_sounds = {
+            "thinking": b"audio",
+        }
+
+        result = system.get_emotion_sound("thoughtful")
+        assert result is not None
+
+    def test_get_emotion_sound_curiosity(self):
+        """Test get_emotion_sound for curiosity."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        system._emotion_sounds = {
+            "interest": b"audio",
+            "thinking": b"audio2",
+        }
+
+        result = system.get_emotion_sound("curiosity")
+        assert result is not None
+
+    def test_get_emotion_sound_unknown(self):
+        """Test get_emotion_sound for unknown emotion defaults to thinking."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        system._emotion_sounds = {
+            "thinking": b"audio",
+        }
+
+        result = system.get_emotion_sound("unknown_emotion")
+        assert result is not None
+
+
 class TestEvaExpressionGlobalFunctions:
     """Tests for global utility functions."""
 
@@ -542,6 +709,22 @@ class TestEvaExpressionGlobalFunctions:
 
         assert "emotion" in data
         assert "voice_params" in data
+
+    def test_init_expression_system_function(self):
+        """Test global init_expression_system function."""
+        from eva_expression import init_expression_system
+        import eva_expression
+
+        # Save original
+        original_tts = eva_expression.ultra_fast_tts
+
+        try:
+            # Disable TTS to avoid actual initialization
+            eva_expression.ultra_fast_tts = None
+            result = init_expression_system()
+            assert result is False
+        finally:
+            eva_expression.ultra_fast_tts = original_tts
 
 
 class TestEvaExpressionHelpers:

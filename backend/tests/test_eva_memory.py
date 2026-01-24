@@ -1823,17 +1823,19 @@ class TestAsyncFallbackBranches:
     @pytest.mark.asyncio
     async def test_save_core_memories_async_fallback(self, temp_storage):
         """Test _save_core_memories_async falls back to sync when AIOFILES_AVAILABLE=False (lines 278-281)."""
-        from eva_memory import EvaMemorySystem
+        from eva_memory import EvaMemorySystem, MemoryEntry
         import eva_memory
 
         system = EvaMemorySystem(storage_path=temp_storage)
-        # Add a high-importance memory to trigger core memory save
-        system.add_memory(
-            "core_fallback_user",
-            "Important fallback test memory",
+        # Directly add to core_memories to avoid ChromaDB
+        core_memory = MemoryEntry(
+            id="test_core_memory_1",
+            content="Important fallback test memory",
             memory_type="semantic",
+            timestamp=time.time(),
             importance=0.9
         )
+        system.core_memories["core_fallback_user"].append(core_memory)
 
         # Temporarily disable aiofiles
         original = eva_memory.AIOFILES_AVAILABLE
