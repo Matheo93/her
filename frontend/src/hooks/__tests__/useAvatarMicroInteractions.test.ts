@@ -659,23 +659,25 @@ describe("useEmpathySignals", () => {
   });
 
   it("should trigger empathy signal for negative sentiment", () => {
+    type Sentiment = "positive" | "negative" | "neutral";
     const { result, rerender } = renderHook(
-      ({ sentiment }) => useEmpathySignals(sentiment),
-      { initialProps: { sentiment: "neutral" as const } }
+      ({ sentiment }: { sentiment: Sentiment }) => useEmpathySignals(sentiment),
+      { initialProps: { sentiment: "neutral" as Sentiment } }
     );
 
-    rerender({ sentiment: "negative" as const });
+    rerender({ sentiment: "negative" });
 
     expect(result.current.blendShapes).toBeDefined();
   });
 
   it("should trigger encouragement for positive sentiment", () => {
+    type Sentiment = "positive" | "negative" | "neutral";
     const { result, rerender } = renderHook(
-      ({ sentiment }) => useEmpathySignals(sentiment),
-      { initialProps: { sentiment: "neutral" as const } }
+      ({ sentiment }: { sentiment: Sentiment }) => useEmpathySignals(sentiment),
+      { initialProps: { sentiment: "neutral" as Sentiment } }
     );
 
-    rerender({ sentiment: "positive" as const });
+    rerender({ sentiment: "positive" });
 
     expect(result.current.blendShapes).toBeDefined();
   });

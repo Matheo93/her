@@ -62,7 +62,18 @@ function triggerRaf() {
 }
 
 // Default options
-const createDefaultOptions = () => ({
+type TimeOfDay = "morning" | "afternoon" | "evening" | "night";
+const createDefaultOptions = (): {
+  emotion: string;
+  emotionalIntensity: number;
+  conversationDuration: number;
+  userEnergy: number;
+  isPersonalTopic: boolean;
+  isListening: boolean;
+  isSpeaking: boolean;
+  timeOfDay: TimeOfDay;
+  enabled: boolean;
+} => ({
   emotion: "neutral",
   emotionalIntensity: 0.5,
   conversationDuration: 60,
@@ -70,7 +81,7 @@ const createDefaultOptions = () => ({
   isPersonalTopic: false,
   isListening: false,
   isSpeaking: false,
-  timeOfDay: "afternoon" as const,
+  timeOfDay: "afternoon",
   enabled: true,
 });
 
