@@ -110,8 +110,8 @@ interface UseEmotionalMemoryOptions {
   enabled?: boolean;
 }
 
-// Keywords that suggest vulnerability/depth
-const VULNERABILITY_KEYWORDS = [
+// Keywords that suggest vulnerability/depth (Set for O(1) lookup)
+const VULNERABILITY_KEYWORDS = new Set([
   "feel", "feeling", "felt",
   "scared", "afraid", "worried", "anxious",
   "sad", "lonely", "alone", "miss",
@@ -122,16 +122,22 @@ const VULNERABILITY_KEYWORDS = [
   "remember", "childhood", "family",
   "sorry", "regret", "mistake",
   "thank", "grateful", "appreciate",
-];
+]);
 
-// Keywords that suggest joy/excitement
-const JOY_KEYWORDS = [
+// Keywords that suggest joy/excitement (Set for O(1) lookup)
+const JOY_KEYWORDS = new Set([
   "happy", "excited", "amazing", "wonderful",
   "great", "fantastic", "love", "loved",
   "beautiful", "perfect", "best",
   "laugh", "fun", "enjoy",
   "succeed", "won", "achieve",
-];
+]);
+
+// Pre-computed combined keywords set for extractKeyWords (module-level, computed once)
+const ALL_KEYWORDS = new Set([
+  ...Array.from(VULNERABILITY_KEYWORDS),
+  ...Array.from(JOY_KEYWORDS),
+]);
 
 // Emotions that indicate vulnerability
 const VULNERABLE_EMOTIONS = new Set([
@@ -165,6 +171,8 @@ export function useEmotionalMemory({
   const frameRef = useRef<number | null>(null);
   const lastUpdateTime = useRef(Date.now());
   const lastAcknowledgmentTime = useRef(0);
+  const momentCountRef = useRef(0); // Track moment count to avoid unnecessary recalcs
+  const lastStateUpdateTime = useRef(0); // Throttle state updates
 
   // Detect moment type from context
   const detectMomentType = useCallback((
@@ -173,16 +181,16 @@ export function useEmotionalMemory({
     transcript: string
   ): EmotionalMomentType => {
     const lowerTranscript = transcript.toLowerCase();
+    const words = lowerTranscript.split(/\s+/);
 
-    // Check for vulnerability keywords
-    const hasVulnerabilityKeyword = VULNERABILITY_KEYWORDS.some(
-      (kw) => lowerTranscript.includes(kw)
-    );
-
-    // Check for joy keywords
-    const hasJoyKeyword = JOY_KEYWORDS.some(
-      (kw) => lowerTranscript.includes(kw)
-    );
+    // Check for vulnerability keywords (O(n) words instead of O(n*m) keywords)
+    let hasVulnerabilityKeyword = false;
+    let hasJoyKeyword = false;
+    for (const word of words) {
+      if (VULNERABILITY_KEYWORDS.has(word)) hasVulnerabilityKeyword = true;
+      if (JOY_KEYWORDS.has(word)) hasJoyKeyword = true;
+      if (hasVulnerabilityKeyword && hasJoyKeyword) break;
+    }
 
     // Vulnerability detection
     if (VULNERABLE_EMOTIONS.has(emotion) || (hasVulnerabilityKeyword && intensity > 0.4)) {
@@ -227,15 +235,15 @@ export function useEmotionalMemory({
     const words = transcript.toLowerCase().split(/\s+/);
     const keywords: string[] = [];
 
-    // Only keep emotionally relevant keywords
-    const allKeywords = [...VULNERABILITY_KEYWORDS, ...JOY_KEYWORDS];
-    words.forEach((word) => {
-      if (allKeywords.some((kw) => word.includes(kw))) {
+    // Only keep emotionally relevant keywords (use pre-computed Set for O(1) lookup)
+    for (const word of words) {
+      if (ALL_KEYWORDS.has(word)) {
         keywords.push(word);
+        if (keywords.length >= 5) break; // Early exit when max reached
       }
-    });
+    }
 
-    return keywords.slice(0, 5); // Max 5 keywords
+    return keywords;
   }, []);
 
   // Calculate importance of a moment
@@ -508,20 +516,29 @@ export function useEmotionalMemory({
         emotionStartTime.current = now;
       }
 
-      // Calculate all state components
-      const moments = [...momentBuffer.current];
-      const temperature = calculateTemperature(moments);
-      const patterns = calculatePatterns(moments);
-      const acknowledgment = calculateAcknowledgment(moments, now);
-      const visualHints = calculateVisualHints(moments, patterns);
+      // Throttle state updates to ~30fps (33ms) unless moments changed
+      const momentsChanged = momentBuffer.current.length !== momentCountRef.current;
+      const timeSinceLastUpdate = now - lastStateUpdateTime.current;
 
-      setState({
-        recentMoments: moments,
-        emotionalTemperature: temperature,
-        patterns,
-        acknowledgment,
-        visualHints,
-      });
+      if (momentsChanged || timeSinceLastUpdate > 33) {
+        lastStateUpdateTime.current = now;
+        momentCountRef.current = momentBuffer.current.length;
+
+        // Calculate all state components
+        const moments = [...momentBuffer.current];
+        const temperature = calculateTemperature(moments);
+        const patterns = calculatePatterns(moments);
+        const acknowledgment = calculateAcknowledgment(moments, now);
+        const visualHints = calculateVisualHints(moments, patterns);
+
+        setState({
+          recentMoments: moments,
+          emotionalTemperature: temperature,
+          patterns,
+          acknowledgment,
+          visualHints,
+        });
+      }
 
       frameRef.current = requestAnimationFrame(update);
     };
