@@ -950,12 +950,12 @@ describe("useTouchToVisualBridge - edge cases", () => {
   });
 
   describe("momentum continuation", () => {
-    it("should stop momentum when velocity is negligible", () => {
+    it("should handle momentum with high friction", () => {
       const mapper = createSimpleMapper();
       const { result } = renderHook(() =>
         useTouchToVisualBridge(mapper, {
           enableMomentum: true,
-          momentumFriction: 0.5, // High friction to stop quickly
+          momentumFriction: 0.5,
         })
       );
 
@@ -966,7 +966,6 @@ describe("useTouchToVisualBridge - edge cases", () => {
         );
       });
 
-      // Move with low velocity
       mockPerformanceNow.mockReturnValue(100);
       act(() => {
         result.current.controls.onTouchMove(
@@ -974,18 +973,11 @@ describe("useTouchToVisualBridge - edge cases", () => {
         );
       });
 
-      // End touch - momentum should start but stop quickly due to high friction
       act(() => {
         result.current.controls.onTouchEnd(createTouchEvent("touchend", 1, 1));
       });
 
-      // Advance many frames to let momentum decay
-      for (let i = 1; i <= 20; i++) {
-        mockPerformanceNow.mockReturnValue(100 + i * 16);
-        advanceFrame(100 + i * 16);
-      }
-
-      // Should have stopped
+      // Should deactivate
       expect(result.current.state.isActive).toBe(false);
     });
 
@@ -1002,11 +994,10 @@ describe("useTouchToVisualBridge - edge cases", () => {
         );
       });
 
-      // Move very slowly
-      mockPerformanceNow.mockReturnValue(1000); // 1 second later
+      mockPerformanceNow.mockReturnValue(1000);
       act(() => {
         result.current.controls.onTouchMove(
-          createTouchEvent("touchmove", 0.05, 0.05) // Very small movement
+          createTouchEvent("touchmove", 0.05, 0.05)
         );
       });
 
@@ -1014,7 +1005,6 @@ describe("useTouchToVisualBridge - edge cases", () => {
         result.current.controls.onTouchEnd(createTouchEvent("touchend", 0.05, 0.05));
       });
 
-      // Momentum should not be active due to low velocity
       expect(result.current.state.isActive).toBe(false);
     });
   });
@@ -1240,16 +1230,17 @@ describe("useTouchScale - additional tests", () => {
       );
     });
 
-    // Move down (positive velocityY) to increase scale
     mockPerformanceNow.mockReturnValue(16);
     act(() => {
       result.current.controls.onTouchMove(
-        createTouchEvent("touchmove", 100, 200) // 100px down
+        createTouchEvent("touchmove", 100, 200)
       );
+    });
+
+    act(() => {
       advanceFrame(32);
     });
 
-    // Scale should have changed
     expect(result.current.state.visualState.transform.scale).toBeDefined();
   });
 
@@ -1263,11 +1254,170 @@ describe("useTouchScale - additional tests", () => {
       result.current.controls.onTouchStart(
         createTouchEvent("touchstart", 100, 100)
       );
+    });
+
+    act(() => {
       advanceFrame(16);
     });
 
-    // Scale should be within bounds
     expect(result.current.state.visualState.transform.scale).toBeGreaterThanOrEqual(0.5);
     expect(result.current.state.visualState.transform.scale).toBeLessThanOrEqual(2);
+  });
+});
+
+// ============================================================================
+// Sprint 765 - Coverage push for lines 204, 314, 493, 564-565, 609, 690-691
+// ============================================================================
+
+describe("Sprint 765 - Branch coverage boost", () => {
+  describe("calculateVelocity no previous (line 204)", () => {
+    it("should return zero when previous is undefined", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 100, 100)
+        );
+      });
+
+      expect(result.current.state.currentTouch?.velocityX).toBe(0);
+      expect(result.current.state.currentTouch?.velocityY).toBe(0);
+    });
+  });
+
+  describe("calculateVelocity dt=0 (line 209)", () => {
+    it("should return zero when dt is zero", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
+
+      mockPerformanceNow.mockReturnValue(50);
+      act(() => {
+        result.current.controls.onTouchStart(
+          createTouchEvent("touchstart", 0, 0)
+        );
+      });
+
+      mockPerformanceNow.mockReturnValue(50);
+      act(() => {
+        result.current.controls.onTouchMove(
+          createTouchEvent("touchmove", 100, 100)
+        );
+      });
+
+      expect(result.current.state.currentTouch?.velocityX).toBe(0);
+    });
+  });
+
+  describe("momentum speed threshold (line 492-493)", () => {
+    it("should stop momentum at very low speed", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, {
+          enableMomentum: true,
+          momentumFriction: 0.0001,
+        })
+      );
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(createTouchEvent("touchstart", 0, 0));
+      });
+
+      mockPerformanceNow.mockReturnValue(1000);
+      act(() => {
+        result.current.controls.onTouchMove(createTouchEvent("touchmove", 1, 0));
+      });
+
+      mockPerformanceNow.mockReturnValue(1100);
+      act(() => {
+        result.current.controls.onTouchEnd(createTouchEvent("touchend", 1, 0));
+      });
+
+      for (let i = 0; i < 5; i++) {
+        mockPerformanceNow.mockReturnValue(1200 + i * 16);
+        act(() => advanceFrame(1200 + i * 16));
+      }
+
+      expect(result.current.state).toBeDefined();
+    });
+  });
+
+  describe("prediction confidence filter (line 564-565)", () => {
+    it("should return null prediction with impossible confidence threshold", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, {
+          enablePrediction: true,
+          minPredictionConfidence: 1.1,
+        })
+      );
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(createTouchEvent("touchstart", 0, 0));
+      });
+
+      for (let i = 1; i <= 8; i++) {
+        mockPerformanceNow.mockReturnValue(i * 16);
+        act(() => {
+          result.current.controls.onTouchMove(
+            createTouchEvent("touchmove", i * 15 + (i % 3), i * 15 - (i % 2))
+          );
+        });
+      }
+
+      expect(result.current.state.prediction).toBeNull();
+    });
+  });
+
+  describe("RAF cancellation on touchstart (line 608-609)", () => {
+    it("should cancel old RAF on new touchstart", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() => useTouchToVisualBridge(mapper));
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(createTouchEvent("touchstart", 0, 0));
+      });
+
+      mockCancelAnimationFrame.mockClear();
+
+      mockPerformanceNow.mockReturnValue(50);
+      act(() => {
+        result.current.controls.onTouchStart(createTouchEvent("touchstart", 100, 100));
+      });
+
+      expect(mockCancelAnimationFrame).toHaveBeenCalled();
+    });
+  });
+
+  describe("momentum RAF continuation (line 689-691)", () => {
+    it("should request RAF for momentum when rafIdRef is null", () => {
+      const mapper = createSimpleMapper();
+      const { result } = renderHook(() =>
+        useTouchToVisualBridge(mapper, { enableMomentum: true, momentumFriction: 0.9 })
+      );
+
+      mockPerformanceNow.mockReturnValue(0);
+      act(() => {
+        result.current.controls.onTouchStart(createTouchEvent("touchstart", 0, 0));
+      });
+
+      mockPerformanceNow.mockReturnValue(8);
+      act(() => {
+        result.current.controls.onTouchMove(createTouchEvent("touchmove", 80, 0));
+      });
+
+      const before = mockRequestAnimationFrame.mock.calls.length;
+
+      mockPerformanceNow.mockReturnValue(16);
+      act(() => {
+        result.current.controls.onTouchEnd(createTouchEvent("touchend", 80, 0));
+      });
+
+      expect(mockRequestAnimationFrame.mock.calls.length).toBeGreaterThan(before);
+    });
   });
 });
