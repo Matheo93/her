@@ -585,8 +585,12 @@ export function useImageMemoryManager(
 export function useMemoryPressureAlert(
   onPressure?: (level: MemoryPressureLevel) => void,
   config?: Partial<MemoryOptimizerConfig>
-): { pressure: MemoryPressureLevel; isUnderPressure: boolean } {
-  const { state, isUnderPressure } = useMobileMemoryOptimizer(config);
+): {
+  pressure: MemoryPressureLevel;
+  isUnderPressure: boolean;
+  controls: MemoryOptimizerControls;
+} {
+  const { state, isUnderPressure, controls } = useMobileMemoryOptimizer(config);
   const prevPressureRef = useRef<MemoryPressureLevel>("normal");
 
   useEffect(() => {
@@ -596,7 +600,7 @@ export function useMemoryPressureAlert(
     }
   }, [state.pressure, onPressure]);
 
-  return { pressure: state.pressure, isUnderPressure };
+  return { pressure: state.pressure, isUnderPressure, controls };
 }
 
 export default useMobileMemoryOptimizer;
