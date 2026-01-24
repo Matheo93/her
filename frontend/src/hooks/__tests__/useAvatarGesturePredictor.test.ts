@@ -1466,9 +1466,9 @@ describe("branch coverage - Sprint 545", () => {
 
       const initialIncorrect = result.current.metrics.incorrectPredictions;
 
-      // Confirm with swipe (different from tap)
+      // Confirm with swipe-up (different from tap)
       act(() => {
-        result.current.controls.confirmGesture("swipe");
+        result.current.controls.confirmGesture("swipe-up");
       });
 
       // Either correct (if prediction was swipe) or incorrect should be tracked
@@ -1489,7 +1489,7 @@ describe("branch coverage - Sprint 545", () => {
 
         // Confirm alternating gestures
         act(() => {
-          result.current.controls.confirmGesture(i % 2 === 0 ? "tap" : "swipe");
+          result.current.controls.confirmGesture(i % 2 === 0 ? "tap" : "swipe-up");
         });
 
         act(() => {

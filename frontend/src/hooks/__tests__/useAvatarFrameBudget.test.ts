@@ -610,7 +610,7 @@ describe("branch coverage - executeNext", () => {
 
     expect(result.current.pendingCount).toBe(2);
 
-    let item: ReturnType<typeof result.current.executeNext>;
+    let item: ReturnType<typeof result.current.executeNext> = null;
     act(() => {
       item = result.current.executeNext();
     });
