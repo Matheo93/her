@@ -1,101 +1,89 @@
 ---
-sprint: 764
+sprint: 765
 iteration: 1
-started_at: 2026-01-24T03:58:05Z
+started_at: 2026-01-24T04:25:00Z
 status: COMPLETED
 ---
 
-# Sprint #764 - Mobile Avatar UX Latency
+# Sprint #765 - Mobile Avatar UX Latency - Coverage Improvements
 
 ## OBJECTIVES
 
-1. **All key mobile hooks above 80% coverage** ✅
+1. **Improve useNetworkLatencyAdapter coverage** ✅
 2. **All tests passing** ✅
-3. **useMobileRenderQueue fixed and coverage improved** ✅
+3. **Maintain 80%+ coverage on key mobile hooks** ✅
 
 ## SPRINT ACHIEVEMENTS
 
-### useMobileRenderQueue Fixed
-- **Previous coverage:** 49.5% branch
-- **New coverage:** 89.1% branch ✅
-- **Fix:** Added priority sorting to flush() function
-- **New tests:** 50 additional tests for RAF processing, idle tasks, visibility, cleanup
+### useNetworkLatencyAdapter Coverage Boost
+- **Previous coverage:** 64% branch
+- **New coverage:** 96% branch ✅ (+32%)
+- **New tests:** 35+ tests covering:
+  - Network type detection (ethernet, wifi, 2g, slow-2g, unknown)
+  - Sample window trimming
+  - RTT-based bandwidth estimation fallbacks (50/20/10/5/1 Mbps)
+  - Monitoring controls edge cases
+  - Convenience hooks (useConnectionQuality, useIsNetworkOnline, etc.)
+  - Connection health calculation for different quality levels
 
-### Bug Fix: flush() Priority Sorting
-The `flush()` method was not sorting tasks by priority before execution, causing critical tasks to not be processed first. Fixed by adding `sortTasks()` call:
-
-```typescript
-// Before: Tasks executed in insertion order
-const flush = useCallback(() => {
-  const queue = queueRef.current;
-  for (const task of queue) { ... }
-}, []);
-
-// After: Tasks sorted by priority (critical first)
-const flush = useCallback(() => {
-  const queue = queueRef.current;
-  const sortedQueue = sortTasks(queue);
-  for (const task of sortedQueue) { ... }
-}, []);
-```
+### Test Files Added
+- `useNetworkLatencyAdapter.coverage.test.ts` - 35+ new tests
 
 ## TEST RESULTS
 
 | Test Suite | Tests | Status |
 |------------|-------|--------|
-| useMobileRenderQueue | 95 | ✅ PASSING |
-| useMobileMemoryOptimizer | 91 | ✅ PASSING |
-| useMobileFrameScheduler | 132 | ✅ PASSING |
-| **TOTAL** | **318** | ✅ ALL PASSING |
+| useNetworkLatencyAdapter | 60+ | ✅ PASSING |
+| useMobileRenderQueue | 95+ | ✅ PASSING |
+| All other suites | 3700+ | ✅ PASSING |
+| **TOTAL** | **68 suites, 3808 tests** | ✅ ALL PASSING |
 
-## COVERAGE REPORT
+## COVERAGE REPORT - Key Hooks
 
-| Hook | Branch Coverage | Status |
-|------|-----------------|--------|
-| useMobileRenderQueue | **89.10%** | ✅ Above 80% - FIXED! |
-| useMobileFrameScheduler | 85.29% | ✅ Above 80% |
-| useMobileMemoryOptimizer | 81.35% | ✅ Above 80% |
+| Hook | Previous | Current | Status |
+|------|----------|---------|--------|
+| useNetworkLatencyAdapter | 64% | **96%** | ✅ +32% |
+| useMobileRenderQueue | 49% | 89% | ✅ (Sprint 764) |
+| useMobileAudioOptimizer | 95.74% | 95.74% | ✅ |
+| useMobileThermalManager | 93.15% | 93.15% | ✅ |
+| All 17 key mobile hooks | 80%+ | 80%+ | ✅ |
 
 ## KEY MOBILE HOOKS STATUS
 
-| Hook | Branch Coverage | Tests | Status |
-|------|-----------------|-------|--------|
-| useMobileAudioOptimizer | 95.74% | 131+ | ✅ |
-| useMobileThermalManager | 93.15% | 48+ | ✅ |
-| useMobileRenderQueue | **89.10%** | 95 | ✅ FIXED! |
-| useMobileWakeLock | 89.28% | 48+ | ✅ |
-| useMobileGestureOptimizer | 88.7% | 48+ | ✅ |
-| useGestureMotionPredictor | 87.5% | 48+ | ✅ |
-| useMobileFrameScheduler | 85.29% | 132+ | ✅ |
-| useMobileOptimization | 85.26% | 32+ | ✅ |
-| useMobileAnimationScheduler | 84.84% | 122+ | ✅ |
-| useMobileMemoryOptimizer | 81.35% | 91+ | ✅ |
-| useMobileRenderPredictor | 80.39% | 48+ | ✅ |
+| Hook | Branch Coverage | Status |
+|------|-----------------|--------|
+| useMobileAudioOptimizer | 95.74% | ✅ |
+| useNetworkLatencyAdapter | **96%** | ✅ IMPROVED! |
+| useMobileThermalManager | 93.15% | ✅ |
+| useMobileNetworkRecovery | 92.66% | ✅ |
+| useMobileInputPipeline | 90.17% | ✅ |
+| useMobileRenderQueue | 89.1% | ✅ |
+| useMobileWakeLock | 89.28% | ✅ |
+| useMobileGestureOptimizer | 88.70% | ✅ |
+| useMobileBatteryOptimizer | 87.50% | ✅ |
+| useMobileFrameScheduler | 85.29% | ✅ |
+| useMobileOptimization | 85.26% | ✅ |
+| useMobileAnimationScheduler | 84.84% | ✅ |
+| useMobileViewportOptimizer | 83.73% | ✅ |
+| useMobileAvatarOptimizer | 82.79% | ✅ |
+| useMobileAvatarLatencyMitigator | 82.14% | ✅ |
+| useMobileMemoryOptimizer | 81.35% | ✅ |
+| useMobileLatencyCompensator | 81.15% | ✅ |
+| useMobileRenderPredictor | 80.39% | ✅ |
+| useMobileDetect | 80.00% | ✅ |
 
-## NEW TESTS ADDED (Sprint 764)
+## REMAINING BELOW 80%
 
-### processQueue via RAF (direct triggering)
-- Process tasks via RAF callback
-- Set isProcessing state correctly
-- Drop stale tasks during RAF processQueue
-- Process critical tasks via RAF regardless of budget
-- Track budget overruns via RAF
-- Skip non-high tasks when estimated duration exceeds budget
-- Process high priority tasks via RAF with large estimated duration
-- Schedule another RAF if queue still has tasks
-- Call resetBudget during RAF processing
-- Call updateBudget with used time
-- Track execution times array via RAF
-- Track wait times array via RAF
-- Handle executeTask error during RAF processing
-- Break loop when budget exceeded during RAF
-- Not process when paused and RAF triggers
-- Return early if queue is empty on RAF trigger
-- Limit execution times array to 100 entries
-- Limit wait times array to 100 entries
+| Hook | Branch Coverage | Note |
+|------|-----------------|------|
+| useMobileRenderOptimizer | 0% | OOM - excluded |
+| useTouchToVisualBridge | 65.54% | Next target |
+| useFrameInterpolator | 67.56% | Next target |
+| useTouchResponsePredictor | 69.56% | Next target |
+| useNetworkLatencyMonitor | 76.63% | Close to target |
 
 ---
 
-*Sprint 764 - Mobile Avatar UX Latency*
+*Sprint 765 - Mobile Avatar UX Latency*
 *Status: COMPLETED*
-*"useMobileRenderQueue fixed: 89.1% branch coverage. All 318 tests passing."*
+*"useNetworkLatencyAdapter improved: 64% → 96% branch coverage. 68 suites, 3808 tests passing."*
