@@ -717,11 +717,11 @@ describe("Sprint 619 - branch coverage improvements", () => {
   });
 
   describe("reportInteraction function (lines 584-587)", () => {
-    it("should handle pinch interaction type", () => {
+    it("should handle tap interaction type", () => {
       const { result } = renderHook(() => useMobileAvatarOptimizer());
 
       act(() => {
-        result.current.controls.reportInteraction("pinch");
+        result.current.controls.reportInteraction("tap");
       });
 
       // Should not throw

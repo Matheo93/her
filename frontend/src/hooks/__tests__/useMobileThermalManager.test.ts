@@ -590,15 +590,15 @@ describe("Sprint 634 - Cooldown completion (lines 422-434)", () => {
         fairThreshold: 30,
         seriousThreshold: 35,
         criticalThreshold: 40,
-        cooldownDuration: 5000, // 5 second cooldown
+        cooldownDurationMs: 5000, // 5 second cooldown
       })
     );
 
     // Heat up the device to trigger cooldown
     for (let i = 0; i < 25; i++) {
       act(() => {
-        result.current.controls.reportWorkload("cpu", 1.0);
         result.current.controls.reportWorkload("rendering", 1.0);
+        result.current.controls.reportWorkload("animation", 1.0);
         jest.advanceTimersByTime(1100);
         mockTime += 1100;
       });
@@ -623,7 +623,7 @@ describe("Sprint 634 - Cooldown completion (lines 422-434)", () => {
         fairThreshold: 30,
         seriousThreshold: 35,
         criticalThreshold: 40,
-        cooldownDuration: 30000, // Long cooldown
+        cooldownDurationMs: 30000, // Long cooldown
       })
     );
 

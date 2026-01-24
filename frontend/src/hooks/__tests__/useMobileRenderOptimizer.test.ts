@@ -922,7 +922,7 @@ describe("Sprint 628 - Battery status updates (lines 483-497)", () => {
       useMobileRenderOptimizer({ batteryAware: false, autoAdjust: false })
     );
 
-    expect(navigator.getBattery).not.toHaveBeenCalled();
+    expect((navigator as unknown as { getBattery?: () => void }).getBattery).not.toHaveBeenCalled();
   });
 
   it("should handle missing getBattery API", async () => {

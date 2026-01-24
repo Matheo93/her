@@ -1257,7 +1257,7 @@ describe("Sprint 755 - Cleanup interval eviction strategies", () => {
         type: "data",
         size: 400,
         priority: 1,
-        ttlMs: 10,
+        ttl: 10,
       });
     });
 

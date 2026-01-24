@@ -1922,7 +1922,11 @@ describe("Sprint 623 - direct utility function tests", () => {
         pageX: 100,
         pageY: 200,
         target: document.createElement("div"),
-        // No radiusX, radiusY, force - should use defaults
+        // Add required Touch properties with defaults
+        force: 0,
+        radiusX: 0,
+        radiusY: 0,
+        rotationAngle: 0,
       } as Touch;
 
       const onTap = jest.fn();
