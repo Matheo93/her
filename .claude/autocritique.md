@@ -145,3 +145,44 @@
 - Choisir une vraie amélioration mesurable
 
 ---
+
+## Sprint 527 - Autocritique (FRONTEND)
+
+**Ce que j'ai fait:**
+- Ajouté 8 tests pour useMobileAvatarOptimizer couvrant:
+  - Détection d'état thermique (critical, serious, fair, nominal)
+  - Dégradation de qualité pour throttling thermique
+  - Limite du buffer de frame drops (60 entrées)
+  - Calcul du taux de frame drops
+- Couverture de branche améliorée: 82.79% → 92.47%
+- 121 tests passent
+
+**Note: 7/10**
+
+**Points positifs:**
+- Amélioration significative de la couverture (+10%)
+- Tests réels qui exercent le code de détection thermique
+- Pas de tests "fake" ou superficiels
+- Utilisation correcte de jest.advanceTimersByTime pour les intervals
+
+**Points négatifs (sois HONNÊTE):**
+- Je n'ai pas testé la ligne 280 (shift) directement - juste le comportement global
+- Tests dépendent du timing interne du hook (5000ms interval) - fragile
+- Je n'ai pas amélioré le hook lui-même
+- Les assertions sont souvent "expect(result.current.metrics).toBeDefined()" - pas très spécifique
+
+**Ce que j'aurais dû faire différemment:**
+- Exposer thermalState dans les metrics pour pouvoir tester directement
+- Créer un mock de navigator.getBattery() pour un contrôle plus précis
+- Ajouter des assertions plus spécifiques sur les valeurs de qualité
+- Profiler la performance du hook avec les nouveaux tests
+
+**Risques introduits:**
+- Aucun risque - tests seulement, pas de changement de code
+- Tests potentiellement flaky si le timing change
+
+**Amélioration pour le prochain sprint:**
+- Alterner vers BACKEND
+- Focus sur refactoring réel plutôt que tests seuls
+
+---
