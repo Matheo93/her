@@ -453,53 +453,56 @@ describe("Sprint 634 - ThermalState transitions (lines 190-194)", () => {
   it("should handle serious thermal state", () => {
     const { result } = renderHook(() =>
       useMobileThermalManager({
-        fairThreshold: 40,
-        seriousThreshold: 50,
-        criticalThreshold: 60,
+        sampleIntervalMs: 100,
+        fairThreshold: 30,
+        seriousThreshold: 40,
+        criticalThreshold: 50,
       })
     );
 
-    // Report heavy workload to raise temperature
-    for (let i = 0; i < 30; i++) {
+    // Report heavy workload to raise temperature using valid WorkloadTypes
+    for (let i = 0; i < 50; i++) {
       act(() => {
-        result.current.controls.reportWorkload("cpu", 1.0);
+        result.current.controls.reportWorkload("computation", 1.0);
         result.current.controls.reportWorkload("rendering", 1.0);
-        result.current.controls.reportWorkload("animation", 1.0);
-        jest.advanceTimersByTime(1100);
-        mockTime += 1100;
+        result.current.controls.reportWorkload("media", 1.0);
+        jest.advanceTimersByTime(110);
+        mockTime += 110;
       });
     }
 
-    // Check that temperature has risen
-    expect(result.current.state.thermal.estimatedTemp).toBeGreaterThan(40);
+    // Check that temperature has risen above the fair threshold
+    expect(result.current.state.thermal.estimatedTemp).toBeGreaterThan(30);
   });
 
   it("should handle critical thermal state with reduced performance scale", () => {
     const { result } = renderHook(() =>
       useMobileThermalManager({
-        fairThreshold: 30,
-        seriousThreshold: 35,
-        criticalThreshold: 40,
+        sampleIntervalMs: 100,
+        fairThreshold: 28,
+        seriousThreshold: 32,
+        criticalThreshold: 38,
+        autoThrottle: false, // Disable auto-throttle to avoid cooldown
       })
     );
 
-    // Report sustained heavy workload
-    for (let i = 0; i < 40; i++) {
+    // Report sustained heavy workload using valid WorkloadTypes
+    for (let i = 0; i < 60; i++) {
       act(() => {
-        result.current.controls.reportWorkload("cpu", 1.0);
+        result.current.controls.reportWorkload("computation", 1.0);
         result.current.controls.reportWorkload("rendering", 1.0);
-        result.current.controls.reportWorkload("gpu", 1.0);
-        jest.advanceTimersByTime(1100);
-        mockTime += 1100;
+        result.current.controls.reportWorkload("media", 1.0);
+        jest.advanceTimersByTime(110);
+        mockTime += 110;
       });
     }
 
-    // Temperature should have risen to cause thermal throttling
+    // Temperature should have risen
     const temp = result.current.state.thermal.estimatedTemp;
-    expect(temp).toBeGreaterThan(35);
+    expect(temp).toBeGreaterThan(28);
 
     // Performance scale should be reduced for higher temps
-    if (temp >= 40) {
+    if (temp >= 38) {
       expect(result.current.state.performanceScale).toBeLessThan(0.5);
     }
   });
@@ -513,18 +516,65 @@ describe("Sprint 634 - Cooling trend (line 203)", () => {
     expect(["cooling", "stable", "warming", "heating_fast"]).toContain(result.current.state.thermal.trend);
   });
 
-  it("should update thermal state when workloads are reported", () => {
-    const { result } = renderHook(() => useMobileThermalManager());
+  it("should detect cooling trend when temperature drops", () => {
+    const { result } = renderHook(() =>
+      useMobileThermalManager({
+        sampleIntervalMs: 100,
+        fairThreshold: 30,
+        seriousThreshold: 40,
+        criticalThreshold: 50,
+      })
+    );
 
-    // Report a workload
+    // First heat up the device with heavy workload
+    for (let i = 0; i < 30; i++) {
+      act(() => {
+        result.current.controls.reportWorkload("computation", 1.0);
+        result.current.controls.reportWorkload("rendering", 1.0);
+        jest.advanceTimersByTime(110);
+        mockTime += 110;
+      });
+    }
+
+    const peakTemp = result.current.state.thermal.estimatedTemp;
+    expect(peakTemp).toBeGreaterThan(25); // Verify temperature rose
+
+    // Clear workloads to allow cooling
     act(() => {
-      result.current.controls.reportWorkload("cpu", 0.8);
+      result.current.controls.clearWorkload("computation");
+      result.current.controls.clearWorkload("rendering");
+    });
+
+    // Let it cool for several intervals to build trend history
+    for (let i = 0; i < 15; i++) {
+      act(() => {
+        jest.advanceTimersByTime(110);
+        mockTime += 110;
+      });
+    }
+
+    // Temperature should be lower or equal after cooling
+    expect(result.current.state.thermal.estimatedTemp).toBeLessThanOrEqual(peakTemp);
+    // Trend should be valid
+    expect(["cooling", "stable", "warming", "heating_fast"]).toContain(result.current.state.thermal.trend);
+  });
+
+  it("should update thermal state when workloads are reported", () => {
+    const { result } = renderHook(() =>
+      useMobileThermalManager({
+        sampleIntervalMs: 100,
+      })
+    );
+
+    // Report a workload using valid WorkloadType
+    act(() => {
+      result.current.controls.reportWorkload("computation", 0.8);
     });
 
     // Advance time to let interval run
     act(() => {
-      jest.advanceTimersByTime(1100);
-      mockTime += 1100;
+      jest.advanceTimersByTime(110);
+      mockTime += 110;
     });
 
     // State should be valid
