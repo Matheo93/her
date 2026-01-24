@@ -24,6 +24,7 @@ const mockIdleCallback = jest.fn();
 
 beforeEach(() => {
   mockTime = 0;
+  jest.useFakeTimers();
   jest.spyOn(performance, "now").mockImplementation(() => mockTime);
   jest.spyOn(Date, "now").mockImplementation(() => mockTime);
 
@@ -39,6 +40,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  jest.useRealTimers();
   jest.restoreAllMocks();
 });
 
@@ -362,6 +364,11 @@ describe("Priority ordering and task sorting", () => {
     const { result } = renderHook(() => useMobileRenderQueue());
     const executionOrder: string[] = [];
 
+    // Pause to prevent automatic RAF processing
+    act(() => {
+      result.current.controls.pause();
+    });
+
     act(() => {
       result.current.controls.schedule(() => executionOrder.push("high"), {
         priority: "high",
@@ -371,13 +378,14 @@ describe("Priority ordering and task sorting", () => {
       });
     });
 
-    // Use flush to synchronously process
+    // Flush processes all tasks sorted by priority
     act(() => {
       result.current.controls.flush();
     });
 
-    // Critical should be first
+    // Critical (priority 0) should come before high (priority 1)
     expect(executionOrder[0]).toBe("critical");
+    expect(executionOrder[1]).toBe("high");
   });
 
   it("should sort tasks by deadline when same priority", () => {

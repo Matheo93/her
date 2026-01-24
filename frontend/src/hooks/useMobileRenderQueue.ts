@@ -584,12 +584,15 @@ export function useMobileRenderQueue(
   }, []);
 
   /**
-   * Flush all pending tasks
+   * Flush all pending tasks (sorted by priority)
    */
   const flush = useCallback(() => {
     const queue = queueRef.current;
 
-    for (const task of queue) {
+    // Sort by priority before flushing
+    const sortedQueue = sortTasks(queue);
+
+    for (const task of sortedQueue) {
       try {
         task.callback();
       } catch (error) {
