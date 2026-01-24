@@ -544,14 +544,25 @@ export function useMobileRenderOptimizer(
     const isOverBudget = avgFrameTime > targetMs * 1.1; // 10% tolerance
     const hasHeadroom = avgFrameTime < targetMs * 0.7; // 30% headroom
 
-    // Update frame budget
-    setFrameBudget((prev) => ({
-      ...prev,
-      currentMs: avgFrameTime,
-      headroom: targetMs - avgFrameTime,
-      isOverBudget,
-      consecutiveDrops: isOverBudget ? prev.consecutiveDrops + 1 : 0,
-    }));
+    // Update frame budget only if values changed (avoid infinite loops)
+    setFrameBudget((prev) => {
+      const newConsecutiveDrops = isOverBudget ? prev.consecutiveDrops + 1 : 0;
+      // Check if anything actually changed
+      if (
+        Math.abs(prev.currentMs - avgFrameTime) < 0.001 &&
+        prev.isOverBudget === isOverBudget &&
+        prev.consecutiveDrops === newConsecutiveDrops
+      ) {
+        return prev; // No change, return same object to prevent re-render
+      }
+      return {
+        ...prev,
+        currentMs: avgFrameTime,
+        headroom: targetMs - avgFrameTime,
+        isOverBudget,
+        consecutiveDrops: newConsecutiveDrops,
+      };
+    });
 
     // Check if we need to adjust
     const timeSinceLastChange = Date.now() - lastQualityChangeRef.current;
