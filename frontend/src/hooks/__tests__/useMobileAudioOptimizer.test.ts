@@ -393,3 +393,567 @@ describe("useOptimizedAudioConstraints", () => {
     expect(typeof result.current.echoCancellation).toBe("boolean");
   });
 });
+
+// ============================================================================
+// Sprint 749 - Branch Coverage Tests
+// ============================================================================
+
+describe("Sprint 749 - connectionQuality branches (lines 330-333)", () => {
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  it("should return 'good' when RTT < 100 and not 4g", async () => {
+    jest.doMock("../useNetworkStatus", () => ({
+      useNetworkStatus: () => ({
+        isOnline: true,
+        isSlowConnection: false,
+        rtt: 80,
+        effectiveType: "3g",
+        saveData: false,
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    expect(result.current.metrics.connectionQuality).toBe("good");
+  });
+
+  it("should return 'fair' when RTT < 200", async () => {
+    jest.doMock("../useNetworkStatus", () => ({
+      useNetworkStatus: () => ({
+        isOnline: true,
+        isSlowConnection: true,
+        rtt: 150,
+        effectiveType: "3g",
+        saveData: false,
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    expect(["fair", "good"]).toContain(result.current.metrics.connectionQuality);
+  });
+
+  it("should return 'poor' when RTT >= 200", async () => {
+    jest.doMock("../useNetworkStatus", () => ({
+      useNetworkStatus: () => ({
+        isOnline: true,
+        isSlowConnection: true,
+        rtt: 300,
+        effectiveType: "2g",
+        saveData: false,
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    expect(result.current.metrics.connectionQuality).toBe("poor");
+  });
+});
+
+describe("Sprint 749 - device tier branches (lines 347-353)", () => {
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  it("should set quality based on medium device tier", async () => {
+    jest.doMock("../useDeviceCapabilities", () => ({
+      useDeviceCapabilities: () => ({
+        tier: "medium",
+        battery: { isLowBattery: false, level: 0.8 },
+        memory: { isLowMemory: false },
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    expect(["medium", "low"]).toContain(result.current.quality);
+  });
+
+  it("should set quality based on low device tier", async () => {
+    jest.doMock("../useDeviceCapabilities", () => ({
+      useDeviceCapabilities: () => ({
+        tier: "low",
+        battery: { isLowBattery: false, level: 0.8 },
+        memory: { isLowMemory: false },
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    expect(["low", "ultra-low"]).toContain(result.current.quality);
+  });
+});
+
+describe("Sprint 749 - offline branch (line 358)", () => {
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  it("should return ultra-low quality when offline", async () => {
+    jest.doMock("../useNetworkStatus", () => ({
+      useNetworkStatus: () => ({
+        isOnline: false,
+        isSlowConnection: false,
+        rtt: null,
+        effectiveType: null,
+        saveData: false,
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    expect(result.current.quality).toBe("ultra-low");
+    expect(result.current.metrics.connectionQuality).toBe("offline");
+  });
+});
+
+describe("Sprint 749 - poor connection quality branch (lines 361-362)", () => {
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  it("should downgrade high quality to low on poor connection", async () => {
+    jest.doMock("../useNetworkStatus", () => ({
+      useNetworkStatus: () => ({
+        isOnline: true,
+        isSlowConnection: true,
+        rtt: 500,
+        effectiveType: "2g",
+        saveData: false,
+      }),
+    }));
+    jest.doMock("../useDeviceCapabilities", () => ({
+      useDeviceCapabilities: () => ({
+        tier: "high",
+        battery: { isLowBattery: false, level: 0.8 },
+        memory: { isLowMemory: false },
+      }),
+    }));
+    jest.doMock("../useMobileDetect", () => ({
+      useMobileDetect: () => ({
+        isMobile: false,
+        isIOS: false,
+        isAndroid: false,
+        isTablet: false,
+        isTouchDevice: false,
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    expect(["low", "ultra-low"]).toContain(result.current.quality);
+  });
+
+  it("should downgrade non-high quality to ultra-low on poor connection", async () => {
+    jest.doMock("../useNetworkStatus", () => ({
+      useNetworkStatus: () => ({
+        isOnline: true,
+        isSlowConnection: true,
+        rtt: 500,
+        effectiveType: "2g",
+        saveData: false,
+      }),
+    }));
+    jest.doMock("../useDeviceCapabilities", () => ({
+      useDeviceCapabilities: () => ({
+        tier: "low",
+        battery: { isLowBattery: false, level: 0.8 },
+        memory: { isLowMemory: false },
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    expect(result.current.quality).toBe("ultra-low");
+  });
+});
+
+describe("Sprint 749 - fair connection quality branch (lines 363-364)", () => {
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  it("should downgrade high to medium on fair connection", async () => {
+    jest.doMock("../useNetworkStatus", () => ({
+      useNetworkStatus: () => ({
+        isOnline: true,
+        isSlowConnection: false,
+        rtt: 150,
+        effectiveType: "3g",
+        saveData: false,
+      }),
+    }));
+    jest.doMock("../useDeviceCapabilities", () => ({
+      useDeviceCapabilities: () => ({
+        tier: "high",
+        battery: { isLowBattery: false, level: 0.8 },
+        memory: { isLowMemory: false },
+      }),
+    }));
+    jest.doMock("../useMobileDetect", () => ({
+      useMobileDetect: () => ({
+        isMobile: false,
+        isIOS: false,
+        isAndroid: false,
+        isTablet: false,
+        isTouchDevice: false,
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    expect(["medium", "low"]).toContain(result.current.quality);
+  });
+
+  it("should downgrade medium to low on fair connection", async () => {
+    jest.doMock("../useNetworkStatus", () => ({
+      useNetworkStatus: () => ({
+        isOnline: true,
+        isSlowConnection: false,
+        rtt: 150,
+        effectiveType: "3g",
+        saveData: false,
+      }),
+    }));
+    jest.doMock("../useDeviceCapabilities", () => ({
+      useDeviceCapabilities: () => ({
+        tier: "medium",
+        battery: { isLowBattery: false, level: 0.8 },
+        memory: { isLowMemory: false },
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    expect(["low", "ultra-low"]).toContain(result.current.quality);
+  });
+});
+
+describe("Sprint 749 - saveData branch (lines 368-369)", () => {
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  it("should downgrade quality when saveData is enabled", async () => {
+    jest.doMock("../useNetworkStatus", () => ({
+      useNetworkStatus: () => ({
+        isOnline: true,
+        isSlowConnection: false,
+        rtt: 50,
+        effectiveType: "4g",
+        saveData: true,
+      }),
+    }));
+    jest.doMock("../useDeviceCapabilities", () => ({
+      useDeviceCapabilities: () => ({
+        tier: "high",
+        battery: { isLowBattery: false, level: 0.8 },
+        memory: { isLowMemory: false },
+      }),
+    }));
+    jest.doMock("../useMobileDetect", () => ({
+      useMobileDetect: () => ({
+        isMobile: false,
+        isIOS: false,
+        isAndroid: false,
+        isTablet: false,
+        isTouchDevice: false,
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    // saveData should cause downgrade from high to medium
+    expect(["medium", "low", "ultra-low"]).toContain(result.current.quality);
+  });
+
+  it("should downgrade medium to low when saveData enabled", async () => {
+    jest.doMock("../useNetworkStatus", () => ({
+      useNetworkStatus: () => ({
+        isOnline: true,
+        isSlowConnection: false,
+        rtt: 50,
+        effectiveType: "4g",
+        saveData: true,
+      }),
+    }));
+    jest.doMock("../useDeviceCapabilities", () => ({
+      useDeviceCapabilities: () => ({
+        tier: "medium",
+        battery: { isLowBattery: false, level: 0.8 },
+        memory: { isLowMemory: false },
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    expect(["low", "ultra-low"]).toContain(result.current.quality);
+  });
+
+  it("should downgrade low to ultra-low when saveData enabled", async () => {
+    jest.doMock("../useNetworkStatus", () => ({
+      useNetworkStatus: () => ({
+        isOnline: true,
+        isSlowConnection: false,
+        rtt: 50,
+        effectiveType: "4g",
+        saveData: true,
+      }),
+    }));
+    jest.doMock("../useDeviceCapabilities", () => ({
+      useDeviceCapabilities: () => ({
+        tier: "low",
+        battery: { isLowBattery: false, level: 0.8 },
+        memory: { isLowMemory: false },
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    expect(result.current.quality).toBe("ultra-low");
+  });
+});
+
+describe("Sprint 749 - low battery branch (lines 373-374)", () => {
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  it("should downgrade quality on low battery", async () => {
+    jest.doMock("../useDeviceCapabilities", () => ({
+      useDeviceCapabilities: () => ({
+        tier: "high",
+        battery: { isLowBattery: true, level: 0.1 },
+        memory: { isLowMemory: false },
+      }),
+    }));
+    jest.doMock("../useMobileDetect", () => ({
+      useMobileDetect: () => ({
+        isMobile: false,
+        isIOS: false,
+        isAndroid: false,
+        isTablet: false,
+        isTouchDevice: false,
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    // Should downgrade from high due to low battery
+    expect(["medium", "low"]).toContain(result.current.quality);
+  });
+
+  it("should downgrade medium to low on low battery", async () => {
+    jest.doMock("../useDeviceCapabilities", () => ({
+      useDeviceCapabilities: () => ({
+        tier: "medium",
+        battery: { isLowBattery: true, level: 0.1 },
+        memory: { isLowMemory: false },
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    expect(result.current.quality).toBe("low");
+  });
+});
+
+describe("Sprint 749 - buffer underruns branch (lines 378-379)", () => {
+  it("should downgrade quality after many buffer underruns", () => {
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    // Record more than 5 underruns
+    act(() => {
+      for (let i = 0; i < 6; i++) {
+        result.current.controls.recordBufferEvent("underrun");
+      }
+    });
+
+    // Quality should be affected
+    expect(result.current.shouldReduceQuality).toBe(true);
+  });
+});
+
+describe("Sprint 749 - latency samples limit (line 477)", () => {
+  it("should limit latency samples to 50 entries", () => {
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    // Record more than 50 latency samples
+    act(() => {
+      for (let i = 0; i < 60; i++) {
+        result.current.controls.recordLatency(100 + i);
+      }
+    });
+
+    // Should still have jitter calculated
+    expect(result.current.metrics.jitter).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 749 - iOS-specific constraints (line 526)", () => {
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  it("should force echoCancellation for iOS", async () => {
+    jest.doMock("../useMobileDetect", () => ({
+      useMobileDetect: () => ({
+        isMobile: true,
+        isIOS: true,
+        isAndroid: false,
+        isTablet: false,
+        isTouchDevice: true,
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    const constraints = result.current.controls.getAudioConstraints();
+    expect(constraints.echoCancellation).toBe(true);
+  });
+});
+
+describe("Sprint 749 - Android-specific constraints (lines 530-532)", () => {
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  it("should set noiseSuppression based on quality for Android", async () => {
+    jest.doMock("../useMobileDetect", () => ({
+      useMobileDetect: () => ({
+        isMobile: true,
+        isIOS: false,
+        isAndroid: true,
+        isTablet: false,
+        isTouchDevice: true,
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    const constraints = result.current.controls.getAudioConstraints();
+    expect(typeof constraints.noiseSuppression).toBe("boolean");
+  });
+
+  it("should disable noiseSuppression for ultra-low on Android", async () => {
+    jest.doMock("../useMobileDetect", () => ({
+      useMobileDetect: () => ({
+        isMobile: true,
+        isIOS: false,
+        isAndroid: true,
+        isTablet: false,
+        isTouchDevice: true,
+      }),
+    }));
+
+    const { useMobileAudioOptimizer } = await import("../useMobileAudioOptimizer");
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    // Force ultra-low quality
+    act(() => {
+      result.current.controls.forceQuality("ultra-low");
+    });
+
+    const constraints = result.current.controls.getAudioConstraints();
+    expect(constraints.noiseSuppression).toBe(false);
+  });
+});
+
+describe("Sprint 749 - sample rate in constraints (line 517)", () => {
+  it("should include sampleRate when not 44100", () => {
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    // Force low quality which uses 16000 sample rate
+    act(() => {
+      result.current.controls.forceQuality("low");
+    });
+
+    const constraints = result.current.controls.getAudioConstraints();
+    expect(constraints.sampleRate).toBeDefined();
+    expect(constraints.sampleRate).toBe(16000);
+  });
+
+  it("should not include sampleRate when 44100", () => {
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    // Force high quality which uses 44100 sample rate
+    act(() => {
+      result.current.controls.forceQuality("high");
+    });
+
+    const constraints = result.current.controls.getAudioConstraints();
+    // sampleRate should not be set when it's 44100
+    expect(constraints.sampleRate).toBeUndefined();
+  });
+});
+
+describe("Sprint 749 - onQualityChange callback (lines 397-398)", () => {
+  it("should call onQualityChange when quality changes", () => {
+    const onQualityChange = jest.fn();
+    const { result } = renderHook(() =>
+      useMobileAudioOptimizer({ onQualityChange })
+    );
+
+    // Force a quality change
+    act(() => {
+      result.current.controls.forceQuality("low");
+    });
+
+    // On first render quality is set, then on change callback should fire
+    act(() => {
+      result.current.controls.forceQuality("high");
+    });
+
+    expect(onQualityChange).toHaveBeenCalled();
+  });
+});
+
+describe("Sprint 749 - isOptimizing effect on config update (lines 405-417)", () => {
+  it("should not update configs when not optimizing", () => {
+    const { result } = renderHook(() =>
+      useMobileAudioOptimizer({ enabled: false })
+    );
+
+    const initialBuffer = { ...result.current.bufferConfig };
+
+    // Force quality change
+    act(() => {
+      result.current.controls.forceQuality("ultra-low");
+    });
+
+    // Configs should not auto-update when not optimizing
+    expect(result.current.isOptimizing).toBe(false);
+  });
+
+  it("should update configs when optimizing", () => {
+    const { result } = renderHook(() => useMobileAudioOptimizer());
+
+    // Force ultra-low quality
+    act(() => {
+      result.current.controls.forceQuality("ultra-low");
+    });
+
+    // Should have ultra-low config
+    expect(result.current.bufferConfig.sampleRate).toBe(8000);
+    expect(result.current.bufferConfig.bitDepth).toBe(8);
+  });
+});

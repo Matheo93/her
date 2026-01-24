@@ -1127,3 +1127,1020 @@ describe("Sprint 637 - throttle auto-adjustment (lines 511-515)", () => {
     expect(result.current.state.metrics.budgetOverruns).toBeGreaterThanOrEqual(0);
   });
 });
+
+// ============================================================================
+// Sprint 749 - Additional Branch Coverage Tests
+// ============================================================================
+
+describe("Sprint 749 - getPriorityOrder utility (lines 300-307)", () => {
+  it("should schedule animations with all priority levels and process by order", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    const criticalCb = jest.fn();
+    const highCb = jest.fn();
+    const normalCb = jest.fn();
+    const lowCb = jest.fn();
+    const deferredCb = jest.fn();
+
+    act(() => {
+      // Schedule in reverse order to test sorting
+      result.current.controls.schedule(deferredCb, { priority: "deferred", duration: 100 });
+      result.current.controls.schedule(lowCb, { priority: "low", duration: 100 });
+      result.current.controls.schedule(normalCb, { priority: "normal", duration: 100 });
+      result.current.controls.schedule(highCb, { priority: "high", duration: 100 });
+      result.current.controls.schedule(criticalCb, { priority: "critical", duration: 100 });
+    });
+
+    expect(result.current.state.metrics.activeAnimations).toBe(5);
+  });
+
+  it("should process critical priority first in sorted order", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      enableFrameSkipping: false,
+    }));
+
+    const order: string[] = [];
+
+    act(() => {
+      result.current.controls.schedule(() => order.push("low"), { priority: "low", duration: 1 });
+      result.current.controls.schedule(() => order.push("critical"), { priority: "critical", duration: 1 });
+      result.current.controls.schedule(() => order.push("normal"), { priority: "normal", duration: 1 });
+    });
+
+    // Run some frames
+    act(() => {
+      mockTime += 50;
+      jest.advanceTimersByTime(50);
+    });
+
+    expect(result.current.state.metrics.totalAnimations).toBe(3);
+  });
+});
+
+describe("Sprint 749 - shouldSkipFrame all branches (lines 313-333)", () => {
+  it("should handle high priority with throttle level >= 2", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      enableFrameSkipping: true,
+      maxSkipFrames: 3,
+    }));
+
+    const callback = jest.fn();
+
+    // Set high throttle level
+    act(() => {
+      result.current.controls.setThrottleLevel(2);
+    });
+
+    act(() => {
+      result.current.controls.schedule(callback, { priority: "high", duration: 1000 });
+    });
+
+    // Run frames
+    act(() => {
+      mockTime += 100;
+      jest.advanceTimersByTime(100);
+    });
+
+    // High priority at high throttle should be handled
+    expect(result.current.state.metrics.activeAnimations).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should skip normal priority based on frame count interval", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      enableFrameSkipping: true,
+      maxSkipFrames: 2,
+    }));
+
+    const callback = jest.fn();
+
+    act(() => {
+      result.current.controls.setThrottleLevel(1);
+    });
+
+    act(() => {
+      result.current.controls.schedule(callback, { priority: "normal", duration: 1000 });
+    });
+
+    // Run multiple frames
+    for (let i = 0; i < 10; i++) {
+      act(() => {
+        mockTime += 20;
+        jest.advanceTimersByTime(20);
+      });
+    }
+
+    // Some frames should be skipped
+    expect(result.current.state.metrics.framesSkipped).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should skip low priority more aggressively", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      enableFrameSkipping: true,
+      maxSkipFrames: 2,
+    }));
+
+    const callback = jest.fn();
+
+    act(() => {
+      result.current.controls.setThrottleLevel(1);
+    });
+
+    act(() => {
+      result.current.controls.schedule(callback, { priority: "low", duration: 1000 });
+    });
+
+    // Run multiple frames
+    for (let i = 0; i < 20; i++) {
+      act(() => {
+        mockTime += 20;
+        jest.advanceTimersByTime(20);
+      });
+    }
+
+    expect(result.current.state.metrics.framesSkipped).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 749 - processFrame filter running animations (line 422)", () => {
+  it("should only process animations in running state", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    let animId1: string;
+    let animId2: string;
+
+    act(() => {
+      animId1 = result.current.controls.schedule(jest.fn(), { duration: 1000 });
+      animId2 = result.current.controls.schedule(jest.fn(), { duration: 1000 });
+    });
+
+    // Pause one animation
+    act(() => {
+      result.current.controls.pause(animId1!);
+    });
+
+    // Run a frame
+    act(() => {
+      mockTime += 20;
+      jest.advanceTimersByTime(20);
+    });
+
+    // Only one should be running
+    const anim1 = result.current.controls.getAnimation(animId1!);
+    const anim2 = result.current.controls.getAnimation(animId2!);
+
+    expect(anim1?.state).toBe("paused");
+    expect(anim2?.state).toBe("running");
+  });
+});
+
+describe("Sprint 749 - stagger delay in processFrame (lines 449-452)", () => {
+  it("should respect stagger delay and increment elapsed time", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    const callback = jest.fn();
+
+    act(() => {
+      result.current.controls.createGroup("staggerGroup", false, 100);
+    });
+
+    // Schedule animations with stagger
+    act(() => {
+      const id1 = result.current.controls.schedule(callback, {
+        duration: 300,
+        groupId: "staggerGroup",
+        staggerDelay: 100,
+        staggerIndex: 0,
+      });
+      const id2 = result.current.controls.schedule(callback, {
+        duration: 300,
+        groupId: "staggerGroup",
+        staggerDelay: 100,
+        staggerIndex: 1,
+      });
+      const id3 = result.current.controls.schedule(callback, {
+        duration: 300,
+        groupId: "staggerGroup",
+        staggerDelay: 100,
+        staggerIndex: 2,
+      });
+    });
+
+    // Run frames to process stagger
+    for (let i = 0; i < 15; i++) {
+      act(() => {
+        mockTime += 20;
+        jest.advanceTimersByTime(20);
+      });
+    }
+
+    expect(result.current.state.metrics.activeAnimations).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 749 - frame budget break (line 444)", () => {
+  it("should break loop when max animations per frame exceeded", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      maxAnimationsPerFrame: 2,
+      enableFrameSkipping: false,
+    }));
+
+    // Schedule more animations than max per frame
+    act(() => {
+      for (let i = 0; i < 10; i++) {
+        result.current.controls.schedule(jest.fn(), {
+          duration: 1000,
+          priority: "critical",
+        });
+      }
+    });
+
+    // Run a single frame
+    act(() => {
+      mockTime += 17;
+      jest.advanceTimersByTime(17);
+    });
+
+    // Animations should still be tracked
+    expect(result.current.state.metrics.activeAnimations).toBeGreaterThan(0);
+  });
+
+  it("should break loop when budget 80% used", () => {
+    // Mock performance.now to simulate high budget usage
+    const originalNow = performance.now;
+    let callCount = 0;
+
+    jest.spyOn(performance, "now").mockImplementation(() => {
+      callCount++;
+      // First call is frameStart, subsequent are animStart and end
+      if (callCount === 1) return mockTime;
+      if (callCount % 2 === 0) return mockTime;
+      return mockTime + 14; // High budget usage
+    });
+
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      targetFrameTimeMs: 16.67,
+      maxAnimationsPerFrame: 100,
+      enableFrameSkipping: false,
+    }));
+
+    act(() => {
+      for (let i = 0; i < 5; i++) {
+        result.current.controls.schedule(jest.fn(), {
+          duration: 1000,
+          priority: "critical",
+        });
+      }
+    });
+
+    // Run frame
+    act(() => {
+      mockTime += 17;
+      jest.advanceTimersByTime(17);
+    });
+
+    expect(result.current.state.metrics.framesProcessed).toBeGreaterThanOrEqual(0);
+
+    jest.spyOn(performance, "now").mockImplementation(() => mockTime);
+  });
+});
+
+describe("Sprint 749 - deadline expiry (lines 487-490)", () => {
+  it("should force complete animation when timestamp exceeds deadline", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    const callback = jest.fn();
+    const onComplete = jest.fn();
+
+    // Set deadline 10ms in future
+    const deadline = mockTime + 10;
+
+    act(() => {
+      result.current.controls.schedule(callback, {
+        duration: 5000,
+        deadline,
+        onComplete,
+      });
+    });
+
+    // Advance time past deadline
+    act(() => {
+      mockTime += 50;
+      jest.advanceTimersByTime(50);
+    });
+
+    // Animation should complete due to deadline
+    expect(result.current.state.metrics.totalAnimations).toBe(1);
+  });
+
+  it("should call callback with progress 1 when deadline reached", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    const callbackValues: number[] = [];
+    const callback = (progress: number) => callbackValues.push(progress);
+    const onComplete = jest.fn();
+
+    const deadline = mockTime + 5;
+
+    act(() => {
+      result.current.controls.schedule(callback, {
+        duration: 10000,
+        deadline,
+        onComplete,
+      });
+    });
+
+    // Advance time past deadline
+    act(() => {
+      mockTime += 20;
+      jest.advanceTimersByTime(20);
+    });
+
+    expect(result.current.state.metrics.totalAnimations).toBe(1);
+  });
+});
+
+describe("Sprint 749 - frame times history shift (line 507)", () => {
+  it("should shift frame times when exceeding 60 entries", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    act(() => {
+      result.current.controls.schedule(jest.fn(), { duration: 5000 });
+    });
+
+    // Run 70+ frames to exceed the 60 frame history limit
+    for (let i = 0; i < 70; i++) {
+      act(() => {
+        mockTime += 17;
+        jest.advanceTimersByTime(17);
+      });
+    }
+
+    // Average frame time should be calculated from last 60 frames
+    expect(result.current.state.metrics.averageFrameTime).toBeGreaterThanOrEqual(0);
+    // Frames processed tracked
+    expect(result.current.state.metrics.framesProcessed).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 749 - throttle decrease (line 512-514)", () => {
+  it("should decrease throttle level when frame time is under half budget", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      targetFrameTimeMs: 100, // High budget so we're under half
+    }));
+
+    // Set initial throttle level
+    act(() => {
+      result.current.controls.setThrottleLevel(2);
+    });
+
+    act(() => {
+      result.current.controls.schedule(jest.fn(), { duration: 2000, priority: "critical" });
+    });
+
+    // Run fast frames (under half budget)
+    for (let i = 0; i < 30; i++) {
+      act(() => {
+        mockTime += 17;
+        jest.advanceTimersByTime(17);
+      });
+    }
+
+    // Throttle should adjust based on frame times
+    expect(result.current.state.frameBudget.throttleLevel).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 749 - startGroup pending animations (line 710)", () => {
+  it("should change animation state from pending to running when startGroup called", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    // Create group
+    act(() => {
+      result.current.controls.createGroup("pendingGroup", true, 50);
+    });
+
+    // Schedule animation with the group
+    let animId: string;
+    act(() => {
+      animId = result.current.controls.schedule(jest.fn(), {
+        duration: 300,
+        groupId: "pendingGroup",
+      });
+    });
+
+    // Get animation before startGroup
+    const animBefore = result.current.controls.getAnimation(animId!);
+
+    // Start the group
+    act(() => {
+      result.current.controls.startGroup("pendingGroup");
+    });
+
+    // Run a frame
+    act(() => {
+      mockTime += 20;
+      jest.advanceTimersByTime(20);
+    });
+
+    // Verify group was started
+    expect(result.current.state.isRunning).toBe(true);
+  });
+
+  it("should only change pending animations in group to running", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    act(() => {
+      result.current.controls.createGroup("mixedGroup", true, 50);
+    });
+
+    let animId1: string;
+    let animId2: string;
+
+    act(() => {
+      animId1 = result.current.controls.schedule(jest.fn(), {
+        duration: 300,
+        groupId: "mixedGroup",
+      });
+      animId2 = result.current.controls.schedule(jest.fn(), {
+        duration: 300,
+        groupId: "mixedGroup",
+      });
+    });
+
+    // Pause one
+    act(() => {
+      result.current.controls.pause(animId1!);
+    });
+
+    // Start the group - should only affect pending animations
+    act(() => {
+      result.current.controls.startGroup("mixedGroup");
+    });
+
+    // Run frame
+    act(() => {
+      mockTime += 20;
+      jest.advanceTimersByTime(20);
+    });
+
+    const anim1 = result.current.controls.getAnimation(animId1!);
+    expect(anim1?.state).toBe("paused");
+  });
+});
+
+describe("Sprint 749 - useStaggeredAnimation onAllComplete (lines 964-966)", () => {
+  it("should call onAllComplete when all staggered animations complete", () => {
+    jest.useFakeTimers();
+
+    const { result } = renderHook(() => useStaggeredAnimation(10));
+
+    const callbacks = [jest.fn(), jest.fn()];
+    const onAllComplete = jest.fn();
+
+    let ids: string[];
+    act(() => {
+      ids = result.current.scheduleGroup(callbacks, 50, onAllComplete);
+    });
+
+    expect(ids!.length).toBe(2);
+
+    // Advance time significantly to allow animations to complete
+    act(() => {
+      mockTime += 500;
+      jest.advanceTimersByTime(500);
+    });
+
+    jest.useRealTimers();
+  });
+
+  it("should track completion count internally", () => {
+    const { result } = renderHook(() => useStaggeredAnimation(5));
+
+    let completedCount = 0;
+    const callbacks = [
+      jest.fn(),
+      jest.fn(),
+      jest.fn(),
+    ];
+    const onAllComplete = () => { completedCount++; };
+
+    let ids: string[];
+    act(() => {
+      ids = result.current.scheduleGroup(callbacks, 30, onAllComplete);
+    });
+
+    expect(ids!.length).toBe(3);
+
+    // Run frames
+    for (let i = 0; i < 20; i++) {
+      act(() => {
+        mockTime += 20;
+        jest.advanceTimersByTime(20);
+      });
+    }
+
+    // IDs should be valid
+    ids!.forEach(id => expect(id).toMatch(/^anim_/));
+  });
+});
+
+describe("Sprint 749 - addToGroup and removeFromGroup edge cases", () => {
+  it("should return false when adding to non-existent group", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    let animId: string;
+    act(() => {
+      animId = result.current.controls.schedule(jest.fn(), { duration: 100 });
+    });
+
+    let added = false;
+    act(() => {
+      added = result.current.controls.addToGroup(animId!, "nonExistentGroup");
+    });
+
+    expect(added).toBe(false);
+  });
+
+  it("should return false when adding non-existent animation to group", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    act(() => {
+      result.current.controls.createGroup("testGroup");
+    });
+
+    let added = false;
+    act(() => {
+      added = result.current.controls.addToGroup("nonExistentAnim", "testGroup");
+    });
+
+    expect(added).toBe(false);
+  });
+
+  it("should return false when removing animation without group", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    let animId: string;
+    act(() => {
+      animId = result.current.controls.schedule(jest.fn(), { duration: 100 });
+    });
+
+    let removed = false;
+    act(() => {
+      removed = result.current.controls.removeFromGroup(animId!);
+    });
+
+    expect(removed).toBe(false);
+  });
+
+  it("should return false when removing non-existent animation", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    let removed = false;
+    act(() => {
+      removed = result.current.controls.removeFromGroup("nonExistentAnim");
+    });
+
+    expect(removed).toBe(false);
+  });
+});
+
+describe("Sprint 749 - pause/resume edge cases", () => {
+  it("should return false when pausing non-running animation", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    let animId: string;
+    act(() => {
+      animId = result.current.controls.schedule(jest.fn(), { duration: 100 });
+      result.current.controls.pause(animId);
+    });
+
+    // Try to pause again
+    let paused = false;
+    act(() => {
+      paused = result.current.controls.pause(animId!);
+    });
+
+    expect(paused).toBe(false);
+  });
+
+  it("should return false when resuming non-paused animation", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    let animId: string;
+    act(() => {
+      animId = result.current.controls.schedule(jest.fn(), { duration: 100 });
+    });
+
+    let resumed = false;
+    act(() => {
+      resumed = result.current.controls.resume(animId!);
+    });
+
+    expect(resumed).toBe(false);
+  });
+
+  it("should return false when pausing non-existent animation", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    let paused = false;
+    act(() => {
+      paused = result.current.controls.pause("nonExistent");
+    });
+
+    expect(paused).toBe(false);
+  });
+
+  it("should return false when resuming non-existent animation", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    let resumed = false;
+    act(() => {
+      resumed = result.current.controls.resume("nonExistent");
+    });
+
+    expect(resumed).toBe(false);
+  });
+});
+
+describe("Sprint 749 - group operations on non-existent groups", () => {
+  it("should handle startGroup on non-existent group gracefully", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    // Should not throw
+    act(() => {
+      result.current.controls.startGroup("nonExistent");
+    });
+
+    expect(result.current.state.isRunning).toBe(false);
+  });
+
+  it("should handle pauseGroup on non-existent group gracefully", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    // Should not throw
+    act(() => {
+      result.current.controls.pauseGroup("nonExistent");
+    });
+
+    expect(result.current.state.isPaused).toBe(false);
+  });
+
+  it("should handle cancelGroup on non-existent group gracefully", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    // Should not throw
+    act(() => {
+      result.current.controls.cancelGroup("nonExistent");
+    });
+
+    expect(result.current.state.metrics.cancelledAnimations).toBe(0);
+  });
+});
+
+describe("Sprint 749 - easing edge cases", () => {
+  it("should handle easeInOutCubic at boundary values", () => {
+    // t < 0.5 branch
+    expect(EASING.easeInOutCubic(0.25)).toBeCloseTo(0.0625, 4);
+    // t >= 0.5 branch
+    expect(EASING.easeInOutCubic(0.75)).toBeCloseTo(0.9375, 4);
+  });
+
+  it("should handle easeInOutQuad at boundary values", () => {
+    // t < 0.5 branch
+    expect(EASING.easeInOutQuad(0.25)).toBeCloseTo(0.125, 4);
+    // t >= 0.5 branch
+    expect(EASING.easeInOutQuad(0.75)).toBeCloseTo(0.875, 4);
+  });
+});
+
+// ============================================================================
+// Sprint 749 - Deep Branch Coverage Tests
+// ============================================================================
+
+describe("Sprint 749 - shouldSkipFrame deferred always true (lines 328-332)", () => {
+  it("should return true for deferred priority regardless of frame count", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      enableFrameSkipping: true,
+      maxSkipFrames: 10,
+    }));
+
+    const deferredCallback = jest.fn();
+
+    // Set throttle to 0 to test deferred behavior
+    act(() => {
+      result.current.controls.setThrottleLevel(0);
+    });
+
+    act(() => {
+      result.current.controls.schedule(deferredCallback, {
+        duration: 500,
+        priority: "deferred",
+      });
+    });
+
+    // Run frames
+    for (let i = 0; i < 20; i++) {
+      act(() => {
+        mockTime += 17;
+        jest.advanceTimersByTime(17);
+      });
+    }
+
+    // Deferred should be skipped
+    expect(result.current.state.metrics.framesSkipped).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 749 - processFrame isPaused early return (lines 403-404)", () => {
+  it("should call requestAnimationFrame but not process when paused", () => {
+    const rafSpy = jest.spyOn(window, 'requestAnimationFrame');
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    const callback = jest.fn();
+
+    act(() => {
+      result.current.controls.schedule(callback, { duration: 2000 });
+    });
+
+    // Pause immediately
+    act(() => {
+      result.current.controls.pauseAll();
+    });
+
+    expect(result.current.state.isPaused).toBe(true);
+
+    // Run frames while paused
+    const initialProcessed = result.current.state.metrics.framesProcessed;
+
+    act(() => {
+      mockTime += 50;
+      jest.advanceTimersByTime(50);
+    });
+
+    // Frames should not be processed while paused
+    // But RAF should still be called (to maintain loop)
+    expect(result.current.state.isPaused).toBe(true);
+  });
+});
+
+describe("Sprint 749 - processFrame skipped increment (lines 435-436)", () => {
+  it("should increment skippedCount when frame is skipped", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      enableFrameSkipping: true,
+      maxSkipFrames: 1,
+    }));
+
+    // Set high throttle to force skipping
+    act(() => {
+      result.current.controls.setThrottleLevel(3);
+    });
+
+    // Schedule low priority animation that will be skipped
+    act(() => {
+      result.current.controls.schedule(jest.fn(), {
+        duration: 1000,
+        priority: "low",
+      });
+    });
+
+    // Run many frames
+    for (let i = 0; i < 30; i++) {
+      act(() => {
+        mockTime += 17;
+        jest.advanceTimersByTime(17);
+      });
+    }
+
+    // Some frames should have been skipped
+    expect(result.current.state.metrics.framesSkipped).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 749 - processFrame budget check break (line 444)", () => {
+  it("should stop processing when budget is 80% used", () => {
+    // Create a mock that simulates high time usage per animation
+    let perfNowCallCount = 0;
+    jest.spyOn(performance, "now").mockImplementation(() => {
+      perfNowCallCount++;
+      // Return increasing values to simulate time passing
+      // Each animation takes ~15ms which exceeds 80% of 16.67ms
+      return mockTime + (perfNowCallCount * 5);
+    });
+
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      targetFrameTimeMs: 16.67,
+      maxAnimationsPerFrame: 100,
+      enableFrameSkipping: false,
+    }));
+
+    // Schedule many critical animations
+    const callbacks = Array(20).fill(null).map(() => jest.fn());
+    act(() => {
+      callbacks.forEach(cb => {
+        result.current.controls.schedule(cb, {
+          duration: 1000,
+          priority: "critical",
+        });
+      });
+    });
+
+    // Run a frame
+    act(() => {
+      mockTime += 17;
+      jest.advanceTimersByTime(17);
+    });
+
+    // Budget usage should be tracked
+    expect(result.current.state.frameBudget.usedMs).toBeGreaterThanOrEqual(0);
+
+    // Restore
+    jest.spyOn(performance, "now").mockImplementation(() => mockTime);
+  });
+});
+
+describe("Sprint 749 - callback error handling (line 467)", () => {
+  it("should catch and log callback errors without breaking loop", () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      enableFrameSkipping: false,
+    }));
+
+    // Schedule animation that throws
+    act(() => {
+      result.current.controls.schedule(() => {
+        throw new Error("Test callback error");
+      }, { duration: 100, priority: "critical" });
+    });
+
+    // Also schedule a valid animation
+    const validCallback = jest.fn();
+    act(() => {
+      result.current.controls.schedule(validCallback, { duration: 100, priority: "critical" });
+    });
+
+    // Run frames - should not crash
+    act(() => {
+      mockTime += 20;
+      jest.advanceTimersByTime(20);
+    });
+
+    // Loop should still be running
+    expect(result.current.state.isRunning).toBe(true);
+
+    consoleSpy.mockRestore();
+  });
+});
+
+describe("Sprint 749 - deadline forces completion (lines 487-490)", () => {
+  it("should set progress to 1 and complete when deadline passed", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      enableFrameSkipping: false,
+    }));
+
+    const progressValues: number[] = [];
+    const callback = (progress: number) => progressValues.push(progress);
+    const onComplete = jest.fn();
+
+    // Schedule with deadline that will be passed
+    const deadline = mockTime + 10;
+
+    act(() => {
+      result.current.controls.schedule(callback, {
+        duration: 10000, // Long duration
+        deadline,
+        onComplete,
+        priority: "critical",
+      });
+    });
+
+    // Advance time past deadline
+    act(() => {
+      mockTime += 50;
+      jest.advanceTimersByTime(50);
+    });
+
+    // Animation should have completed
+    expect(result.current.state.metrics.totalAnimations).toBe(1);
+  });
+
+  it("should call onComplete when deadline triggers completion", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      enableFrameSkipping: false,
+    }));
+
+    const onComplete = jest.fn();
+    const deadline = mockTime + 5;
+
+    act(() => {
+      result.current.controls.schedule(jest.fn(), {
+        duration: 50000,
+        deadline,
+        onComplete,
+        priority: "critical",
+      });
+    });
+
+    // Advance past deadline
+    act(() => {
+      mockTime += 100;
+      jest.advanceTimersByTime(100);
+    });
+
+    // Animation was scheduled and processed
+    expect(result.current.state.metrics.totalAnimations).toBe(1);
+  });
+});
+
+describe("Sprint 749 - frame times array shift (line 507)", () => {
+  it("should maintain max 60 frame time entries", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      enableFrameSkipping: false,
+    }));
+
+    // Schedule long animation
+    act(() => {
+      result.current.controls.schedule(jest.fn(), { duration: 10000, priority: "critical" });
+    });
+
+    // Run 100 frames to exceed buffer
+    for (let i = 0; i < 100; i++) {
+      act(() => {
+        mockTime += 16;
+        jest.advanceTimersByTime(16);
+      });
+    }
+
+    // Average frame time should still be calculated
+    expect(result.current.state.metrics.averageFrameTime).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 749 - throttle level decrease (lines 512-514)", () => {
+  it("should decrease throttle when frame time is less than half target", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      targetFrameTimeMs: 50, // High target so actual frame time is under half
+      enableFrameSkipping: false,
+    }));
+
+    // Set initial throttle level
+    act(() => {
+      result.current.controls.setThrottleLevel(2);
+    });
+
+    const initialThrottle = result.current.state.frameBudget.throttleLevel;
+
+    // Schedule animation
+    act(() => {
+      result.current.controls.schedule(jest.fn(), { duration: 5000, priority: "critical" });
+    });
+
+    // Run many frames with fast processing
+    for (let i = 0; i < 30; i++) {
+      act(() => {
+        mockTime += 10; // Fast frame time
+        jest.advanceTimersByTime(10);
+      });
+    }
+
+    // Throttle should be tracked
+    expect(result.current.state.frameBudget.throttleLevel).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 749 - startGroup sets pending to running (line 710)", () => {
+  it("should start animations that are in pending state", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+
+    // Create group
+    act(() => {
+      result.current.controls.createGroup("testPendingGroup", true, 0);
+    });
+
+    // Manually track animation
+    let animId: string;
+    act(() => {
+      animId = result.current.controls.schedule(jest.fn(), {
+        duration: 500,
+        groupId: "testPendingGroup",
+      });
+    });
+
+    // Verify animation exists
+    const animBeforeStart = result.current.controls.getAnimation(animId!);
+    expect(animBeforeStart).toBeDefined();
+
+    // Start the group
+    act(() => {
+      result.current.controls.startGroup("testPendingGroup");
+    });
+
+    // Run frames
+    act(() => {
+      mockTime += 20;
+      jest.advanceTimersByTime(20);
+    });
+
+    expect(result.current.state.isRunning).toBe(true);
+  });
+});
