@@ -2365,3 +2365,151 @@ describe("Sprint 758 - useMemoryPressureAlert callback trigger (lines 598-599)",
     expect(transitions).toContain("normal");
   });
 });
+
+// ============================================================================
+// Sprint 524 - Targeted Branch Coverage Tests
+// ============================================================================
+
+describe("Sprint 524 - updatePriority for non-existent resource (line 430)", () => {
+  it("should handle updatePriority for non-existent resource gracefully", () => {
+    const { result } = renderHook(() => useMobileMemoryOptimizer());
+
+    // Try to update priority for a resource that doesn't exist
+    act(() => {
+      result.current.controls.updatePriority("non-existent-id", 8);
+    });
+
+    // Should not throw, just silently return
+    expect(result.current.stats.resourceCount).toBe(0);
+  });
+});
+
+describe("Sprint 524 - disabled cleanup effect (line 469)", () => {
+  it("should not run cleanup interval when disabled", () => {
+    const cleanupSpy = jest.fn();
+
+    const { result } = renderHook(() =>
+      useMobileMemoryOptimizer({
+        enabled: false,
+        cleanupIntervalMs: 100,
+      })
+    );
+
+    // Register a resource with TTL
+    act(() => {
+      result.current.controls.register({
+        type: "data",
+        size: 1024,
+        priority: 5,
+        ttl: 50, // Very short TTL
+      });
+    });
+
+    // Advance timers past the cleanup interval
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+
+    // Resource should still exist because cleanup is disabled
+    expect(result.current.stats.resourceCount).toBe(1);
+  });
+
+  it("should run cleanup interval when enabled", () => {
+    const { result } = renderHook(() =>
+      useMobileMemoryOptimizer({
+        enabled: true,
+        cleanupIntervalMs: 100,
+      })
+    );
+
+    // Register a resource with TTL
+    act(() => {
+      result.current.controls.register({
+        type: "data",
+        size: 1024,
+        priority: 5,
+        ttl: 50, // Very short TTL
+      });
+    });
+
+    expect(result.current.stats.resourceCount).toBe(1);
+
+    // Advance timers past the TTL and cleanup interval
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+
+    // Resource should be cleaned up
+    expect(result.current.stats.resourceCount).toBe(0);
+  });
+});
+
+describe("Sprint 524 - memory pressure event handler (line 499)", () => {
+  it("should not register memory pressure listener when disabled", () => {
+    const addEventListenerSpy = jest.spyOn(window, "addEventListener");
+
+    renderHook(() =>
+      useMobileMemoryOptimizer({ enabled: false })
+    );
+
+    // Should not register memory pressure listener
+    const memoryPressureCalls = addEventListenerSpy.mock.calls.filter(
+      call => call[0] === "memorypressure"
+    );
+    expect(memoryPressureCalls.length).toBe(0);
+
+    addEventListenerSpy.mockRestore();
+  });
+});
+
+describe("Sprint 524 - useImageMemoryManager default priority (line 561)", () => {
+  it("should use default priority of 5 when not specified", () => {
+    const { result } = renderHook(() => useImageMemoryManager());
+
+    let imageId: string;
+    act(() => {
+      // Don't pass priority - should default to 5
+      imageId = result.current.registerImage("http://example.com/test.jpg", 2048);
+    });
+
+    expect(imageId!).toBeTruthy();
+    expect(result.current.usagePercent).toBeGreaterThan(0);
+  });
+});
+
+describe("Sprint 524 - evict loop resource retrieval (lines 355-357)", () => {
+  it("should handle eviction when resource was already removed during iteration", () => {
+    const { result } = renderHook(() =>
+      useMobileMemoryOptimizer({ preservePriority: 10 })
+    );
+
+    let id1: string, id2: string;
+
+    act(() => {
+      id1 = result.current.controls.register({
+        type: "data",
+        size: 1024,
+        priority: 2,
+      });
+      id2 = result.current.controls.register({
+        type: "data",
+        size: 1024,
+        priority: 3,
+      });
+    });
+
+    // Manually unregister one before eviction
+    act(() => {
+      result.current.controls.unregister(id1!);
+    });
+
+    // Now evict - should handle missing resource
+    let evictionResult: ReturnType<typeof result.current.controls.evict>;
+    act(() => {
+      evictionResult = result.current.controls.evict("priority", 2048);
+    });
+
+    // Should have evicted the remaining resource
+    expect(evictionResult!.evicted).toContain(id2!);
+  });
+});

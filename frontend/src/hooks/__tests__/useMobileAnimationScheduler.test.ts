@@ -939,6 +939,14 @@ describe("Sprint 637 - Animation deadline handling (lines 486-490)", () => {
 });
 
 describe("Sprint 637 - startGroup with pending animations (line 710)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should start pending animations when group is started", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler());
     const callback = jest.fn();
@@ -1038,6 +1046,14 @@ describe("Sprint 637 - visibility change handler (lines 806-809)", () => {
 });
 
 describe("Sprint 637 - staggered animation onAllComplete callback (lines 964-966)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should schedule staggered animations with onAllComplete", () => {
     const { result } = renderHook(() => useStaggeredAnimation(30));
     const callbacks = [jest.fn(), jest.fn(), jest.fn()];
@@ -1063,6 +1079,14 @@ describe("Sprint 637 - staggered animation onAllComplete callback (lines 964-966
 });
 
 describe("Sprint 637 - shouldSkipFrame deferred priority (line 332)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should always skip deferred priority when frame skipping is enabled", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       enableFrameSkipping: true,
@@ -1088,6 +1112,14 @@ describe("Sprint 637 - shouldSkipFrame deferred priority (line 332)", () => {
 });
 
 describe("Sprint 637 - frame budget limit (line 444)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should limit animations processed per frame", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       maxAnimationsPerFrame: 2,
@@ -1120,6 +1152,14 @@ describe("Sprint 637 - frame budget limit (line 444)", () => {
 });
 
 describe("Sprint 637 - throttle auto-adjustment (lines 511-515)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should increase throttle level when over budget", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       targetFrameTimeMs: 1, // Very low target to trigger over budget
@@ -1900,6 +1940,14 @@ describe("Sprint 749 - processFrame isPaused early return (lines 403-404)", () =
 });
 
 describe("Sprint 749 - processFrame skipped increment (lines 435-436)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should increment skippedCount when frame is skipped", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       enableFrameSkipping: true,
@@ -1933,6 +1981,14 @@ describe("Sprint 749 - processFrame skipped increment (lines 435-436)", () => {
 });
 
 describe("Sprint 749 - processFrame budget check break (line 444)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should stop processing when budget is 80% used", () => {
     // Create a mock that simulates high time usage per animation
     let perfNowCallCount = 0;

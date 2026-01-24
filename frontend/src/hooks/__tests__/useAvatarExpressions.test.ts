@@ -689,6 +689,55 @@ describe("useExpressionGaze", () => {
 
     expect(result.current).toEqual({});
   });
+
+  it("should not re-render infinitely with same values in new object", () => {
+    // This test verifies the fix for the infinite re-render bug
+    // when passing inline objects like { x: 0.5, y: 0 }
+    let renderCount = 0;
+
+    const { result, rerender } = renderHook(
+      ({ target }) => {
+        renderCount++;
+        return useExpressionGaze(target);
+      },
+      { initialProps: { target: { x: 0.5, y: 0 } } }
+    );
+
+    const initialRenderCount = renderCount;
+    expect(result.current.eyeLookInLeft).toBeCloseTo(0.5);
+
+    // Rerender with a NEW object that has the SAME values
+    // Before the fix, this would cause infinite re-renders
+    rerender({ target: { x: 0.5, y: 0 } });
+
+    // Should only have 2 renders (initial + rerender), not infinite
+    expect(renderCount).toBeLessThanOrEqual(initialRenderCount + 2);
+
+    // Values should be the same
+    expect(result.current.eyeLookInLeft).toBeCloseTo(0.5);
+  });
+
+  it("should only update when x or y values change", () => {
+    const { result, rerender } = renderHook(
+      ({ target }) => useExpressionGaze(target),
+      { initialProps: { target: { x: 0.3, y: 0.4 } } }
+    );
+
+    expect(result.current.eyeLookInLeft).toBeCloseTo(0.3);
+    expect(result.current.eyeLookUpLeft).toBeCloseTo(0.4);
+
+    // Rerender with same values in new object reference
+    rerender({ target: { x: 0.3, y: 0.4 } });
+
+    // Values should remain stable
+    expect(result.current.eyeLookInLeft).toBeCloseTo(0.3);
+    expect(result.current.eyeLookUpLeft).toBeCloseTo(0.4);
+
+    // Now change x only
+    rerender({ target: { x: 0.6, y: 0.4 } });
+    expect(result.current.eyeLookInLeft).toBeCloseTo(0.6);
+    expect(result.current.eyeLookUpLeft).toBeCloseTo(0.4);
+  });
 });
 
 describe("EXPRESSION_PRESETS", () => {

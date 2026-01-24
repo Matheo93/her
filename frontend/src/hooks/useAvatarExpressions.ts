@@ -603,19 +603,25 @@ export function useLipSyncVisemes(): {
 
 /**
  * Hook for expression-based eye gaze
+ *
+ * Fixed: Uses primitive values (x, y) as dependencies instead of object reference
+ * to prevent infinite re-renders when caller passes inline objects like { x: 0.5, y: 0 }
  */
 export function useExpressionGaze(
   lookAtTarget: { x: number; y: number } | null
 ): BlendShapeValues {
   const [gazeBlendShapes, setGazeBlendShapes] = useState<BlendShapeValues>({});
 
+  // Extract primitive values to use as stable dependencies
+  const x = lookAtTarget?.x ?? null;
+  const y = lookAtTarget?.y ?? null;
+
   useEffect(() => {
-    if (!lookAtTarget) {
+    if (x === null || y === null) {
       setGazeBlendShapes({});
       return;
     }
 
-    const { x, y } = lookAtTarget;
     const shapes: BlendShapeValues = {};
 
     // Horizontal gaze
@@ -637,7 +643,7 @@ export function useExpressionGaze(
     }
 
     setGazeBlendShapes(shapes);
-  }, [lookAtTarget]);
+  }, [x, y]); // Stable primitive dependencies instead of object reference
 
   return gazeBlendShapes;
 }

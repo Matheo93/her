@@ -2,6 +2,51 @@
 
 ---
 
+## Sprint 524 BIS - Autocritique (BACKEND)
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - eva_memory.py optimisation latence
+
+**Ce que j'ai fait:**
+1. **Cache de contexte** - Ajouté `_context_cache` avec TTL de 5s pour éviter les recalculs répétés dans `get_context_memories()`
+2. **Invalidation de cache** - Méthode `invalidate_context_cache()` pour un ou tous les utilisateurs
+3. **ID generation optimisée** - `_generate_id()` avec compteur au lieu de MD5, accepte timestamp optionnel
+4. **Thread safety** - Ajouté `_cache_lock` pour accès concurrent au cache
+5. **8 nouveaux tests** pour valider les optimisations
+
+**Note: 6/10**
+
+**Points positifs:**
+- Vraie optimisation de latence (cache avec TTL)
+- Tests unitaires pour toutes les nouvelles fonctionnalités
+- Thread-safe avec Lock
+- Limitation de taille du cache (évite memory leak)
+- Backward compatible (use_cache=True par défaut)
+
+**Points négatifs (sois HONNÊTE):**
+- N'ai pas pu exécuter les tests (ressources système saturées)
+- Pas de benchmark avant/après pour mesurer l'impact réel
+- Le cache TTL de 5s est arbitraire, pas basé sur des mesures
+- Les tests ChromaDB sont toujours lents (problème non résolu)
+- N'ai pas vérifié si get_context_memories est appelé en boucle dans main.py
+
+**Ce que j'aurais dû faire différemment:**
+- Profiler le code AVANT de coder pour identifier les vrais goulots
+- Créer un benchmark simple pour mesurer la latence
+- Vérifier où get_context_memories est appelé pour s'assurer que le cache aide
+- Attendre que les ressources système se libèrent avant de lancer les tests
+
+**Risques introduits:**
+- Si le TTL est trop long, les changements de mémoire ne seront pas visibles immédiatement
+- Thread lock peut ralentir sous forte charge concurrente
+- Le compteur _id_counter peut déborder après ~10^16 appels (négligeable)
+
+**Amélioration pour le prochain sprint:**
+- Sprint 525 FRONTEND - Alterner comme requis
+- Mesurer les performances AVANT de coder
+
+---
+
 ## Sprint 523 - Autocritique (FRONTEND)
 
 **Ce que j'ai fait:** Corrigé les tests useMobileRenderOptimizer qui causaient des boucles infinies (OOM). Amélioré la couverture de 69.62% à 89.62%.
@@ -1161,5 +1206,46 @@
 **Amélioration pour le prochain sprint:**
 - Sprint 547 FRONTEND - VRAIMENT alterner cette fois
 - Améliorer get_proactive_topics pour utiliser profile.goals directement au lieu de semantic search
+
+---
+
+## Sprint 547 (FRONTEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Frontend TypeScript - useAvatarEyeTracking tests
+
+**Ce que j'ai fait:**
+- Créé fichier de test pour useAvatarEyeTracking (32 tests)
+- Tests couvrent: initialization, lookAt, lookAtUser, followCursor, lookAway, setTarget, blink, doubleBlink, setPupilDilation, reset, auto-blink, onGazeShift, cleanup, animation, random gaze
+- Tests pour hooks dérivés: useCursorFollowingEyes, useConversationGaze, useEyeGazeTransform
+- Couverture: 90.45% statements, 75.86% branches, 85.1% functions, 91% lines
+
+**Note: 7/10**
+
+**Points positifs:**
+- 32 tests passent rapidement (~8s)
+- Couverture statements/lines/functions au-dessus de 80%
+- Tests couvrent les hooks principaux et dérivés
+- Mocking de RAF et timers bien fait
+
+**Points négatifs (sois HONNÊTE):**
+- Branches seulement à 75.86% (sous 80%)
+- Lignes de cursor tracking (237-255) non couvertes - difficile à tester les events
+- Double-blink random (282-284) non couvert
+- Je n'ai PAS amélioré le hook lui-même
+
+**Ce que j'aurais dû faire différemment:**
+- Ajouter des tests d'intégration avec simulation d'événements MouseEvent/TouchEvent
+- Mocker window.innerWidth/innerHeight pour tester le cursor tracking
+- Atteindre 80% branches en testant tous les chemins
+
+**Risques introduits:**
+- Aucun risque (tests seulement)
+- Warning de timer leak dans Jest (mineur)
+
+**Amélioration pour le prochain sprint:**
+- Sprint 548 BACKEND - alterner comme requis
+- Atteindre 80% branches
+- Focus sur les optimisations réelles
 
 ---

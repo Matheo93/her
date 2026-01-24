@@ -257,17 +257,46 @@ const SWIPE_DIRECTIONS: Record<string, { minAngle: number; maxAngle: number }> =
   up: { minAngle: -135, maxAngle: -45 },
 };
 
+// Pre-computed initial states (module-level for performance)
+const INITIAL_GESTURE_STATE: GestureState = {
+  currentGesture: null,
+  startPosition: null,
+  currentPosition: null,
+  velocity: { x: 0, y: 0 },
+  duration: 0,
+  distance: 0,
+};
+
+const INITIAL_METRICS: PipelineMetrics = {
+  totalInputs: 0,
+  processedInputs: 0,
+  droppedInputs: 0,
+  debouncedInputs: 0,
+  predictedInputs: 0,
+  gesturesDetected: 0,
+  averageLatencyMs: 0,
+  p50LatencyMs: 0,
+  p95LatencyMs: 0,
+  inputRate: 0,
+  processingRate: 0,
+  latencies: [],
+};
+
 // ============================================================================
 // Utility Functions
 // ============================================================================
 
+// Input ID counter for more efficient ID generation (avoids Date.now() syscall)
+let inputIdCounter = 0;
+
 function generateInputId(): string {
-  return `i-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  return `i-${++inputIdCounter}-${Math.random().toString(36).substring(2, 7)}`;
 }
 
 function calculatePercentile(values: number[], percentile: number): number {
   if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
+  // Use slice() instead of spread for slightly better performance
+  const sorted = values.slice().sort((a, b) => a - b);
   const index = Math.ceil((percentile / 100) * sorted.length) - 1;
   return sorted[Math.max(0, index)];
 }
@@ -315,30 +344,13 @@ export function useMobileInputPipeline(
   const [currentStage, setCurrentStage] = useState<PipelineStage>("received");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Gesture state
-  const [gestureState, setGestureState] = useState<GestureState>({
-    currentGesture: null,
-    startPosition: null,
-    currentPosition: null,
-    velocity: { x: 0, y: 0 },
-    duration: 0,
-    distance: 0,
-  });
+  // Gesture state (using pre-computed initial state)
+  const [gestureState, setGestureState] = useState<GestureState>(INITIAL_GESTURE_STATE);
 
-  // Metrics
+  // Metrics (using pre-computed initial state)
   const [metrics, setMetrics] = useState<PipelineMetrics>({
-    totalInputs: 0,
-    processedInputs: 0,
-    droppedInputs: 0,
-    debouncedInputs: 0,
-    predictedInputs: 0,
-    gesturesDetected: 0,
-    averageLatencyMs: 0,
-    p50LatencyMs: 0,
-    p95LatencyMs: 0,
-    inputRate: 0,
-    processingRate: 0,
-    latencies: [],
+    ...INITIAL_METRICS,
+    latencies: [], // New array to avoid sharing reference
   });
 
   // Refs
@@ -724,7 +736,7 @@ export function useMobileInputPipeline(
   );
 
   /**
-   * End gesture tracking
+   * End gesture tracking (using pre-computed initial state)
    */
   const endGesture = useCallback((): GestureType | null => {
     if (longPressTimerRef.current) {
@@ -745,14 +757,7 @@ export function useMobileInputPipeline(
         }));
         lastTapTimeRef.current = 0;
 
-        setGestureState({
-          currentGesture: null,
-          startPosition: null,
-          currentPosition: null,
-          velocity: { x: 0, y: 0 },
-          duration: 0,
-          distance: 0,
-        });
+        setGestureState(INITIAL_GESTURE_STATE);
 
         return "double_tap";
       }
@@ -767,20 +772,13 @@ export function useMobileInputPipeline(
       }));
     }
 
-    setGestureState({
-      currentGesture: null,
-      startPosition: null,
-      currentPosition: null,
-      velocity: { x: 0, y: 0 },
-      duration: 0,
-      distance: 0,
-    });
+    setGestureState(INITIAL_GESTURE_STATE);
 
     return gesture;
   }, [gestureState, fullConfig.doubleTapThreshold, detectGesture, callbacks]);
 
   /**
-   * Cancel gesture
+   * Cancel gesture (using pre-computed initial state)
    */
   const cancelGesture = useCallback((): void => {
     if (longPressTimerRef.current) {
@@ -788,14 +786,7 @@ export function useMobileInputPipeline(
       longPressTimerRef.current = null;
     }
 
-    setGestureState({
-      currentGesture: null,
-      startPosition: null,
-      currentPosition: null,
-      velocity: { x: 0, y: 0 },
-      duration: 0,
-      distance: 0,
-    });
+    setGestureState(INITIAL_GESTURE_STATE);
   }, []);
 
   /**
@@ -829,23 +820,10 @@ export function useMobileInputPipeline(
   }, []);
 
   /**
-   * Reset metrics
+   * Reset metrics (using pre-computed initial state)
    */
   const resetMetrics = useCallback((): void => {
-    setMetrics({
-      totalInputs: 0,
-      processedInputs: 0,
-      droppedInputs: 0,
-      debouncedInputs: 0,
-      predictedInputs: 0,
-      gesturesDetected: 0,
-      averageLatencyMs: 0,
-      p50LatencyMs: 0,
-      p95LatencyMs: 0,
-      inputRate: 0,
-      processingRate: 0,
-      latencies: [],
-    });
+    setMetrics({ ...INITIAL_METRICS, latencies: [] });
   }, []);
 
   /**
