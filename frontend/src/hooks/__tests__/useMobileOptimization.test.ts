@@ -157,6 +157,22 @@ describe("useMobileOptimization", () => {
       expect(result.current.device.connectionType).toBe("slow");
     });
 
+    it("should detect slow-2g effectiveType as slow connection", () => {
+      (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "slow-2g";
+
+      const { result } = renderHook(() => useMobileOptimization());
+
+      expect(result.current.device.connectionType).toBe("slow");
+    });
+
+    it("should detect 3g effectiveType as medium connection", () => {
+      (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "3g";
+
+      const { result } = renderHook(() => useMobileOptimization());
+
+      expect(result.current.device.connectionType).toBe("medium");
+    });
+
     it("should detect slow connection from high RTT", () => {
       (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "" as string;
       (global.navigator as unknown as typeof mockNavigator).connection.rtt = 500;
@@ -164,6 +180,36 @@ describe("useMobileOptimization", () => {
       const { result } = renderHook(() => useMobileOptimization());
 
       expect(result.current.device.connectionType).toBe("slow");
+    });
+
+    it("should detect medium connection from moderate RTT (150-400)", () => {
+      (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "" as string;
+      (global.navigator as unknown as typeof mockNavigator).connection.rtt = 200;
+      (global.navigator as unknown as typeof mockNavigator).connection.downlink = 10;
+
+      const { result } = renderHook(() => useMobileOptimization());
+
+      expect(result.current.device.connectionType).toBe("medium");
+    });
+
+    it("should detect slow connection from low downlink when RTT is not available", () => {
+      (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "" as string;
+      (global.navigator as unknown as typeof mockNavigator).connection.rtt = 0;
+      (global.navigator as unknown as typeof mockNavigator).connection.downlink = 1;
+
+      const { result } = renderHook(() => useMobileOptimization());
+
+      expect(result.current.device.connectionType).toBe("slow");
+    });
+
+    it("should detect medium connection from moderate downlink (1.5-5)", () => {
+      (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "" as string;
+      (global.navigator as unknown as typeof mockNavigator).connection.rtt = 0;
+      (global.navigator as unknown as typeof mockNavigator).connection.downlink = 3;
+
+      const { result } = renderHook(() => useMobileOptimization());
+
+      expect(result.current.device.connectionType).toBe("medium");
     });
 
     it("should respect data saver mode", () => {
