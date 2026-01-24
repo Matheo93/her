@@ -843,6 +843,14 @@ describe("Sprint 633 - Frame times history (lines 505-508)", () => {
 // ============================================================================
 
 describe("Sprint 637 - isPaused branch in processFrame (lines 402-404)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should continue RAF loop when paused but not process animations", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler());
     const callback = jest.fn();
@@ -873,6 +881,14 @@ describe("Sprint 637 - isPaused branch in processFrame (lines 402-404)", () => {
 });
 
 describe("Sprint 637 - Animation deadline handling (lines 486-490)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should complete animation immediately when deadline is passed", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler());
     const callback = jest.fn();
