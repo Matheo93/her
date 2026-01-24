@@ -2053,6 +2053,14 @@ describe("Sprint 749 - deadline forces completion (lines 487-490)", () => {
 });
 
 describe("Sprint 749 - frame times array shift (line 507)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should maintain max 60 frame time entries", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       enableFrameSkipping: false,
