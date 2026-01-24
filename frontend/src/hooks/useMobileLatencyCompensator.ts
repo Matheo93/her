@@ -229,8 +229,11 @@ const LATENCY_THRESHOLDS: Record<LatencyLevel, number> = {
 // Utility Functions
 // ============================================================================
 
+// Update ID counter (more efficient than Date.now() for unique IDs)
+let updateIdCounter = 0;
+
 function generateUpdateId(): string {
-  return `update-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  return `update-${++updateIdCounter}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 function classifyLatency(latencyMs: number): LatencyLevel {
@@ -250,7 +253,8 @@ function getUIHintFromLatency(latencyMs: number, config: CompensatorConfig): UIH
 
 function calculatePercentile(samples: number[], percentile: number): number {
   if (samples.length === 0) return 0;
-  const sorted = [...samples].sort((a, b) => a - b);
+  // Optimization: avoid spread + sort for small arrays by using slice
+  const sorted = samples.slice().sort((a, b) => a - b);
   const index = Math.ceil((percentile / 100) * sorted.length) - 1;
   return sorted[Math.max(0, index)];
 }

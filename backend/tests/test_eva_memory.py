@@ -1464,3 +1464,206 @@ class TestDirtyTracking:
         await system.flush_pending_saves_async()
 
         assert system._profiles_dirty is False
+
+
+class TestWorkGoalPatterns:
+    """Tests for work and goal pattern extraction (bug fix)."""
+
+    @pytest.fixture
+    def temp_storage(self):
+        """Create temporary storage directory."""
+        temp_dir = tempfile.mkdtemp(prefix="eva_work_goal_test_")
+        yield temp_dir
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def test_extract_work_pattern_je_travaille(self, temp_storage):
+        """Test extraction of work from 'je travaille comme...'."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system._do_extract_and_store(
+            "work_user_1",
+            "je travaille comme développeur",
+            "C'est cool!",
+            "neutral"
+        )
+
+        profile = system.get_or_create_profile("work_user_1")
+        assert profile.work == "développeur"
+
+    def test_extract_work_pattern_de_profession(self, temp_storage):
+        """Test extraction of work from 'je suis X de profession'."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system._do_extract_and_store(
+            "work_user_2",
+            "je suis médecin de profession",
+            "Formidable!",
+            "neutral"
+        )
+
+        profile = system.get_or_create_profile("work_user_2")
+        assert profile.work == "médecin"
+
+    def test_extract_work_pattern_mon_metier(self, temp_storage):
+        """Test extraction of work from 'mon métier c'est...'."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system._do_extract_and_store(
+            "work_user_3",
+            "mon métier c'est architecte",
+            "Super!",
+            "neutral"
+        )
+
+        profile = system.get_or_create_profile("work_user_3")
+        assert profile.work == "architecte"
+
+    def test_extract_goal_pattern_je_veux(self, temp_storage):
+        """Test extraction of goal from 'je veux...'."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system._do_extract_and_store(
+            "goal_user_1",
+            "je veux apprendre le piano",
+            "Belle ambition!",
+            "neutral"
+        )
+
+        profile = system.get_or_create_profile("goal_user_1")
+        assert "apprendre le piano" in profile.goals
+
+    def test_extract_goal_pattern_j_aimerais(self, temp_storage):
+        """Test extraction of goal from 'j'aimerais...'."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system._do_extract_and_store(
+            "goal_user_2",
+            "j'aimerais voyager au japon",
+            "Beau projet!",
+            "neutral"
+        )
+
+        profile = system.get_or_create_profile("goal_user_2")
+        assert "voyager au japon" in profile.goals
+
+    def test_extract_goal_pattern_mon_objectif(self, temp_storage):
+        """Test extraction of goal from 'mon objectif c'est...'."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system._do_extract_and_store(
+            "goal_user_3",
+            "mon objectif c'est devenir polyglotte",
+            "Excellent!",
+            "neutral"
+        )
+
+        profile = system.get_or_create_profile("goal_user_3")
+        assert "devenir polyglotte" in profile.goals
+
+    def test_extract_goal_pattern_je_reve(self, temp_storage):
+        """Test extraction of goal from 'je rêve de...'."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system._do_extract_and_store(
+            "goal_user_4",
+            "je rêve de créer ma propre entreprise",
+            "Inspirant!",
+            "neutral"
+        )
+
+        profile = system.get_or_create_profile("goal_user_4")
+        assert "créer ma propre entreprise" in profile.goals
+
+    def test_goals_not_duplicated(self, temp_storage):
+        """Test that duplicate goals are not added twice."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+
+        # Add same goal twice
+        system._do_extract_and_store(
+            "goal_dup_user",
+            "je veux apprendre le piano",
+            "Belle ambition!",
+            "neutral"
+        )
+        system._do_extract_and_store(
+            "goal_dup_user",
+            "je veux apprendre le piano",
+            "Tu en reparles!",
+            "neutral"
+        )
+
+        profile = system.get_or_create_profile("goal_dup_user")
+        # Should only have one entry
+        assert profile.goals.count("apprendre le piano") == 1
+
+    def test_work_creates_semantic_memory(self, temp_storage):
+        """Test that work extraction creates a semantic memory."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system._do_extract_and_store(
+            "work_memory_user",
+            "je travaille comme enseignant",
+            "Noble métier!",
+            "neutral"
+        )
+
+        # Retrieve memories
+        memories = system.retrieve_memories("work_memory_user", "works as enseignant", n_results=5)
+
+        # Should have a semantic memory about work
+        work_memories = [m for m in memories if "works as" in m.content.lower()]
+        assert len(work_memories) >= 1
+
+    def test_goal_creates_semantic_memory(self, temp_storage):
+        """Test that goal extraction creates a semantic memory."""
+        from eva_memory import EvaMemorySystem
+
+        system = EvaMemorySystem(storage_path=temp_storage)
+        system._do_extract_and_store(
+            "goal_memory_user",
+            "je veux courir un marathon",
+            "Super objectif!",
+            "neutral"
+        )
+
+        # Retrieve memories
+        memories = system.retrieve_memories("goal_memory_user", "goal marathon", n_results=5)
+
+        # Should have a semantic memory about the goal
+        goal_memories = [m for m in memories if "goal" in m.content.lower()]
+        assert len(goal_memories) >= 1
+
+    def test_user_profile_has_work_and_goals_fields(self, temp_storage):
+        """Test that UserProfile has work and goals fields."""
+        from eva_memory import UserProfile
+
+        profile = UserProfile(user_id="test_fields")
+
+        assert hasattr(profile, "work")
+        assert hasattr(profile, "goals")
+        assert profile.work is None
+        assert profile.goals == []
+
+    def test_profile_work_serialization(self, temp_storage):
+        """Test that work field serializes correctly."""
+        from eva_memory import UserProfile
+
+        profile = UserProfile(
+            user_id="serial_work",
+            work="ingénieur",
+            goals=["voyager", "apprendre"]
+        )
+
+        data = profile.to_dict()
+        assert data["work"] == "ingénieur"
+        assert data["goals"] == ["voyager", "apprendre"]

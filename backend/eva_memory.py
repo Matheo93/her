@@ -556,6 +556,23 @@ class EvaMemorySystem:
                             memory_type="semantic",
                             importance=0.6
                         )
+                    elif entity_type == "work":
+                        profile.work = value
+                        self.add_memory(
+                            user_id,
+                            f"User works as: {value}",
+                            memory_type="semantic",
+                            importance=0.8
+                        )
+                    elif entity_type == "goal":
+                        if value not in profile.goals:
+                            profile.goals.append(value)
+                        self.add_memory(
+                            user_id,
+                            f"User's goal: {value}",
+                            memory_type="semantic",
+                            importance=0.8
+                        )
 
         # Store episodic memory of this interaction
         self.add_memory(
