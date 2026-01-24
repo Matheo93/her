@@ -229,6 +229,24 @@ const POWER_PROFILES: Record<PowerMode, Omit<PowerProfile, "mode">> = {
   },
 };
 
+// Pre-computed initial states (module-level for performance)
+const INITIAL_BATTERY_STATE: BatteryState = {
+  level: 1,
+  charging: false,
+  chargingTime: Infinity,
+  dischargingTime: Infinity,
+  supported: false,
+};
+
+const INITIAL_METRICS: BatteryMetrics = {
+  currentLevel: 100,
+  averageConsumption: 0,
+  estimatedTimeRemaining: Infinity,
+  sessionConsumption: 0,
+  sessionDuration: 0,
+  chargesCycles: 0,
+};
+
 // ============================================================================
 // Utility Functions
 // ============================================================================
@@ -282,31 +300,20 @@ export function useMobileBatteryOptimizer(
 ): UseMobileBatteryOptimizerResult {
   const mergedConfig = useMemo(() => ({ ...DEFAULT_CONFIG, ...config }), [config]);
 
-  // State
-  const [state, setState] = useState<BatteryOptimizerState>({
-    battery: {
-      level: 1,
-      charging: false,
-      chargingTime: Infinity,
-      dischargingTime: Infinity,
-      supported: false,
-    },
-    level: "full",
-    powerMode: "normal",
-    profile: { mode: "normal", ...POWER_PROFILES.normal },
+  // State - uses module-level constants for initial battery
+  const [state, setState] = useState<BatteryOptimizerState>(() => ({
+    battery: INITIAL_BATTERY_STATE,
+    level: "full" as BatteryLevel,
+    powerMode: "normal" as PowerMode,
+    profile: { mode: "normal" as PowerMode, ...POWER_PROFILES.normal },
     features: { ...DEFAULT_FEATURES, ...mergedConfig.features },
     isOptimizing: false,
-  });
+  }));
 
-  // Metrics
-  const [metrics, setMetrics] = useState<BatteryMetrics>({
-    currentLevel: 100,
-    averageConsumption: 0,
-    estimatedTimeRemaining: Infinity,
-    sessionConsumption: 0,
-    sessionDuration: 0,
-    chargesCycles: 0,
-  });
+  // Metrics - uses module-level constant
+  const [metrics, setMetrics] = useState<BatteryMetrics>(() => ({
+    ...INITIAL_METRICS,
+  }));
 
   // Refs for tracking
   const sessionStartRef = useRef<{ level: number; time: number }>({ level: 1, time: Date.now() });

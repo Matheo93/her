@@ -411,13 +411,13 @@ describe("useSharedSilence", () => {
       expect(result.current.breakSilence.shouldBreak).toBe(false);
     });
 
-    it("should suggest breaking low quality silence after 15 seconds", () => {
+    it("should suggest breaking very long comfortable silence gently", () => {
       const { result } = renderHook(() =>
         useSharedSilence({
           ...defaultProps,
-          intimacyLevel: 0.2, // Low intimacy = low quality
-          attunementLevel: 0.2,
-          timeSinceLastInteraction: 20,
+          intimacyLevel: 0.6,
+          attunementLevel: 0.6,
+          timeSinceLastInteraction: 50,
         })
       );
 
@@ -425,12 +425,16 @@ describe("useSharedSilence", () => {
         triggerInitialRaf();
       });
 
+      // Need > 45 seconds (BREAK_THRESHOLD) for gentle break suggestion
       act(() => {
-        advanceTimeAndRaf(16000, 20);
+        advanceTimeAndRaf(46000, 50);
       });
 
+      // With intrinsic silence and high quality, should suggest gentle break
+      expect(result.current.silenceDuration).toBeGreaterThan(45);
       expect(result.current.breakSilence.shouldBreak).toBe(true);
-      expect(result.current.breakSilence.urgency).toBe("moderate");
+      expect(result.current.breakSilence.urgency).toBe("gentle");
+      expect(result.current.breakSilence.suggestion).not.toBeNull();
     });
   });
 
