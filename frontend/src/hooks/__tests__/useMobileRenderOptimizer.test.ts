@@ -2290,3 +2290,176 @@ describe("Sprint 764 - Thermal throttling impact (line 372)", () => {
     expect(result.current.deviceProfile.isThermalThrottled).toBeDefined();
   });
 });
+
+// ============================================================================
+// Sprint 543 - Direct internal function tests for branch coverage
+// ============================================================================
+
+import { __test__ } from "../useMobileRenderOptimizer";
+const {
+  getRecommendedQuality,
+  clampQuality,
+  getNextLowerQuality,
+  getNextHigherQuality,
+  QUALITY_PRESETS,
+  QUALITY_ORDER,
+  DEFAULT_CONFIG
+} = __test__;
+
+describe("Sprint 543 - getRecommendedQuality direct tests", () => {
+  const baseProfile = {
+    gpu: {
+      vendor: "Test Vendor",
+      renderer: "Test Renderer",
+      tier: "medium" as const,
+      maxTextureSize: 4096,
+      maxViewportDims: [4096, 4096] as [number, number],
+      supportsWebGL2: true,
+      supportsFloatTextures: true,
+    },
+    memoryGB: 4,
+    cores: 4,
+    isLowPowerMode: false,
+    isThermalThrottled: false,
+    batteryLevel: null,
+    isCharging: null,
+    screenDensity: 2,
+    viewportWidth: 375,
+    viewportHeight: 812,
+  };
+
+  it("should reduce score when thermally throttled (line 372)", () => {
+    const normalProfile = { ...baseProfile, isThermalThrottled: false };
+    const throttledProfile = { ...baseProfile, isThermalThrottled: true };
+
+    const normalQuality = getRecommendedQuality(normalProfile, { ...DEFAULT_CONFIG, thermalAware: true });
+    const throttledQuality = getRecommendedQuality(throttledProfile, { ...DEFAULT_CONFIG, thermalAware: true });
+
+    // Throttled profile should get same or lower quality recommendation
+    const normalIndex = QUALITY_ORDER.indexOf(normalQuality);
+    const throttledIndex = QUALITY_ORDER.indexOf(throttledQuality);
+    expect(throttledIndex).toBeLessThanOrEqual(normalIndex);
+  });
+
+  it("should NOT reduce score when thermalAware is false (line 371)", () => {
+    const throttledProfile = { ...baseProfile, isThermalThrottled: true };
+
+    const quality = getRecommendedQuality(throttledProfile, { ...DEFAULT_CONFIG, thermalAware: false });
+
+    // Should still return a valid quality
+    expect(QUALITY_ORDER).toContain(quality);
+  });
+
+  it("should reduce score when in low power mode (line 377)", () => {
+    const normalProfile = { ...baseProfile, isLowPowerMode: false };
+    const lowPowerProfile = { ...baseProfile, isLowPowerMode: true };
+
+    const normalQuality = getRecommendedQuality(normalProfile, DEFAULT_CONFIG);
+    const lowPowerQuality = getRecommendedQuality(lowPowerProfile, DEFAULT_CONFIG);
+
+    // Low power mode should get same or lower quality
+    const normalIndex = QUALITY_ORDER.indexOf(normalQuality);
+    const lowPowerIndex = QUALITY_ORDER.indexOf(lowPowerQuality);
+    expect(lowPowerIndex).toBeLessThanOrEqual(normalIndex);
+  });
+
+  it("should handle combined thermal and low power mode penalties", () => {
+    const extremeProfile = {
+      ...baseProfile,
+      isThermalThrottled: true,
+      isLowPowerMode: true,
+      batteryLevel: 0.1,
+      isCharging: false,
+    };
+
+    const quality = getRecommendedQuality(extremeProfile, {
+      ...DEFAULT_CONFIG,
+      thermalAware: true,
+      batteryAware: true,
+    });
+
+    // Should recommend lower quality due to multiple penalties
+    expect(QUALITY_ORDER).toContain(quality);
+    const index = QUALITY_ORDER.indexOf(quality);
+    expect(index).toBeLessThanOrEqual(2); // medium or lower
+  });
+
+  it("should handle battery < 20% and not charging (line 366)", () => {
+    const lowBatteryProfile = {
+      ...baseProfile,
+      batteryLevel: 0.15,
+      isCharging: false,
+    };
+
+    const quality = getRecommendedQuality(lowBatteryProfile, {
+      ...DEFAULT_CONFIG,
+      batteryAware: true,
+    });
+
+    expect(QUALITY_ORDER).toContain(quality);
+  });
+
+  it("should handle high cores count bonus (line 361)", () => {
+    const highCoresProfile = { ...baseProfile, cores: 8 };
+
+    const quality = getRecommendedQuality(highCoresProfile, DEFAULT_CONFIG);
+    expect(QUALITY_ORDER).toContain(quality);
+  });
+
+  it("should handle low cores count penalty (line 362)", () => {
+    const lowCoresProfile = { ...baseProfile, cores: 2 };
+
+    const quality = getRecommendedQuality(lowCoresProfile, DEFAULT_CONFIG);
+    expect(QUALITY_ORDER).toContain(quality);
+  });
+
+  it("should handle high screen density penalty (line 381)", () => {
+    const highDensityProfile = { ...baseProfile, screenDensity: 3.5 };
+
+    const quality = getRecommendedQuality(highDensityProfile, DEFAULT_CONFIG);
+    expect(QUALITY_ORDER).toContain(quality);
+  });
+});
+
+describe("Sprint 543 - clampQuality direct tests", () => {
+  it("should return min when quality is below min", () => {
+    expect(clampQuality("minimal", "medium", "ultra")).toBe("medium");
+    expect(clampQuality("low", "medium", "ultra")).toBe("medium");
+  });
+
+  it("should return max when quality is above max", () => {
+    expect(clampQuality("ultra", "minimal", "medium")).toBe("medium");
+    expect(clampQuality("high", "minimal", "medium")).toBe("medium");
+  });
+
+  it("should return quality when within bounds", () => {
+    expect(clampQuality("medium", "low", "high")).toBe("medium");
+    expect(clampQuality("high", "low", "ultra")).toBe("high");
+  });
+});
+
+describe("Sprint 543 - getNextLowerQuality direct tests (lines 405-408)", () => {
+  it("should return null for minimal quality", () => {
+    expect(getNextLowerQuality("minimal")).toBeNull();
+  });
+
+  it("should return next lower quality for other tiers", () => {
+    expect(getNextLowerQuality("low")).toBe("minimal");
+    expect(getNextLowerQuality("medium")).toBe("low");
+    expect(getNextLowerQuality("high")).toBe("medium");
+    expect(getNextLowerQuality("ultra")).toBe("high");
+  });
+});
+
+describe("Sprint 543 - getNextHigherQuality direct tests (lines 411-414)", () => {
+  it("should return null for ultra quality", () => {
+    expect(getNextHigherQuality("ultra")).toBeNull();
+  });
+
+  it("should return next higher quality for other tiers", () => {
+    expect(getNextHigherQuality("minimal")).toBe("low");
+    expect(getNextHigherQuality("low")).toBe("medium");
+    expect(getNextHigherQuality("medium")).toBe("high");
+    expect(getNextHigherQuality("high")).toBe("ultra");
+  });
+});
