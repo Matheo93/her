@@ -2077,6 +2077,14 @@ describe("Sprint 749 - frame times array shift (line 507)", () => {
 });
 
 describe("Sprint 749 - throttle level decrease (lines 512-514)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should decrease throttle when frame time is less than half target", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       targetFrameTimeMs: 50, // High target so actual frame time is under half
@@ -2109,6 +2117,14 @@ describe("Sprint 749 - throttle level decrease (lines 512-514)", () => {
 });
 
 describe("Sprint 749 - startGroup sets pending to running (line 710)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should start animations that are in pending state", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler());
 
@@ -2267,6 +2283,14 @@ describe("Sprint 750 - shouldSkipFrame deferred always true (line 332)", () => {
 });
 
 describe("Sprint 750 - processFrame isPaused branch (lines 403-404)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should request next frame but not process animations when paused", () => {
     const rafSpy = jest.spyOn(window, "requestAnimationFrame");
 
@@ -2301,6 +2325,14 @@ describe("Sprint 750 - processFrame isPaused branch (lines 403-404)", () => {
 });
 
 describe("Sprint 750 - skippedCount increment (lines 435-436)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should increment skipped count when animation is skipped", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       enableFrameSkipping: true,
@@ -2332,6 +2364,14 @@ describe("Sprint 750 - skippedCount increment (lines 435-436)", () => {
 });
 
 describe("Sprint 750 - frame budget break conditions (line 444)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should break when processedCount equals maxAnimationsPerFrame", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       maxAnimationsPerFrame: 2,
@@ -2360,6 +2400,14 @@ describe("Sprint 750 - frame budget break conditions (line 444)", () => {
 });
 
 describe("Sprint 750 - callback error try-catch (line 467)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should handle callback errors gracefully and continue", () => {
     const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 

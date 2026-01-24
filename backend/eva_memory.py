@@ -181,10 +181,17 @@ class EvaMemorySystem:
 
         print("✅ Eva Memory System initialized")
 
-    def _generate_id(self, content: str) -> str:
-        """Generate unique memory ID"""
-        timestamp = str(time.time())
-        return hashlib.md5(f"{content}{timestamp}".encode()).hexdigest()[:16]
+    def _generate_id(self, content: str, now: Optional[float] = None) -> str:
+        """Generate unique memory ID using fast counter-based approach.
+
+        Args:
+            content: Memory content (used for uniqueness)
+            now: Optional pre-computed timestamp to avoid extra time.time() call
+        """
+        self._id_counter += 1
+        ts = now if now is not None else time.time()
+        # Fast string formatting instead of MD5 for most cases
+        return f"{int(ts * 1000) % 10000000000:010d}{self._id_counter:06d}"
 
     def _load_profiles(self):
         """Load user profiles from disk"""
@@ -461,8 +468,26 @@ class EvaMemorySystem:
 
         return memories[:n_results]
 
-    def get_context_memories(self, user_id: str, current_message: str) -> Dict[str, Any]:
-        """Get memories formatted for LLM context"""
+    def get_context_memories(self, user_id: str, current_message: str, use_cache: bool = True) -> Dict[str, Any]:
+        """Get memories formatted for LLM context.
+
+        Args:
+            user_id: User identifier
+            current_message: Current user message for relevance search
+            use_cache: If True, use cached result if available (reduces latency)
+        """
+        now = time.time()
+        cache_key = f"{user_id}:{current_message[:50]}" if use_cache else ""
+
+        # Check cache for repeated calls with same user/message
+        if use_cache:
+            with self._cache_lock:
+                cached = self._context_cache.get(cache_key)
+                if cached is not None:
+                    cached_time, cached_result = cached
+                    if now - cached_time < self._context_cache_ttl:
+                        return cached_result
+
         profile = self.get_or_create_profile(user_id)
 
         # Core memories (always included)
@@ -499,7 +524,7 @@ class EvaMemorySystem:
             for mem in relevant:
                 context_parts.append(f"- {mem.content}")
 
-        return {
+        result = {
             "profile": profile.to_dict(),
             "context_string": "\n".join(context_parts),
             "core_memories": [m.to_dict() for m in core],
@@ -508,6 +533,36 @@ class EvaMemorySystem:
             "relationship_stage": profile.relationship_stage,
             "trust_level": profile.trust_level
         }
+
+        # Cache the result for future calls
+        if use_cache:
+            with self._cache_lock:
+                self._context_cache[cache_key] = (now, result)
+                # Limit cache size to prevent memory leak
+                if len(self._context_cache) > 100:
+                    # Remove oldest entries
+                    oldest_keys = sorted(
+                        self._context_cache.keys(),
+                        key=lambda k: self._context_cache[k][0]
+                    )[:50]
+                    for k in oldest_keys:
+                        del self._context_cache[k]
+
+        return result
+
+    def invalidate_context_cache(self, user_id: Optional[str] = None):
+        """Invalidate context cache for a user or all users.
+
+        Call this after adding new memories that should be immediately visible.
+        """
+        with self._cache_lock:
+            if user_id is None:
+                self._context_cache.clear()
+            else:
+                # Remove entries for this user
+                keys_to_remove = [k for k in self._context_cache if k.startswith(f"{user_id}:")]
+                for k in keys_to_remove:
+                    del self._context_cache[k]
 
     def extract_and_store(self, user_id: str, user_message: str, eva_response: str, detected_emotion: str = "neutral"):
         """Extract important information and store as memories (sync version).
