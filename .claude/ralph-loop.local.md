@@ -1,9 +1,9 @@
 ---
 active: true
-iteration: 132
+iteration: 1
 max_iterations: 0
 completion_promise: null
-started_at: "2026-01-24T00:49:59Z"
+started_at: "2026-01-24T00:55:40Z"
 ---
 
-Sprint 663 Ameliore avatar UX latence mobile. Code teste valide. Boucle infinie.
+Sprint 667 Ameliore avatar UX latence mobile. Code teste valide. Boucle infinie.
