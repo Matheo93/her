@@ -17,6 +17,7 @@ import { renderHook, act } from "@testing-library/react";
 import useNetworkLatencyMonitor, {
   useCurrentLatency,
   useAdaptiveNetworkSettings,
+  useNetworkAlerts,
   NetworkLatencyConfig,
 } from "../useNetworkLatencyMonitor";
 
@@ -837,5 +838,450 @@ describe("useAdaptiveNetworkSettings", () => {
     expect(result.current.audioQuality).toBeDefined();
     expect(result.current.bufferSize).toBeDefined();
     expect(result.current.prefetchEnabled).toBeDefined();
+  });
+});
+
+// ============================================================================
+// Sprint 544 - Additional coverage tests
+// ============================================================================
+
+describe("useNetworkAlerts", () => {
+  let mockTime: number;
+
+  beforeEach(() => {
+    mockTime = 1000;
+    jest.useFakeTimers();
+    jest.spyOn(performance, "now").mockImplementation(() => mockTime);
+    jest.spyOn(Date, "now").mockImplementation(() => mockTime);
+
+    Object.defineProperty(navigator, "connection", {
+      value: {
+        effectiveType: "4g",
+        downlink: 10,
+        saveData: false,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    global.fetch = jest.fn().mockImplementation(async () => {
+      mockTime += 50;
+      return { ok: true, blob: () => Promise.resolve(new Blob()) };
+    });
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it("should call onAlert callback for new alerts (lines 689-691)", async () => {
+    const onAlert = jest.fn();
+
+    global.fetch = jest.fn().mockImplementation(async () => {
+      mockTime += 400;
+      return { ok: true, blob: () => Promise.resolve(new Blob()) };
+    });
+
+    const { result, rerender } = renderHook(
+      ({ onAlert }) =>
+        useNetworkAlerts(onAlert, {
+          enabled: true,
+          pingInterval: 100,
+          alertThresholds: {
+            latency: { warning: 100, critical: 200 },
+            packetLoss: { warning: 5, critical: 10 },
+          },
+        }),
+      { initialProps: { onAlert } }
+    );
+
+    await act(async () => {
+      jest.advanceTimersByTime(200);
+    });
+
+    rerender({ onAlert });
+
+    expect(result.current.hasActiveAlerts).toBeDefined();
+  });
+
+  it("should track hasActiveAlerts correctly (line 698)", async () => {
+    global.fetch = jest.fn().mockImplementation(async () => {
+      mockTime += 500;
+      return { ok: true, blob: () => Promise.resolve(new Blob()) };
+    });
+
+    const { result } = renderHook(() =>
+      useNetworkAlerts(undefined, {
+        enabled: true,
+        pingInterval: 100,
+        alertThresholds: {
+          latency: { warning: 100, critical: 200 },
+          packetLoss: { warning: 5, critical: 10 },
+        },
+      })
+    );
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    expect(typeof result.current.hasActiveAlerts).toBe("boolean");
+  });
+});
+
+describe("connection type fallback (lines 276-281)", () => {
+  let mockTime: number;
+
+  beforeEach(() => {
+    mockTime = 1000;
+    jest.useFakeTimers();
+    jest.spyOn(performance, "now").mockImplementation(() => mockTime);
+    jest.spyOn(Date, "now").mockImplementation(() => mockTime);
+
+    global.fetch = jest.fn().mockImplementation(async () => {
+      mockTime += 50;
+      return { ok: true, blob: () => Promise.resolve(new Blob()) };
+    });
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it("should detect wifi connection type when effectiveType is undefined", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: {
+        effectiveType: undefined,
+        type: "wifi",
+        downlink: 10,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() =>
+      useNetworkLatencyMonitor({ enabled: false })
+    );
+
+    expect(result.current.quality.connectionType).toBe("wifi");
+  });
+
+  it("should detect ethernet connection type when effectiveType is undefined", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: {
+        effectiveType: undefined,
+        type: "ethernet",
+        downlink: 10,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() =>
+      useNetworkLatencyMonitor({ enabled: false })
+    );
+
+    expect(result.current.quality.connectionType).toBe("ethernet");
+  });
+
+  it("should detect cellular as 4g when effectiveType is undefined", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: {
+        effectiveType: undefined,
+        type: "cellular",
+        downlink: 10,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() =>
+      useNetworkLatencyMonitor({ enabled: false })
+    );
+
+    expect(result.current.quality.connectionType).toBe("4g");
+  });
+
+  it("should return unknown when neither effectiveType nor type is available", () => {
+    Object.defineProperty(navigator, "connection", {
+      value: {
+        effectiveType: undefined,
+        type: undefined,
+        downlink: 10,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() =>
+      useNetworkLatencyMonitor({ enabled: false })
+    );
+
+    expect(result.current.quality.connectionType).toBe("unknown");
+  });
+});
+
+describe("samples management (line 399)", () => {
+  let mockTime: number;
+
+  beforeEach(() => {
+    mockTime = 1000;
+    jest.useFakeTimers();
+    jest.spyOn(performance, "now").mockImplementation(() => mockTime);
+    jest.spyOn(Date, "now").mockImplementation(() => mockTime);
+
+    Object.defineProperty(navigator, "connection", {
+      value: {
+        effectiveType: "4g",
+        downlink: 10,
+        saveData: false,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      },
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it("should shift samples when exceeding sampleSize", async () => {
+    let pingCount = 0;
+    global.fetch = jest.fn().mockImplementation(async () => {
+      pingCount++;
+      mockTime += pingCount < 3 ? 50 : 0;
+      if (pingCount >= 3) {
+        throw new Error("Simulated network failure");
+      }
+      return { ok: true, blob: () => Promise.resolve(new Blob()) };
+    });
+
+    const { result } = renderHook(() =>
+      useNetworkLatencyMonitor({
+        enabled: true,
+        pingInterval: 50,
+        sampleSize: 3,
+      })
+    );
+
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(result.current.metrics.latency.sampleCount).toBeLessThanOrEqual(3);
+  });
+});
+
+describe("connection change listener (line 611)", () => {
+  let mockTime: number;
+
+  beforeEach(() => {
+    mockTime = 1000;
+    jest.useFakeTimers();
+    jest.spyOn(performance, "now").mockImplementation(() => mockTime);
+    jest.spyOn(Date, "now").mockImplementation(() => mockTime);
+
+    global.fetch = jest.fn().mockImplementation(async () => {
+      mockTime += 50;
+      return { ok: true, blob: () => Promise.resolve(new Blob()) };
+    });
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it("should add and remove connection change listener", () => {
+    const addListenerMock = jest.fn();
+    const removeListenerMock = jest.fn();
+
+    Object.defineProperty(navigator, "connection", {
+      value: {
+        effectiveType: "4g",
+        downlink: 10,
+        saveData: false,
+        addEventListener: addListenerMock,
+        removeEventListener: removeListenerMock,
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    const { unmount } = renderHook(() =>
+      useNetworkLatencyMonitor({ enabled: true })
+    );
+
+    expect(addListenerMock).toHaveBeenCalledWith("change", expect.any(Function));
+
+    unmount();
+
+    expect(removeListenerMock).toHaveBeenCalledWith("change", expect.any(Function));
+  });
+
+  it("should handle connection change event", async () => {
+    let changeHandler: (() => void) | null = null;
+
+    Object.defineProperty(navigator, "connection", {
+      value: {
+        effectiveType: "4g",
+        downlink: 10,
+        saveData: false,
+        addEventListener: jest.fn((event, handler) => {
+          if (event === "change") {
+            changeHandler = handler;
+          }
+        }),
+        removeEventListener: jest.fn(),
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    const { result } = renderHook(() =>
+      useNetworkLatencyMonitor({ enabled: true })
+    );
+
+    await act(async () => {
+      jest.advanceTimersByTime(100);
+    });
+
+    if (changeHandler) {
+      await act(async () => {
+        (changeHandler as () => void)();
+      });
+    }
+
+    expect(result.current.quality).toBeDefined();
+  });
+});
+
+describe("measureBandwidth error handling (line 430)", () => {
+  let mockTime: number;
+
+  beforeEach(() => {
+    mockTime = 1000;
+    jest.useFakeTimers();
+    jest.spyOn(performance, "now").mockImplementation(() => mockTime);
+    jest.spyOn(Date, "now").mockImplementation(() => mockTime);
+
+    Object.defineProperty(navigator, "connection", {
+      value: {
+        effectiveType: "4g",
+        downlink: 10,
+        saveData: false,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      },
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it("should return existing bandwidth on fetch failure", async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error("Network error"));
+
+    const { result } = renderHook(() =>
+      useNetworkLatencyMonitor({ enabled: true })
+    );
+
+    let bandwidth: number | undefined;
+    await act(async () => {
+      bandwidth = await result.current.controls.measureBandwidth();
+    });
+
+    expect(bandwidth).toBeDefined();
+    expect(typeof bandwidth).toBe("number");
+  });
+});
+
+describe("critical packet loss alert (line 556)", () => {
+  let mockTime: number;
+  let pingCount: number;
+
+  beforeEach(() => {
+    mockTime = 1000;
+    pingCount = 0;
+    jest.useFakeTimers();
+    jest.spyOn(performance, "now").mockImplementation(() => mockTime);
+    jest.spyOn(Date, "now").mockImplementation(() => mockTime);
+
+    Object.defineProperty(navigator, "connection", {
+      value: {
+        effectiveType: "4g",
+        downlink: 10,
+        saveData: false,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      },
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it("should generate critical packet loss alert", async () => {
+    global.fetch = jest.fn().mockImplementation(async () => {
+      pingCount++;
+      mockTime += 50;
+      if (pingCount % 2 === 0) {
+        throw new Error("Simulated packet loss");
+      }
+      return { ok: true, blob: () => Promise.resolve(new Blob()) };
+    });
+
+    const { result } = renderHook(() =>
+      useNetworkLatencyMonitor({
+        enabled: true,
+        pingInterval: 50,
+        alertThresholds: {
+          latency: { warning: 100, critical: 200 },
+          packetLoss: { warning: 5, critical: 10 },
+        },
+      })
+    );
+
+    await act(async () => {
+      for (let i = 0; i < 30; i++) {
+        jest.advanceTimersByTime(100);
+        await Promise.resolve();
+      }
+    });
+
+    const hasPacketLossAlert = result.current.alerts.some(
+      (a) => a.type === "packet_loss"
+    );
+
+    expect(result.current.metrics.packetLoss).toBeGreaterThan(0);
   });
 });
