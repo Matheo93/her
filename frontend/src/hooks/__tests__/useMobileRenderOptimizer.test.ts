@@ -37,9 +37,10 @@ const mockWebGLContext = {
 beforeEach(() => {
   jest.useFakeTimers();
 
-  // Mock canvas getContext - use type assertion to avoid strict type checking on mock
+  // Mock canvas getContext
+  const proto = HTMLCanvasElement.prototype;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (HTMLCanvasElement.prototype as any).getContext = jest.fn((type: string) => {
+  (proto as any).getContext = jest.fn((type: string) => {
     if (type === "webgl2" || type === "webgl") {
       return mockWebGLContext;
     }
