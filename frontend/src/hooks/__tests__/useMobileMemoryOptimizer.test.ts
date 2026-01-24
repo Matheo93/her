@@ -313,6 +313,83 @@ describe("useMobileMemoryOptimizer", () => {
       expect(evictionResult!.evicted).toContain(lowPriorityId!);
     });
 
+    it("should evict using TTL strategy (lines 196-200)", () => {
+      const { result } = renderHook(() =>
+        useMobileMemoryOptimizer({ preservePriority: 10 })
+      );
+
+      let shortTTLId: string, longTTLId: string, noTTLId: string;
+
+      act(() => {
+        // Resource with short TTL (expires soon)
+        shortTTLId = result.current.controls.register({
+          type: "image",
+          size: 1024,
+          priority: 5,
+          ttl: 1000, // 1 second TTL
+        });
+        // Resource with long TTL (expires later)
+        longTTLId = result.current.controls.register({
+          type: "image",
+          size: 1024,
+          priority: 5,
+          ttl: 10000, // 10 second TTL
+        });
+        // Resource with no TTL (never expires)
+        noTTLId = result.current.controls.register({
+          type: "image",
+          size: 1024,
+          priority: 5,
+        });
+      });
+
+      let evictionResult: ReturnType<typeof result.current.controls.evict>;
+      act(() => {
+        evictionResult = result.current.controls.evict("ttl", 1024);
+      });
+
+      // Shorter TTL should be evicted first
+      expect(evictionResult!.evicted).toContain(shortTTLId!);
+      expect(evictionResult!.freedBytes).toBeGreaterThan(0);
+    });
+
+    it("should handle TTL sorting with null/undefined TTL values (lines 197-198)", () => {
+      const { result } = renderHook(() =>
+        useMobileMemoryOptimizer({ preservePriority: 10 })
+      );
+
+      let noTTLId1: string, noTTLId2: string, hasTTLId: string;
+
+      act(() => {
+        // Resources without TTL (should have Infinity as effective TTL)
+        noTTLId1 = result.current.controls.register({
+          type: "image",
+          size: 1024,
+          priority: 5,
+        });
+        noTTLId2 = result.current.controls.register({
+          type: "audio",
+          size: 1024,
+          priority: 5,
+        });
+        // Resource with short TTL
+        hasTTLId = result.current.controls.register({
+          type: "video",
+          size: 1024,
+          priority: 5,
+          ttl: 500, // Short TTL
+        });
+      });
+
+      let evictionResult: ReturnType<typeof result.current.controls.evict>;
+      act(() => {
+        evictionResult = result.current.controls.evict("ttl", 2048);
+      });
+
+      // Resource with TTL should be evicted first
+      expect(evictionResult!.evicted[0]).toBe(hasTTLId!);
+    });
+
     it("should not evict resources at or above preserve priority", () => {
       const { result } = renderHook(() =>
         useMobileMemoryOptimizer({ preservePriority: 8 })

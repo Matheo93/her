@@ -1959,6 +1959,14 @@ describe("Sprint 749 - processFrame budget check break (line 444)", () => {
 });
 
 describe("Sprint 749 - callback error handling (line 467)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should catch and log callback errors without breaking loop", () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
