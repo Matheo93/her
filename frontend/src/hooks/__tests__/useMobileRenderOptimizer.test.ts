@@ -768,14 +768,11 @@ describe("Sprint 628 - Quality recommendation with battery (lines 366-367)", () 
       useMobileRenderOptimizer({ batteryAware: true, autoAdjust: false })
     );
 
-    // Wait for battery promise to resolve
+    // Wait for battery promise to resolve - flush multiple microtask queues
     await act(async () => {
       await Promise.resolve();
-    });
-
-    // Advance timers in separate act block
-    act(() => {
-      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      await Promise.resolve();
     });
 
     // Recommendation should account for low battery
@@ -802,14 +799,11 @@ describe("Sprint 628 - Quality recommendation with battery (lines 366-367)", () 
       useMobileRenderOptimizer({ batteryAware: true, autoAdjust: false })
     );
 
-    // Wait for battery promise to resolve
+    // Wait for battery promise to resolve - flush multiple microtask queues
     await act(async () => {
       await Promise.resolve();
-    });
-
-    // Advance timers in separate act block
-    act(() => {
-      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      await Promise.resolve();
     });
 
     expect(result.current.recommendedQuality).toBeDefined();
