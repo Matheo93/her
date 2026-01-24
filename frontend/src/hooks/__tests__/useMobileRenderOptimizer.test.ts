@@ -959,15 +959,11 @@ describe("Sprint 628 - Auto quality adjustment (lines 538-577)", () => {
       })
     );
 
-    // Record many fast frames (under 16.67ms * 0.7 = ~11.7ms)
-    for (let i = 0; i < 35; i++) {
-      act(() => {
-        result.current.controls.recordFrame(10); // Fast frame
-      });
-    }
-
-    // Advance time past minimum adjustment interval
+    // Record many fast frames in a single act to reduce memory pressure
     act(() => {
+      for (let i = 0; i < 35; i++) {
+        result.current.controls.recordFrame(10); // Fast frame
+      }
       jest.advanceTimersByTime(3000);
     });
 
@@ -992,14 +988,11 @@ describe("Sprint 628 - Auto quality adjustment (lines 538-577)", () => {
 
     const initialQuality = result.current.settings.quality;
 
-    // Record slow frames
-    for (let i = 0; i < 35; i++) {
-      act(() => {
-        result.current.controls.recordFrame(30);
-      });
-    }
-
+    // Record slow frames in a single act to reduce memory pressure
     act(() => {
+      for (let i = 0; i < 35; i++) {
+        result.current.controls.recordFrame(30);
+      }
       jest.advanceTimersByTime(3000);
     });
 
@@ -1022,14 +1015,11 @@ describe("Sprint 628 - Auto quality adjustment (lines 538-577)", () => {
 
     expect(result.current.settings.quality).toBe("medium");
 
-    // Record slow frames
-    for (let i = 0; i < 35; i++) {
-      act(() => {
-        result.current.controls.recordFrame(30);
-      });
-    }
-
+    // Record slow frames in a single act to reduce memory pressure
     act(() => {
+      for (let i = 0; i < 35; i++) {
+        result.current.controls.recordFrame(30);
+      }
       jest.advanceTimersByTime(3000);
     });
 
@@ -1063,12 +1053,12 @@ describe("Sprint 628 - Frame history limit (line 621)", () => {
       useMobileRenderOptimizer({ autoAdjust: false })
     );
 
-    // Record more than 60 frames
-    for (let i = 0; i < 70; i++) {
-      act(() => {
+    // Record more than 60 frames in a single act to reduce memory pressure
+    act(() => {
+      for (let i = 0; i < 70; i++) {
         result.current.controls.recordFrame(16);
-      });
-    }
+      }
+    });
 
     // Metrics should reflect average of recent frames
     expect(result.current.metrics.fps).toBeGreaterThan(0);
