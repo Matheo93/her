@@ -44,3 +44,5 @@
 {"ts": "2026-01-24T00:13:09.473872", "metric": "e2e_latency", "value": 5252.788316458464, "tags": {"endpoint": "/chat"}}
 {"ts": "2026-01-24T00:18:26.622392", "metric": "e2e_latency", "value": 150.52176266908646, "tags": {"endpoint": "/chat"}}
 {"ts": "2026-01-24T00:51:45.895971", "metric": "e2e_latency", "value": 109.48888398706913, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-24T01:06:48.377468", "metric": "e2e_latency", "value": 131.22096937149763, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-24T01:08:24.067216", "metric": "e2e_latency", "value": 118.85654181241989, "tags": {"endpoint": "/chat"}}
