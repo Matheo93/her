@@ -46,9 +46,18 @@ app.add_middleware(
 # VISEME CONFIGURATION
 # =============================================================================
 
-VISEME_NAMES = ["sil", "PP", "FF", "TH", "DD", "kk", "CH", "SS", "RR", "AA", "EE", "OO"]
+# Sprint 550: Use tuple for immutability and slight performance gain
+VISEME_NAMES = ("sil", "PP", "FF", "TH", "DD", "kk", "CH", "SS", "RR", "AA", "EE", "OO")
 VISEME_DIR = "/workspace/eva-gpu/frontend/public/avatars/visemes"
 SAMPLE_RATE = 16000
+
+# Sprint 550: Pre-computed constants for AudioAnalyzer
+_SILENCE_WEIGHT = {"sil": 1.0}  # Module-level constant for O(1) return
+_ENERGY_THRESHOLD = 0.05
+_ZCR_THRESHOLD = 0.15
+_CENTROID_HIGH = 0.6
+_CENTROID_MID = 0.5
+_CENTROID_LOW = 0.3
 
 # Mouth shape parameters for each viseme (for generation)
 # Format: (mouth_open, mouth_wide, lip_round)
@@ -85,67 +94,70 @@ class AudioAnalyzer:
         Simple but effective approach:
         - Use energy for mouth openness
         - Use spectral features for mouth shape
+
+        Sprint 550: Optimized with pre-computed constants
         """
         if len(audio) == 0:
-            return {"sil": 1.0}
+            return _SILENCE_WEIGHT  # Return pre-computed constant
 
-        # Normalize
+        # Normalize (in-place if possible)
         audio = audio.astype(np.float32)
-        if np.max(np.abs(audio)) > 0:
-            audio = audio / np.max(np.abs(audio))
+        max_val = np.max(np.abs(audio))
+        if max_val > 0:
+            audio *= (1.0 / max_val)  # Multiply is faster than divide
 
         # Energy (RMS) - controls mouth openness
         energy = np.sqrt(np.mean(audio ** 2))
         energy = self.smoothing * self.prev_energy + (1 - self.smoothing) * energy
         self.prev_energy = energy
 
+        # Fast path: if silence, return immediately
+        if energy < _ENERGY_THRESHOLD:
+            return _SILENCE_WEIGHT
+
         # Spectral centroid - higher = brighter sounds (EE, SS) vs lower = rounder (OO, AA)
         if len(audio) > 512:
             spec = np.abs(np.fft.rfft(audio[:512]))
             freqs = np.fft.rfftfreq(512, 1/sr)
-            centroid = np.sum(spec * freqs) / (np.sum(spec) + 1e-8)
-            centroid_norm = min(1.0, centroid / 4000)  # Normalize to 0-1
+            spec_sum = np.sum(spec) + 1e-8
+            centroid = np.sum(spec * freqs) / spec_sum
+            centroid_norm = min(1.0, centroid * 0.00025)  # Pre-computed: 1/4000 = 0.00025
         else:
             centroid_norm = 0.5
 
         # Zero crossing rate - higher = fricatives (SS, FF, CH)
         zcr = np.sum(np.abs(np.diff(np.sign(audio)))) / (2 * len(audio))
 
-        # Map to visemes
+        # Map to visemes (Sprint 550: Use pre-computed constants)
         weights = {}
+        # Active speech
+        mouth_open = min(1.0, energy * 3)
 
-        if energy < 0.05:
-            # Silence
-            weights["sil"] = 1.0
-        else:
-            # Active speech
-            mouth_open = min(1.0, energy * 3)
-
-            if zcr > 0.15:
-                # Fricatives
-                if centroid_norm > 0.6:
-                    weights["SS"] = 0.6 * mouth_open
-                    weights["EE"] = 0.4 * mouth_open
-                else:
-                    weights["FF"] = 0.5 * mouth_open
-                    weights["TH"] = 0.3 * mouth_open
-            elif centroid_norm > 0.5:
-                # Bright vowels
-                weights["EE"] = 0.5 * mouth_open
-                weights["AA"] = 0.3 * mouth_open
-            elif centroid_norm < 0.3:
-                # Round vowels
-                weights["OO"] = 0.5 * mouth_open
-                weights["RR"] = 0.3 * mouth_open
+        if zcr > _ZCR_THRESHOLD:
+            # Fricatives
+            if centroid_norm > _CENTROID_HIGH:
+                weights["SS"] = 0.6 * mouth_open
+                weights["EE"] = 0.4 * mouth_open
             else:
-                # Open vowels
-                weights["AA"] = 0.6 * mouth_open
-                weights["EE"] = 0.2 * mouth_open
+                weights["FF"] = 0.5 * mouth_open
+                weights["TH"] = 0.3 * mouth_open
+        elif centroid_norm > _CENTROID_MID:
+            # Bright vowels
+            weights["EE"] = 0.5 * mouth_open
+            weights["AA"] = 0.3 * mouth_open
+        elif centroid_norm < _CENTROID_LOW:
+            # Round vowels
+            weights["OO"] = 0.5 * mouth_open
+            weights["RR"] = 0.3 * mouth_open
+        else:
+            # Open vowels
+            weights["AA"] = 0.6 * mouth_open
+            weights["EE"] = 0.2 * mouth_open
 
-            # Add some silence weight for natural look
-            total = sum(weights.values())
-            if total < 1.0:
-                weights["sil"] = 1.0 - total
+        # Add some silence weight for natural look
+        total = sum(weights.values())
+        if total < 1.0:
+            weights["sil"] = 1.0 - total
 
         return weights
 

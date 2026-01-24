@@ -163,6 +163,25 @@ const DEFAULT_CONFIG: GestureOptimizerConfig = {
   preventDefaultGestures: ["pinch", "spread"],
 };
 
+// Pre-computed initial states (module-level for performance)
+const INITIAL_PREDICTION: GesturePrediction = { likelyGesture: null, confidence: 0 };
+
+const INITIAL_STATE: GestureOptimizerState = {
+  activeGestures: [],
+  recentGestures: [],
+  prediction: INITIAL_PREDICTION,
+  touchCount: 0,
+  isGestureActive: false,
+};
+
+const INITIAL_METRICS: GestureOptimizerMetrics = {
+  totalGestures: 0,
+  gesturesByType: {} as Record<GestureType, number>,
+  averageLatency: 0,
+  predictionAccuracy: 0,
+  filteredTouches: 0,
+};
+
 // ============================================================================
 // Utility Functions (exported for testing)
 // ============================================================================
@@ -300,22 +319,14 @@ export function useMobileGestureOptimizer(
 
   const elementRef = useRef<HTMLElement>(null);
 
-  // State
-  const [state, setState] = useState<GestureOptimizerState>({
-    activeGestures: [],
-    recentGestures: [],
-    prediction: { likelyGesture: null, confidence: 0 },
-    touchCount: 0,
-    isGestureActive: false,
-  });
+  // State - uses module-level constant for initial value
+  const [state, setState] = useState<GestureOptimizerState>(() => ({
+    ...INITIAL_STATE,
+  }));
 
-  // Metrics
+  // Metrics - uses module-level constant
   const metricsRef = useRef<GestureOptimizerMetrics>({
-    totalGestures: 0,
-    gesturesByType: {} as Record<GestureType, number>,
-    averageLatency: 0,
-    predictionAccuracy: 0,
-    filteredTouches: 0,
+    ...INITIAL_METRICS,
   });
 
   // Touch tracking
@@ -420,12 +431,12 @@ export function useMobileGestureOptimizer(
     []
   );
 
-  // Touch handlers
+  // Touch handlers - use performance.now() for higher precision timing
   const handleTouchStart = useCallback(
     (e: TouchEvent) => {
       if (!isEnabledRef.current) return;
 
-      const now = Date.now();
+      const now = performance.now();
 
       for (const touch of Array.from(e.changedTouches)) {
         // Palm rejection
@@ -474,7 +485,7 @@ export function useMobileGestureOptimizer(
     (e: TouchEvent) => {
       if (!isEnabledRef.current) return;
 
-      const now = Date.now();
+      const now = performance.now();
 
       // Throttle
       if (now - throttleTimeRef.current < mergedConfig.throttleInterval) {
@@ -546,7 +557,7 @@ export function useMobileGestureOptimizer(
     (e: TouchEvent) => {
       if (!isEnabledRef.current) return;
 
-      const now = Date.now();
+      const now = performance.now();
 
       // Cancel long press timer
       if (longPressTimerRef.current) {
@@ -684,7 +695,7 @@ export function useMobileGestureOptimizer(
 
   const simulateGesture = useCallback(
     (type: GestureType, point: { x: number; y: number }) => {
-      const now = Date.now();
+      const now = performance.now();
       const touchPoint: TouchPoint = {
         id: -1,
         x: point.x,

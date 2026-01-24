@@ -110,6 +110,20 @@ class EvaEmotionalTTS:
     3. Enhanced Sherpa-ONNX with prosody control
     """
 
+    # Pre-computed emotion prompts (class-level for O(1) lookup)
+    _EMOTION_PROMPTS = {
+        EmotionStyle.JOY: "Speak with happiness and warmth, slight smile in voice",
+        EmotionStyle.SADNESS: "Speak softly with a hint of melancholy, slower pace",
+        EmotionStyle.ANGER: "Speak with intensity and force, faster pace",
+        EmotionStyle.FEAR: "Speak with trembling uncertainty, higher pitch",
+        EmotionStyle.SURPRISE: "Speak with wonder and amazement, varied intonation",
+        EmotionStyle.TENDERNESS: "Speak gently and lovingly, soft and caring",
+        EmotionStyle.EXCITEMENT: "Speak with enthusiasm and energy, animated",
+        EmotionStyle.PLAYFUL: "Speak playfully with teasing tone, light and fun",
+        EmotionStyle.INTIMATE: "Speak softly and close, as if sharing a secret",
+        EmotionStyle.NEUTRAL: "Speak naturally and conversationally",
+    }
+
     def __init__(self, model_cache_dir: str = "./tts_models"):
         self.model_cache_dir = model_cache_dir
         self.cosyvoice = None
@@ -141,26 +155,16 @@ class EvaEmotionalTTS:
             print("⚠️ No TTS backend available!")
 
     def _get_emotion_prompt(self, emotion: EmotionStyle, intensity: float) -> str:
-        """Generate emotion instruction for CosyVoice"""
-        prompts = {
-            EmotionStyle.JOY: "Speak with happiness and warmth, slight smile in voice",
-            EmotionStyle.SADNESS: "Speak softly with a hint of melancholy, slower pace",
-            EmotionStyle.ANGER: "Speak with intensity and force, faster pace",
-            EmotionStyle.FEAR: "Speak with trembling uncertainty, higher pitch",
-            EmotionStyle.SURPRISE: "Speak with wonder and amazement, varied intonation",
-            EmotionStyle.TENDERNESS: "Speak gently and lovingly, soft and caring",
-            EmotionStyle.EXCITEMENT: "Speak with enthusiasm and energy, animated",
-            EmotionStyle.PLAYFUL: "Speak playfully with teasing tone, light and fun",
-            EmotionStyle.INTIMATE: "Speak softly and close, as if sharing a secret",
-            EmotionStyle.NEUTRAL: "Speak naturally and conversationally",
-        }
+        """Generate emotion instruction for CosyVoice.
 
-        base_prompt = prompts.get(emotion, prompts[EmotionStyle.NEUTRAL])
+        Optimized: Uses pre-computed class-level prompts for O(1) lookup.
+        """
+        base_prompt = self._EMOTION_PROMPTS.get(emotion, self._EMOTION_PROMPTS[EmotionStyle.NEUTRAL])
 
         if intensity > 0.7:
-            base_prompt += " with strong emotional expression"
+            return base_prompt + " with strong emotional expression"
         elif intensity < 0.3:
-            base_prompt += " with subtle emotional undertones"
+            return base_prompt + " with subtle emotional undertones"
 
         return base_prompt
 

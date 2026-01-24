@@ -893,3 +893,178 @@ describe("useMobileLatencyCompensator - branch coverage", () => {
     });
   });
 });
+
+// ============================================================================
+// Sprint 540: Quickselect branch coverage (lines 290-319)
+// ============================================================================
+
+describe("useMobileLatencyCompensator - Sprint 540 quickselect coverage", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  describe("calculatePercentile with large arrays (lines 290-319)", () => {
+    it("should calculate percentiles with more than 10 samples (quickselect path)", () => {
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({
+          predictionWindowSize: 50, // Allow more samples
+        })
+      );
+
+      // Record 15 latency samples to trigger quickselect (> 10)
+      act(() => {
+        for (let i = 1; i <= 15; i++) {
+          result.current.controls.recordLatency(i * 100, true);
+        }
+      });
+
+      // Get prediction which uses calculatePercentile
+      const prediction = result.current.state.prediction;
+
+      // Prediction should be calculated
+      expect(prediction).toBeDefined();
+      expect(prediction.confidence).toBeGreaterThan(0);
+    });
+
+    it("should handle quickselect partitioning with varied latencies (lines 302-306)", () => {
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({
+          predictionWindowSize: 50,
+        })
+      );
+
+      // Record 20 varied latency samples to exercise quickselect partitioning
+      const latencies = [150, 50, 300, 100, 250, 200, 400, 75, 350, 125, 175, 225, 275, 325, 375, 425, 450, 500, 550, 600];
+      act(() => {
+        for (const latency of latencies) {
+          result.current.controls.recordLatency(latency, true);
+        }
+      });
+
+      const prediction = result.current.state.prediction;
+
+      // p50 should be around median (275-300 range)
+      expect(prediction.p50Ms).toBeGreaterThan(0);
+      expect(prediction.p90Ms).toBeGreaterThan(prediction.p50Ms);
+      expect(prediction.p99Ms).toBeGreaterThanOrEqual(prediction.p90Ms);
+    });
+
+    it("should handle quickselect with all equal values (line 310 storeIndex === targetIndex)", () => {
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({
+          predictionWindowSize: 50,
+        })
+      );
+
+      // Record 12 identical latencies - quickselect should find target quickly
+      act(() => {
+        for (let i = 0; i < 12; i++) {
+          result.current.controls.recordLatency(200, true);
+        }
+      });
+
+      const prediction = result.current.state.prediction;
+
+      // All percentiles should be the same value
+      expect(prediction.p50Ms).toBe(200);
+      expect(prediction.p90Ms).toBe(200);
+      expect(prediction.p99Ms).toBe(200);
+    });
+
+    it("should handle quickselect with descending values (line 312-313 left branch)", () => {
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({
+          predictionWindowSize: 50,
+        })
+      );
+
+      // Record 15 descending latencies to exercise left branch of quickselect
+      act(() => {
+        for (let i = 15; i >= 1; i--) {
+          result.current.controls.recordLatency(i * 100, true);
+        }
+      });
+
+      const prediction = result.current.state.prediction;
+
+      // p50 should be around the median
+      expect(prediction.p50Ms).toBeGreaterThan(0);
+      expect(prediction.confidence).toBeGreaterThan(0);
+    });
+
+    it("should handle quickselect final return (line 319)", () => {
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({
+          predictionWindowSize: 50,
+        })
+      );
+
+      // Record 11 samples (just above threshold for quickselect)
+      // Pattern that may cause left === right to be reached
+      act(() => {
+        for (let i = 0; i < 11; i++) {
+          result.current.controls.recordLatency(100 + i, true);
+        }
+      });
+
+      const prediction = result.current.state.prediction;
+
+      // Should calculate valid prediction
+      expect(prediction.expectedMs).toBeGreaterThan(0);
+    });
+  });
+
+  describe("classifyLatency timeout return (line 261)", () => {
+    it("should return timeout for latency >= maximum threshold", () => {
+      const { result } = renderHook(() => useMobileLatencyCompensator());
+
+      // Record extremely high latency (above all thresholds)
+      act(() => {
+        result.current.controls.recordLatency(999999, true);
+      });
+
+      expect(result.current.state.currentLatencyLevel).toBe("timeout");
+    });
+  });
+
+  describe("clearPending timeout iteration (line 697)", () => {
+    it("should iterate through all timeouts in timeoutsRef (line 696-697)", () => {
+      const clearTimeoutSpy = jest.spyOn(global, "clearTimeout");
+
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({
+          timeoutThreshold: 60000, // Long timeout so updates stay pending
+          autoRollbackOnTimeout: true,
+        })
+      );
+
+      // Create 5 pending updates to have 5 timeouts
+      act(() => {
+        for (let i = 0; i < 5; i++) {
+          result.current.controls.compensate(
+            () => {},
+            () => {},
+            { value: i },
+            { value: -1 }
+          );
+        }
+      });
+
+      const callsBefore = clearTimeoutSpy.mock.calls.length;
+
+      // Clear all pending - should clear 5 timeouts
+      act(() => {
+        result.current.controls.clearPending();
+      });
+
+      const callsAfter = clearTimeoutSpy.mock.calls.length;
+      expect(callsAfter - callsBefore).toBeGreaterThanOrEqual(5);
+
+      clearTimeoutSpy.mockRestore();
+    });
+  });
+});

@@ -588,6 +588,19 @@ class TestEvaExpressionBreathingSounds:
         result = system.get_breathing_sound("random")
         assert result is not None
 
+    def test_get_breathing_sound_no_available_choices(self):
+        """Test get_breathing_sound returns None when no available choices for context."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        # Sounds exist but not the ones needed for before_speech context
+        system._breathing_sounds = {
+            "sigh": b"audio",  # Not in before_speech choices
+        }
+
+        result = system.get_breathing_sound("before_speech")
+        assert result is None
+
 
 class TestEvaExpressionEmotionSounds:
     """Tests for emotion sound generation."""
@@ -688,6 +701,19 @@ class TestEvaExpressionEmotionSounds:
 
         result = system.get_emotion_sound("unknown_emotion")
         assert result is not None
+
+    def test_get_emotion_sound_no_available_choices(self):
+        """Test get_emotion_sound returns None when no available choices."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        # Sounds exist but not the ones needed for joy
+        system._emotion_sounds = {
+            "thinking": b"audio",  # Not in joy choices
+        }
+
+        result = system.get_emotion_sound("joy")
+        assert result is None
 
 
 class TestEvaExpressionGlobalFunctions:
