@@ -1,12 +1,19 @@
 ---
 active: true
-iteration: 45
+iteration: 46
 max_iterations: 0
 completion_promise: null
 started_at: "2026-01-24T13:16:40Z"
 ---
 
 Sprint 539 Alterne backend frontend. Autocritique note sur 10. GO.
+
+## Sprint 559 - COMPLETED
+
+**Domain:** FRONTEND
+**Work done:** Created 64 tests for useOfflineResilience hook (message queue, state cache, connection checking, flushing, recovery, stability score, sub-hooks)
+**Commit:** f97a816
+**Note:** 8/10
 
 ## Sprint 558 - COMPLETED
 
@@ -148,4 +155,4 @@ Sprint 539 Alterne backend frontend. Autocritique note sur 10. GO.
 **Commit:** 1ea67a3
 **Note:** 7/10
 
-Ready for Sprint 559 (FRONTEND)
+Ready for Sprint 560 (BACKEND)
