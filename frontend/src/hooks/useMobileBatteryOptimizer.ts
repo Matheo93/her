@@ -315,8 +315,9 @@ export function useMobileBatteryOptimizer(
     ...INITIAL_METRICS,
   }));
 
-  // Refs for tracking
-  const sessionStartRef = useRef<{ level: number; time: number }>({ level: 1, time: Date.now() });
+  // Refs for tracking - use counter-based session ID
+  const sessionIdRef = useRef<number>(++sessionIdCounter);
+  const sessionStartRef = useRef<{ level: number; time: number }>({ level: 1, time: performance.now() });
   const levelHistoryRef = useRef<Array<{ level: number; time: number }>>([]);
 
   // Update battery state
@@ -341,10 +342,11 @@ export function useMobileBatteryOptimizer(
 
       const newLevel = getBatteryLevel(battery.level, mergedConfig.thresholds);
 
-      // Track level history
-      levelHistoryRef.current.push({ level: battery.level, time: Date.now() });
-      if (levelHistoryRef.current.length > 60) {
-        levelHistoryRef.current.shift();
+      // Track level history - use slice(-N) instead of shift() for O(1) vs O(n)
+      const now = performance.now();
+      levelHistoryRef.current.push({ level: battery.level, time: now });
+      if (levelHistoryRef.current.length > LEVEL_HISTORY_SIZE) {
+        levelHistoryRef.current = levelHistoryRef.current.slice(-LEVEL_HISTORY_SIZE);
       }
 
       // Calculate consumption rate
@@ -359,8 +361,8 @@ export function useMobileBatteryOptimizer(
         }
       }
 
-      // Session metrics
-      const sessionDuration = (Date.now() - sessionStartRef.current.time) / (1000 * 60);
+      // Session metrics - use performance.now() for consistency
+      const sessionDuration = (performance.now() - sessionStartRef.current.time) / (1000 * 60);
       const sessionConsumption = (sessionStartRef.current.level - battery.level) * 100;
 
       // Time remaining

@@ -439,6 +439,65 @@ describe("useSharedSilence", () => {
   });
 
   describe("description", () => {
+    it("should return transitional description", () => {
+      const { result } = renderHook(() =>
+        useSharedSilence({
+          ...defaultProps,
+          intimacyLevel: 0.3,
+          timeSinceLastInteraction: 10,
+        })
+      );
+
+      act(() => {
+        triggerInitialRaf();
+      });
+
+      act(() => {
+        advanceTimeAndRaf(3000, 5);
+      });
+
+      expect(result.current.description).toBe("Pause naturelle");
+    });
+
+    it("should return reflective description", () => {
+      const { result } = renderHook(() =>
+        useSharedSilence({
+          ...defaultProps,
+          timeSinceLastInteraction: 3,
+        })
+      );
+
+      act(() => {
+        triggerInitialRaf();
+      });
+
+      act(() => {
+        advanceTimeAndRaf(3000, 5);
+      });
+
+      expect(result.current.description).toBe("Moment de réflexion");
+    });
+
+    it("should return anticipatory description when listening", () => {
+      const { result } = renderHook(() =>
+        useSharedSilence({
+          ...defaultProps,
+          isListening: true,
+          timeSinceLastInteraction: 10,
+        })
+      );
+
+      act(() => {
+        triggerInitialRaf();
+      });
+
+      act(() => {
+        advanceTimeAndRaf(3000, 5);
+      });
+
+      expect(result.current.description).toBe("En attente...");
+    });
+
     it("should return meaningful description for intrinsic silence", () => {
       const { result } = renderHook(() =>
         useSharedSilence({
