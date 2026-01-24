@@ -63,19 +63,31 @@ import OptimizedAvatar from "../OptimizedAvatar";
 import type { AnimationSettings } from "@/hooks/useMobileOptimization";
 
 const defaultAnimationSettings: AnimationSettings = {
-  enableAnimations: true,
-  frameRate: 60,
-  complexity: "high",
-  useGPU: true,
-  reduceMotion: false,
+  targetFPS: 60,
+  particleCount: 50,
+  enableParticles: true,
+  enableGlowEffects: true,
+  enableBreathingAnimation: true,
+  enableIdleAnimations: true,
+  enableBlurEffects: true,
+  avatarQuality: "high",
+  transitionDuration: 300,
+  springStiffness: 100,
+  springDamping: 10,
 };
 
 const lowAnimationSettings: AnimationSettings = {
-  enableAnimations: true,
-  frameRate: 30,
-  complexity: "low",
-  useGPU: false,
-  reduceMotion: true,
+  targetFPS: 30,
+  particleCount: 10,
+  enableParticles: false,
+  enableGlowEffects: false,
+  enableBreathingAnimation: true,
+  enableIdleAnimations: false,
+  enableBlurEffects: false,
+  avatarQuality: "low",
+  transitionDuration: 150,
+  springStiffness: 50,
+  springDamping: 20,
 };
 
 describe("OptimizedAvatar", () => {
@@ -241,7 +253,7 @@ describe("OptimizedAvatar", () => {
           audioLevel={0}
           animationSettings={{
             ...defaultAnimationSettings,
-            enableAnimations: false,
+            enableIdleAnimations: false,
           }}
         />
       );

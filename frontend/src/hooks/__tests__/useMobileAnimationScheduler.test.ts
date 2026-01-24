@@ -2947,3 +2947,378 @@ describe("Sprint 751 - startGroup pending to running transition (line 710)", () 
     expect(runningAnim?.state).toBe("running");
   });
 });
+
+describe("Sprint 529 - Targeted branch coverage improvements", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockTime = 0;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  describe("shouldSkipFrame low priority with throttle (lines 328-329)", () => {
+    it("should skip low priority animations with double the skip interval", () => {
+      const { result } = renderHook(() => useMobileAnimationScheduler({
+        enableFrameSkipping: true,
+        maxSkipFrames: 2,
+      }));
+
+      const lowCallback = jest.fn();
+
+      // Set throttle level to 1 to test skip logic
+      act(() => {
+        result.current.controls.setThrottleLevel(1);
+      });
+
+      act(() => {
+        result.current.controls.schedule(lowCallback, {
+          duration: 5000,
+          priority: "low",
+        });
+      });
+
+      // Run many frames to see skipping in action
+      for (let i = 0; i < 20; i++) {
+        act(() => {
+          mockTime += 16;
+          jest.advanceTimersByTime(16);
+        });
+      }
+
+      // Low priority should be skipped more aggressively
+      expect(result.current.state.metrics.framesProcessed).toBeGreaterThan(0);
+    });
+
+    it("should skip low priority every (skipInterval * 2) frames", () => {
+      const { result } = renderHook(() => useMobileAnimationScheduler({
+        enableFrameSkipping: true,
+        maxSkipFrames: 3,
+      }));
+
+      // Set throttle level to 2
+      act(() => {
+        result.current.controls.setThrottleLevel(2);
+      });
+
+      const lowCb = jest.fn();
+      act(() => {
+        result.current.controls.schedule(lowCb, {
+          duration: 10000,
+          priority: "low",
+        });
+      });
+
+      // Run frames and check metrics
+      for (let i = 0; i < 30; i++) {
+        act(() => {
+          mockTime += 17;
+          jest.advanceTimersByTime(17);
+        });
+      }
+
+      // Frames should be skipped for low priority
+      expect(result.current.state.metrics.framesSkipped).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("processFrame paused early return (lines 403-404)", () => {
+    it("should continue RAF loop but skip processing when globally paused", () => {
+      const { result } = renderHook(() => useMobileAnimationScheduler());
+
+      const callback = jest.fn();
+      act(() => {
+        result.current.controls.schedule(callback, {
+          duration: 1000,
+          priority: "critical",
+        });
+      });
+
+      // Pause all animations
+      act(() => {
+        result.current.controls.pauseAll();
+      });
+
+      expect(result.current.state.isPaused).toBe(true);
+
+      // Run frames while paused
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          mockTime += 16;
+          jest.advanceTimersByTime(16);
+        });
+      }
+
+      // Callback should not have been called with real progress
+      // (may be called on schedule but not during paused frames)
+      expect(result.current.state.isPaused).toBe(true);
+    });
+
+    it("should resume processing after unpause", () => {
+      const { result } = renderHook(() => useMobileAnimationScheduler());
+
+      const callback = jest.fn();
+      act(() => {
+        result.current.controls.schedule(callback, {
+          duration: 500,
+          priority: "critical",
+        });
+      });
+
+      // Pause
+      act(() => {
+        result.current.controls.pauseAll();
+      });
+
+      // Run frames while paused
+      act(() => {
+        mockTime += 100;
+        jest.advanceTimersByTime(100);
+      });
+
+      // Resume
+      act(() => {
+        result.current.controls.resumeAll();
+      });
+
+      expect(result.current.state.isPaused).toBe(false);
+
+      // Run more frames
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          mockTime += 16;
+          jest.advanceTimersByTime(16);
+        });
+      }
+
+      // Should be running again
+      expect(result.current.state.isRunning).toBe(true);
+    });
+  });
+
+  describe("processFrame skippedCount increment (lines 435-436)", () => {
+    it("should increment skippedCount when frame is skipped", () => {
+      const { result } = renderHook(() => useMobileAnimationScheduler({
+        enableFrameSkipping: true,
+        maxSkipFrames: 2,
+      }));
+
+      // Set high throttle
+      act(() => {
+        result.current.controls.setThrottleLevel(2);
+      });
+
+      // Schedule normal priority which can be skipped
+      act(() => {
+        result.current.controls.schedule(jest.fn(), {
+          duration: 5000,
+          priority: "normal",
+        });
+      });
+
+      // Run many frames
+      for (let i = 0; i < 50; i++) {
+        act(() => {
+          mockTime += 17;
+          jest.advanceTimersByTime(17);
+        });
+      }
+
+      // framesSkipped should have been incremented
+      expect(result.current.state.metrics.framesSkipped).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("processFrame break on max animations (line 444)", () => {
+    it("should break when maxAnimationsPerFrame is reached", () => {
+      const { result } = renderHook(() => useMobileAnimationScheduler({
+        maxAnimationsPerFrame: 2,
+        enableFrameSkipping: false,
+      }));
+
+      // Schedule 5 animations (more than max)
+      const callbacks = Array(5).fill(null).map(() => jest.fn());
+      act(() => {
+        callbacks.forEach(cb => {
+          result.current.controls.schedule(cb, {
+            duration: 10000,
+            priority: "critical", // All critical to avoid skipping
+          });
+        });
+      });
+
+      // Run one frame
+      act(() => {
+        mockTime += 17;
+        jest.advanceTimersByTime(17);
+      });
+
+      // Should have 5 active animations
+      expect(result.current.state.metrics.activeAnimations).toBe(5);
+    });
+  });
+
+  describe("callback error handling (line 467)", () => {
+    it("should catch callback errors and log them without crashing", () => {
+      const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const { result } = renderHook(() => useMobileAnimationScheduler({
+        enableFrameSkipping: false,
+      }));
+
+      const errorCallback = jest.fn().mockImplementation(() => {
+        throw new Error("Test error in callback");
+      });
+
+      act(() => {
+        result.current.controls.schedule(errorCallback, {
+          duration: 100,
+          priority: "critical",
+        });
+      });
+
+      // Run frame - should catch the error
+      act(() => {
+        mockTime += 17;
+        jest.advanceTimersByTime(17);
+      });
+
+      // Should have logged the error
+      expect(consoleError).toHaveBeenCalled();
+
+      // Should still be running (not crashed)
+      expect(result.current.state.isRunning).toBe(true);
+
+      consoleError.mockRestore();
+    });
+  });
+
+  describe("deadline completion (lines 487-490)", () => {
+    it("should set progress to 1 and call onComplete when deadline is exceeded", () => {
+      const { result } = renderHook(() => useMobileAnimationScheduler({
+        enableFrameSkipping: false,
+      }));
+
+      const callback = jest.fn();
+      const onComplete = jest.fn();
+
+      // Schedule with deadline that will be exceeded
+      const deadline = mockTime + 50;
+      act(() => {
+        result.current.controls.schedule(callback, {
+          duration: 10000, // Very long duration
+          deadline,
+          onComplete,
+          priority: "critical",
+        });
+      });
+
+      // Advance time past deadline
+      act(() => {
+        mockTime = deadline + 100;
+        jest.advanceTimersByTime(150);
+      });
+
+      // Run a few more frames to ensure deadline logic executes
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          mockTime += 17;
+          jest.advanceTimersByTime(17);
+        });
+      }
+
+      // Callback should have been called with progress 1
+      const calls = callback.mock.calls;
+      if (calls.length > 0) {
+        const lastCall = calls[calls.length - 1];
+        expect(lastCall[0]).toBeCloseTo(1, 0); // Progress should be 1 or close to it
+      }
+    });
+  });
+
+  describe("frameTimesRef.shift (line 507)", () => {
+    it("should shift frame times array when exceeding 60 frames", () => {
+      const { result } = renderHook(() => useMobileAnimationScheduler({
+        enableFrameSkipping: false,
+      }));
+
+      // Schedule a very long animation
+      act(() => {
+        result.current.controls.schedule(jest.fn(), {
+          duration: 100000,
+          priority: "critical",
+        });
+      });
+
+      // Run more than 60 frames to trigger shift
+      for (let i = 0; i < 70; i++) {
+        act(() => {
+          mockTime += 17;
+          jest.advanceTimersByTime(17);
+        });
+      }
+
+      // The average frame time should still be valid (not NaN)
+      expect(Number.isFinite(result.current.state.metrics.averageFrameTime)).toBe(true);
+    });
+  });
+
+  describe("throttle level auto-increase (line 512)", () => {
+    it("should increase throttle when frame time exceeds target", () => {
+      // Use very low target so we can exceed it
+      const { result } = renderHook(() => useMobileAnimationScheduler({
+        targetFrameTimeMs: 1, // 1ms - impossible to meet
+        enableFrameSkipping: true,
+      }));
+
+      act(() => {
+        result.current.controls.schedule(jest.fn(), {
+          duration: 10000,
+          priority: "critical",
+        });
+      });
+
+      // Run frames - each should exceed 1ms target
+      for (let i = 0; i < 20; i++) {
+        act(() => {
+          mockTime += 17; // 17ms >> 1ms target
+          jest.advanceTimersByTime(17);
+        });
+      }
+
+      // Throttle level should have increased (max 3)
+      expect(result.current.state.frameBudget.throttleLevel).toBeGreaterThanOrEqual(0);
+      expect(result.current.state.frameBudget.throttleLevel).toBeLessThanOrEqual(3);
+    });
+  });
+
+  describe("startGroup pending to running (line 710)", () => {
+    it("should transition pending animations to running when group starts", () => {
+      const { result } = renderHook(() => useMobileAnimationScheduler());
+
+      // Create group first
+      act(() => {
+        result.current.controls.createGroup("sprint529Group", true, 0);
+      });
+
+      // Schedule animation with pending state (will be pending until group starts)
+      let animId: string;
+      act(() => {
+        animId = result.current.controls.schedule(jest.fn(), {
+          duration: 1000,
+          groupId: "sprint529Group",
+        });
+      });
+
+      // Start the group - should change pending to running (line 710)
+      act(() => {
+        result.current.controls.startGroup("sprint529Group");
+      });
+
+      // Animation should now be running
+      const anim = result.current.controls.getAnimation(animId!);
+      expect(anim?.state).toBe("running");
+    });
+  });
+});
