@@ -1338,7 +1338,7 @@ describe("Sprint 619 - branch coverage improvements", () => {
   describe("thermal state detection (lines 291-302)", () => {
     beforeEach(() => {
       jest.useFakeTimers();
-      resetMocks();
+      // mocks are reset by global beforeEach
       mockMobileDetect.isAndroid = true;
     });
 
@@ -1425,7 +1425,7 @@ describe("Sprint 619 - branch coverage improvements", () => {
   describe("thermal throttling quality downgrade (lines 388-394)", () => {
     beforeEach(() => {
       jest.useFakeTimers();
-      resetMocks();
+      // mocks are reset by global beforeEach
       mockMobileDetect.isAndroid = true;
       mockDeviceCapabilities.tier = "high";
     });
@@ -1490,7 +1490,7 @@ describe("Sprint 619 - branch coverage improvements", () => {
 
   describe("frame drops buffer limit (line 280)", () => {
     beforeEach(() => {
-      resetMocks();
+      // mocks are reset by global beforeEach
     });
 
     it("should limit frame drops buffer to 60 entries", () => {
@@ -1513,7 +1513,7 @@ describe("Sprint 619 - branch coverage improvements", () => {
 
   describe("frame drop rate calculation (line 493)", () => {
     beforeEach(() => {
-      resetMocks();
+      // mocks are reset by global beforeEach
     });
 
     it("should calculate frame drop rate from accumulated drops", () => {
