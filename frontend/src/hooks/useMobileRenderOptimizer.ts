@@ -590,7 +590,8 @@ export function useMobileRenderOptimizer(
       }
     }
   }, [
-    metrics.frameTime,
+    // Note: metrics.frameTime removed to prevent infinite update loop
+    // The effect reads from frameTimesRef.current directly (lines 536-539)
     settings.quality,
     settings.targetFPS,
     isAutoAdjusting,
