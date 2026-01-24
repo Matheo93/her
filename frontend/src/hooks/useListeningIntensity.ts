@@ -74,42 +74,54 @@ export function useListeningIntensity({
     speakingDuration: 0,
   });
 
-  // Tracking refs
+  // Tracking refs - using circular buffer pattern for O(1) operations
   const energyHistory = useRef<number[]>([]);
+  const energyHistoryIndex = useRef(0);  // Circular buffer index
+  const energySum = useRef(0);           // Running sum for O(1) average
   const pauseTimestamps = useRef<number[]>([]);
   const speakingStartTime = useRef<number | null>(null);
   const wasAboveThreshold = useRef(false);
   const frameRef = useRef<number | null>(null);
   const lastUpdateTime = useRef(Date.now());
+  const lastPauseCleanup = useRef(0);    // Throttle pause cleanup
 
   // Audio level threshold for "speaking"
   const SPEAKING_THRESHOLD = 0.08 * sensitivity;
 
   // Calculate speaking rhythm from energy history
+  // Optimized: uses running sum for O(1) average calculation
   const calculateRhythm = useCallback(() => {
-    if (energyHistory.current.length < 10) {
+    const historyLen = energyHistory.current.length;
+    if (historyLen < 10) {
       return { tempo: "normal" as const, variability: 0.3, pauseFrequency: 0 };
     }
 
-    // Calculate average and variance
-    const avg = energyHistory.current.reduce((a, b) => a + b, 0) / energyHistory.current.length;
-    const variance =
-      energyHistory.current.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) /
-      energyHistory.current.length;
+    // O(1) average calculation using running sum
+    const avg = energySum.current / historyLen;
+
+    // Calculate variance in single pass (no intermediate array creation)
+    let sumSquaredDiff = 0;
+    for (let i = 0; i < historyLen; i++) {
+      const diff = energyHistory.current[i] - avg;
+      sumSquaredDiff += diff * diff;
+    }
+    const variance = sumSquaredDiff / historyLen;
     const variability = Math.min(1, Math.sqrt(variance) * 5);
 
     // Determine tempo from average energy
-    let tempo: "slow" | "normal" | "fast" = "normal";
-    if (avg < 0.15) {
-      tempo = "slow";
-    } else if (avg > 0.35) {
-      tempo = "fast";
-    }
+    const tempo: "slow" | "normal" | "fast" =
+      avg < 0.15 ? "slow" : avg > 0.35 ? "fast" : "normal";
 
     // Calculate pause frequency (pauses in last 30 seconds)
+    // Count in-place instead of filter + length
     const thirtySecondsAgo = Date.now() - 30000;
-    const recentPauses = pauseTimestamps.current.filter((t) => t > thirtySecondsAgo);
-    const pauseFrequency = recentPauses.length * 2; // Per minute
+    let recentPauseCount = 0;
+    for (let i = 0; i < pauseTimestamps.current.length; i++) {
+      if (pauseTimestamps.current[i] > thirtySecondsAgo) {
+        recentPauseCount++;
+      }
+    }
+    const pauseFrequency = recentPauseCount * 2; // Per minute
 
     return { tempo, variability, pauseFrequency };
   }, []);
@@ -163,15 +175,37 @@ export function useListeningIntensity({
       } else if (!isCurrentlySpeaking && wasAboveThreshold.current) {
         // User paused
         pauseTimestamps.current.push(now);
-        // Keep only last 60 seconds of pauses
-        pauseTimestamps.current = pauseTimestamps.current.filter((t) => now - t < 60000);
+        // Throttle pause cleanup to every 5 seconds (avoid filter on every frame)
+        if (now - lastPauseCleanup.current > 5000) {
+          lastPauseCleanup.current = now;
+          // In-place cleanup: remove old pauses
+          const sixtySecondsAgo = now - 60000;
+          let writeIdx = 0;
+          for (let i = 0; i < pauseTimestamps.current.length; i++) {
+            if (pauseTimestamps.current[i] >= sixtySecondsAgo) {
+              pauseTimestamps.current[writeIdx++] = pauseTimestamps.current[i];
+            }
+          }
+          pauseTimestamps.current.length = writeIdx;
+        }
       }
       wasAboveThreshold.current = isCurrentlySpeaking;
 
-      // Update energy history (keep ~2 seconds at 60fps = ~120 samples)
-      energyHistory.current.push(userAudioLevel);
-      if (energyHistory.current.length > 120) {
-        energyHistory.current.shift();
+      // Update energy history using circular buffer pattern with running sum
+      const MAX_HISTORY = 120;
+      const history = energyHistory.current;
+
+      if (history.length < MAX_HISTORY) {
+        // Still filling the buffer
+        history.push(userAudioLevel);
+        energySum.current += userAudioLevel;
+      } else {
+        // Circular buffer: replace oldest value
+        const idx = energyHistoryIndex.current;
+        energySum.current -= history[idx];  // Remove old value from sum
+        energySum.current += userAudioLevel; // Add new value
+        history[idx] = userAudioLevel;
+        energyHistoryIndex.current = (idx + 1) % MAX_HISTORY;
       }
 
       // Calculate metrics
@@ -180,11 +214,21 @@ export function useListeningIntensity({
         ? (now - speakingStartTime.current) / 1000
         : 0;
 
-      // Calculate user energy (smoothed)
-      const recentEnergy = energyHistory.current.slice(-30);
-      const avgEnergy =
-        recentEnergy.length > 0
-          ? recentEnergy.reduce((a, b) => a + b, 0) / recentEnergy.length
+      // Calculate user energy (smoothed) - use running sum for recent 30 samples
+      // For simplicity, calculate recent 30 inline (still O(30) but no array allocation)
+      const historyLen = history.length;
+      const recentCount = Math.min(30, historyLen);
+      let recentSum = 0;
+      // Get last 30 values accounting for circular buffer
+      const startIdx = historyLen < MAX_HISTORY
+        ? historyLen - recentCount
+        : (energyHistoryIndex.current - recentCount + MAX_HISTORY) % MAX_HISTORY;
+      for (let i = 0; i < recentCount; i++) {
+        const idx = historyLen < MAX_HISTORY ? startIdx + i : (startIdx + i) % MAX_HISTORY;
+        recentSum += history[idx];
+      }
+      const avgEnergy = recentCount > 0
+        ? recentSum / recentCount
           : 0;
 
       // Calculate emotional intensity from energy variance and rhythm

@@ -2,6 +2,125 @@
 
 ---
 
+## Sprint 537 - Autocritique (FRONTEND)
+
+**Date:** 2026-01-24
+**Domaine:** Frontend TypeScript - useListeningIntensity.ts
+
+**Ce que j'ai fait:**
+1. **Implémenté circular buffer** pour energyHistory (évite shift() O(n))
+2. **Running sum** pour calcul de moyenne O(1)
+3. **Optimisé calculateRhythm** - single pass pour variance
+4. **Throttlé pause cleanup** à toutes les 5 secondes
+5. **In-place cleanup** pour pauseTimestamps (pas de filter)
+6. **Créé 13 tests** pour useListeningIntensity
+
+**Note: 9/10**
+
+**Points positifs:**
+- Circular buffer élimine O(n) shift() à chaque frame
+- Running sum permet O(1) calcul de moyenne
+- In-place cleanup évite allocations mémoire
+- Throttling du cleanup réduit le travail par frame
+- Tous les 13 tests passent
+
+**Points négatifs (sois HONNÊTE):**
+- Le calcul des 30 dernières valeurs est O(30) pas O(1)
+- Complexité ajoutée pour le circular buffer
+- Pas de benchmarks avant/après
+
+**Ce que j'aurais dû faire différemment:**
+- Ajouter un second running sum pour les 30 dernières valeurs
+- Mesurer l'amélioration de performance réelle
+
+**Risques introduits:**
+- Aucun - comportement identique, optimisations internes
+
+**Amélioration pour le prochain sprint:**
+- Sprint 538 BACKEND - Continuer avec tests ou optimisations
+- Focus sur modules non testés
+
+---
+
+## Sprint 550 (FRONTEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Frontend TypeScript - Vérification hooks mobiles
+
+**Ce que j'ai fait:**
+1. **Vérifié que tous les hooks mobiles sont optimisés** - Date.now() → compteur
+2. **Vérifié les couvertures de tests:**
+   - useMobileFrameScheduler: 95.33% statements, 132 tests
+   - useMobileAudioOptimizer: 100% statements, 131 tests
+3. **Confirmé que l'optimisation animationIdCounter** de Sprint 548 est appliquée
+
+**Note: 3/10**
+
+**Points positifs:**
+- Vérification systématique de tous les hooks mobiles
+- Confirmation que les hooks sont bien optimisés
+- Couverture de tests excellente (95-100%)
+
+**Points négatifs (sois HONNÊTE):**
+- Aucune amélioration réelle effectuée ce sprint
+- Juste de la vérification/validation
+- Pas de nouveau code écrit
+- Pas de nouvelles optimisations trouvées
+
+**Ce que j'aurais dû faire différemment:**
+- Chercher des optimisations plus profondes (algorithmes, structures de données)
+- Ajouter des tests de performance/benchmarks
+- Améliorer la documentation des hooks
+
+**Risques introduits:**
+- Aucun risque (pas de changement)
+
+**Amélioration pour le prochain sprint:**
+- Sprint 551 BACKEND - Alterner comme requis
+- Faire une vraie amélioration, pas juste de la vérification
+
+---
+
+## Sprint 558 (BACKEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - test_ollama_keepalive.py
+
+**Ce que j'ai fait:**
+1. **Créé 16 tests** pour ollama_keepalive.py
+2. **Tests couvrent:** state management, configuration constants, warmup_once, ensure_warm, edge cases
+3. **Tests async avec mocks** pour simuler httpx responses
+4. **Tests de gestion d'erreurs** (exception, 500 status, high latency)
+
+**Note: 7/10**
+
+**Points positifs:**
+- Tests complets des fonctions principales
+- Bons tests de gestion d'erreurs (exception, failure)
+- Tests de configuration (constants, URLs)
+- Tests async avec pytest-asyncio
+- Tous les 16 tests passent
+
+**Points négatifs (sois HONNÊTE):**
+- Pas de tests pour _warmup_burst (fonction plus complexe)
+- Pas de tests pour _keepalive_loop (boucle infinie difficile à tester)
+- Pas de tests pour start_keepalive/stop_keepalive (création de tasks)
+- Pas de tests pour warmup_on_startup
+
+**Ce que j'aurais dû faire différemment:**
+- Tester _warmup_burst avec plusieurs appels mockés
+- Tester la logique de latency spike detection
+- Tester le comportement de re-warmup
+
+**Risques introduits:**
+- Aucun risque - tests seulement
+
+**Amélioration pour le prochain sprint:**
+- Sprint 559 FRONTEND - Alterner vers frontend
+- Continuer à créer des tests pour les hooks sans couverture
+
+---
+
 ## Sprint 536 - Autocritique (BACKEND)
 
 **Date:** 2026-01-24
@@ -2745,5 +2864,42 @@
 - Sprint 559 FRONTEND - alterner comme requis
 - Cibler les modules avec plus de fonctions pures
 - Mocker correctement les dépendances GPU pour meilleure couverture
+
+---
+
+## Sprint 541 (BACKEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - eva_her.py tests
+
+**Ce que j'ai fait:**
+- Ajouté 23 nouveaux tests pour eva_her.py (47 tests total)
+- TestEvaHERInitialize: 4 tests pour initialize() method
+- TestEvaHERMethods: 7 tests pour instance methods (generate_response_audio, get_backchannel, get_proactive_message)
+- TestConvenienceFunctions: 4 tests pour module functions
+- TestMoreInitializeExceptions: 4 tests pour exception handling
+- TestStoreInteraction: 2 tests pour store_interaction
+- TestDetectEmotionEdgeCases: 2 tests pour edge cases (ellipsis, curiosity)
+- Couverture passée de 45% à 80% (+35%)
+
+**Note: 8/10**
+
+**Points positifs:**
+- Amélioration massive de couverture (+35%)
+- Tests couvrent initialize() qui était complètement non testé
+- Tests pour les branches exception handling
+- Mocking correct avec AsyncMock pour les fonctions async
+- Tous les 47 tests passent
+
+**Points négatifs (sois HONNÊTE):**
+- process_message() (lignes 178-226) n'est toujours pas testé
+- Les convenience functions ont des branches non couvertes
+- Je n'ai PAS optimisé le code, juste ajouté des tests
+
+**Risques introduits:**
+- Aucun risque (tests seulement)
+
+**Amélioration pour le prochain sprint:**
+- Sprint 542 FRONTEND - alterner comme requis
 
 ---
