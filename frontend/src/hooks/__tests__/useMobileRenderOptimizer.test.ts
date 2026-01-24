@@ -935,15 +935,11 @@ describe("Sprint 628 - Auto quality adjustment (lines 538-577)", () => {
       })
     );
 
-    // Record many slow frames (over 16.67ms * 1.1 = ~18.3ms)
-    for (let i = 0; i < 35; i++) {
-      act(() => {
-        result.current.controls.recordFrame(25); // Slow frame
-      });
-    }
-
-    // Advance time past minimum adjustment interval
+    // Record many slow frames in a single act to reduce memory pressure
     act(() => {
+      for (let i = 0; i < 35; i++) {
+        result.current.controls.recordFrame(25); // Slow frame
+      }
       jest.advanceTimersByTime(3000);
     });
 
