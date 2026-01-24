@@ -776,3 +776,17 @@ export function useFrameRateAwareAnimation(
 }
 
 export default useMobileRenderOptimizer;
+
+// ============================================================================
+// Test Helpers (exported for unit testing internal functions)
+// ============================================================================
+
+export const __test__ = {
+  getRecommendedQuality,
+  clampQuality,
+  getNextLowerQuality,
+  getNextHigherQuality,
+  QUALITY_PRESETS,
+  QUALITY_ORDER,
+  DEFAULT_CONFIG,
+};
