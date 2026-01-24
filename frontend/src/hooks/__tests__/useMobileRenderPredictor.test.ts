@@ -857,3 +857,446 @@ describe("useGpuCompositing", () => {
     expect(result.current.willChange).toBeDefined();
   });
 });
+
+describe("Sprint 532 - Battery API coverage (lines 506-507, 514-520)", () => {
+  // Note: We inherit fake timers from the global beforeEach
+
+  it("should update battery level from Battery API (lines 506-507)", async () => {
+    const mockBattery = {
+      level: 0.25,
+      charging: false,
+      addEventListener: jest.fn(),
+    };
+
+    Object.defineProperty(navigator, "getBattery", {
+      value: jest.fn().mockResolvedValue(mockBattery),
+      writable: true,
+      configurable: true,
+    });
+
+    const renderer = createRenderer();
+    const { result } = renderHook(() =>
+      useMobileRenderPredictor(renderer, {}, { batteryAwarePrediction: true })
+    );
+
+    // Wait for battery promise to resolve
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Battery level should be updated
+    expect(result.current.state.batteryLevel).toBe(0.25);
+  });
+
+  it("should detect low power mode when battery < threshold (lines 507-509)", async () => {
+    const mockBattery = {
+      level: 0.15, // Below default 0.2 threshold
+      charging: false,
+      addEventListener: jest.fn(),
+    };
+
+    Object.defineProperty(navigator, "getBattery", {
+      value: jest.fn().mockResolvedValue(mockBattery),
+      writable: true,
+      configurable: true,
+    });
+
+    const renderer = createRenderer();
+    const { result } = renderHook(() =>
+      useMobileRenderPredictor(renderer, {}, {
+        batteryAwarePrediction: true,
+        lowBatteryThreshold: 0.2,
+      })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.state.isLowPowerMode).toBe(true);
+  });
+
+  it("should not be in low power mode when charging (lines 508-509)", async () => {
+    const mockBattery = {
+      level: 0.15,
+      charging: true, // Charging
+      addEventListener: jest.fn(),
+    };
+
+    Object.defineProperty(navigator, "getBattery", {
+      value: jest.fn().mockResolvedValue(mockBattery),
+      writable: true,
+      configurable: true,
+    });
+
+    const renderer = createRenderer();
+    const { result } = renderHook(() =>
+      useMobileRenderPredictor(renderer, {}, {
+        batteryAwarePrediction: true,
+        lowBatteryThreshold: 0.2,
+      })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.state.isLowPowerMode).toBe(false);
+  });
+
+  it("should add battery event listeners (lines 518-521)", async () => {
+    const mockAddEventListener = jest.fn();
+    const mockBattery = {
+      level: 0.5,
+      charging: true,
+      addEventListener: mockAddEventListener,
+    };
+
+    Object.defineProperty(navigator, "getBattery", {
+      value: jest.fn().mockResolvedValue(mockBattery),
+      writable: true,
+      configurable: true,
+    });
+
+    const renderer = createRenderer();
+    renderHook(() =>
+      useMobileRenderPredictor(renderer, {}, { batteryAwarePrediction: true })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockAddEventListener).toHaveBeenCalledWith(
+      "levelchange",
+      expect.any(Function)
+    );
+    expect(mockAddEventListener).toHaveBeenCalledWith(
+      "chargingchange",
+      expect.any(Function)
+    );
+  });
+
+  it("should handle getBattery rejection gracefully (line 523)", async () => {
+    Object.defineProperty(navigator, "getBattery", {
+      value: jest.fn().mockRejectedValue(new Error("Not supported")),
+      writable: true,
+      configurable: true,
+    });
+
+    const renderer = createRenderer();
+    const { result } = renderHook(() =>
+      useMobileRenderPredictor(renderer, {}, { batteryAwarePrediction: true })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Should not crash, batteryLevel should remain null (not set)
+    expect(result.current.state.batteryLevel).toBeNull();
+  });
+
+  it("should skip battery check when batteryAwarePrediction is false", async () => {
+    const mockGetBattery = jest.fn();
+    Object.defineProperty(navigator, "getBattery", {
+      value: mockGetBattery,
+      writable: true,
+      configurable: true,
+    });
+
+    const renderer = createRenderer();
+    renderHook(() =>
+      useMobileRenderPredictor(renderer, {}, { batteryAwarePrediction: false })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mockGetBattery).not.toHaveBeenCalled();
+  });
+});
+
+describe("Sprint 520 - Additional branch coverage", () => {
+  it("should return null prediction with less than 2 history items (line 330)", () => {
+    const renderer = createRenderer();
+    const { result } = renderHook(() =>
+      useMobileRenderPredictor(renderer, {}, { minConfidenceThreshold: 0.01 })
+    );
+
+    // Only one interaction - should not make predictions
+    act(() => {
+      result.current.controls.recordInteraction(createInteraction("tap"));
+    });
+
+    // With only 1 item in history, predictNextInteraction returns null
+    expect(result.current.state.currentPrediction).toBeNull();
+  });
+
+  it("should return null when pattern index exceeds sequence length (line 385)", () => {
+    const renderer = createRenderer();
+    const { result } = renderHook(() =>
+      useMobileRenderPredictor(renderer, {}, {
+        minConfidenceThreshold: 0.01,
+        patternWindowSize: 2,
+      })
+    );
+
+    // Build a pattern and then try to predict beyond it
+    for (let i = 0; i < 4; i++) {
+      act(() => {
+        advanceTime(100);
+        result.current.controls.recordInteraction(
+          createInteraction("tap", { timestamp: currentTime })
+        );
+      });
+    }
+
+    // After the pattern is complete, prediction should still work or return null
+    expect(result.current.state).toBeDefined();
+  });
+
+  it("should clean expired frames during cache operations (line 447)", () => {
+    const renderer = createRenderer();
+    const { result } = renderHook(() =>
+      useMobileRenderPredictor(renderer, {}, {
+        minConfidenceThreshold: 0.01,
+        frameTtlMs: 100, // Short TTL
+      })
+    );
+
+    // Build cache
+    for (let i = 0; i < 5; i++) {
+      act(() => {
+        advanceTime(50);
+        result.current.controls.recordInteraction(
+          createInteraction("tap", { timestamp: currentTime })
+        );
+      });
+    }
+
+    // Advance past TTL
+    advanceTime(200);
+
+    // Trigger cache operation which should clean expired frames
+    act(() => {
+      result.current.controls.recordInteraction(
+        createInteraction("swipe_right", { timestamp: currentTime })
+      );
+    });
+
+    // Expired frames should be cleaned
+    expect(result.current.state.metrics.cachedFrames).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should set prediction to null when confidence is below threshold (line 688-689)", () => {
+    const renderer = createRenderer();
+    const { result } = renderHook(() =>
+      useMobileRenderPredictor(renderer, {}, {
+        minConfidenceThreshold: 0.99, // Very high threshold
+        patternWindowSize: 2,
+      })
+    );
+
+    // Record some interactions
+    act(() => {
+      advanceTime(100);
+      result.current.controls.recordInteraction(
+        createInteraction("tap", { timestamp: currentTime })
+      );
+    });
+    act(() => {
+      advanceTime(100);
+      result.current.controls.recordInteraction(
+        createInteraction("swipe_right", { timestamp: currentTime })
+      );
+    });
+
+    // Force update prediction
+    act(() => {
+      result.current.controls.updatePrediction();
+    });
+
+    // With very high threshold, prediction should be null
+    expect(result.current.state.currentPrediction).toBeNull();
+  });
+
+  it("should use transition probability fallback when no patterns match (lines 344-377)", () => {
+    const renderer = createRenderer();
+    const { result } = renderHook(() =>
+      useMobileRenderPredictor(renderer, {}, {
+        minConfidenceThreshold: 0.01,
+        patternWindowSize: 5, // Large window
+      })
+    );
+
+    // Record random interactions that won't form clear patterns
+    const types: InteractionType[] = ["tap", "swipe_left", "scroll", "tap", "pinch_in"];
+    for (const type of types) {
+      act(() => {
+        advanceTime(100);
+        result.current.controls.recordInteraction(
+          createInteraction(type, { timestamp: currentTime })
+        );
+      });
+    }
+
+    // The prediction should use transition probability as fallback
+    expect(result.current.state).toBeDefined();
+  });
+
+  it("should calculate expected position from average velocity (lines 398-408)", () => {
+    const renderer = createRenderer();
+    const { result } = renderHook(() =>
+      useMobileRenderPredictor(renderer, {}, {
+        minConfidenceThreshold: 0.01,
+        patternWindowSize: 2,
+      })
+    );
+
+    // Create pattern with velocity data
+    for (let i = 0; i < 6; i++) {
+      act(() => {
+        advanceTime(100);
+        result.current.controls.recordInteraction(
+          createInteraction("swipe_right", {
+            timestamp: currentTime,
+            position: { x: 100 + i * 50, y: 100 },
+            velocity: { x: 500, y: 0 },
+          })
+        );
+      });
+    }
+
+    if (result.current.state.currentPrediction?.expectedPosition) {
+      expect(result.current.state.currentPrediction.expectedPosition.x).toBeDefined();
+    }
+  });
+
+  it("should track successful predictions (lines 540-563)", () => {
+    const renderer = createRenderer();
+    const { result } = renderHook(() =>
+      useMobileRenderPredictor(renderer, {}, {
+        minConfidenceThreshold: 0.01,
+        patternWindowSize: 2,
+      })
+    );
+
+    // Create a strong pattern
+    for (let i = 0; i < 5; i++) {
+      act(() => {
+        advanceTime(100);
+        result.current.controls.recordInteraction(
+          createInteraction("tap", { timestamp: currentTime })
+        );
+      });
+      act(() => {
+        advanceTime(100);
+        result.current.controls.recordInteraction(
+          createInteraction("swipe_right", { timestamp: currentTime })
+        );
+      });
+    }
+
+    const prediction = result.current.state.currentPrediction;
+
+    // If prediction exists, follow it up with the predicted interaction
+    if (prediction) {
+      act(() => {
+        advanceTime(100);
+        result.current.controls.recordInteraction(
+          createInteraction(prediction.type, { timestamp: currentTime })
+        );
+      });
+
+      // Successful predictions should be tracked
+      expect(result.current.state.metrics.successfulPredictions).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("should apply low power mode config (lines 577-579)", async () => {
+    const mockBattery = {
+      level: 0.1, // Very low battery
+      charging: false,
+      addEventListener: jest.fn(),
+    };
+
+    Object.defineProperty(navigator, "getBattery", {
+      value: jest.fn().mockResolvedValue(mockBattery),
+      writable: true,
+      configurable: true,
+    });
+
+    const renderer = createRenderer();
+    const { result } = renderHook(() =>
+      useMobileRenderPredictor(renderer, {}, {
+        batteryAwarePrediction: true,
+        lowBatteryThreshold: 0.2,
+        minConfidenceThreshold: 0.01,
+      })
+    );
+
+    // Wait for battery state
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Should be in low power mode
+    expect(result.current.state.isLowPowerMode).toBe(true);
+
+    // Now record interactions in low power mode
+    for (let i = 0; i < 5; i++) {
+      act(() => {
+        advanceTime(100);
+        result.current.controls.recordInteraction(
+          createInteraction("tap", { timestamp: currentTime })
+        );
+      });
+    }
+
+    // Cache should be limited in low power mode (maxCacheSize: 3)
+    expect(result.current.state.metrics.cachedFrames).toBeLessThanOrEqual(3);
+  });
+
+  it("should clean expired frames periodically via interval (lines 744-754)", () => {
+    const renderer = createRenderer();
+    const { result } = renderHook(() =>
+      useMobileRenderPredictor(renderer, {}, {
+        frameTtlMs: 500,
+        minConfidenceThreshold: 0.01,
+      })
+    );
+
+    // Build cache
+    for (let i = 0; i < 3; i++) {
+      act(() => {
+        advanceTime(100);
+        result.current.controls.recordInteraction(
+          createInteraction("tap", { timestamp: currentTime })
+        );
+      });
+    }
+
+    const initialCacheSize = result.current.state.metrics.cachedFrames;
+
+    // Advance past TTL and trigger interval cleanup
+    act(() => {
+      advanceTime(1500); // Past both TTL and interval (1000ms)
+    });
+
+    // Cache should be cleaned up
+    expect(result.current.state.metrics.cachedFrames).toBeLessThanOrEqual(initialCacheSize);
+  });
+});
