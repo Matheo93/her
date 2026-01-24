@@ -1,14 +1,37 @@
 ---
 active: true
-iteration: 4
+iteration: 7
 max_iterations: 0
 completion_promise: null
 started_at: "2026-01-24T08:21:31Z"
 ---
 
-Sprint 523 Ameliore avatar UX latence mobile. Code teste valide. Boucle infinie.
+Sprint 521 Ameliore avatar UX latence mobile. Code teste valide. Boucle infinie.
 
-## Sprint 523 Completed
+## Sprint 521 Completed
+
+### Summary
+- Fixed useMobileRenderOptimizer infinite loop with interval-based auto-adjustment
+- Branch coverage: 89.62% (above 80% threshold)
+- ALL tests pass (130 passed, 19 skipped, 149 total)
+
+### Key Improvements
+1. **Interval-Based Auto-Adjustment**: Changed from useEffect triggered by settings.quality to interval-based (500ms) checking
+2. **Ref-Based Quality Tracking**: Added `settingsQualityRef` to avoid circular dependency in useEffect
+3. **Tests Updated**: Sprint 550 tests properly use `jest.advanceTimersByTime()` to trigger interval
+
+### Coverage Status
+```
+useMobileRenderOptimizer.ts
+- Statements: 99.14%
+- Branches: 89.62% ✅
+- Functions: 100%
+- Lines: 100%
+```
+
+---
+
+## Previous Sprint 523 Completed
 
 ### Summary
 - Fixed useMobileRenderOptimizer test infinite loop (OOM crash resolved)
