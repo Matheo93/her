@@ -2,6 +2,45 @@
 
 ---
 
+## Sprint 554 (BACKEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - test_ollama_keepalive.py
+
+**Ce que j'ai fait:**
+1. **Expandé les tests de 15 à 38** pour ollama_keepalive.py (294 lignes)
+2. **Nouveaux tests couvrent:** Warmup burst (request count, heavy mode, success/failure), keepalive loop (cancellation), start/stop keepalive (task creation, config updates), warmup on startup (success, failure, config), heavy/light warmup modes, prompt variation, latency tracking/threshold, HTTP client creation, warm state transitions, API request format validation
+3. **Correction de tests async** - ajout de @pytest.mark.asyncio pour start_keepalive qui créé une Task
+4. **Tests bien organisés** en 13 classes de test thématiques
+
+**Note: 7/10**
+
+**Points positifs:**
+- Tests étendus de 15 à 38, plus que doublés
+- Bonne couverture des cas edge (cancellation, client creation)
+- Tests des transitions d'état (cold → warm, stays cold)
+- Validation du format de requête API
+- Tous les 38 tests passent
+
+**Points négatifs (sois HONNÊTE):**
+- Problèmes de fork/resource ont ralenti le développement encore une fois
+- Module déjà testé, donc ajout de tests plutôt que création complète
+- Certains tests dépendent fortement des mocks (moins de tests d'intégration)
+- Pas de tests pour la boucle keepalive complète (complexe avec async)
+
+**Ce que j'aurais dû faire différemment:**
+- Choisir un module sans tests du tout au lieu d'en étendre un existant
+- Ajouter des tests pour le comportement de la boucle avec latency spikes
+
+**Risques introduits:**
+- Aucun risque - tests seulement
+
+**Amélioration pour le prochain sprint:**
+- Sprint 555 FRONTEND - Alterner vers frontend
+- Trouver un hook sans tests (pas d'extension)
+
+---
+
 ## Sprint 553 (FRONTEND) - Autocritique
 
 **Date:** 2026-01-24
