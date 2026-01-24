@@ -256,7 +256,7 @@ describe("useAvatarAttentionSystem", () => {
     it("should focus on target by id", () => {
       const { result } = renderHook(() => useAvatarAttentionSystem(createTestConfig()));
 
-      let targetId: string;
+      let targetId = "";
       act(() => {
         targetId = result.current.controls.addTarget({
           type: "user_face",
