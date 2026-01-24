@@ -484,27 +484,28 @@ describe("Mobile Avatar Integration Tests", () => {
     });
 
     it("should handle concurrent hook unmounts gracefully", () => {
-      const hooks = [
-        renderHook(() => useAvatarTouchAnimationSync()),
-        renderHook(() => useAvatarGestureResponseAccelerator()),
-        renderHook(() => useAvatarStateCache()),
-        renderHook(() => useAvatarFrameBudget()),
-      ];
+      const touchSync = renderHook(() => useAvatarTouchAnimationSync());
+      const gestureAccelerator = renderHook(() => useAvatarGestureResponseAccelerator());
+      const stateCache = renderHook(() => useAvatarStateCache());
+      const frameBudget = renderHook(() => useAvatarFrameBudget());
 
       // Schedule work on all
       act(() => {
-        hooks[0].result.current.controls.onTouchStart({ x: 100, y: 100 });
-        hooks[1].result.current.controls.recognizeGesture({
+        touchSync.result.current.controls.onTouchStart({ x: 100, y: 100 });
+        gestureAccelerator.result.current.controls.recognizeGesture({
           type: "tap",
           position: { x: 100, y: 100 },
           timestamp: mockTime,
         });
-        hooks[2].result.current.updateSpeaking(true);
-        hooks[3].result.current.controls.startWork("test");
+        stateCache.result.current.updateSpeaking(true);
+        frameBudget.result.current.controls.startWork("test");
       });
 
       // Unmount all at once
-      hooks.forEach((hook) => hook.unmount());
+      touchSync.unmount();
+      gestureAccelerator.unmount();
+      stateCache.unmount();
+      frameBudget.unmount();
 
       // No errors = success
     });
