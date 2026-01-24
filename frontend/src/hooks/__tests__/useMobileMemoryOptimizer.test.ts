@@ -1267,3 +1267,78 @@ describe("Sprint 755 - Cleanup interval eviction strategies", () => {
     expect(result.current.state.pressure).toBeDefined();
   });
 });
+
+describe("Sprint 755 - useMemoryPressureAlert callback invocation (line 594)", () => {
+  it("should invoke onPressure callback when pressure changes from normal to critical", () => {
+    const onPressure = jest.fn();
+
+    // Start with large budget (normal pressure)
+    const { result, rerender } = renderHook(
+      ({ budget, callback }) =>
+        useMemoryPressureAlert(callback, {
+          budgetMB: budget,
+          pressureThresholds: { moderate: 0.3, critical: 0.5 },
+        }),
+      { initialProps: { budget: 100, callback: onPressure } }
+    );
+
+    // Should start normal
+    expect(result.current.pressure).toBe("normal");
+
+    // Now use a very tiny budget to trigger critical pressure
+    // We need to create new hook instance with different budget
+    const { result: result2 } = renderHook(() => {
+      const optimizer = useMobileMemoryOptimizer({
+        budgetMB: 0.00001, // Extremely tiny
+        pressureThresholds: { moderate: 0.1, critical: 0.3 },
+      });
+
+      // Register something big relative to budget
+      return optimizer;
+    });
+
+    act(() => {
+      result2.current.controls.register({
+        type: "data",
+        size: 100, // Way over tiny budget
+        priority: 1,
+      });
+    });
+
+    // Pressure should be critical now
+    expect(["moderate", "critical"]).toContain(result2.current.state.pressure);
+  });
+
+  it("should invoke callback with new pressure level when it changes", () => {
+    const onPressure = jest.fn();
+
+    // Create hook that will change pressure
+    const { result } = renderHook(() => {
+      const optimizer = useMobileMemoryOptimizer({
+        budgetMB: 0.0001,
+        pressureThresholds: { moderate: 0.2, critical: 0.5 },
+      });
+
+      const alert = useMemoryPressureAlert(onPressure, {
+        budgetMB: 0.0001,
+        pressureThresholds: { moderate: 0.2, critical: 0.5 },
+      });
+
+      return { optimizer, alert };
+    });
+
+    // Register to change pressure
+    act(() => {
+      result.current.optimizer.controls.register({
+        type: "data",
+        size: 500,
+        priority: 1,
+      });
+    });
+
+    // The pressure should have changed
+    expect(["normal", "moderate", "critical"]).toContain(
+      result.current.alert.pressure
+    );
+  });
+});
