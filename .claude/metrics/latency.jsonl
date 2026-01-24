@@ -37,3 +37,8 @@
 {"ts": "2026-01-23T22:37:49.087942", "metric": "e2e_latency", "value": 101.09918378293514, "tags": {"endpoint": "/chat"}}
 {"ts": "2026-01-23T23:19:05.630981", "metric": "e2e_latency", "value": 111.55865155160427, "tags": {"endpoint": "/chat"}}
 {"ts": "2026-01-23T23:26:50.666067", "metric": "e2e_latency", "value": 302.0023424178362, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-24T00:12:49.123517", "metric": "e2e_latency", "value": 3315.152332186699, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-24T00:12:49.432376", "metric": "e2e_latency", "value": 4683.595422655344, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-24T00:12:49.573772", "metric": "e2e_latency", "value": 4695.0919749215245, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-24T00:12:59.364852", "metric": "e2e_latency", "value": 1680.67267537117, "tags": {"endpoint": "/chat"}}
+{"ts": "2026-01-24T00:13:09.473872", "metric": "e2e_latency", "value": 5252.788316458464, "tags": {"endpoint": "/chat"}}
