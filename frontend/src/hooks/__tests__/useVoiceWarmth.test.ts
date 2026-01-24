@@ -14,14 +14,33 @@ import {
 import type { WarmthLevel, EmotionalWarmthState } from "../useEmotionalWarmth";
 
 // Default options for testing
-const createDefaultOptions = () => ({
+import type { ReunionVoiceBoost } from "../useVoiceWarmth";
+
+const createDefaultOptions = (): {
+  warmthLevel: WarmthLevel;
+  warmthNumeric: number;
+  voiceHints: {
+    softnessLevel: number;
+    paceAdjustment: number;
+    pitchVariance: number;
+    breathiness: number;
+  };
+  currentEmotion: string;
+  emotionalIntensity: number;
+  isListening: boolean;
+  isSpeaking: boolean;
+  isIdle: boolean;
+  isProactive: boolean;
+  enabled: boolean;
+  reunionVoiceBoost?: ReunionVoiceBoost;
+} => ({
   warmthLevel: "neutral" as WarmthLevel,
   warmthNumeric: 0,
   voiceHints: {
-    breathiness: 0,
+    softnessLevel: 0,
     paceAdjustment: 0,
     pitchVariance: 0,
-    pauseLength: "short" as const,
+    breathiness: 0,
   },
   currentEmotion: "neutral",
   emotionalIntensity: 0.5,
@@ -282,7 +301,7 @@ describe("useVoiceWarmth", () => {
         breathiness: 0.5,
         paceAdjustment: 0,
         pitchVariance: 0,
-        pauseLength: "short",
+        softnessLevel: 0,
       };
 
       const { result } = renderHook(() => useVoiceWarmth(options));
@@ -296,7 +315,7 @@ describe("useVoiceWarmth", () => {
         breathiness: 0,
         paceAdjustment: -0.1, // 10% slower
         pitchVariance: 0,
-        pauseLength: "short",
+        softnessLevel: 0,
       };
 
       const { result } = renderHook(() => useVoiceWarmth(options));
@@ -414,10 +433,10 @@ describe("applyVoiceWarmthToText", () => {
       volume: 0.9,
       breathiness: 0,
       emphasis: 0.5,
-      addBreaths: true,
-      addPauses: true,
-      addHesitations: true,
-      softStart: true,
+      addBreaths: false,
+      addPauses: false,
+      addHesitations: false,
+      softStart: false,
       voiceStyle: "normal",
     };
 
