@@ -685,3 +685,299 @@ describe("Sprint 523 - Cleanup on unmount (line 773)", () => {
     }).not.toThrow();
   });
 });
+
+// ============================================================================
+// Sprint 543 - Direct internal function tests for branch coverage
+// ============================================================================
+
+import { __test__ } from "../useTouchResponsePredictor";
+const {
+  initKalmanState,
+  kalmanPredict,
+  kalmanUpdate,
+  DEFAULT_CONFIG,
+  DEFAULT_METRICS,
+} = __test__;
+
+describe("Sprint 543 - Kalman filter direct tests", () => {
+  describe("initKalmanState", () => {
+    it("should initialize with given position", () => {
+      const state = initKalmanState({ x: 100, y: 200 });
+
+      expect(state.x).toBe(100);
+      expect(state.y).toBe(200);
+      expect(state.vx).toBe(0);
+      expect(state.vy).toBe(0);
+      expect(state.ax).toBe(0);
+      expect(state.ay).toBe(0);
+    });
+
+    it("should initialize covariance matrix as identity", () => {
+      const state = initKalmanState({ x: 0, y: 0 });
+
+      expect(state.covariance.length).toBe(6);
+      expect(state.covariance[0][0]).toBe(1);
+      expect(state.covariance[1][1]).toBe(1);
+      expect(state.covariance[0][1]).toBe(0);
+    });
+  });
+
+  describe("kalmanPredict", () => {
+    it("should predict position based on velocity and acceleration", () => {
+      const state = initKalmanState({ x: 100, y: 100 });
+      state.vx = 10;
+      state.vy = 5;
+      state.ax = 1;
+      state.ay = 0.5;
+
+      const dt = 0.016;
+      const predicted = kalmanPredict(state, dt, 0.1);
+
+      const expectedX = 100 + 10 * 0.016 + 0.5 * 1 * 0.016 * 0.016;
+      expect(predicted.x).toBeCloseTo(expectedX, 5);
+
+      const expectedVx = 10 + 1 * 0.016;
+      expect(predicted.vx).toBeCloseTo(expectedVx, 5);
+    });
+
+    it("should add process noise to covariance", () => {
+      const state = initKalmanState({ x: 0, y: 0 });
+      const processNoise = 0.5;
+
+      const predicted = kalmanPredict(state, 0.016, processNoise);
+
+      expect(predicted.covariance[0][0]).toBe(1 + processNoise);
+      expect(predicted.covariance[0][1]).toBe(0);
+    });
+
+    it("should preserve acceleration", () => {
+      const state = initKalmanState({ x: 0, y: 0 });
+      state.ax = 2;
+      state.ay = 3;
+
+      const predicted = kalmanPredict(state, 0.016, 0.1);
+
+      expect(predicted.ax).toBe(2);
+      expect(predicted.ay).toBe(3);
+    });
+  });
+
+  describe("kalmanUpdate", () => {
+    it("should update position based on measurement", () => {
+      const state = initKalmanState({ x: 100, y: 100 });
+      const measurement = { x: 110, y: 105 };
+
+      const updated = kalmanUpdate(state, measurement, 0.5);
+
+      expect(updated.x).toBeGreaterThan(100);
+      expect(updated.x).toBeLessThanOrEqual(110);
+      expect(updated.y).toBeGreaterThan(100);
+      expect(updated.y).toBeLessThanOrEqual(105);
+    });
+
+    it("should update velocity based on innovation", () => {
+      const state = initKalmanState({ x: 100, y: 100 });
+      state.vx = 0;
+      state.vy = 0;
+      const measurement = { x: 120, y: 110 };
+
+      const updated = kalmanUpdate(state, measurement, 0.5);
+
+      expect(updated.vx).toBeGreaterThan(0);
+      expect(updated.vy).toBeGreaterThan(0);
+    });
+
+    it("should calculate acceleration from velocity change", () => {
+      const state = initKalmanState({ x: 100, y: 100 });
+      state.vx = 5;
+      state.vy = 5;
+      const measurement = { x: 130, y: 120 };
+
+      const updated = kalmanUpdate(state, measurement, 0.5);
+
+      expect(updated.ax).toBeDefined();
+      expect(updated.ay).toBeDefined();
+    });
+
+    it("should reduce covariance after update", () => {
+      const state = initKalmanState({ x: 0, y: 0 });
+      const measurement = { x: 10, y: 10 };
+
+      const updated = kalmanUpdate(state, measurement, 0.5);
+
+      expect(updated.covariance[0][0]).toBeLessThan(state.covariance[0][0]);
+    });
+  });
+});
+
+describe("Sprint 543 - Intent recognition edge cases", () => {
+  const createTouchSample = (x: number, y: number, time?: number): TouchSample => ({
+    position: { x, y },
+    timestamp: time ?? mockTime,
+    pressure: 1,
+    identifier: 0,
+  });
+
+  it("should recognize swipe left correctly", () => {
+    const { result } = renderHook(() => useTouchResponsePredictor());
+
+    act(() => {
+      mockTime = 0;
+      result.current.controls.onTouchStart(createTouchSample(300, 100, 0));
+    });
+
+    act(() => {
+      mockTime = 16;
+      result.current.controls.processSample(createTouchSample(250, 100, 16));
+      mockTime = 32;
+      result.current.controls.processSample(createTouchSample(200, 100, 32));
+      mockTime = 48;
+      result.current.controls.processSample(createTouchSample(100, 100, 48));
+    });
+
+    const intent = result.current.controls.getIntentPrediction();
+    expect(intent).not.toBeNull();
+    expect(["swipeLeft", "pan"]).toContain(intent?.intent);
+  });
+
+  it("should recognize swipe up correctly", () => {
+    const { result } = renderHook(() => useTouchResponsePredictor());
+
+    act(() => {
+      mockTime = 0;
+      result.current.controls.onTouchStart(createTouchSample(100, 300, 0));
+    });
+
+    act(() => {
+      mockTime = 16;
+      result.current.controls.processSample(createTouchSample(100, 250, 16));
+      mockTime = 32;
+      result.current.controls.processSample(createTouchSample(100, 200, 32));
+      mockTime = 48;
+      result.current.controls.processSample(createTouchSample(100, 100, 48));
+    });
+
+    const intent = result.current.controls.getIntentPrediction();
+    expect(intent).not.toBeNull();
+    expect(["swipeUp", "pan"]).toContain(intent?.intent);
+  });
+
+  it("should recognize swipe down correctly", () => {
+    const { result } = renderHook(() => useTouchResponsePredictor());
+
+    act(() => {
+      mockTime = 0;
+      result.current.controls.onTouchStart(createTouchSample(100, 100, 0));
+    });
+
+    act(() => {
+      mockTime = 16;
+      result.current.controls.processSample(createTouchSample(100, 150, 16));
+      mockTime = 32;
+      result.current.controls.processSample(createTouchSample(100, 200, 32));
+      mockTime = 48;
+      result.current.controls.processSample(createTouchSample(100, 300, 48));
+    });
+
+    const intent = result.current.controls.getIntentPrediction();
+    expect(intent).not.toBeNull();
+    expect(["swipeDown", "pan"]).toContain(intent?.intent);
+  });
+
+  it("should detect long press after threshold", () => {
+    const { result } = renderHook(() => useTouchResponsePredictor());
+
+    act(() => {
+      mockTime = 0;
+      result.current.controls.onTouchStart(createTouchSample(100, 100, 0));
+    });
+
+    act(() => {
+      mockTime = 600;
+      result.current.controls.processSample(createTouchSample(102, 101, 600));
+    });
+
+    const intent = result.current.controls.getIntentPrediction();
+    expect(intent?.intent).toBe("longPress");
+    expect(intent?.confidence).toBeGreaterThanOrEqual(0.9);
+  });
+
+  it("should calculate velocity with zero dt", () => {
+    const { result } = renderHook(() => useTouchResponsePredictor());
+
+    act(() => {
+      mockTime = 0;
+      result.current.controls.processSample(createTouchSample(100, 100, 0));
+      result.current.controls.processSample(createTouchSample(110, 110, 0));
+    });
+
+    expect(result.current.state.prediction).toBeDefined();
+  });
+});
+
+describe("Sprint 543 - Cache operations", () => {
+  const createTouchSample = (x: number, y: number, time?: number): TouchSample => ({
+    position: { x, y },
+    timestamp: time ?? mockTime,
+    pressure: 1,
+    identifier: 0,
+  });
+
+  it("should track cache miss when no response exists", () => {
+    const { result } = renderHook(() => useTouchResponsePredictor());
+
+    const cached = result.current.controls.getCachedResponse("tap");
+
+    expect(cached).toBeNull();
+    expect(result.current.state.metrics.cacheMisses).toBeGreaterThanOrEqual(1);
+  });
+
+  it("should clear prediction state", () => {
+    const { result } = renderHook(() => useTouchResponsePredictor());
+
+    act(() => {
+      result.current.controls.processSample(createTouchSample(100, 100));
+    });
+
+    expect(result.current.state.prediction).not.toBeNull();
+
+    act(() => {
+      result.current.controls.clearPrediction();
+    });
+
+    expect(result.current.state.prediction).toBeNull();
+  });
+
+  it("should reset metrics", () => {
+    const { result } = renderHook(() => useTouchResponsePredictor());
+
+    act(() => {
+      result.current.controls.processSample(createTouchSample(100, 100));
+    });
+
+    expect(result.current.state.metrics.samplesProcessed).toBeGreaterThan(0);
+
+    act(() => {
+      result.current.controls.resetMetrics();
+    });
+
+    expect(result.current.state.metrics.samplesProcessed).toBe(0);
+  });
+});
+
+describe("Sprint 543 - Default config and metrics", () => {
+  it("should have sensible default config values", () => {
+    expect(DEFAULT_CONFIG.predictionHorizonMs).toBe(50);
+    expect(DEFAULT_CONFIG.minConfidence).toBe(0.6);
+    expect(DEFAULT_CONFIG.sampleHistorySize).toBe(10);
+    expect(DEFAULT_CONFIG.enableKalmanFilter).toBe(true);
+    expect(DEFAULT_CONFIG.tapThreshold).toBe(10);
+  });
+
+  it("should have zeroed default metrics", () => {
+    expect(DEFAULT_METRICS.samplesProcessed).toBe(0);
+    expect(DEFAULT_METRICS.predictionsGenerated).toBe(0);
+    expect(DEFAULT_METRICS.cacheHits).toBe(0);
+    expect(DEFAULT_METRICS.cacheMisses).toBe(0);
+  });
+});
