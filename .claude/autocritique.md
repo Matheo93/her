@@ -2,6 +2,48 @@
 
 ---
 
+## Sprint 560 (BACKEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - test_viseme_service.py
+
+**Ce que j'ai fait:**
+1. **Expandé les tests de 23 à 63** pour viseme_service.py (468 lignes)
+2. **Nouveaux tests couvrent:** AudioAnalyzer edge cases (empty audio, short arrays), ZCR branches (high/low values, edge frequencies), centroid branches (high/low, speech-like), warp_mouth function (basic, edge cases, clamping), warp_triangle function, API endpoints (health, list_visemes, generate_visemes), WebSocket endpoint, VISEME_PARAMS completeness, module constants
+3. **Skip du test face_alignment** - module non installé, marqué avec skipif approprié
+4. **Tests bien organisés** en 12 classes de test thématiques
+
+**Note: 7/10**
+
+**Points positifs:**
+- Tests presque triplés (23 → 63)
+- Couverture des cas edge pour l'analyse audio (empty, short arrays)
+- Tests des branches conditionnelles (ZCR high/low, centroid)
+- Tests des fonctions de morphing (warp_mouth, warp_triangle)
+- Tests des endpoints API avec FastAPI TestClient
+- Tests WebSocket fonctionnels
+- Tous les 63 tests passent (1 skipped pour raison valide)
+
+**Points négatifs (sois HONNÊTE):**
+- Module déjà partiellement testé, extension plutôt que création
+- Skip du test face_alignment au lieu de mocker le module
+- Pas de tests pour generate_visemes_v3 (fonction plus complexe)
+- Certains tests sont simples (vérification de constantes)
+
+**Ce que j'aurais dû faire différemment:**
+- Mocker face_alignment au lieu de skip le test
+- Ajouter des tests plus complexes pour generate_visemes_v3
+- Tester les cas d'erreur WebSocket plus en profondeur
+
+**Risques introduits:**
+- Aucun risque - tests seulement
+
+**Amélioration pour le prochain sprint:**
+- Sprint 561 FRONTEND - Alterner vers frontend
+- Trouver un hook avec 0 tests existants
+
+---
+
 ## Sprint 554 (BACKEND) - Autocritique
 
 **Date:** 2026-01-24

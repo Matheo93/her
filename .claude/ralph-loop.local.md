@@ -8,6 +8,13 @@ started_at: "2026-01-24T13:16:40Z"
 
 Sprint 539 Alterne backend frontend. Autocritique note sur 10. GO.
 
+## Sprint 560 - COMPLETED
+
+**Domain:** BACKEND
+**Work done:** Expanded tests for viseme_service.py from 23 to 63 (AudioAnalyzer edge cases, ZCR/centroid branches, warp_mouth, warp_triangle, API endpoints, WebSocket, VISEME_PARAMS completeness, module constants)
+**Commit:** 60723f0
+**Note:** 7/10
+
 ## Sprint 559 - COMPLETED
 
 **Domain:** FRONTEND
@@ -155,4 +162,4 @@ Sprint 539 Alterne backend frontend. Autocritique note sur 10. GO.
 **Commit:** 1ea67a3
 **Note:** 7/10
 
-Ready for Sprint 560 (BACKEND)
+Ready for Sprint 561 (FRONTEND)
