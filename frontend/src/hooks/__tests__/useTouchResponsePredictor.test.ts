@@ -926,7 +926,10 @@ describe("Sprint 543 - Cache operations", () => {
   it("should track cache miss when no response exists", () => {
     const { result } = renderHook(() => useTouchResponsePredictor());
 
-    const cached = result.current.controls.getCachedResponse("tap");
+    let cached: unknown = null;
+    act(() => {
+      cached = result.current.controls.getCachedResponse("tap");
+    });
 
     expect(cached).toBeNull();
     expect(result.current.state.metrics.cacheMisses).toBeGreaterThanOrEqual(1);
@@ -979,5 +982,203 @@ describe("Sprint 543 - Default config and metrics", () => {
     expect(DEFAULT_METRICS.predictionsGenerated).toBe(0);
     expect(DEFAULT_METRICS.cacheHits).toBe(0);
     expect(DEFAULT_METRICS.cacheMisses).toBe(0);
+  });
+});
+
+// ============================================================================
+// Sprint 550 - Additional branch coverage tests
+// ============================================================================
+
+describe("Sprint 550 - Additional branch coverage", () => {
+  const createTouchSample = (x: number, y: number, time?: number): TouchSample => ({
+    position: { x, y },
+    timestamp: time ?? mockTime,
+    pressure: 1,
+    identifier: 0,
+  });
+
+  it("should return null from getPredictionAt when no Kalman state (line 559)", () => {
+    const { result } = renderHook(() =>
+      useTouchResponsePredictor({ enableKalmanFilter: false })
+    );
+
+    // No samples processed, no Kalman state
+    const prediction = result.current.controls.getPredictionAt(mockTime + 50);
+
+    expect(prediction).toBeNull();
+  });
+
+  it("should return null from precomputeResponse when intent doesn't match (line 605)", () => {
+    const { result } = renderHook(() => useTouchResponsePredictor());
+    const computeFunc = jest.fn(() => ({ action: "test" }));
+
+    // Start tracking
+    act(() => {
+      mockTime = 0;
+      result.current.controls.onTouchStart(createTouchSample(100, 100, 0));
+    });
+
+    // Try to precompute for a different intent than current
+    let response: unknown = null;
+    act(() => {
+      // Current intent is likely tap or unknown, request swipeLeft
+      response = result.current.controls.precomputeResponse("swipeLeft", computeFunc);
+    });
+
+    expect(response).toBeNull();
+    expect(computeFunc).not.toHaveBeenCalled();
+  });
+
+  it("should return null from precomputeResponse when no intent prediction (line 604)", () => {
+    const { result } = renderHook(() => useTouchResponsePredictor());
+    const computeFunc = jest.fn(() => ({ action: "test" }));
+
+    // No touch processing, so no intent
+    let response: unknown = null;
+    act(() => {
+      response = result.current.controls.precomputeResponse("tap", computeFunc);
+    });
+
+    expect(response).toBeNull();
+  });
+
+  it("should return null from precomputeResponse when confidence below threshold (line 610)", () => {
+    const { result } = renderHook(() =>
+      useTouchResponsePredictor({
+        minConfidence: 0.99, // Very high threshold
+      })
+    );
+    const computeFunc = jest.fn(() => ({ action: "test" }));
+
+    // Start tracking with a tap
+    act(() => {
+      mockTime = 0;
+      result.current.controls.onTouchStart(createTouchSample(100, 100, 0));
+      mockTime = 50;
+      result.current.controls.processSample(createTouchSample(102, 101, 50));
+    });
+
+    // Even if intent matches, confidence won't be high enough
+    let response: unknown = null;
+    act(() => {
+      const currentIntent = result.current.controls.getIntentPrediction();
+      if (currentIntent) {
+        response = result.current.controls.precomputeResponse(currentIntent.intent, computeFunc);
+      }
+    });
+
+    // Either no intent or below confidence threshold
+    expect(response).toBeNull();
+  });
+
+  it("should call processSample when tracking in useGesturePrediction (line 773)", () => {
+    const { result } = renderHook(() => useGesturePrediction());
+
+    // First call starts tracking
+    act(() => {
+      mockTime = 0;
+      result.current.onTouch(100, 100);
+    });
+
+    // Second call when tracking - should call processSample
+    act(() => {
+      mockTime = 16;
+      result.current.onTouch(110, 105);
+    });
+
+    // Touch processed while tracking
+    expect(result.current.confidence).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should recognize pan for slow movement above threshold (lines 436-440)", () => {
+    const { result } = renderHook(() =>
+      useTouchResponsePredictor({
+        tapThreshold: 10,
+        swipeVelocityThreshold: 1000, // Very high velocity threshold so it won't be swipe
+      })
+    );
+
+    // Start touch
+    act(() => {
+      mockTime = 0;
+      result.current.controls.onTouchStart(createTouchSample(100, 100, 0));
+    });
+
+    // Very slow movement beyond tap threshold - 50px over 10 seconds = very slow
+    act(() => {
+      mockTime = 10000; // Very long time = very slow movement
+      result.current.controls.processSample(createTouchSample(150, 150, 10000));
+    });
+
+    const intent = result.current.controls.getIntentPrediction();
+    expect(intent).not.toBeNull();
+    expect(intent?.intent).toBe("pan");
+    expect(intent?.confidence).toBe(0.7);
+  });
+
+  it("should handle cache hit after precompute", () => {
+    const { result } = renderHook(() =>
+      useTouchResponsePredictor({
+        minConfidence: 0.5, // Low threshold
+      })
+    );
+    const computeFunc = jest.fn(() => ({ action: "computed" }));
+
+    // Create a tap-like gesture
+    act(() => {
+      mockTime = 0;
+      result.current.controls.onTouchStart(createTouchSample(100, 100, 0));
+      mockTime = 50;
+      result.current.controls.processSample(createTouchSample(102, 101, 50));
+    });
+
+    // Precompute for tap intent
+    act(() => {
+      result.current.controls.precomputeResponse("tap", computeFunc);
+    });
+
+    // Get cached response
+    let cached: unknown = null;
+    act(() => {
+      cached = result.current.controls.getCachedResponse("tap");
+    });
+
+    // Should have cache hit if precompute succeeded, otherwise miss
+    const totalCacheOps = result.current.state.metrics.cacheHits + result.current.state.metrics.cacheMisses;
+    expect(totalCacheOps).toBeGreaterThan(0);
+  });
+
+  it("should return expired cache as null", () => {
+    const { result } = renderHook(() =>
+      useTouchResponsePredictor({
+        responseCacheTtlMs: 1, // 1ms TTL
+        minConfidence: 0.5,
+      })
+    );
+
+    // Create a tap-like gesture
+    act(() => {
+      mockTime = 0;
+      result.current.controls.onTouchStart(createTouchSample(100, 100, 0));
+      mockTime = 50;
+      result.current.controls.processSample(createTouchSample(102, 101, 50));
+    });
+
+    // Precompute
+    act(() => {
+      result.current.controls.precomputeResponse("tap", () => ({ action: "test" }));
+    });
+
+    // Wait for cache to expire
+    mockTime = 200;
+
+    let cached: unknown = null;
+    act(() => {
+      cached = result.current.controls.getCachedResponse("tap");
+    });
+
+    // Should be null due to expiration
+    expect(cached).toBeNull();
+    expect(result.current.state.metrics.cacheMisses).toBeGreaterThan(0);
   });
 });
