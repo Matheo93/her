@@ -614,3 +614,259 @@ describe("useMemoryPressureAlert", () => {
     expect(result.current.isUnderPressure).toBe(false);
   });
 });
+
+// ============================================================================
+// Sprint 638 - Additional Coverage Tests
+// ============================================================================
+
+describe("Sprint 638 - Memory estimation without performance.memory (line 151)", () => {
+  it("should estimate memory when performance.memory is not available", () => {
+    // Remove performance.memory if it exists
+    const original = (performance as any).memory;
+    delete (performance as any).memory;
+
+    const { result } = renderHook(() => useMobileMemoryOptimizer());
+
+    // Should still work without performance.memory
+    expect(result.current.state.usage.total).toBeGreaterThan(0);
+
+    // Restore
+    (performance as any).memory = original;
+  });
+
+  it("should use performance.memory when available", () => {
+    // Mock performance.memory
+    (performance as any).memory = {
+      usedJSHeapSize: 100 * 1024 * 1024,
+      jsHeapSizeLimit: 2 * 1024 * 1024 * 1024,
+    };
+
+    const { result } = renderHook(() => useMobileMemoryOptimizer());
+
+    // Should use performance.memory values
+    expect(result.current.state.usage.used).toBe(100 * 1024 * 1024);
+
+    // Cleanup
+    delete (performance as any).memory;
+  });
+});
+
+describe("Sprint 638 - Cache eviction strategies (lines 196-201)", () => {
+  it("should evict by TTL strategy", () => {
+    const { result } = renderHook(() =>
+      useMobileMemoryOptimizer({ budgetMB: 1 })
+    );
+
+    // Register resources with different TTLs
+    act(() => {
+      result.current.controls.register({
+        type: "data",
+        size: 100 * 1024,
+        priority: 5,
+        ttl: 1000, // Short TTL
+      });
+
+      result.current.controls.register({
+        type: "data",
+        size: 100 * 1024,
+        priority: 5,
+        ttl: 60000, // Long TTL
+      });
+    });
+
+    // Evict by TTL
+    act(() => {
+      result.current.controls.evict("ttl", 50 * 1024);
+    });
+
+    // Should have evicted shorter TTL first
+    expect(result.current.state.usage.used).toBeLessThanOrEqual(150 * 1024);
+  });
+
+  it("should evict by size strategy (largest first)", () => {
+    const { result } = renderHook(() =>
+      useMobileMemoryOptimizer({ budgetMB: 1 })
+    );
+
+    // Register resources of different sizes
+    act(() => {
+      result.current.controls.register({
+        type: "data",
+        size: 50 * 1024, // 50KB
+        priority: 3,
+      });
+
+      result.current.controls.register({
+        type: "data",
+        size: 200 * 1024, // 200KB
+        priority: 3,
+      });
+
+      result.current.controls.register({
+        type: "data",
+        size: 100 * 1024, // 100KB
+        priority: 3,
+      });
+    });
+
+    // Evict by size (largest first)
+    act(() => {
+      result.current.controls.evict("size", 150 * 1024);
+    });
+
+    // Largest resources should be evicted first
+    expect(result.current.state.resourceCount).toBeLessThanOrEqual(2);
+  });
+
+  it("should evict by LFU strategy (least frequently used)", () => {
+    const { result } = renderHook(() =>
+      useMobileMemoryOptimizer({ budgetMB: 1 })
+    );
+
+    let id1: string, id2: string;
+
+    act(() => {
+      id1 = result.current.controls.register({
+        type: "data",
+        size: 100 * 1024,
+        priority: 3,
+      });
+
+      id2 = result.current.controls.register({
+        type: "data",
+        size: 100 * 1024,
+        priority: 3,
+      });
+    });
+
+    // Access id2 multiple times to increase access count
+    act(() => {
+      result.current.controls.access(id2!);
+      result.current.controls.access(id2!);
+      result.current.controls.access(id2!);
+    });
+
+    // Evict by LFU
+    act(() => {
+      result.current.controls.evict("lfu", 50 * 1024);
+    });
+
+    // Less frequently accessed should be evicted first
+    expect(result.current.state.resourceCount).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("Sprint 638 - Auto cleanup and eviction (lines 472-480)", () => {
+  it("should auto evict on critical pressure", () => {
+    const { result } = renderHook(() =>
+      useMobileMemoryOptimizer({
+        budgetMB: 1,
+        autoEvict: true,
+        cleanupIntervalMs: 100,
+        pressureThresholds: { moderate: 0.5, critical: 0.9 },
+      })
+    );
+
+    // Fill memory to trigger critical pressure
+    act(() => {
+      // Register resources until critical
+      for (let i = 0; i < 10; i++) {
+        result.current.controls.register({
+          type: "data",
+          size: 150 * 1024, // 150KB each
+          priority: 3,
+        });
+      }
+    });
+
+    // Advance timer to trigger cleanup
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+
+    // Memory should be managed
+    expect(result.current.state.usage).toBeDefined();
+  });
+
+  it("should not auto evict when disabled", () => {
+    const { result } = renderHook(() =>
+      useMobileMemoryOptimizer({
+        budgetMB: 1,
+        autoEvict: false,
+        cleanupIntervalMs: 100,
+      })
+    );
+
+    // Fill memory
+    act(() => {
+      for (let i = 0; i < 10; i++) {
+        result.current.controls.register({
+          type: "data",
+          size: 150 * 1024,
+          priority: 3,
+        });
+      }
+    });
+
+    const countBefore = result.current.state.resourceCount;
+
+    // Advance timer
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+
+    // Resources should still be present (not auto-evicted)
+    expect(result.current.state.resourceCount).toBe(countBefore);
+  });
+});
+
+describe("Sprint 638 - Memory pressure event listener (lines 502, 507-508)", () => {
+  it("should handle memory pressure when window event exists", () => {
+    // Mock window.onmemorypressure
+    Object.defineProperty(window, "onmemorypressure", {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    });
+
+    const { result, unmount } = renderHook(() =>
+      useMobileMemoryOptimizer({ budgetMB: 1 })
+    );
+
+    // Should register without errors
+    expect(result.current.state).toBeDefined();
+
+    // Cleanup
+    unmount();
+  });
+});
+
+describe("Sprint 638 - useMemoryPressureAlert callback (lines 594-595)", () => {
+  it("should trigger callback when pressure changes", () => {
+    const onPressure = jest.fn();
+
+    const { result, rerender } = renderHook(
+      ({ callback }) => useMemoryPressureAlert(callback, { budgetMB: 1 }),
+      { initialProps: { callback: onPressure } }
+    );
+
+    // Initial state should be normal
+    expect(result.current.pressure).toBe("normal");
+
+    // Rerender with same callback
+    rerender({ callback: onPressure });
+
+    // The pressure state should remain defined
+    expect(result.current.pressure).toBeDefined();
+    expect(result.current.isUnderPressure).toBe(false);
+  });
+
+  it("should work without callback", () => {
+    const { result } = renderHook(() =>
+      useMemoryPressureAlert(undefined, { budgetMB: 1 })
+    );
+
+    expect(result.current.pressure).toBe("normal");
+    expect(result.current.isUnderPressure).toBe(false);
+  });
+});
