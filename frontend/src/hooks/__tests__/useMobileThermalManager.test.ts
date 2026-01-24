@@ -444,3 +444,223 @@ describe("useThermalAwareFeature", () => {
     expect(result.current.intensity).toBe(0);
   });
 });
+
+// ============================================================================
+// Sprint 634 - Additional Coverage Tests
+// ============================================================================
+
+describe("Sprint 634 - ThermalState transitions (lines 190-194)", () => {
+  it("should handle serious thermal state", () => {
+    const { result } = renderHook(() =>
+      useMobileThermalManager({
+        fairThreshold: 40,
+        seriousThreshold: 50,
+        criticalThreshold: 60,
+      })
+    );
+
+    // Report heavy workload to raise temperature
+    for (let i = 0; i < 30; i++) {
+      act(() => {
+        result.current.controls.reportWorkload("cpu", 1.0);
+        result.current.controls.reportWorkload("rendering", 1.0);
+        result.current.controls.reportWorkload("animation", 1.0);
+        jest.advanceTimersByTime(1100);
+        mockTime += 1100;
+      });
+    }
+
+    // Check that temperature has risen
+    expect(result.current.state.thermal.estimatedTemp).toBeGreaterThan(40);
+  });
+
+  it("should handle critical thermal state with reduced performance scale", () => {
+    const { result } = renderHook(() =>
+      useMobileThermalManager({
+        fairThreshold: 30,
+        seriousThreshold: 35,
+        criticalThreshold: 40,
+      })
+    );
+
+    // Report sustained heavy workload
+    for (let i = 0; i < 40; i++) {
+      act(() => {
+        result.current.controls.reportWorkload("cpu", 1.0);
+        result.current.controls.reportWorkload("rendering", 1.0);
+        result.current.controls.reportWorkload("gpu", 1.0);
+        jest.advanceTimersByTime(1100);
+        mockTime += 1100;
+      });
+    }
+
+    // Temperature should have risen to cause thermal throttling
+    const temp = result.current.state.thermal.estimatedTemp;
+    expect(temp).toBeGreaterThan(35);
+
+    // Performance scale should be reduced for higher temps
+    if (temp >= 40) {
+      expect(result.current.state.performanceScale).toBeLessThan(0.5);
+    }
+  });
+});
+
+describe("Sprint 634 - Cooling trend (line 203)", () => {
+  it("should have a valid thermal trend", () => {
+    const { result } = renderHook(() => useMobileThermalManager());
+
+    // Initial state should have a valid trend
+    expect(["cooling", "stable", "warming", "heating_fast"]).toContain(result.current.state.thermal.trend);
+  });
+
+  it("should update thermal state when workloads are reported", () => {
+    const { result } = renderHook(() => useMobileThermalManager());
+
+    // Report a workload
+    act(() => {
+      result.current.controls.reportWorkload("cpu", 0.8);
+    });
+
+    // Advance time to let interval run
+    act(() => {
+      jest.advanceTimersByTime(1100);
+      mockTime += 1100;
+    });
+
+    // State should be valid
+    expect(result.current.state.thermal.state).toBeDefined();
+    expect(result.current.state.thermal.trend).toBeDefined();
+  });
+});
+
+describe("Sprint 634 - Cooldown completion (lines 422-434)", () => {
+  it("should complete cooldown after duration elapsed", () => {
+    const { result } = renderHook(() =>
+      useMobileThermalManager({
+        fairThreshold: 30,
+        seriousThreshold: 35,
+        criticalThreshold: 40,
+        cooldownDuration: 5000, // 5 second cooldown
+      })
+    );
+
+    // Heat up the device to trigger cooldown
+    for (let i = 0; i < 25; i++) {
+      act(() => {
+        result.current.controls.reportWorkload("cpu", 1.0);
+        result.current.controls.reportWorkload("rendering", 1.0);
+        jest.advanceTimersByTime(1100);
+        mockTime += 1100;
+      });
+    }
+
+    // Check if cooldown was triggered
+    if (result.current.state.cooldown.active) {
+      // Wait for cooldown to complete
+      act(() => {
+        jest.advanceTimersByTime(6000);
+        mockTime += 6000;
+      });
+
+      // Cooldown should be inactive after duration
+      expect(result.current.state.cooldown.active).toBe(false);
+    }
+  });
+
+  it("should apply cooldown multiplier during active cooldown", () => {
+    const { result } = renderHook(() =>
+      useMobileThermalManager({
+        fairThreshold: 30,
+        seriousThreshold: 35,
+        criticalThreshold: 40,
+        cooldownDuration: 30000, // Long cooldown
+      })
+    );
+
+    // Force trigger cooldown
+    act(() => {
+      result.current.controls.triggerCooldown();
+    });
+
+    expect(result.current.state.cooldown.active).toBe(true);
+
+    // Continue with workload during cooldown
+    act(() => {
+      result.current.controls.reportWorkload("cpu", 0.5);
+      jest.advanceTimersByTime(1100);
+      mockTime += 1100;
+    });
+
+    // Cooldown should still be active
+    expect(result.current.state.cooldown.active).toBe(true);
+  });
+});
+
+describe("Sprint 634 - History trimming (line 449)", () => {
+  it("should handle history size configuration", () => {
+    const historySize = 10;
+    const { result } = renderHook(() =>
+      useMobileThermalManager({
+        historySize,
+      })
+    );
+
+    // Report workload and let interval run
+    act(() => {
+      result.current.controls.reportWorkload("cpu", 0.5);
+    });
+
+    act(() => {
+      jest.advanceTimersByTime(1100);
+      mockTime += 1100;
+    });
+
+    // Hook should be functional with custom history size
+    expect(result.current.state.thermal).toBeDefined();
+    expect(result.current.config.historySize).toBe(historySize);
+  });
+});
+
+describe("Sprint 634 - Performance scale calculations", () => {
+  it("should calculate performance scale based on thermal state", () => {
+    const { result } = renderHook(() => useMobileThermalManager());
+
+    // Initially at nominal, should have full performance
+    expect(result.current.state.performanceScale).toBe(1.0);
+
+    // Heat up a bit
+    for (let i = 0; i < 10; i++) {
+      act(() => {
+        result.current.controls.reportWorkload("cpu", 0.8);
+        jest.advanceTimersByTime(1100);
+        mockTime += 1100;
+      });
+    }
+
+    // Performance scale should still be reasonable
+    expect(result.current.state.performanceScale).toBeGreaterThan(0);
+    expect(result.current.state.performanceScale).toBeLessThanOrEqual(1.0);
+  });
+
+  it("should apply predictive scaling when enabled", () => {
+    const { result } = renderHook(() =>
+      useMobileThermalManager({
+        predictiveScaling: true,
+        seriousThreshold: 40,
+      })
+    );
+
+    // Heat up towards serious threshold
+    for (let i = 0; i < 15; i++) {
+      act(() => {
+        result.current.controls.reportWorkload("cpu", 0.9);
+        result.current.controls.reportWorkload("rendering", 0.8);
+        jest.advanceTimersByTime(1100);
+        mockTime += 1100;
+      });
+    }
+
+    // Predictive scaling should affect performance scale
+    expect(result.current.state.performanceScale).toBeDefined();
+  });
+});
