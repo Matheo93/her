@@ -179,26 +179,40 @@ export function createTouchPoint(touch: Touch, timestamp: number): TouchPoint {
   };
 }
 
+/**
+ * Calculate velocity between two touch points
+ * Optimized: uses inverse dt to avoid division in hot path
+ */
 export function calculateVelocity(
   start: TouchPoint,
   end: TouchPoint
 ): GestureVelocity {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
-  const dt = Math.max(1, end.timestamp - start.timestamp);
+  const dt = end.timestamp - start.timestamp;
 
-  const vx = dx / dt;
-  const vy = dy / dt;
-  const magnitude = Math.sqrt(vx * vx + vy * vy);
-  const angle = Math.atan2(vy, vx);
+  // Use inverse for multiplication instead of division (faster)
+  const invDt = dt > 0 ? 1 / dt : 1;
+
+  const vx = dx * invDt;
+  const vy = dy * invDt;
+  // Avoid sqrt when magnitude is near zero
+  const magnitudeSq = vx * vx + vy * vy;
+  const magnitude = magnitudeSq > 0.0001 ? Math.sqrt(magnitudeSq) : 0;
+  const angle = magnitudeSq > 0.0001 ? Math.atan2(vy, vx) : 0;
 
   return { x: vx, y: vy, magnitude, angle };
 }
 
+/**
+ * Calculate distance between two touch points
+ * Optimized: avoids sqrt for zero distance
+ */
 export function calculateDistance(p1: TouchPoint, p2: TouchPoint): number {
   const dx = p2.x - p1.x;
   const dy = p2.y - p1.y;
-  return Math.sqrt(dx * dx + dy * dy);
+  const distSq = dx * dx + dy * dy;
+  return distSq > 0 ? Math.sqrt(distSq) : 0;
 }
 
 export function calculateAngle(p1: TouchPoint, p2: TouchPoint): number {
