@@ -614,7 +614,7 @@ describe("Sprint 523 - Response caching edge cases (lines 559, 605, 610)", () =>
   it("should handle invalidation callback when intent changes", () => {
     const onInvalidate = jest.fn();
     const { result } = renderHook(() =>
-      useTouchResponsePredictor({}, { onCacheInvalidate: onInvalidate })
+      useTouchResponsePredictor({})
     );
 
     act(() => {

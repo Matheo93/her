@@ -818,3 +818,15 @@ export function useTouchPositionPrediction(): {
 // ============================================================================
 
 export default useTouchResponsePredictor;
+
+// ============================================================================
+// Test Helpers (exported for unit testing internal functions)
+// ============================================================================
+
+export const __test__ = {
+  initKalmanState,
+  kalmanPredict,
+  kalmanUpdate,
+  DEFAULT_CONFIG,
+  DEFAULT_METRICS,
+};
