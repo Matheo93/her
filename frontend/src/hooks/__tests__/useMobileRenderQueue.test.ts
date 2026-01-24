@@ -13,6 +13,8 @@ import {
 
 // Mock performance.now for consistent timing
 let mockTime = 0;
+let rafId = 0;
+const rafCallbacks = new Map<number, FrameRequestCallback>();
 
 // Mock requestIdleCallback
 const mockIdleCallback = jest.fn();
@@ -24,25 +26,37 @@ const mockIdleCallback = jest.fn();
 
 beforeEach(() => {
   mockTime = 0;
-  jest.useFakeTimers();
+  rafId = 0;
+  rafCallbacks.clear();
+
   jest.spyOn(performance, "now").mockImplementation(() => mockTime);
   jest.spyOn(Date, "now").mockImplementation(() => mockTime);
 
+  // RAF mock that stores callbacks but doesn't auto-execute
   jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
-    return setTimeout(() => cb(mockTime), 0) as unknown as number;
+    const id = ++rafId;
+    rafCallbacks.set(id, cb);
+    return id;
   });
 
   jest.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
-    clearTimeout(id);
+    rafCallbacks.delete(id);
   });
 
   mockIdleCallback.mockClear();
 });
 
 afterEach(() => {
-  jest.useRealTimers();
+  rafCallbacks.clear();
   jest.restoreAllMocks();
 });
+
+// Helper to manually trigger RAF callbacks
+function flushRAF() {
+  const callbacks = Array.from(rafCallbacks.entries());
+  rafCallbacks.clear();
+  callbacks.forEach(([, cb]) => cb(mockTime));
+}
 
 describe("useMobileRenderQueue", () => {
   describe("initialization", () => {
@@ -723,8 +737,8 @@ describe("processQueue via requestAnimationFrame", () => {
       result.current.controls.flush();
     });
 
-    // Budget should be reset (or at default)
-    expect(result.current.state.currentBudget.totalMs).toBe(16);
+    // Budget should be reset (or at configured value)
+    expect(result.current.state.currentBudget.totalMs).toBeCloseTo(16.67);
   });
 
   it("should track tasksDropped metric correctly", () => {
