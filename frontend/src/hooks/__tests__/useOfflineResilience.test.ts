@@ -9,6 +9,7 @@ import {
   useIsOffline,
   useConnectionStability,
   useOfflineQueue,
+  QueuedMessage,
 } from "../useOfflineResilience";
 
 // Mock dependencies
@@ -852,8 +853,9 @@ describe("Message Priority Sorting", () => {
 
   it("should flush critical messages first", async () => {
     const processedOrder: string[] = [];
-    const handler = jest.fn(async (msg: { data: { priority: string } }) => {
-      processedOrder.push(msg.data.priority);
+    const handler = jest.fn(async (msg: QueuedMessage) => {
+      const data = msg.data as { priority: string };
+      processedOrder.push(data.priority);
       return true;
     });
 
