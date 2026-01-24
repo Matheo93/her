@@ -598,7 +598,7 @@ describe("Sprint 634 - Cooldown completion (lines 422-434)", () => {
     for (let i = 0; i < 25; i++) {
       act(() => {
         result.current.controls.reportWorkload("rendering", 1.0);
-        result.current.controls.reportWorkload("animation", 1.0);
+        result.current.controls.reportWorkload("computation", 1.0);
         jest.advanceTimersByTime(1100);
         mockTime += 1100;
       });
