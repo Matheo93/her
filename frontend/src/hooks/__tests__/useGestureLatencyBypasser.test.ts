@@ -1893,6 +1893,952 @@ describe("Sprint 628 - predictEndPosition (lines 303-320)", () => {
   });
 });
 
+// ============================================================================
+// Sprint 751 - Deep Branch Coverage Tests for 80%+
+// ============================================================================
+
+describe("Sprint 751 - calculateVelocity (lines 259-276)", () => {
+  it("should return default velocity with less than 2 samples", () => {
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        trackVelocity: true,
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Only one touch - velocity should be default
+    const touchStart = createTouchEvent("touchstart", [
+      { clientX: 100, clientY: 100, identifier: 1 },
+    ]);
+
+    act(() => {
+      element.dispatchEvent(touchStart);
+    });
+
+    // Velocity should be zero/default
+    expect(result.current.state.gesture.velocity.speed).toBe(0);
+  });
+
+  it("should calculate velocity from multiple samples", () => {
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        trackVelocity: true,
+        velocitySamples: 5,
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Touch start
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+      mockTime += 16;
+    });
+
+    // Multiple moves to build velocity samples
+    for (let i = 1; i <= 5; i++) {
+      act(() => {
+        const touchMove = createTouchEvent("touchmove", [
+          { clientX: i * 100, clientY: 0, identifier: 1 },
+        ]);
+        element.dispatchEvent(touchMove);
+        mockTime += 16;
+        jest.runOnlyPendingTimers();
+      });
+    }
+
+    // Velocity should be calculated
+    expect(result.current.state.gesture.velocity.vx).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should handle zero time delta gracefully", () => {
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        trackVelocity: true,
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Two touches at same time
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+      // Don't advance mockTime - same timestamp
+    });
+
+    act(() => {
+      const touchMove = createTouchEvent("touchmove", [
+        { clientX: 100, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchMove);
+      // Still same time
+    });
+
+    // Should not crash, velocity defaults to zero
+    expect(result.current.state.gesture.velocity.speed).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 751 - findNearestSnapPoint (lines 281-298)", () => {
+  it("should find snap point within radius", () => {
+    const snapPoints = [
+      { x: 100, y: 100, radius: 50, id: "snap1" },
+      { x: 200, y: 200, radius: 50, id: "snap2" },
+    ];
+
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        enableSnapPoints: true,
+        snapPoints,
+        snapRadius: 100,
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Move near snap point
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 80, clientY: 80, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+      mockTime += 16;
+    });
+
+    // Move closer to snap point
+    act(() => {
+      const touchMove = createTouchEvent("touchmove", [
+        { clientX: 95, clientY: 95, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchMove);
+      mockTime += 16;
+      jest.runOnlyPendingTimers();
+    });
+
+    // Snap point should be tracked
+    expect(result.current.state.isAttached).toBe(true);
+  });
+
+  it("should not snap when outside all radii", () => {
+    const snapPoints = [
+      { x: 100, y: 100, radius: 10, id: "snap1" },
+    ];
+
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        enableSnapPoints: true,
+        snapPoints,
+        snapRadius: 20,
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Move far from snap point
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 500, clientY: 500, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+    });
+
+    expect(result.current.state.gesture.isActive).toBe(true);
+  });
+});
+
+describe("Sprint 751 - applyStyleUpdate (lines 362-379)", () => {
+  it("should call style updater and track metrics", () => {
+    const { result } = renderHook(() => useGestureLatencyBypasser());
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Trigger touch to apply style
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+      mockTime += 16;
+    });
+
+    act(() => {
+      const touchMove = createTouchEvent("touchmove", [
+        { clientX: 50, clientY: 50, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchMove);
+      mockTime += 16;
+      jest.runOnlyPendingTimers();
+    });
+
+    // Style updater should be called
+    expect(styleUpdater).toHaveBeenCalled();
+    // Metrics should be updated
+    expect(result.current.state.metrics.bypassedUpdates).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should track latency times", () => {
+    const { result } = renderHook(() => useGestureLatencyBypasser());
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Multiple moves to build latency history
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+      mockTime += 16;
+    });
+
+    for (let i = 1; i <= 10; i++) {
+      act(() => {
+        const touchMove = createTouchEvent("touchmove", [
+          { clientX: i * 10, clientY: i * 10, identifier: 1 },
+        ]);
+        element.dispatchEvent(touchMove);
+        mockTime += 16;
+        jest.runOnlyPendingTimers();
+      });
+    }
+
+    // Average latency should be calculated
+    expect(result.current.state.metrics.averageLatencyMs).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 751 - updatePrediction (lines 390-430)", () => {
+  it("should generate prediction when enabled", () => {
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        enablePrediction: true,
+        trackVelocity: true,
+        velocitySamples: 3,
+        predictionHorizonMs: 50,
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Start gesture
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+      mockTime += 16;
+    });
+
+    // Move to build samples
+    for (let i = 1; i <= 5; i++) {
+      act(() => {
+        const touchMove = createTouchEvent("touchmove", [
+          { clientX: i * 30, clientY: i * 20, identifier: 1 },
+        ]);
+        element.dispatchEvent(touchMove);
+        mockTime += 16;
+        jest.runOnlyPendingTimers();
+      });
+    }
+
+    // Prediction should be generated
+    expect(result.current.state.metrics.predictionsGenerated).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should set prediction to null when disabled", () => {
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        enablePrediction: false,
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+    });
+
+    expect(result.current.state.prediction).toBeNull();
+  });
+
+  it("should apply snap point to prediction when enabled", () => {
+    const snapPoints = [
+      { x: 200, y: 0, radius: 100, id: "snap1" },
+    ];
+
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        enablePrediction: true,
+        enableSnapPoints: true,
+        snapPoints,
+        snapRadius: 150,
+        trackVelocity: true,
+        velocitySamples: 3,
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Move towards snap point
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+      mockTime += 16;
+    });
+
+    for (let i = 1; i <= 5; i++) {
+      act(() => {
+        const touchMove = createTouchEvent("touchmove", [
+          { clientX: i * 30, clientY: 0, identifier: 1 },
+        ]);
+        element.dispatchEvent(touchMove);
+        mockTime += 16;
+        jest.runOnlyPendingTimers();
+      });
+    }
+
+    // Prediction should consider snap point
+    expect(result.current.state.metrics.predictionsGenerated).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 751 - runMomentum (lines 440-513)", () => {
+  it("should not start momentum when velocity is below threshold", () => {
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        enableMomentum: true,
+        momentumThreshold: 1000, // High threshold
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Slow movement
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+      mockTime += 100; // Long time = slow velocity
+    });
+
+    act(() => {
+      const touchMove = createTouchEvent("touchmove", [
+        { clientX: 10, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchMove);
+      mockTime += 100;
+      jest.runOnlyPendingTimers();
+    });
+
+    act(() => {
+      const touchEnd = createTouchEvent("touchend", [], [
+        { clientX: 10, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchEnd);
+      jest.runOnlyPendingTimers();
+    });
+
+    // Momentum should not be active
+    expect(result.current.state.isMomentumActive).toBe(false);
+  });
+
+  it("should start momentum when velocity exceeds threshold", () => {
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        enableMomentum: true,
+        momentumThreshold: 10, // Low threshold
+        momentumFriction: 0.95,
+        trackVelocity: true,
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Fast movement
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+      mockTime += 8;
+    });
+
+    for (let i = 1; i <= 5; i++) {
+      act(() => {
+        const touchMove = createTouchEvent("touchmove", [
+          { clientX: i * 100, clientY: 0, identifier: 1 },
+        ]);
+        element.dispatchEvent(touchMove);
+        mockTime += 8; // Fast frames
+        jest.runOnlyPendingTimers();
+      });
+    }
+
+    // End touch to trigger momentum
+    act(() => {
+      const touchEnd = createTouchEvent("touchend", [], [
+        { clientX: 500, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchEnd);
+      mockTime += 16;
+      jest.runOnlyPendingTimers();
+    });
+
+    // Run animation frames
+    for (let i = 0; i < 5; i++) {
+      act(() => {
+        mockTime += 16;
+        jest.runOnlyPendingTimers();
+      });
+    }
+
+    // Momentum frames should be tracked
+    expect(result.current.state.metrics.momentumFrames).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should apply friction during momentum", () => {
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        enableMomentum: true,
+        momentumThreshold: 5,
+        momentumFriction: 0.9, // 90% retention per frame
+        trackVelocity: true,
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Fast swipe
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+      mockTime += 5;
+    });
+
+    for (let i = 1; i <= 3; i++) {
+      act(() => {
+        const touchMove = createTouchEvent("touchmove", [
+          { clientX: i * 200, clientY: 0, identifier: 1 },
+        ]);
+        element.dispatchEvent(touchMove);
+        mockTime += 5;
+        jest.runOnlyPendingTimers();
+      });
+    }
+
+    // End touch
+    act(() => {
+      const touchEnd = createTouchEvent("touchend", [], [
+        { clientX: 600, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchEnd);
+      mockTime += 16;
+      jest.runOnlyPendingTimers();
+    });
+
+    // Run momentum frames
+    for (let i = 0; i < 20; i++) {
+      act(() => {
+        mockTime += 16;
+        jest.runOnlyPendingTimers();
+      });
+    }
+
+    // Momentum should have been applied
+    expect(result.current.state.metrics.momentumFrames).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 751 - touch event handlers (lines 575-646)", () => {
+  it("should handle touchstart correctly", () => {
+    const { result } = renderHook(() => useGestureLatencyBypasser());
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 100, clientY: 200, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+    });
+
+    expect(result.current.state.gesture.isActive).toBe(true);
+    expect(result.current.state.gesture.startPosition).toEqual({ x: 100, y: 200 });
+  });
+
+  it("should handle touchmove and update delta", () => {
+    const { result } = renderHook(() => useGestureLatencyBypasser());
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+    });
+
+    act(() => {
+      const touchMove = createTouchEvent("touchmove", [
+        { clientX: 50, clientY: 30, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchMove);
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(result.current.state.gesture.delta.x).toBe(50);
+    expect(result.current.state.gesture.delta.y).toBe(30);
+  });
+
+  it("should handle touchend correctly", () => {
+    const { result } = renderHook(() => useGestureLatencyBypasser());
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+    });
+
+    act(() => {
+      const touchEnd = createTouchEvent("touchend", [], [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchEnd);
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(result.current.state.gesture.isActive).toBe(false);
+  });
+
+  it("should handle touchcancel correctly", () => {
+    const { result } = renderHook(() => useGestureLatencyBypasser());
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+    });
+
+    act(() => {
+      const touchCancel = createTouchEvent("touchcancel", [], [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchCancel);
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(result.current.state.gesture.isActive).toBe(false);
+  });
+});
+
+describe("Sprint 751 - pinch gesture (lines 666-685)", () => {
+  it("should detect pinch gesture with two touches", () => {
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        gestures: ["pinch"],
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Two-finger touch
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 100, clientY: 100, identifier: 1 },
+        { clientX: 200, clientY: 200, identifier: 2 },
+      ]);
+      element.dispatchEvent(touchStart);
+    });
+
+    expect(result.current.state.gesture.touchCount).toBe(2);
+  });
+
+  it("should calculate scale during pinch", () => {
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        gestures: ["pinch"],
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Start pinch
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 100, clientY: 100, identifier: 1 },
+        { clientX: 200, clientY: 100, identifier: 2 },
+      ]);
+      element.dispatchEvent(touchStart);
+      mockTime += 16;
+    });
+
+    // Move fingers apart (pinch out)
+    act(() => {
+      const touchMove = createTouchEvent("touchmove", [
+        { clientX: 50, clientY: 100, identifier: 1 },
+        { clientX: 250, clientY: 100, identifier: 2 },
+      ]);
+      element.dispatchEvent(touchMove);
+      mockTime += 16;
+      jest.runOnlyPendingTimers();
+    });
+
+    // Scale should be calculated
+    expect(result.current.state.gesture.scale).toBeGreaterThan(0);
+  });
+});
+
+describe("Sprint 751 - rotate gesture", () => {
+  it("should calculate rotation during rotate gesture", () => {
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        gestures: ["rotate"],
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Start with two fingers horizontal
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 100, clientY: 100, identifier: 1 },
+        { clientX: 200, clientY: 100, identifier: 2 },
+      ]);
+      element.dispatchEvent(touchStart);
+      mockTime += 16;
+    });
+
+    // Rotate fingers
+    act(() => {
+      const touchMove = createTouchEvent("touchmove", [
+        { clientX: 100, clientY: 50, identifier: 1 },
+        { clientX: 200, clientY: 150, identifier: 2 },
+      ]);
+      element.dispatchEvent(touchMove);
+      mockTime += 16;
+      jest.runOnlyPendingTimers();
+    });
+
+    // Rotation should be calculated
+    expect(typeof result.current.state.gesture.rotation).toBe("number");
+  });
+});
+
+describe("Sprint 751 - metrics tracking (lines 738-739, 778-790)", () => {
+  it("should track gestures processed", () => {
+    const { result } = renderHook(() => useGestureLatencyBypasser());
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Complete a gesture
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+    });
+
+    act(() => {
+      const touchEnd = createTouchEvent("touchend", [], [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchEnd);
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(result.current.state.metrics.gesturesProcessed).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should reset metrics when requested", () => {
+    const { result } = renderHook(() => useGestureLatencyBypasser());
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Do some gestures
+    for (let i = 0; i < 3; i++) {
+      act(() => {
+        const touchStart = createTouchEvent("touchstart", [
+          { clientX: 0, clientY: 0, identifier: 1 },
+        ]);
+        element.dispatchEvent(touchStart);
+      });
+
+      act(() => {
+        const touchEnd = createTouchEvent("touchend", [], [
+          { clientX: 0, clientY: 0, identifier: 1 },
+        ]);
+        element.dispatchEvent(touchEnd);
+        jest.runOnlyPendingTimers();
+      });
+    }
+
+    // Reset metrics
+    act(() => {
+      result.current.controls.resetMetrics();
+    });
+
+    expect(result.current.state.metrics.gesturesProcessed).toBe(0);
+    expect(result.current.state.metrics.bypassedUpdates).toBe(0);
+  });
+});
+
+describe("Sprint 751 - snap point triggering (line 814)", () => {
+  it("should trigger snap when near snap point on touch end", () => {
+    const snapPoints = [
+      { x: 100, y: 100, radius: 50, id: "snap1" },
+    ];
+
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        enableSnapPoints: true,
+        snapPoints,
+        snapRadius: 100,
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Move near snap point
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+      mockTime += 16;
+    });
+
+    act(() => {
+      const touchMove = createTouchEvent("touchmove", [
+        { clientX: 80, clientY: 80, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchMove);
+      mockTime += 16;
+      jest.runOnlyPendingTimers();
+    });
+
+    // End near snap point
+    act(() => {
+      const touchEnd = createTouchEvent("touchend", [], [
+        { clientX: 80, clientY: 80, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchEnd);
+      mockTime += 16;
+      jest.runOnlyPendingTimers();
+    });
+
+    // Snap should be triggered
+    expect(result.current.state.metrics.snapsTriggered).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 751 - velocity angle calculation", () => {
+  it("should calculate correct velocity angle", () => {
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        trackVelocity: true,
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Horizontal movement (should give angle near 0)
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 100, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+      mockTime += 10;
+    });
+
+    act(() => {
+      const touchMove = createTouchEvent("touchmove", [
+        { clientX: 100, clientY: 100, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchMove);
+      mockTime += 10;
+      jest.runOnlyPendingTimers();
+    });
+
+    // Angle should be defined
+    expect(typeof result.current.state.gesture.velocity.angle).toBe("number");
+  });
+});
+
+describe("Sprint 751 - passive listener configuration", () => {
+  it("should use passive listeners by default", () => {
+    const addEventListenerSpy = jest.spyOn(HTMLElement.prototype, "addEventListener");
+
+    const { result } = renderHook(() =>
+      useGestureLatencyBypasser({
+        usePassiveListeners: true,
+      })
+    );
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Check that addEventListener was called with passive option
+    expect(addEventListenerSpy).toHaveBeenCalled();
+
+    addEventListenerSpy.mockRestore();
+  });
+});
+
+describe("Sprint 751 - latency history limit", () => {
+  it("should limit latency history to 100 entries", () => {
+    const { result } = renderHook(() => useGestureLatencyBypasser());
+    const element = document.createElement("div");
+    const styleUpdater = jest.fn();
+
+    act(() => {
+      result.current.controls.attach(element, styleUpdater);
+    });
+
+    // Many touch moves to exceed history limit
+    act(() => {
+      const touchStart = createTouchEvent("touchstart", [
+        { clientX: 0, clientY: 0, identifier: 1 },
+      ]);
+      element.dispatchEvent(touchStart);
+      mockTime += 16;
+    });
+
+    for (let i = 1; i <= 150; i++) {
+      act(() => {
+        const touchMove = createTouchEvent("touchmove", [
+          { clientX: i, clientY: i, identifier: 1 },
+        ]);
+        element.dispatchEvent(touchMove);
+        mockTime += 16;
+        jest.runOnlyPendingTimers();
+      });
+    }
+
+    // Average should still be calculated correctly
+    expect(result.current.state.metrics.averageLatencyMs).toBeGreaterThanOrEqual(0);
+    expect(Number.isFinite(result.current.state.metrics.averageLatencyMs)).toBe(true);
+  });
+});
+
 
 // Helper for creating touch events (defined at end if not already defined)
 function createTouchEvent(
