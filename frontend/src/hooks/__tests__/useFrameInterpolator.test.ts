@@ -926,3 +926,283 @@ describe("Sprint 523 - Start when already active", () => {
     expect(result.current.state.isActive).toBe(true);
   });
 });
+
+// Sprint 765 - Additional branch coverage tests
+describe("Sprint 765 - Branch coverage boost", () => {
+  describe("predictNext with zero dt branch (line 532)", () => {
+    it("should return latest value when dt is zero", () => {
+      const { result } = renderHook(() =>
+        useFrameInterpolator({
+          enablePrediction: true,
+          historySize: 10,
+        })
+      );
+
+      // Add two frames at the same timestamp (dt = 0)
+      act(() => {
+        mockTime = 100;
+        result.current.controls.addFrame(50, 100);
+        result.current.controls.addFrame(60, 100); // Same timestamp
+      });
+
+      let predicted: number | null = null;
+      act(() => {
+        predicted = result.current.controls.predictNext();
+      });
+
+      // With dt = 0, should return latest.value
+      expect(predicted).toBe(60);
+    });
+  });
+
+  describe("compensateStutter with insufficient history (line 567)", () => {
+    it("should return currentValue when history has less than 2 frames", () => {
+      const { result } = renderHook(() =>
+        useFrameInterpolator({
+          enableStutterCompensation: true,
+        })
+      );
+
+      // Only add 1 frame
+      act(() => {
+        mockTime = 0;
+        result.current.controls.addFrame(100);
+      });
+
+      let compensated: number = 0;
+      act(() => {
+        compensated = result.current.controls.compensateStutter(150);
+      });
+
+      // Should return original value since history < 2
+      expect(compensated).toBe(150);
+    });
+  });
+
+  describe("interpolateWithBlur empty frames (line 437)", () => {
+    it("should return 0 when frames array is empty", () => {
+      const { result } = renderHook(() =>
+        useFrameInterpolator({
+          motionBlur: {
+            enabled: true,
+            samples: 4,
+            strength: 0.3,
+            velocityScale: 1.0,
+          },
+        })
+      );
+
+      let blurred: number = 99;
+      act(() => {
+        blurred = result.current.controls.interpolateWithBlur([]);
+      });
+
+      // Empty frames should return 0
+      expect(blurred).toBe(0);
+    });
+
+    it("should return last value when only one frame", () => {
+      const { result } = renderHook(() =>
+        useFrameInterpolator({
+          motionBlur: {
+            enabled: true,
+            samples: 4,
+            strength: 0.3,
+            velocityScale: 1.0,
+          },
+        })
+      );
+
+      let blurred: number = 0;
+      act(() => {
+        blurred = result.current.controls.interpolateWithBlur([{ value: 42, timestamp: 0 }]);
+      });
+
+      // Single frame should return its value
+      expect(blurred).toBe(42);
+    });
+  });
+
+  describe("getTimingInfo with no history (line 616)", () => {
+    it("should return default values when no frame history", () => {
+      const { result } = renderHook(() => useFrameInterpolator());
+
+      const info = result.current.controls.getTimingInfo();
+
+      expect(info.deltaMs).toBe(0);
+      expect(info.isStuttering).toBe(false);
+      expect(info.stutterSeverity).toBe(0);
+    });
+  });
+
+  describe("addFrame with first frame (no lastFrameTime)", () => {
+    it("should handle first frame without prior timestamp", () => {
+      const { result } = renderHook(() => useFrameInterpolator());
+
+      // First frame - no lastFrameTimeRef set
+      act(() => {
+        mockTime = 0;
+        result.current.controls.addFrame(100);
+      });
+
+      // subFrameProgress should still be at initial value
+      expect(result.current.state.subFrameProgress).toBe(0);
+
+      // Second frame - now lastFrameTimeRef is set
+      act(() => {
+        mockTime = 16;
+        result.current.controls.addFrame(110);
+      });
+
+      // Now subFrameProgress should update
+      expect(result.current.state.subFrameProgress).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("hermite interpolation velocity from history (lines 365-368)", () => {
+    it("should estimate velocity from history for hermite method", () => {
+      const { result } = renderHook(() =>
+        useFrameInterpolator({
+          method: "hermite",
+          interpolationStrength: 1,
+          historySize: 10,
+        })
+      );
+
+      // Add frames to build velocity history
+      act(() => {
+        mockTime = 0;
+        result.current.controls.addFrame(0);
+        mockTime = 16;
+        result.current.controls.addFrame(10);
+        mockTime = 32;
+        result.current.controls.addFrame(20);
+      });
+
+      let interpolated: number = 0;
+      act(() => {
+        interpolated = result.current.controls.interpolate(20, 30, 0.5);
+      });
+
+      // Hermite should use history-derived velocities
+      expect(interpolated).toBeGreaterThanOrEqual(20);
+      expect(interpolated).toBeLessThanOrEqual(30);
+    });
+
+    it("should use zero velocity when only one history item", () => {
+      const { result } = renderHook(() =>
+        useFrameInterpolator({
+          method: "hermite",
+          interpolationStrength: 1,
+          historySize: 10,
+        })
+      );
+
+      // Add only one frame
+      act(() => {
+        mockTime = 0;
+        result.current.controls.addFrame(50);
+      });
+
+      let interpolated: number = 0;
+      act(() => {
+        interpolated = result.current.controls.interpolate(0, 100, 0.5);
+      });
+
+      // With zero velocity, hermite at 0.5 should be close to linear midpoint
+      expect(interpolated).toBeGreaterThanOrEqual(40);
+      expect(interpolated).toBeLessThanOrEqual(60);
+    });
+  });
+
+  describe("acceleration calculation in predictNext (lines 538-544)", () => {
+    it("should calculate acceleration with 3+ history items", () => {
+      const { result } = renderHook(() =>
+        useFrameInterpolator({
+          enablePrediction: true,
+          historySize: 10,
+        })
+      );
+
+      // Add 3 frames to enable acceleration calculation
+      act(() => {
+        mockTime = 0;
+        result.current.controls.addFrame(0, 0);
+        mockTime = 100;
+        result.current.controls.addFrame(100, 100);
+        mockTime = 200;
+        result.current.controls.addFrame(300, 200); // Accelerating
+      });
+
+      let predicted: number | null = null;
+      act(() => {
+        predicted = result.current.controls.predictNext(100);
+      });
+
+      // With acceleration, prediction should overshoot linear extrapolation
+      expect(predicted).not.toBeNull();
+      expect(predicted!).toBeGreaterThan(300);
+    });
+  });
+
+  describe("interpolation strength adjustment (line 356)", () => {
+    it("should snap to end value when t > 0.5 with low strength", () => {
+      const { result } = renderHook(() =>
+        useFrameInterpolator({
+          method: "linear",
+          interpolationStrength: 0, // Zero strength
+        })
+      );
+
+      let interpolated: number = 0;
+      act(() => {
+        interpolated = result.current.controls.interpolate(0, 100, 0.6);
+      });
+
+      // With strength=0 and t>0.5, adjustedT becomes 1
+      expect(interpolated).toBe(100);
+    });
+
+    it("should snap to start value when t < 0.5 with low strength", () => {
+      const { result } = renderHook(() =>
+        useFrameInterpolator({
+          method: "linear",
+          interpolationStrength: 0, // Zero strength
+        })
+      );
+
+      let interpolated: number = 0;
+      act(() => {
+        interpolated = result.current.controls.interpolate(0, 100, 0.4);
+      });
+
+      // With strength=0 and t<0.5, adjustedT becomes 0
+      expect(interpolated).toBe(0);
+    });
+  });
+
+  describe("addFrame velocity calculation (lines 476-480)", () => {
+    it("should calculate velocity when dt > 0", () => {
+      const { result } = renderHook(() =>
+        useFrameInterpolator({ historySize: 10 })
+      );
+
+      act(() => {
+        mockTime = 0;
+        result.current.controls.addFrame(0, 0);
+        mockTime = 1000;
+        result.current.controls.addFrame(100, 1000); // 100 units / 1 second = 100 velocity
+      });
+
+      // Velocity is internal but affects prediction
+      let predicted: number | null = null;
+      act(() => {
+        predicted = result.current.controls.predictNext(500);
+      });
+
+      // At 100 units/sec, 500ms ahead = 50 more units
+      expect(predicted).not.toBeNull();
+      expect(predicted!).toBeCloseTo(150, -1);
+    });
+  });
+});
