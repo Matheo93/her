@@ -58,6 +58,11 @@ beforeEach(() => {
   mockFetch.mockImplementation(() => createSuccessResponse({ data: "test" }));
 });
 
+// Clean up after each test
+afterEach(() => {
+  jest.clearAllTimers();
+});
+
 // Helper to wait for promises
 const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -285,9 +290,11 @@ describe("useRequestCoalescer - Request Caching", () => {
       useRequestCoalescer({ executor, batchWindow: 0, enableCache: false })
     );
 
+    const controls = result.current.controls;
+
     await act(async () => {
-      await result.current.controls.request("/api/test", { id: 1 });
-      await result.current.controls.request("/api/test", { id: 1 });
+      await controls.request("/api/test", { id: 1 });
+      await controls.request("/api/test", { id: 1 });
     });
 
     expect(result.current.metrics.cacheHits).toBe(0);
@@ -1181,6 +1188,7 @@ describe("useChatRequestCoalescer - Convenience Hook", () => {
     const { result } = renderHook(() => useChatRequestCoalescer());
 
     // Chat coalescer should exist with expected structure
+    expect(result.current).toBeDefined();
     expect(result.current.state).toBeDefined();
     expect(result.current.metrics).toBeDefined();
     expect(result.current.controls).toBeDefined();
@@ -1200,10 +1208,12 @@ describe("useChatRequestCoalescer - Convenience Hook", () => {
       useChatRequestCoalescer({ executor, batchWindow: 0 })
     );
 
+    const controls = result.current.controls;
+
     // Make two identical requests
     await act(async () => {
-      await result.current.controls.request("/api/chat", { message: "hi" });
-      await result.current.controls.request("/api/chat", { message: "hi" });
+      await controls.request("/api/chat", { message: "hi" });
+      await controls.request("/api/chat", { message: "hi" });
     });
 
     // Both should execute (no caching)
@@ -1222,8 +1232,10 @@ describe("useRequestCoalescer - Edge Cases", () => {
       useRequestCoalescer({ executor, batchWindow: 0 })
     );
 
+    const controls = result.current.controls;
+
     await act(async () => {
-      await result.current.controls.request("/api/test", null);
+      await controls.request("/api/test", null);
     });
 
     expect(executor).toHaveBeenCalledWith(
@@ -1239,8 +1251,10 @@ describe("useRequestCoalescer - Edge Cases", () => {
       useRequestCoalescer({ executor, batchWindow: 0 })
     );
 
+    const controls = result.current.controls;
+
     await act(async () => {
-      await result.current.controls.request("/api/test");
+      await controls.request("/api/test");
     });
 
     expect(executor).toHaveBeenCalledWith(
@@ -1256,9 +1270,11 @@ describe("useRequestCoalescer - Edge Cases", () => {
       useRequestCoalescer({ executor, batchWindow: 0, defaultRetries: 0 })
     );
 
+    const controls = result.current.controls;
+
     await act(async () => {
       await expect(
-        result.current.controls.request("/api/test")
+        controls.request("/api/test")
       ).rejects.toThrow();
     });
 
@@ -1270,8 +1286,10 @@ describe("useRequestCoalescer - Edge Cases", () => {
       useRequestCoalescer({ enableCache: true })
     );
 
+    const controls = result.current.controls;
+
     act(() => {
-      result.current.controls.clearCache();
+      controls.clearCache();
     });
 
     expect(result.current.state.cacheSize).toBe(0);
@@ -1280,8 +1298,10 @@ describe("useRequestCoalescer - Edge Cases", () => {
   test("should handle resetMetrics when metrics are empty", () => {
     const { result } = renderHook(() => useRequestCoalescer());
 
+    const controls = result.current.controls;
+
     act(() => {
-      result.current.controls.resetMetrics();
+      controls.resetMetrics();
     });
 
     expect(result.current.metrics.totalRequests).toBe(0);
@@ -1300,9 +1320,10 @@ describe("useRequestCoalescer - Response Format", () => {
       useRequestCoalescer({ executor, batchWindow: 0 })
     );
 
+    const controls = result.current.controls;
     let response: any;
     await act(async () => {
-      response = await result.current.controls.request("/api/test");
+      response = await controls.request("/api/test");
     });
 
     expect(response).toHaveProperty("data");
@@ -1318,9 +1339,10 @@ describe("useRequestCoalescer - Response Format", () => {
       useRequestCoalescer({ executor, batchWindow: 0 })
     );
 
+    const controls = result.current.controls;
     let response: any;
     await act(async () => {
-      response = await result.current.controls.batchRequest([
+      response = await controls.batchRequest([
         { endpoint: "/api/test" },
       ]);
     });
@@ -1340,9 +1362,10 @@ describe("useRequestCoalescer - Response Format", () => {
       useRequestCoalescer({ executor, batchWindow: 0, defaultRetries: 0 })
     );
 
+    const controls = result.current.controls;
     let response: any;
     await act(async () => {
-      response = await result.current.controls.batchRequest([
+      response = await controls.batchRequest([
         { endpoint: "/api/test1" },
         { endpoint: "/api/test2" },
       ]);
@@ -1385,8 +1408,10 @@ describe("useRequestCoalescer - Configuration", () => {
       })
     );
 
+    const controls = result.current.controls;
+
     await act(async () => {
-      await result.current.controls.request("/api/test");
+      await controls.request("/api/test");
     });
 
     expect(executor).toHaveBeenCalled();
@@ -1402,8 +1427,10 @@ describe("useRequestCoalescer - Configuration", () => {
       })
     );
 
+    const controls = result.current.controls;
+
     await act(async () => {
-      await result.current.controls.request("/api/test");
+      await controls.request("/api/test");
     });
 
     expect(executor).toHaveBeenCalledWith(
