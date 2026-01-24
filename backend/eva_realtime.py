@@ -204,9 +204,13 @@ class RealtimeSession:
 
         return False
 
-    async def process_audio_chunk(self, audio_bytes: bytes) -> Dict[str, Any]:
+    async def process_audio_chunk(self, audio_bytes: bytes, current_time: Optional[float] = None) -> Dict[str, Any]:
         """
-        Process incoming audio chunk from user
+        Process incoming audio chunk from user.
+
+        Args:
+            audio_bytes: Raw audio bytes to process
+            current_time: Optional timestamp to avoid repeated time.time() calls
 
         Returns dict with:
         - speech_detected: bool
@@ -214,6 +218,9 @@ class RealtimeSession:
         - should_respond: bool
         - transcription_ready: bool
         """
+        # Single time.time() call for entire method
+        now = current_time if current_time is not None else time.time()
+
         result = {
             "speech_detected": False,
             "interrupt": False,
@@ -225,8 +232,8 @@ class RealtimeSession:
         # Convert to numpy
         audio = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
 
-        # Check for interrupt if Eva is speaking
-        if self._check_interrupt(audio):
+        # Check for interrupt if Eva is speaking (pass timestamp through)
+        if self._check_interrupt(audio, now):
             result["interrupt"] = True
             self.state = ConversationState.INTERRUPTED
             self.interrupt_count += 1
@@ -239,8 +246,6 @@ class RealtimeSession:
         # Detect speech
         is_speech = self._detect_speech(audio)
         result["speech_detected"] = is_speech
-
-        now = time.time()
 
         if is_speech:
             # User is speaking
