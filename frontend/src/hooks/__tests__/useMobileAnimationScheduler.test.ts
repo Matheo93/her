@@ -2792,6 +2792,14 @@ describe("Sprint 751 - frameTimes shift at 60 (line 507)", () => {
 });
 
 describe("Sprint 751 - throttle level decrease (line 512-514)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should handle throttle level configuration", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       targetFrameTimeMs: 100, // High target so real frames are under half
@@ -2857,6 +2865,14 @@ describe("Sprint 751 - throttle level decrease (line 512-514)", () => {
 });
 
 describe("Sprint 751 - startGroup pending to running transition (line 710)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should change state from pending to running for group animations", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler());
 
