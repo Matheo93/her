@@ -95,28 +95,16 @@ Sprint 543 Ameliore avatar UX latence mobile. Code teste valide. Boucle infinie.
 2. Jest tests timing out due to memory pressure
 3. Remaining 4.45% requires integration testing with autoAdjust enabled
 
-### useMobileRenderOptimizer Design Issue (FOUND)
+### useMobileRenderOptimizer Design Issue - FIXED ✅
 **Root Cause of Infinite Loop:**
-- Line 593: `metrics.frameTime` is in useEffect dependency array
-- `recordFrame()` updates `metrics.frameTime` → triggers useEffect → potential infinite loop
-- The effect already reads from `frameTimesRef.current` (lines 536-539)
+- Line 593: `metrics.frameTime` was in useEffect dependency array
+- `recordFrame()` updates `metrics.frameTime` → triggers useEffect → infinite loop
 
-**Recommended Fix:**
-```typescript
-// Remove metrics.frameTime from dependencies (line 593)
-// The effect reads from frameTimesRef.current directly
-}, [
-  // metrics.frameTime, // REMOVE THIS
-  settings.quality,
-  settings.targetFPS,
-  isAutoAdjusting,
-  forcedQuality,
-  isPaused,
-  mergedConfig,
-]);
-```
-
-This would fix the infinite loop and allow auto-adjust tests to run.
+**Fix Applied (commit 5c92444):**
+- Removed `metrics.frameTime` from dependencies
+- Effect reads from `frameTimesRef.current` directly
+- Auto-adjust tests unskipped
+- Awaiting system resource recovery for test validation
 
 ### useTouchResponsePredictor Coverage - VERIFIED ✅
 - **Current Branch Coverage**: **86.95%** (above 80% threshold)
