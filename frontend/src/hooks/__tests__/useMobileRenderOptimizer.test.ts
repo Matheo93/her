@@ -744,7 +744,7 @@ describe("Sprint 628 - GPU detection fallback (line 315)", () => {
 });
 
 describe("Sprint 628 - Quality recommendation with battery (lines 366-367)", () => {
-  it("should reduce quality when battery is low and not charging", () => {
+  it("should reduce quality when battery is low and not charging", async () => {
     // Reset mock
     (HTMLCanvasElement.prototype as any).getContext = jest.fn((type: string) => {
       if (type === "webgl2" || type === "webgl") return mockWebGLContext;
@@ -768,8 +768,9 @@ describe("Sprint 628 - Quality recommendation with battery (lines 366-367)", () 
       useMobileRenderOptimizer({ batteryAware: true, autoAdjust: false })
     );
 
-    // Wait for battery update
-    act(() => {
+    // Wait for battery promise to resolve and state updates
+    await act(async () => {
+      await Promise.resolve();
       jest.advanceTimersByTime(100);
     });
 
@@ -779,7 +780,7 @@ describe("Sprint 628 - Quality recommendation with battery (lines 366-367)", () 
     );
   });
 
-  it("should not reduce quality when battery is low but charging", () => {
+  it("should not reduce quality when battery is low but charging", async () => {
     const mockBattery = {
       level: 0.15,
       charging: true, // Charging
@@ -797,7 +798,9 @@ describe("Sprint 628 - Quality recommendation with battery (lines 366-367)", () 
       useMobileRenderOptimizer({ batteryAware: true, autoAdjust: false })
     );
 
-    act(() => {
+    // Wait for battery promise to resolve
+    await act(async () => {
+      await Promise.resolve();
       jest.advanceTimersByTime(100);
     });
 
