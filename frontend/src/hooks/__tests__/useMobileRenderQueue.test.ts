@@ -115,16 +115,17 @@ describe("useMobileRenderQueue", () => {
     it("should schedule with custom priority", () => {
       const { result } = renderHook(() => useMobileRenderQueue());
 
+      let taskId = "";
       act(() => {
         result.current.controls.schedule(() => {}, { priority: "critical" });
+        taskId = result.current.controls.schedule(() => {}, { priority: "high" });
       });
 
-      const task = result.current.controls.getTask(
-        result.current.controls.schedule(() => {}, { priority: "high" })
-      );
+      const task = result.current.controls.getTask(taskId);
 
       // Can't easily verify priority but queue length should work
       expect(result.current.state.queueLength).toBeGreaterThan(0);
+      expect(task).toBeDefined();
     });
 
     it("should schedule with deadline", () => {
