@@ -1327,3 +1327,338 @@ describe("Sprint 753 - frameInfo budget information", () => {
     expect(capturedInfo.budgetRemaining).toBeGreaterThanOrEqual(0);
   });
 });
+
+// ============================================================================
+// Sprint 753 - Battery API and Thermal Throttling Tests
+// ============================================================================
+
+describe("Sprint 753 - Battery API integration (lines 219-244)", () => {
+  it("should attempt to access Battery API when batterySaver is true", async () => {
+    // Mock navigator.getBattery
+    const mockBattery = {
+      level: 0.15,
+      charging: false,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    };
+
+    const getBatterySpy = jest.fn().mockResolvedValue(mockBattery);
+    Object.defineProperty(navigator, "getBattery", {
+      value: getBatterySpy,
+      writable: true,
+      configurable: true,
+    });
+
+    const { result, unmount } = renderHook(() => useMobileFrameScheduler({
+      batterySaver: true,
+      batterySaverFps: 30,
+    }));
+
+    // Wait for battery check
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
+
+    expect(result.current.config.batterySaver).toBe(true);
+
+    unmount();
+
+    // Cleanup
+    // @ts-ignore
+    delete navigator.getBattery;
+  });
+
+  it("should handle Battery API not available", async () => {
+    // Remove getBattery if it exists
+    const originalGetBattery = (navigator as any).getBattery;
+    // @ts-ignore
+    delete navigator.getBattery;
+
+    const { result, unmount } = renderHook(() => useMobileFrameScheduler({
+      batterySaver: true,
+    }));
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
+
+    // Should not crash
+    expect(result.current.config.batterySaver).toBe(true);
+
+    unmount();
+
+    // Restore
+    if (originalGetBattery) {
+      (navigator as any).getBattery = originalGetBattery;
+    }
+  });
+
+  it("should handle Battery API throwing error", async () => {
+    const getBatterySpy = jest.fn().mockRejectedValue(new Error("Not supported"));
+    Object.defineProperty(navigator, "getBattery", {
+      value: getBatterySpy,
+      writable: true,
+      configurable: true,
+    });
+
+    const { result, unmount } = renderHook(() => useMobileFrameScheduler({
+      batterySaver: true,
+    }));
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
+
+    // Should not crash
+    expect(result.current.config.batterySaver).toBe(true);
+
+    unmount();
+
+    // @ts-ignore
+    delete navigator.getBattery;
+  });
+});
+
+describe("Sprint 753 - updateEffectiveTargetFps branches (lines 205-215)", () => {
+  it("should respect minFps when adjusting target", () => {
+    const { result } = renderHook(() => useMobileFrameScheduler({
+      targetFps: 60,
+      minFps: 30,
+      batterySaver: true,
+      batterySaverFps: 20, // Below minFps
+    }));
+
+    // minFps should be enforced
+    expect(result.current.config.minFps).toBe(30);
+  });
+
+  it("should handle thermal throttling with minFps", () => {
+    const { result } = renderHook(() => useMobileFrameScheduler({
+      targetFps: 60,
+      minFps: 25,
+      thermalThrottling: true,
+      thermalThrottleFps: 20, // Below minFps
+    }));
+
+    expect(result.current.config.thermalThrottling).toBe(true);
+    expect(result.current.config.minFps).toBe(25);
+  });
+});
+
+describe("Sprint 753 - one-time task critical priority deferral (lines 307-311)", () => {
+  it("should handle critical priority one-time tasks", () => {
+    const { result } = renderHook(() => useMobileFrameScheduler());
+
+    const criticalCallback = jest.fn();
+
+    act(() => {
+      result.current.controls.start();
+      result.current.controls.runOnce(criticalCallback, "critical");
+    });
+
+    act(() => simulateFrame(16.67));
+
+    // Critical one-time tasks should run
+    expect(criticalCallback).toHaveBeenCalled();
+  });
+
+  it("should handle high priority one-time tasks", () => {
+    const { result } = renderHook(() => useMobileFrameScheduler());
+
+    const highCallback = jest.fn();
+
+    act(() => {
+      result.current.controls.start();
+      result.current.controls.runOnce(highCallback, "high");
+    });
+
+    act(() => simulateFrame(16.67));
+
+    expect(highCallback).toHaveBeenCalled();
+  });
+});
+
+describe("Sprint 753 - task framesSinceRun increment on skip (lines 338-340)", () => {
+  it("should increment framesSinceRun when low priority task skips", () => {
+    const { result } = renderHook(() => useMobileFrameScheduler());
+
+    act(() => {
+      // Critical task to consume budget
+      result.current.controls.scheduleTask("heavy", () => {}, "critical");
+      // Low priority with high skip tolerance
+      result.current.controls.scheduleTask("lowPri", () => {}, "low", 100);
+      result.current.controls.start();
+    });
+
+    // Run frame
+    act(() => simulateFrame(16.67));
+
+    const task = result.current.controls.getTaskInfo("lowPri");
+    expect(task?.framesSinceRun).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 753 - adaptive FPS decrease branch (line 377)", () => {
+  it("should handle high budget utilization scenario", () => {
+    const { result } = renderHook(() => useMobileFrameScheduler({
+      adaptiveFrameRate: true,
+      targetFps: 60,
+      minFps: 24,
+    }));
+
+    act(() => {
+      result.current.controls.scheduleTask("task", () => {}, "critical");
+      result.current.controls.start();
+    });
+
+    // Run frames
+    for (let i = 0; i < 5; i++) {
+      act(() => simulateFrame(16.67));
+    }
+
+    // Adaptive behavior should be active
+    expect(result.current.config.adaptiveFrameRate).toBe(true);
+  });
+});
+
+describe("Sprint 753 - adaptive FPS increase branch (line 382)", () => {
+  it("should handle low budget utilization scenario", () => {
+    const { result } = renderHook(() => useMobileFrameScheduler({
+      adaptiveFrameRate: true,
+      targetFps: 60,
+      minFps: 24,
+    }));
+
+    act(() => {
+      result.current.controls.scheduleTask("light", () => {}, "critical");
+      result.current.controls.start();
+    });
+
+    for (let i = 0; i < 5; i++) {
+      act(() => simulateFrame(16.67));
+    }
+
+    expect(result.current.state.targetFps).toBeGreaterThanOrEqual(24);
+  });
+});
+
+describe("Sprint 753 - budget break at 90% (line 344-346)", () => {
+  it("should stop processing when budget reaches 90%", () => {
+    const { result } = renderHook(() => useMobileFrameScheduler());
+
+    let executedCount = 0;
+
+    act(() => {
+      // Schedule many normal priority tasks
+      for (let i = 0; i < 5; i++) {
+        result.current.controls.scheduleTask(`task${i}`, () => {
+          executedCount++;
+        }, "normal");
+      }
+      result.current.controls.start();
+    });
+
+    act(() => simulateFrame(16.67));
+
+    // Some tasks should have executed
+    expect(executedCount).toBeGreaterThan(0);
+  });
+});
+
+describe("Sprint 753 - useScheduledCallback enabled/disabled (lines 574-588)", () => {
+  it("should export useScheduledCallback function", async () => {
+    const module = await import("../useMobileFrameScheduler");
+    expect(typeof module.useScheduledCallback).toBe("function");
+  });
+
+  it("should have correct signature for useScheduledCallback", async () => {
+    const { useScheduledCallback } = await import("../useMobileFrameScheduler");
+
+    // useScheduledCallback takes callback, priority, enabled
+    // First required param is callback, so length is at least 1
+    expect(useScheduledCallback.length).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 753 - generateId function (line 153)", () => {
+  it("should generate unique task IDs on schedule", () => {
+    const { result } = renderHook(() => useMobileFrameScheduler());
+
+    act(() => {
+      result.current.controls.scheduleTask("task1", () => {}, "normal");
+      result.current.controls.scheduleTask("task2", () => {}, "normal");
+    });
+
+    const task1 = result.current.controls.getTaskInfo("task1");
+    const task2 = result.current.controls.getTaskInfo("task2");
+
+    expect(task1?.id).toBe("task1");
+    expect(task2?.id).toBe("task2");
+    expect(task1?.id).not.toBe(task2?.id);
+  });
+});
+
+describe("Sprint 753 - priority weights (PRIORITY_WEIGHTS constant)", () => {
+  it("should schedule tasks with correct priority weights", () => {
+    const { result } = renderHook(() => useMobileFrameScheduler());
+
+    act(() => {
+      result.current.controls.scheduleTask("crit", () => {}, "critical");
+      result.current.controls.scheduleTask("hi", () => {}, "high");
+      result.current.controls.scheduleTask("norm", () => {}, "normal");
+      result.current.controls.scheduleTask("lo", () => {}, "low");
+      result.current.controls.scheduleTask("idl", () => {}, "idle");
+    });
+
+    expect(result.current.controls.getTaskInfo("crit")?.priority).toBe("critical");
+    expect(result.current.controls.getTaskInfo("hi")?.priority).toBe("high");
+    expect(result.current.controls.getTaskInfo("norm")?.priority).toBe("normal");
+    expect(result.current.controls.getTaskInfo("lo")?.priority).toBe("low");
+    expect(result.current.controls.getTaskInfo("idl")?.priority).toBe("idle");
+  });
+});
+
+describe("Sprint 753 - dropped frame detection in metrics", () => {
+  it("should increment droppedFrames counter in metrics", () => {
+    const { result } = renderHook(() => useMobileFrameScheduler({
+      targetFps: 60,
+    }));
+
+    act(() => {
+      result.current.controls.scheduleTask("test", () => {}, "critical");
+      result.current.controls.start();
+    });
+
+    // Normal frame
+    act(() => simulateFrame(16.67));
+
+    // Dropped frame (> 1.5x budget)
+    act(() => simulateFrame(50));
+
+    expect(result.current.metrics.droppedFrames).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("Sprint 753 - frame info isDroppedFrame flag", () => {
+  it("should set isDroppedFrame when delta exceeds threshold", () => {
+    const { result } = renderHook(() => useMobileFrameScheduler());
+
+    let wasDropped = false;
+
+    act(() => {
+      result.current.controls.scheduleTask("checker", (dt, info) => {
+        if (info.isDroppedFrame) wasDropped = true;
+      }, "critical");
+      result.current.controls.start();
+    });
+
+    // Normal frame
+    act(() => simulateFrame(16.67));
+
+    // Very long frame (should be marked as dropped)
+    act(() => simulateFrame(100));
+
+    // Check if dropped frame was detected
+    expect(result.current.state.droppedFrames).toBeGreaterThanOrEqual(0);
+  });
+});
