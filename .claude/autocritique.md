@@ -2,6 +2,104 @@
 
 ---
 
+## Sprint 546 (BACKEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Backend profiling
+
+**Ce que j'ai fait:**
+- Profilé eva_inner_thoughts.py: update_conversation_state 0.001ms, generate_thought 0.005ms
+- Profilé eva_micro_expressions.py: generate_frame 0.006ms
+- Résultat: Code déjà très optimisé, pas d'amélioration nécessaire
+
+**Note: 4/10**
+
+**Points positifs:**
+- Benchmark fait
+- Identifié que le code est déjà optimisé
+
+**Points négatifs:**
+- Aucune optimisation faite
+- Sprint improductif
+
+---
+
+## Sprint 557 (FRONTEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Frontend TypeScript - useBackchanneling.test.ts
+
+**Ce que j'ai fait:**
+1. **Créé 17 tests** pour useBackchanneling hook
+2. **Tests couvrent:** initialization, triggerBackchannel, recent events tracking, onBackchannel callback, enable/disable, event structure
+3. **Tests des 8 sons backchanneling** (mmh, ah, oui, daccord, hmm, oh, aah, breath)
+
+**Note: 7/10**
+
+**Points positifs:**
+- Tests complets pour le hook de backchanneling
+- Tests de la structure des événements (id, timestamp, intensity)
+- Tests du callback onBackchannel
+- Tests du timing (clear après duration)
+- Tous les 17 tests passent
+
+**Points négatifs (sois HONNÊTE):**
+- Pas de tests pour la logique automatique de backchanneling (basée sur timing)
+- Pas de tests pour la sélection automatique des sons selon l'émotion
+- Warning React "act" dans la console (setTimeout dans le hook)
+- Pas de test pour la préparation de backchannel (isPreparingBackchannel)
+
+**Ce que j'aurais dû faire différemment:**
+- Tester la logique automatique avec userAudioLevel et timing
+- Tester le comportement avec différentes émotions
+- Corriger le warning act() en wrappant les advanceTimers
+
+**Risques introduits:**
+- Aucun risque - tests seulement
+
+**Amélioration pour le prochain sprint:**
+- Sprint 558 BACKEND - Alterner vers backend
+
+---
+
+## Sprint 555 (FRONTEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Frontend TypeScript - useAudioSmoothing.test.ts
+
+**Ce que j'ai fait:**
+1. **Créé 24 tests** pour useAudioSmoothing hook et utilitaires
+2. **Tests couvrent:** initialization, level updates, peak level (hold & decay), active state, reset, custom config (attack/release time)
+3. **Tests pour utilitaires:** toDecibels, fromDecibels, perceptualScale
+4. **Mocks propres** pour requestAnimationFrame et Date.now
+
+**Note: 8/10**
+
+**Points positifs:**
+- Couverture complète du hook et de toutes les fonctions utilitaires
+- Tests de comportement audio réalistes (attack/release, peak hold/decay)
+- Tests de clamp et validation d'input
+- Tests de comparaison entre configurations différentes
+- Tous les 24 tests passent
+
+**Points négatifs (sois HONNÊTE):**
+- Les tests de timing sont approximatifs (dépendent du mock)
+- Pas de test pour les cas limites du coefficient exponential
+- Pas de test d'intégration avec un vrai flux audio
+
+**Ce que j'aurais dû faire différemment:**
+- Tester les valeurs exactes du coefficient exponential
+- Ajouter des tests pour les edge cases du delta time (cap à 100ms)
+
+**Risques introduits:**
+- Aucun risque - tests seulement
+
+**Amélioration pour le prochain sprint:**
+- Sprint 556 BACKEND - Alterner vers backend
+- Focus sur un module backend restant
+
+---
+
 ## Sprint 535 - Autocritique (FRONTEND)
 
 **Date:** 2026-01-24
@@ -2556,5 +2654,59 @@
 - Sprint 558 BACKEND - alterner comme requis
 - Nettoyer les timers dans les tests pour éviter les warnings
 - Tester les branches non couvertes
+
+---
+
+## Sprint 558 (BACKEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - streaming_tts.py tests
+
+**Ce que j'ai fait:**
+1. **Créé test_streaming_tts.py** - 36 tests pour le module TTS streaming
+2. **Tests couvrent:**
+   - split_into_chunks (11 tests): empty text, short sentence, first chunk size, ellipsis, sentence split, commas, conjunctions, max words, punctuation, single word, whitespace
+   - create_wav_header (7 tests): header size, RIFF, WAVE, fmt, data, sample rates, stereo/mono
+   - stream_tts_gpu (3 tests): not initialized, empty text, yields wav
+   - stream_tts_gpu_mp3 (1 test): fallback without lameenc
+   - fast_first_byte_tts (2 tests): not initialized, empty text
+   - _empty_generator (1 test): yields nothing
+   - Regex patterns (4 tests): sentence split, commas, semicolons, conjunctions
+   - Constants (1 test): WAV_HEADER_SIZE
+   - Edge cases (6 tests): punctuation only, long word, spaces, newlines, unicode, numbers
+3. **Couverture: 58%** (191 statements, 80 missed)
+4. **36 tests passent** en ~1.8s
+
+**Note: 6/10**
+
+**Points positifs:**
+- Premier fichier de test pour streaming_tts.py (était 0% couvert)
+- Fonctions pures très bien testées (split_into_chunks 100%, create_wav_header 100%)
+- Tests des regex patterns pré-compilés
+- Tests des edge cases (unicode, newlines, etc.)
+- Alternance BACKEND respectée
+
+**Points négatifs (sois HONNÊTE):**
+- Couverture globale faible à 58% (objectif 80% non atteint)
+- Fonctions async avec dépendances GPU mal testées
+- stream_tts_gpu_mp3 presque pas testé (lignes 222-255)
+- fast_first_byte_tts partiellement testé (lignes 286-303)
+- benchmark_streaming non testé (lignes 315-349)
+- Le mocking des modules GPU est complexe et fragile
+
+**Ce que j'aurais dû faire différemment:**
+- Mocker plus complètement le module fast_tts
+- Tester le flow complet de stream_tts_gpu avec mock audio
+- Tester stream_tts_gpu_mp3 avec lameenc mocké
+- Exclure la fonction benchmark de la couverture (c'est du code de test)
+
+**Risques introduits:**
+- Aucun risque (tests seulement)
+- Les tests async avec module reload peuvent être fragiles
+
+**Amélioration pour le prochain sprint:**
+- Sprint 559 FRONTEND - alterner comme requis
+- Cibler les modules avec plus de fonctions pures
+- Mocker correctement les dépendances GPU pour meilleure couverture
 
 ---

@@ -774,6 +774,132 @@ class TestEvaExpressionHelpers:
             assert len(emotion.animation) > 0
 
 
+class TestEvaExpressionInit:
+    """Tests for EvaExpressionSystem initialization with TTS."""
+
+    def test_init_with_mocked_tts(self):
+        """Test init with mocked ultra_fast_tts function."""
+        from eva_expression import EvaExpressionSystem
+        import eva_expression
+
+        original_tts = eva_expression.ultra_fast_tts
+        original_init = eva_expression.init_ultra_fast_tts
+
+        def mock_tts(phrase, speed=1.0):
+            return b"fake_audio_" + phrase.encode()
+
+        def mock_init():
+            pass
+
+        try:
+            eva_expression.ultra_fast_tts = mock_tts
+            eva_expression.init_ultra_fast_tts = mock_init
+
+            system = EvaExpressionSystem()
+            result = system.init()
+
+            assert result is True
+            assert system._initialized is True
+            assert len(system._breathing_sounds) > 0
+            assert len(system._emotion_sounds) > 0
+            assert "inhale" in system._breathing_sounds
+            assert "laugh" in system._emotion_sounds
+        finally:
+            eva_expression.ultra_fast_tts = original_tts
+            eva_expression.init_ultra_fast_tts = original_init
+
+    def test_init_already_initialized(self):
+        """Test init returns True if already initialized."""
+        from eva_expression import EvaExpressionSystem
+        import eva_expression
+
+        original_tts = eva_expression.ultra_fast_tts
+        original_init = eva_expression.init_ultra_fast_tts
+
+        def mock_tts(phrase, speed=1.0):
+            return b"audio"
+
+        def mock_init():
+            pass
+
+        try:
+            eva_expression.ultra_fast_tts = mock_tts
+            eva_expression.init_ultra_fast_tts = mock_init
+
+            system = EvaExpressionSystem()
+            # First init
+            result1 = system.init()
+            assert result1 is True
+
+            # Second init should return True immediately (line 109)
+            result2 = system.init()
+            assert result2 is True
+        finally:
+            eva_expression.ultra_fast_tts = original_tts
+            eva_expression.init_ultra_fast_tts = original_init
+
+    def test_init_with_exception(self):
+        """Test init handles exception gracefully."""
+        from eva_expression import EvaExpressionSystem
+        import eva_expression
+
+        original_tts = eva_expression.ultra_fast_tts
+        original_init = eva_expression.init_ultra_fast_tts
+
+        def mock_init():
+            raise Exception("TTS init failed")
+
+        try:
+            eva_expression.ultra_fast_tts = lambda p, s: b"audio"
+            eva_expression.init_ultra_fast_tts = mock_init
+
+            system = EvaExpressionSystem()
+            result = system.init()
+
+            # Should return False on exception (lines 152-154)
+            assert result is False
+            assert system._initialized is False
+        finally:
+            eva_expression.ultra_fast_tts = original_tts
+            eva_expression.init_ultra_fast_tts = original_init
+
+    def test_init_tts_returns_none(self):
+        """Test init when TTS returns None for some phrases."""
+        from eva_expression import EvaExpressionSystem
+        import eva_expression
+
+        original_tts = eva_expression.ultra_fast_tts
+        original_init = eva_expression.init_ultra_fast_tts
+
+        call_count = [0]
+
+        def mock_tts(phrase, speed=1.0):
+            call_count[0] += 1
+            # Return None for some phrases to test line 129/145 branches
+            if call_count[0] % 2 == 0:
+                return None
+            return b"audio_" + phrase.encode()
+
+        def mock_init():
+            pass
+
+        try:
+            eva_expression.ultra_fast_tts = mock_tts
+            eva_expression.init_ultra_fast_tts = mock_init
+
+            system = EvaExpressionSystem()
+            result = system.init()
+
+            # Should still succeed
+            assert result is True
+            # But fewer sounds should be loaded
+            assert len(system._breathing_sounds) < 5  # Not all 5
+            assert len(system._emotion_sounds) < 7  # Not all 7
+        finally:
+            eva_expression.ultra_fast_tts = original_tts
+            eva_expression.init_ultra_fast_tts = original_init
+
+
 # =============================================================================
 # EVA MICRO EXPRESSIONS TESTS
 # =============================================================================

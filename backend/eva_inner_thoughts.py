@@ -195,13 +195,17 @@ class EvaInnerThoughts:
         user_spoke: bool = False,
         eva_spoke: bool = False,
         message_length: int = 0,
-        detected_emotion: str = "neutral"
+        detected_emotion: str = "neutral",
+        current_time: Optional[float] = None
     ) -> None:
         """Update conversation state after each turn.
 
         Uses O(1) frozenset lookups for emotion categorization.
+
+        Args:
+            current_time: Optional pre-computed timestamp (avoids repeated time.time() calls)
         """
-        now = time.time()
+        now = current_time if current_time is not None else time.time()
 
         if user_spoke:
             self.user_last_spoke = now
@@ -354,13 +358,16 @@ class EvaInnerThoughts:
         """Decide if Eva should express this thought"""
         return thought.motivation_score >= self.motivation_threshold
 
-    def generate_proactive_message(self, user_id: str) -> Optional[Dict[str, Any]]:
+    def generate_proactive_message(self, user_id: str, current_time: Optional[float] = None) -> Optional[Dict[str, Any]]:
         """
         Generate a proactive message if appropriate
 
         Returns None if Eva shouldn't initiate right now
+
+        Args:
+            current_time: Optional pre-computed timestamp (avoids repeated time.time() calls)
         """
-        now = time.time()
+        now = current_time if current_time is not None else time.time()
 
         # Check cooldown
         if now - self.last_proactive_time < self.min_proactive_interval:
