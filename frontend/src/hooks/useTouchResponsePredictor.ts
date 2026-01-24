@@ -284,6 +284,7 @@ function kalmanPredict(
 
 /**
  * Kalman filter update step
+ * Optimized: pre-computed factors, in-place style covariance update
  */
 function kalmanUpdate(
   state: KalmanState,
@@ -299,22 +300,33 @@ function kalmanUpdate(
   // Kalman gain (simplified)
   const K = state.covariance[0][0] / (state.covariance[0][0] + R);
 
+  // Pre-compute factors for reuse
+  const KdxFactor = K * dx * 0.1;
+  const KdyFactor = K * dy * 0.1;
+
   // Update state
   const newX = state.x + K * dx;
   const newY = state.y + K * dy;
 
   // Calculate velocity from innovation
-  const newVx = state.vx + K * dx * 0.1;
-  const newVy = state.vy + K * dy * 0.1;
+  const newVx = state.vx + KdxFactor;
+  const newVy = state.vy + KdyFactor;
 
   // Calculate acceleration
   const newAx = (newVx - state.vx) * 0.1;
   const newAy = (newVy - state.vy) * 0.1;
 
-  // Update covariance
-  const newCovariance = state.covariance.map((row, i) =>
-    row.map((val, j) => (1 - K) * val)
-  );
+  // Update covariance (in-place style, avoids map allocation)
+  const oneMinusK = 1 - K;
+  const cov = state.covariance;
+  const newCovariance: number[][] = [
+    [cov[0][0] * oneMinusK, cov[0][1] * oneMinusK, cov[0][2] * oneMinusK, cov[0][3] * oneMinusK, cov[0][4] * oneMinusK, cov[0][5] * oneMinusK],
+    [cov[1][0] * oneMinusK, cov[1][1] * oneMinusK, cov[1][2] * oneMinusK, cov[1][3] * oneMinusK, cov[1][4] * oneMinusK, cov[1][5] * oneMinusK],
+    [cov[2][0] * oneMinusK, cov[2][1] * oneMinusK, cov[2][2] * oneMinusK, cov[2][3] * oneMinusK, cov[2][4] * oneMinusK, cov[2][5] * oneMinusK],
+    [cov[3][0] * oneMinusK, cov[3][1] * oneMinusK, cov[3][2] * oneMinusK, cov[3][3] * oneMinusK, cov[3][4] * oneMinusK, cov[3][5] * oneMinusK],
+    [cov[4][0] * oneMinusK, cov[4][1] * oneMinusK, cov[4][2] * oneMinusK, cov[4][3] * oneMinusK, cov[4][4] * oneMinusK, cov[4][5] * oneMinusK],
+    [cov[5][0] * oneMinusK, cov[5][1] * oneMinusK, cov[5][2] * oneMinusK, cov[5][3] * oneMinusK, cov[5][4] * oneMinusK, cov[5][5] * oneMinusK],
+  ];
 
   return {
     x: newX,
