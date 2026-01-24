@@ -6,13 +6,15 @@
 import { renderHook, act } from "@testing-library/react";
 import { useSharedSilence, SilenceType, SharedSilenceState } from "../useSharedSilence";
 
-// Mock RAF
+// Time simulation
+let mockNow = 0;
 let rafCallback: FrameRequestCallback | null = null;
 let rafId = 0;
 
-beforeAll(() => {
-  jest.useFakeTimers();
+// Mock Date.now
+const originalDateNow = Date.now;
 
+beforeAll(() => {
   jest.spyOn(global, "requestAnimationFrame").mockImplementation((cb) => {
     rafCallback = cb;
     return ++rafId;
@@ -21,15 +23,32 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  jest.useRealTimers();
   jest.restoreAllMocks();
 });
 
 beforeEach(() => {
-  jest.clearAllTimers();
+  mockNow = 1000; // Start at 1 second
+  Date.now = jest.fn(() => mockNow);
   rafCallback = null;
   rafId = 0;
 });
+
+afterEach(() => {
+  Date.now = originalDateNow;
+});
+
+// Helper to trigger initial RAF (sets silenceStartTime)
+function triggerInitialRaf() {
+  if (rafCallback) rafCallback(mockNow);
+}
+
+// Helper to advance time and trigger RAF
+function advanceTimeAndRaf(ms: number, iterations = 1) {
+  mockNow += ms;
+  for (let i = 0; i < iterations; i++) {
+    if (rafCallback) rafCallback(mockNow);
+  }
+}
 
 const defaultProps = {
   isListening: false,
@@ -83,10 +102,8 @@ describe("useSharedSilence", () => {
         useSharedSilence({ ...defaultProps, isSpeaking: true })
       );
 
-      // Advance time
       act(() => {
-        jest.advanceTimersByTime(3000);
-        if (rafCallback) rafCallback(performance.now());
+        advanceTimeAndRaf(3000, 5);
       });
 
       expect(result.current.isInSilence).toBe(false);
@@ -99,8 +116,7 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(3000);
-        if (rafCallback) rafCallback(performance.now());
+        advanceTimeAndRaf(3000, 5);
       });
 
       expect(result.current.isInSilence).toBe(false);
@@ -112,8 +128,7 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(3000);
-        if (rafCallback) rafCallback(performance.now());
+        advanceTimeAndRaf(3000, 5);
       });
 
       expect(result.current.isInSilence).toBe(false);
@@ -124,12 +139,14 @@ describe("useSharedSilence", () => {
         useSharedSilence(defaultProps)
       );
 
-      // Trigger RAF multiple times to build up silence
+      // First RAF sets silenceStartTime
       act(() => {
-        jest.advanceTimersByTime(2500);
-        for (let i = 0; i < 5; i++) {
-          if (rafCallback) rafCallback(performance.now());
-        }
+        triggerInitialRaf();
+      });
+
+      // Then advance time past threshold
+      act(() => {
+        advanceTimeAndRaf(2500, 5);
       });
 
       expect(result.current.isInSilence).toBe(true);
@@ -147,10 +164,11 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(3000);
-        for (let i = 0; i < 5; i++) {
-          if (rafCallback) rafCallback(performance.now());
-        }
+        triggerInitialRaf();
+      });
+
+      act(() => {
+        advanceTimeAndRaf(3000, 5);
       });
 
       expect(result.current.silenceType).toBe("reflective");
@@ -166,10 +184,11 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(3000);
-        for (let i = 0; i < 5; i++) {
-          if (rafCallback) rafCallback(performance.now());
-        }
+        triggerInitialRaf();
+      });
+
+      act(() => {
+        advanceTimeAndRaf(3000, 5);
       });
 
       expect(result.current.silenceType).toBe("anticipatory");
@@ -184,12 +203,13 @@ describe("useSharedSilence", () => {
         })
       );
 
+      act(() => {
+        triggerInitialRaf();
+      });
+
       // Need 8+ seconds for comfortable silence
       act(() => {
-        jest.advanceTimersByTime(9000);
-        for (let i = 0; i < 10; i++) {
-          if (rafCallback) rafCallback(performance.now());
-        }
+        advanceTimeAndRaf(9000, 10);
       });
 
       expect(result.current.silenceType).toBe("intrinsic");
@@ -205,10 +225,11 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(3000);
-        for (let i = 0; i < 5; i++) {
-          if (rafCallback) rafCallback(performance.now());
-        }
+        triggerInitialRaf();
+      });
+
+      act(() => {
+        advanceTimeAndRaf(3000, 5);
       });
 
       expect(result.current.silenceType).toBe("transitional");
@@ -227,12 +248,14 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(9000);
-        for (let i = 0; i < 10; i++) {
-          if (rafCallback) rafCallback(performance.now());
-        }
+        triggerInitialRaf();
       });
 
+      act(() => {
+        advanceTimeAndRaf(9000, 10);
+      });
+
+      // intrinsic base 0.8 + intimacy 0.06 + attunement 0.06 = ~0.92
       expect(result.current.silenceQuality).toBeGreaterThan(0.7);
     });
 
@@ -246,13 +269,14 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(3000);
-        for (let i = 0; i < 5; i++) {
-          if (rafCallback) rafCallback(performance.now());
-        }
+        triggerInitialRaf();
       });
 
-      // Quality should include the 0.05 boost for long conversation
+      act(() => {
+        advanceTimeAndRaf(3000, 5);
+      });
+
+      // transitional base 0.5 + intimacy 0.05 + attunement 0.05 + long convo 0.05 = 0.65
       expect(result.current.silenceQuality).toBeGreaterThan(0.5);
     });
 
@@ -268,10 +292,7 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(10000);
-        for (let i = 0; i < 10; i++) {
-          if (rafCallback) rafCallback(performance.now());
-        }
+        advanceTimeAndRaf(10000, 10);
       });
 
       expect(result.current.silenceQuality).toBeLessThanOrEqual(1);
@@ -286,8 +307,7 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(3000);
-        if (rafCallback) rafCallback(performance.now());
+        advanceTimeAndRaf(3000, 1);
       });
 
       expect(result.current.sharedPresence.evaIsHere).toBe(true);
@@ -299,8 +319,7 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(100);
-        if (rafCallback) rafCallback(performance.now());
+        advanceTimeAndRaf(100, 1);
       });
 
       expect(result.current.sharedPresence.evaIsHere).toBe(false);
@@ -316,10 +335,7 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(9000);
-        for (let i = 0; i < 10; i++) {
-          if (rafCallback) rafCallback(performance.now());
-        }
+        advanceTimeAndRaf(9000, 10);
       });
 
       expect(result.current.sharedPresence.connectionStrength).toBeGreaterThan(0);
@@ -346,10 +362,7 @@ describe("useSharedSilence", () => {
 
       // Need 8+ seconds for intrinsic, 3+ for micro move
       act(() => {
-        jest.advanceTimersByTime(9000);
-        for (let i = 0; i < 10; i++) {
-          if (rafCallback) rafCallback(performance.now());
-        }
+        advanceTimeAndRaf(9000, 10);
       });
 
       expect(result.current.evaHints.shouldMicroMove).toBe(true);
@@ -366,10 +379,7 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(9000);
-        for (let i = 0; i < 10; i++) {
-          if (rafCallback) rafCallback(performance.now());
-        }
+        advanceTimeAndRaf(9000, 10);
       });
 
       expect(result.current.evaHints.shouldWarmGlow).toBe(true);
@@ -387,10 +397,7 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(15000);
-        for (let i = 0; i < 15; i++) {
-          if (rafCallback) rafCallback(performance.now());
-        }
+        advanceTimeAndRaf(15000, 15);
       });
 
       expect(result.current.breakSilence.shouldBreak).toBe(false);
@@ -407,10 +414,7 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(16000);
-        for (let i = 0; i < 20; i++) {
-          if (rafCallback) rafCallback(performance.now());
-        }
+        advanceTimeAndRaf(16000, 20);
       });
 
       expect(result.current.breakSilence.shouldBreak).toBe(true);
@@ -430,10 +434,7 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(9000);
-        for (let i = 0; i < 10; i++) {
-          if (rafCallback) rafCallback(performance.now());
-        }
+        advanceTimeAndRaf(9000, 10);
       });
 
       expect(result.current.description).toContain("Silence");
@@ -455,8 +456,7 @@ describe("useSharedSilence", () => {
       );
 
       act(() => {
-        jest.advanceTimersByTime(100);
-        if (rafCallback) rafCallback(performance.now());
+        advanceTimeAndRaf(100, 1);
       });
 
       unmount();

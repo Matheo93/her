@@ -356,6 +356,194 @@ class TestEvaExpressionSystem:
             eva_expression.ultra_fast_tts = original_tts
 
 
+class TestEvaExpressionDetection:
+    """Tests for emotion detection in EvaExpressionSystem."""
+
+    def test_detect_emotion_joy(self):
+        """Test detecting joy emotion."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        emotion = system.detect_emotion("Haha, j'adore ça !")
+
+        assert emotion.name == "joy"
+        assert emotion.intensity > 0
+
+    def test_detect_emotion_sadness(self):
+        """Test detecting sadness emotion."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        emotion = system.detect_emotion("C'est triste, snif...")
+
+        assert emotion.name == "sadness"
+
+    def test_detect_emotion_surprise(self):
+        """Test detecting surprise emotion."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        emotion = system.detect_emotion("QUOI?! Attends, sérieux?")
+
+        assert emotion.name == "surprise"
+
+    def test_detect_emotion_curiosity(self):
+        """Test detecting curiosity emotion."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        emotion = system.detect_emotion("Raconte-moi ! Pourquoi ?")
+
+        assert emotion.name == "curiosity"
+
+    def test_detect_emotion_neutral(self):
+        """Test neutral emotion for plain text."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        emotion = system.detect_emotion("Le ciel est bleu.")
+
+        assert emotion.name == "neutral"
+
+    def test_detect_emotion_intensity_scales(self):
+        """Test intensity scales with number of matches."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+
+        # More matches = higher intensity
+        low = system.detect_emotion("haha")
+        high = system.detect_emotion("haha haha haha j'adore super cool")
+
+        assert high.intensity >= low.intensity
+
+
+class TestEvaExpressionVoiceParams:
+    """Tests for voice parameter generation."""
+
+    def test_get_voice_params_positive_pitch(self):
+        """Test voice params with positive pitch."""
+        from eva_expression import EvaExpressionSystem, EMOTIONS
+
+        system = EvaExpressionSystem()
+        params = system.get_voice_params(EMOTIONS["joy"])
+
+        assert "rate" in params
+        assert "pitch" in params
+        assert params["pitch"].startswith("+")
+
+    def test_get_voice_params_negative_pitch(self):
+        """Test voice params with negative pitch."""
+        from eva_expression import EvaExpressionSystem, EMOTIONS
+
+        system = EvaExpressionSystem()
+        params = system.get_voice_params(EMOTIONS["sadness"])
+
+        assert params["pitch"].startswith("-")
+
+    def test_get_voice_params_neutral(self):
+        """Test voice params for neutral emotion."""
+        from eva_expression import EvaExpressionSystem, EMOTIONS
+
+        system = EvaExpressionSystem()
+        params = system.get_voice_params(EMOTIONS["neutral"])
+
+        assert params["pitch"] == "+0Hz"
+
+
+class TestEvaExpressionAnimations:
+    """Tests for animation suggestions."""
+
+    def test_get_animation_suggestion_basic(self):
+        """Test basic animation suggestion."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        animations = system.get_animation_suggestion("Bonjour")
+
+        assert len(animations) >= 1
+        assert "type" in animations[0]
+        assert "intensity" in animations[0]
+        assert "duration" in animations[0]
+
+    def test_get_animation_suggestion_question(self):
+        """Test animation for question mark."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        animations = system.get_animation_suggestion("Comment ça va ?")
+
+        types = [a["type"] for a in animations]
+        assert "head_tilt" in types
+
+    def test_get_animation_suggestion_exclamation(self):
+        """Test animation for exclamation mark."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        animations = system.get_animation_suggestion("Super !")
+
+        types = [a["type"] for a in animations]
+        assert "eyebrows_up" in types
+
+    def test_get_animation_suggestion_negative(self):
+        """Test animation for negative words."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        animations = system.get_animation_suggestion("Non, jamais")
+
+        types = [a["type"] for a in animations]
+        assert "head_shake" in types
+
+    def test_get_animation_suggestion_affirmative(self):
+        """Test animation for affirmative words."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        animations = system.get_animation_suggestion("Oui bien sûr")
+
+        types = [a["type"] for a in animations]
+        assert "nod" in types
+
+
+class TestEvaExpressionProcess:
+    """Tests for full expression processing."""
+
+    def test_process_for_expression(self):
+        """Test full expression processing."""
+        from eva_expression import EvaExpressionSystem
+
+        system = EvaExpressionSystem()
+        result = system.process_for_expression("Haha super !")
+
+        assert "emotion" in result
+        assert "intensity" in result
+        assert "voice_params" in result
+        assert "animations" in result
+
+
+class TestEvaExpressionGlobalFunctions:
+    """Tests for global utility functions."""
+
+    def test_detect_emotion_function(self):
+        """Test global detect_emotion function."""
+        from eva_expression import detect_emotion
+
+        emotion = detect_emotion("J'adore !")
+
+        assert emotion.name == "joy"
+
+    def test_get_expression_data_function(self):
+        """Test global get_expression_data function."""
+        from eva_expression import get_expression_data
+
+        data = get_expression_data("Super cool !")
+
+        assert "emotion" in data
+        assert "voice_params" in data
+
+
 class TestEvaExpressionHelpers:
     """Tests for helper functions in eva_expression.py."""
 

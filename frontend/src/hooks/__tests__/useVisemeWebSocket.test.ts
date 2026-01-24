@@ -87,15 +87,15 @@ describe("useVisemeWebSocket", () => {
       const ws = new MockWebSocket(url);
       mockWebSocketInstances.push(ws);
       return ws;
-    }) as unknown as typeof WebSocket;
+    }) as jest.Mock & { CONNECTING: number; OPEN: number; CLOSING: number; CLOSED: number };
 
     // Add static constants that match the real WebSocket
-    MockWebSocketClass.CONNECTING = 0;
-    MockWebSocketClass.OPEN = 1;
-    MockWebSocketClass.CLOSING = 2;
-    MockWebSocketClass.CLOSED = 3;
+    Object.defineProperty(MockWebSocketClass, 'CONNECTING', { value: 0, writable: false });
+    Object.defineProperty(MockWebSocketClass, 'OPEN', { value: 1, writable: false });
+    Object.defineProperty(MockWebSocketClass, 'CLOSING', { value: 2, writable: false });
+    Object.defineProperty(MockWebSocketClass, 'CLOSED', { value: 3, writable: false });
 
-    (global as unknown as { WebSocket: typeof WebSocket }).WebSocket = MockWebSocketClass;
+    (global as unknown as { WebSocket: typeof WebSocket }).WebSocket = MockWebSocketClass as unknown as typeof WebSocket;
   });
 
   afterEach(() => {

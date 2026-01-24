@@ -2,6 +2,46 @@
 
 ---
 
+## Sprint 526 - Autocritique (BACKEND)
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - eva_realtime.py AudioBuffer optimization
+
+**Ce que j'ai fait:**
+1. **Cache `_total_samples`** - Évite de recalculer la somme à chaque appel de `duration()`
+2. **Pre-compute `_max_chunks`** - Calculé une fois dans `__post_init__` au lieu de chaque `add()`
+3. **Pre-allocate dans `get_audio()`** - Utilise `np.empty()` au lieu de list comprehension
+4. **10 tests ajoutés** pour AudioBuffer, VADState, ConversationState (2 skippés pour VAD)
+
+**Note: 6/10**
+
+**Points positifs:**
+- Vraies optimisations de performance (cache, pre-allocation)
+- Tests unitaires pour valider les optimisations
+- Pattern dataclass avec `__post_init__` pour pre-calcul
+- Respect de l'alternance BACKEND/FRONTEND
+
+**Points négatifs (sois HONNÊTE):**
+- 2 tests skippés à cause de dépendance VAD non résolue
+- Pas de benchmark avant/après pour mesurer l'impact réel
+- Le fichier a été modifié par un linter avec des ajouts non planifiés
+- N'ai pas testé les méthodes async de RealtimeSession
+
+**Ce que j'aurais dû faire différemment:**
+- Mocker VAD pour pouvoir tester RealtimeSession
+- Créer un benchmark pour mesurer l'impact sur de gros buffers
+- Ajouter des tests async pour les queues audio
+
+**Risques introduits:**
+- Le cache _total_samples peut désynchroniser si on modifie chunks directement
+- Aucun risque majeur (backward compatible)
+
+**Amélioration pour le prochain sprint:**
+- Sprint 527 FRONTEND - Alterner comme requis
+- Résoudre les tests skippés
+
+---
+
 ## Sprint 525 - Autocritique (FRONTEND)
 
 **Date:** 2026-01-24
@@ -1577,5 +1617,82 @@
 - Sprint 532 BACKEND - Alterner comme requis
 - Extraire les mocks réutilisables dans un fichier commun
 - Focus sur vraie optimisation (pas juste tests)
+
+---
+
+## Sprint 552 (BACKEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - eva_expression.py tests
+
+**Ce que j'ai fait:**
+- Ajouté 17 nouveaux tests pour eva_expression.py dans test_modules.py
+- Tests couvrent: detect_emotion (6 tests), get_voice_params (3 tests)
+- Tests couvrent: get_animation_suggestion (5 tests), process_for_expression (1 test)
+- Tests couvrent: global functions detect_emotion et get_expression_data (2 tests)
+- Couverture passée de 32% à 61% (+29%)
+- 55 tests passent maintenant (vs 38 avant)
+
+**Note: 7/10**
+
+**Points positifs:**
+- Amélioration significative de couverture (+29%)
+- Tests ciblés sur les méthodes non couvertes
+- Tous les tests passent rapidement (~2s)
+- Alternance FRONTEND/BACKEND respectée
+- Tests pour les cas positifs et négatifs (pitch, animations)
+
+**Points négatifs (sois HONNÊTE):**
+- Couverture encore à 61% (loin des 80% requis)
+- Je n'ai PAS testé get_breathing_sound et get_emotion_sound (nécessitent TTS init)
+- Je n'ai PAS optimisé le code, juste ajouté des tests
+- init() n'est pas testé avec TTS réel
+
+**Ce que j'aurais dû faire différemment:**
+- Mocker ultra_fast_tts pour tester get_breathing_sound et get_emotion_sound
+- Ajouter des tests pour init() avec mock TTS
+- Atteindre 80% de couverture minimum
+
+**Risques introduits:**
+- Aucun risque (tests seulement)
+
+**Amélioration pour le prochain sprint:**
+- Sprint 553 FRONTEND - alterner comme requis
+- Mocker les dépendances pour tester les méthodes restantes
+
+---
+
+## Sprint 553 (FRONTEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Frontend TypeScript - Tentative tests
+
+**Ce que j'ai fait:**
+- Tentative d'exécuter les tests frontend
+- Système saturé avec erreur EAGAIN (resources temporarily unavailable)
+- Impossible de lancer les tests Jest
+
+**Note: 1/10**
+
+**Points positifs:**
+- J'ai identifié le problème de ressources
+
+**Points négatifs (sois HONNÊTE):**
+- AUCUN code écrit
+- AUCUN test exécuté
+- Sprint complètement improductif
+- Ressources système épuisées
+
+**Ce que j'aurais dû faire différemment:**
+- Attendre que les ressources se libèrent
+- Vérifier les processus en cours avant de lancer des tests
+- Faire du code review plutôt que des tests
+
+**Risques introduits:**
+- Aucun (je n'ai rien fait)
+
+**Amélioration pour le prochain sprint:**
+- Sprint 554 BACKEND - alterner comme requis
+- Attendre que le système se stabilise
 
 ---

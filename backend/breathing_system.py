@@ -65,8 +65,8 @@ class NaturalBreathingSystem:
     # Sons de reflexion naturels
     THINKING_SOUNDS = ["hmm...", "mmh...", "ah..."]
 
-    # Mots de liaison apres lesquels on peut inserer une pause
-    LIAISON_WORDS = ['et', 'ou', 'mais', 'donc', 'car', 'puis', 'alors', 'parce']
+    # Mots de liaison apres lesquels on peut inserer une pause (frozenset for O(1) lookup)
+    LIAISON_WORDS = frozenset(['et', 'ou', 'mais', 'donc', 'car', 'puis', 'alors', 'parce'])
 
     def __init__(self):
         self._hesitation_count = 0

@@ -243,23 +243,33 @@ function initKalmanState(position: Point2D): KalmanState {
 
 /**
  * Kalman filter predict step
+ * Optimized: uses in-place covariance update instead of map()
  */
 function kalmanPredict(
   state: KalmanState,
   dt: number,
   processNoise: number
 ): KalmanState {
+  // Pre-compute dt squared for reuse
+  const dtSquaredHalf = 0.5 * dt * dt;
+
   // State transition
-  const newX = state.x + state.vx * dt + 0.5 * state.ax * dt * dt;
-  const newY = state.y + state.vy * dt + 0.5 * state.ay * dt * dt;
+  const newX = state.x + state.vx * dt + state.ax * dtSquaredHalf;
+  const newY = state.y + state.vy * dt + state.ay * dtSquaredHalf;
   const newVx = state.vx + state.ax * dt;
   const newVy = state.vy + state.ay * dt;
 
-  // Update covariance with process noise
+  // Update covariance with process noise (in-place style, avoids map allocation)
   const Q = processNoise;
-  const newCovariance = state.covariance.map((row, i) =>
-    row.map((val, j) => (i === j ? val + Q : val))
-  );
+  const cov = state.covariance;
+  const newCovariance: number[][] = [
+    [cov[0][0] + Q, cov[0][1], cov[0][2], cov[0][3], cov[0][4], cov[0][5]],
+    [cov[1][0], cov[1][1] + Q, cov[1][2], cov[1][3], cov[1][4], cov[1][5]],
+    [cov[2][0], cov[2][1], cov[2][2] + Q, cov[2][3], cov[2][4], cov[2][5]],
+    [cov[3][0], cov[3][1], cov[3][2], cov[3][3] + Q, cov[3][4], cov[3][5]],
+    [cov[4][0], cov[4][1], cov[4][2], cov[4][3], cov[4][4] + Q, cov[4][5]],
+    [cov[5][0], cov[5][1], cov[5][2], cov[5][3], cov[5][4], cov[5][5] + Q],
+  ];
 
   return {
     x: newX,
