@@ -1542,3 +1542,76 @@ describe("Sprint 550 - Additional coverage for useNetworkLatencyMonitor", () => 
     expect(result.current.recommended.compressionLevel).toBe("medium");
   });
 });
+
+describe("Sprint 525 - Percentile optimization", () => {
+  let mockTime: number;
+
+  beforeEach(() => {
+    mockTime = 1000;
+    jest.useFakeTimers();
+    jest.spyOn(performance, "now").mockImplementation(() => mockTime);
+    jest.spyOn(Date, "now").mockImplementation(() => mockTime);
+
+    Object.defineProperty(navigator, "connection", {
+      value: {
+        effectiveType: "4g",
+        downlink: 10,
+        saveData: false,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      },
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it("should calculate multiple percentiles correctly (optimized)", async () => {
+    const latencies = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+    let callIndex = 0;
+
+    (global.fetch as jest.Mock).mockImplementation(async () => {
+      mockTime += latencies[callIndex++ % latencies.length];
+      return { ok: true };
+    });
+
+    const { result } = renderHook(() =>
+      useNetworkLatencyMonitor({ enabled: false })
+    );
+
+    await act(async () => {
+      for (let i = 0; i < 10; i++) {
+        await result.current.controls.ping();
+        mockTime += 100;
+      }
+    });
+
+    // Verify percentiles are calculated correctly
+    expect(result.current.metrics.latency.p50).toBeGreaterThan(0);
+    expect(result.current.metrics.latency.p90).toBeGreaterThan(
+      result.current.metrics.latency.p50
+    );
+    expect(result.current.metrics.latency.p95).toBeGreaterThanOrEqual(
+      result.current.metrics.latency.p90
+    );
+    expect(result.current.metrics.latency.p99).toBeGreaterThanOrEqual(
+      result.current.metrics.latency.p95
+    );
+  });
+
+  it("should handle empty latencies array gracefully", () => {
+    const { result } = renderHook(() =>
+      useNetworkLatencyMonitor({ enabled: false })
+    );
+
+    // Initial state should have zeroed percentiles
+    expect(result.current.metrics.latency.p50).toBe(0);
+    expect(result.current.metrics.latency.p90).toBe(0);
+    expect(result.current.metrics.latency.p95).toBe(0);
+    expect(result.current.metrics.latency.p99).toBe(0);
+  });
+});

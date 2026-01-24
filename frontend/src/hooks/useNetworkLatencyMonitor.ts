@@ -470,15 +470,21 @@ export function useNetworkLatencyMonitor(
     const jitter = calculateJitter(latencies);
     const standardDeviation = calculateStandardDeviation(latencies);
 
+    // Calculate all percentiles in a single sort pass (optimization)
+    const [p50, p90, p95, p99] = calculateMultiplePercentiles(
+      latencies,
+      [50, 90, 95, 99]
+    );
+
     const latencyStats: LatencyStats = {
       current,
       average,
       min,
       max,
-      p50: calculatePercentile(latencies, 50),
-      p90: calculatePercentile(latencies, 90),
-      p95: calculatePercentile(latencies, 95),
-      p99: calculatePercentile(latencies, 99),
+      p50,
+      p90,
+      p95,
+      p99,
       jitter,
       standardDeviation,
       sampleCount: latencies.length,
