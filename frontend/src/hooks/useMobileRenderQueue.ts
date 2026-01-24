@@ -170,15 +170,18 @@ const DEFAULT_METRICS: QueueMetrics = {
   idleTasksProcessed: 0,
 };
 
+// Module-level counter for task IDs (avoids Date.now() overhead)
+let taskIdCounter = 0;
+
 // ============================================================================
 // Utility Functions
 // ============================================================================
 
 /**
- * Generate unique task ID
+ * Generate unique task ID using counter (faster than Date.now())
  */
 function generateTaskId(): string {
-  return `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `task_${++taskIdCounter}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
 /**

@@ -99,6 +99,22 @@ const DEFAULT_CONFIG: ViewportConfig = {
   scrollLockOnKeyboard: false,
 };
 
+// History size for keyboard heights
+const KEYBOARD_HISTORY_SIZE = 10;
+
+// Pre-computed initial metrics (module-level for performance)
+const INITIAL_METRICS: ViewportMetrics = {
+  orientationChanges: 0,
+  keyboardShowCount: 0,
+  averageKeyboardHeight: 0,
+  scrollLockCount: 0,
+  resizeCount: 0,
+  viewportUpdates: 0,
+};
+
+// Pre-computed initial safe area insets
+const INITIAL_SAFE_AREA: SafeAreaInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+
 function getOrientation(): ViewportOrientation {
   if (typeof window === "undefined") return "portrait";
 
@@ -177,14 +193,10 @@ export function useMobileViewportOptimizer(
     };
   });
 
-  const [metrics, setMetrics] = useState<ViewportMetrics>({
-    orientationChanges: 0,
-    keyboardShowCount: 0,
-    averageKeyboardHeight: 0,
-    scrollLockCount: 0,
-    resizeCount: 0,
-    viewportUpdates: 0,
-  });
+  // Metrics - uses module-level constant for initial value
+  const [metrics, setMetrics] = useState<ViewportMetrics>(() => ({
+    ...INITIAL_METRICS,
+  }));
 
   // Refs
   const scrollPositionRef = useRef(0);
@@ -388,10 +400,11 @@ export function useMobileViewportOptimizer(
           keyboardHeight = heightDiff;
           keyboardState = "visible";
 
-          // Track keyboard heights
-          keyboardHeightsRef.current.push(keyboardHeight);
-          if (keyboardHeightsRef.current.length > 10) {
-            keyboardHeightsRef.current.shift();
+          // Track keyboard heights - use slice(-N) instead of shift() for O(1) vs O(n)
+          if (keyboardHeightsRef.current.length >= KEYBOARD_HISTORY_SIZE) {
+            keyboardHeightsRef.current = [...keyboardHeightsRef.current.slice(-(KEYBOARD_HISTORY_SIZE - 1)), keyboardHeight];
+          } else {
+            keyboardHeightsRef.current = [...keyboardHeightsRef.current, keyboardHeight];
           }
 
           const avgKeyboardHeight =

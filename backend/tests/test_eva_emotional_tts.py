@@ -164,6 +164,13 @@ class TestEvaEmotionalTTS:
                 assert tts.current_backend == "sherpa"
                 assert tts.sample_rate == 16000
 
+    def test_init_cosyvoice_available_check(self):
+        """Test COSYVOICE_AVAILABLE flag is checked."""
+        from eva_emotional_tts import COSYVOICE_AVAILABLE
+
+        # Just verify the flag exists and is a bool
+        assert isinstance(COSYVOICE_AVAILABLE, bool)
+
     def test_emotion_prompts_defined(self):
         """Test all emotion prompts are defined."""
         from eva_emotional_tts import EvaEmotionalTTS, EmotionStyle
@@ -288,6 +295,196 @@ class TestApplyProsodyEffects:
 
                     np.testing.assert_array_equal(result, audio)
 
+    def test_apply_prosody_with_speed_factor(self):
+        """Test prosody effects with speed factor."""
+        from eva_emotional_tts import EvaEmotionalTTS, EmotionalVoiceParams, EmotionStyle
+
+        mock_torch = MagicMock()
+        mock_torchaudio = MagicMock()
+
+        # Create mock tensor
+        mock_tensor = MagicMock()
+        mock_tensor.unsqueeze.return_value = mock_tensor
+        mock_tensor.squeeze.return_value = mock_tensor
+        mock_tensor.numpy.return_value = np.random.randn(16000).astype(np.float32)
+        mock_tensor.abs.return_value.max.return_value = 1.0
+        mock_tensor.__truediv__ = lambda self, other: self
+        mock_tensor.__mul__ = lambda self, other: self
+
+        mock_torch.from_numpy.return_value = mock_tensor
+        mock_torchaudio.sox_effects.apply_effects_tensor.return_value = (mock_tensor, 16000)
+
+        with patch.dict("sys.modules", {"torch": mock_torch, "torchaudio": mock_torchaudio}):
+            with patch("eva_emotional_tts.TORCH_AVAILABLE", True):
+                with patch("eva_emotional_tts.COSYVOICE_AVAILABLE", False):
+                    with patch("eva_emotional_tts.ULTRA_TTS_AVAILABLE", False):
+                        with patch("eva_emotional_tts.torch", mock_torch):
+                            with patch("eva_emotional_tts.torchaudio", mock_torchaudio):
+                                tts = EvaEmotionalTTS()
+
+                                audio = np.random.randn(16000).astype(np.float32)
+                                params = EmotionalVoiceParams(
+                                    emotion=EmotionStyle.JOY,
+                                    intensity=0.8,
+                                    pitch_shift=0.0,
+                                    speed_factor=1.15,  # Non-default speed
+                                    energy_factor=1.0,
+                                    breathiness=0.1
+                                )
+
+                                result = tts._apply_prosody_effects(audio, params)
+
+                                assert result is not None
+
+    def test_apply_prosody_with_pitch_shift(self):
+        """Test prosody effects with pitch shift."""
+        from eva_emotional_tts import EvaEmotionalTTS, EmotionalVoiceParams, EmotionStyle
+
+        mock_torch = MagicMock()
+        mock_torchaudio = MagicMock()
+
+        mock_tensor = MagicMock()
+        mock_tensor.unsqueeze.return_value = mock_tensor
+        mock_tensor.squeeze.return_value = mock_tensor
+        mock_tensor.numpy.return_value = np.random.randn(16000).astype(np.float32)
+        mock_tensor.abs.return_value.max.return_value = 1.0
+        mock_tensor.__truediv__ = lambda self, other: self
+        mock_tensor.__mul__ = lambda self, other: self
+
+        mock_torch.from_numpy.return_value = mock_tensor
+        mock_torchaudio.sox_effects.apply_effects_tensor.return_value = (mock_tensor, 16000)
+
+        with patch.dict("sys.modules", {"torch": mock_torch, "torchaudio": mock_torchaudio}):
+            with patch("eva_emotional_tts.TORCH_AVAILABLE", True):
+                with patch("eva_emotional_tts.COSYVOICE_AVAILABLE", False):
+                    with patch("eva_emotional_tts.ULTRA_TTS_AVAILABLE", False):
+                        with patch("eva_emotional_tts.torch", mock_torch):
+                            with patch("eva_emotional_tts.torchaudio", mock_torchaudio):
+                                tts = EvaEmotionalTTS()
+
+                                audio = np.random.randn(16000).astype(np.float32)
+                                params = EmotionalVoiceParams(
+                                    emotion=EmotionStyle.JOY,
+                                    intensity=0.8,
+                                    pitch_shift=0.5,  # Non-zero pitch
+                                    speed_factor=1.0,
+                                    energy_factor=1.0,
+                                    breathiness=0.1
+                                )
+
+                                result = tts._apply_prosody_effects(audio, params)
+
+                                assert result is not None
+
+    def test_apply_prosody_with_energy_factor(self):
+        """Test prosody effects with energy factor."""
+        from eva_emotional_tts import EvaEmotionalTTS, EmotionalVoiceParams, EmotionStyle
+
+        mock_torch = MagicMock()
+        mock_torchaudio = MagicMock()
+
+        mock_tensor = MagicMock()
+        mock_tensor.unsqueeze.return_value = mock_tensor
+        mock_tensor.squeeze.return_value = mock_tensor
+        mock_tensor.numpy.return_value = np.random.randn(16000).astype(np.float32)
+        mock_tensor.abs.return_value.max.return_value = 1.0
+        mock_tensor.__truediv__ = lambda self, other: self
+        mock_tensor.__mul__ = lambda self, other: self
+
+        mock_torch.from_numpy.return_value = mock_tensor
+        mock_torchaudio.sox_effects.apply_effects_tensor.return_value = (mock_tensor, 16000)
+
+        with patch.dict("sys.modules", {"torch": mock_torch, "torchaudio": mock_torchaudio}):
+            with patch("eva_emotional_tts.TORCH_AVAILABLE", True):
+                with patch("eva_emotional_tts.COSYVOICE_AVAILABLE", False):
+                    with patch("eva_emotional_tts.ULTRA_TTS_AVAILABLE", False):
+                        with patch("eva_emotional_tts.torch", mock_torch):
+                            with patch("eva_emotional_tts.torchaudio", mock_torchaudio):
+                                tts = EvaEmotionalTTS()
+
+                                audio = np.random.randn(16000).astype(np.float32)
+                                params = EmotionalVoiceParams(
+                                    emotion=EmotionStyle.JOY,
+                                    intensity=0.8,
+                                    pitch_shift=0.0,
+                                    speed_factor=1.0,
+                                    energy_factor=1.2,  # Non-default energy
+                                    breathiness=0.1
+                                )
+
+                                result = tts._apply_prosody_effects(audio, params)
+
+                                assert result is not None
+
+    def test_apply_prosody_int16_input(self):
+        """Test prosody effects converts int16 to float32."""
+        from eva_emotional_tts import EvaEmotionalTTS, EmotionalVoiceParams, EmotionStyle
+
+        mock_torch = MagicMock()
+        mock_torchaudio = MagicMock()
+
+        mock_tensor = MagicMock()
+        mock_tensor.unsqueeze.return_value = mock_tensor
+        mock_tensor.squeeze.return_value = mock_tensor
+        mock_tensor.numpy.return_value = np.random.randn(16000).astype(np.float32)
+        mock_tensor.abs.return_value.max.return_value = 1.0
+        mock_tensor.__truediv__ = lambda self, other: self
+        mock_tensor.__mul__ = lambda self, other: self
+
+        mock_torch.from_numpy.return_value = mock_tensor
+        mock_torchaudio.sox_effects.apply_effects_tensor.return_value = (mock_tensor, 16000)
+
+        with patch.dict("sys.modules", {"torch": mock_torch, "torchaudio": mock_torchaudio}):
+            with patch("eva_emotional_tts.TORCH_AVAILABLE", True):
+                with patch("eva_emotional_tts.COSYVOICE_AVAILABLE", False):
+                    with patch("eva_emotional_tts.ULTRA_TTS_AVAILABLE", False):
+                        with patch("eva_emotional_tts.torch", mock_torch):
+                            with patch("eva_emotional_tts.torchaudio", mock_torchaudio):
+                                tts = EvaEmotionalTTS()
+
+                                # Use int16 audio
+                                audio = (np.random.randn(16000) * 16000).astype(np.int16)
+                                params = EmotionalVoiceParams(
+                                    emotion=EmotionStyle.JOY,
+                                    intensity=0.8,
+                                    pitch_shift=0.0,
+                                    speed_factor=1.0,
+                                    energy_factor=1.0,
+                                    breathiness=0.1
+                                )
+
+                                result = tts._apply_prosody_effects(audio, params)
+
+                                assert result is not None
+
+    def test_apply_prosody_exception_handling(self):
+        """Test prosody effects handles exceptions gracefully."""
+        from eva_emotional_tts import EvaEmotionalTTS, EmotionalVoiceParams, EmotionStyle
+
+        mock_torch = MagicMock()
+        mock_torch.from_numpy.side_effect = Exception("Tensor error")
+
+        with patch("eva_emotional_tts.TORCH_AVAILABLE", True):
+            with patch("eva_emotional_tts.COSYVOICE_AVAILABLE", False):
+                with patch("eva_emotional_tts.ULTRA_TTS_AVAILABLE", False):
+                    with patch("eva_emotional_tts.torch", mock_torch):
+                        tts = EvaEmotionalTTS()
+
+                        audio = np.random.randn(16000).astype(np.float32)
+                        params = EmotionalVoiceParams(
+                            emotion=EmotionStyle.JOY,
+                            intensity=0.8,
+                            pitch_shift=0.0,
+                            speed_factor=1.0,
+                            energy_factor=1.0,
+                            breathiness=0.1
+                        )
+
+                        # Should return original audio on error
+                        result = tts._apply_prosody_effects(audio, params)
+
+                        np.testing.assert_array_equal(result, audio)
+
 
 class TestToWavBytes:
     """Tests for _to_wav_bytes method."""
@@ -359,6 +556,112 @@ class TestSynthesize:
 
                 # Returns None because no backend
                 assert result is None
+
+    @pytest.mark.asyncio
+    async def test_synthesize_with_cosyvoice(self):
+        """Test synthesize with CosyVoice backend."""
+        from eva_emotional_tts import EvaEmotionalTTS
+
+        mock_cosyvoice_class = MagicMock()
+        mock_cosyvoice_instance = MagicMock()
+        mock_cosyvoice_class.return_value = mock_cosyvoice_instance
+
+        # Mock tts_instruct to yield audio
+        mock_audio_chunk = MagicMock()
+        mock_audio_chunk.numpy.return_value = np.random.randn(16000).astype(np.float32)
+        mock_cosyvoice_instance.tts_instruct.return_value = [mock_audio_chunk]
+
+        with patch("eva_emotional_tts.COSYVOICE_AVAILABLE", True):
+            with patch("eva_emotional_tts.CosyVoiceTTS", mock_cosyvoice_class):
+                tts = EvaEmotionalTTS()
+
+                result = await tts.synthesize("Hello", "joy", 0.8)
+
+                assert result is not None
+                assert isinstance(result, bytes)
+
+    @pytest.mark.asyncio
+    async def test_synthesize_cosyvoice_error_fallback(self):
+        """Test synthesize falls back when CosyVoice fails."""
+        from eva_emotional_tts import EvaEmotionalTTS
+
+        mock_cosyvoice_class = MagicMock()
+        mock_cosyvoice_instance = MagicMock()
+        mock_cosyvoice_class.return_value = mock_cosyvoice_instance
+
+        # Mock tts_instruct to raise exception
+        mock_cosyvoice_instance.tts_instruct.side_effect = Exception("Synthesis error")
+
+        with patch("eva_emotional_tts.COSYVOICE_AVAILABLE", True):
+            with patch("eva_emotional_tts.CosyVoiceTTS", mock_cosyvoice_class):
+                with patch("eva_emotional_tts.ULTRA_TTS_AVAILABLE", False):
+                    tts = EvaEmotionalTTS()
+
+                    result = await tts.synthesize("Hello", "joy", 0.8)
+
+                    # CosyVoice failed, no fallback available
+                    assert result is None
+
+    @pytest.mark.asyncio
+    async def test_synthesize_with_sherpa(self):
+        """Test synthesize with Sherpa-ONNX backend."""
+        from eva_emotional_tts import EvaEmotionalTTS
+
+        # Create fake WAV bytes
+        import wave
+        buffer = io.BytesIO()
+        with wave.open(buffer, 'wb') as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(16000)
+            audio = (np.random.randn(16000) * 16000).astype(np.int16)
+            wav.writeframes(audio.tobytes())
+        fake_wav_bytes = buffer.getvalue()
+
+        mock_async_tts = AsyncMock(return_value=fake_wav_bytes)
+
+        with patch("eva_emotional_tts.COSYVOICE_AVAILABLE", False):
+            with patch("eva_emotional_tts.ULTRA_TTS_AVAILABLE", True):
+                with patch("eva_emotional_tts.async_ultra_fast_tts", mock_async_tts):
+                    with patch("eva_emotional_tts.TORCH_AVAILABLE", False):
+                        tts = EvaEmotionalTTS()
+
+                        result = await tts.synthesize("Hello", "joy", 0.8)
+
+                        assert result is not None
+                        assert isinstance(result, bytes)
+
+    @pytest.mark.asyncio
+    async def test_synthesize_sherpa_returns_none(self):
+        """Test synthesize handles Sherpa returning None."""
+        from eva_emotional_tts import EvaEmotionalTTS
+
+        mock_async_tts = AsyncMock(return_value=None)
+
+        with patch("eva_emotional_tts.COSYVOICE_AVAILABLE", False):
+            with patch("eva_emotional_tts.ULTRA_TTS_AVAILABLE", True):
+                with patch("eva_emotional_tts.async_ultra_fast_tts", mock_async_tts):
+                    tts = EvaEmotionalTTS()
+
+                    result = await tts.synthesize("Hello", "joy", 0.8)
+
+                    assert result is None
+
+    @pytest.mark.asyncio
+    async def test_synthesize_sherpa_error(self):
+        """Test synthesize handles Sherpa error gracefully."""
+        from eva_emotional_tts import EvaEmotionalTTS
+
+        mock_async_tts = AsyncMock(side_effect=Exception("Sherpa error"))
+
+        with patch("eva_emotional_tts.COSYVOICE_AVAILABLE", False):
+            with patch("eva_emotional_tts.ULTRA_TTS_AVAILABLE", True):
+                with patch("eva_emotional_tts.async_ultra_fast_tts", mock_async_tts):
+                    tts = EvaEmotionalTTS()
+
+                    result = await tts.synthesize("Hello", "joy", 0.8)
+
+                    assert result is None
 
 
 class TestSynthesizeStream:

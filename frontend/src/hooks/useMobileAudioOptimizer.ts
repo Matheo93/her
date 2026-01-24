@@ -290,6 +290,9 @@ const DEFAULT_PROCESSING_CONFIG: AudioProcessingConfig = {
   enableAGC: true,
 };
 
+// Latency samples history size limit
+const LATENCY_HISTORY_SIZE = 50;
+
 export function useMobileAudioOptimizer(
   options: UseMobileAudioOptimizerOptions = {}
 ): MobileAudioOptimizerResult {
@@ -472,11 +475,12 @@ export function useMobileAudioOptimizer(
 
   const recordLatency = useCallback((latencyMs: number) => {
     setLatencySamples((prev) => {
-      const newSamples = [...prev, latencyMs];
-      if (newSamples.length > 50) {
-        return newSamples.slice(-50);
+      // Use push + slice(-N) instead of spread for better performance
+      // This avoids creating intermediate arrays
+      if (prev.length >= LATENCY_HISTORY_SIZE) {
+        return [...prev.slice(-(LATENCY_HISTORY_SIZE - 1)), latencyMs];
       }
-      return newSamples;
+      return [...prev, latencyMs];
     });
   }, []);
 

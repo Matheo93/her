@@ -137,9 +137,40 @@ const DEFAULT_CONFIG: RecoveryConfig = {
   degradedThreshold: 30,
 };
 
-// Generate unique ID
+// Module-level counter for request IDs (avoids Date.now() overhead)
+let requestIdCounter = 0;
+
+// Pre-computed initial quality state (module-level for performance)
+const INITIAL_QUALITY: NetworkQuality = {
+  latency: 0,
+  bandwidth: 0,
+  packetLoss: 0,
+  jitter: 0,
+  score: 100,
+};
+
+// Pre-computed initial sync state
+const INITIAL_SYNC: SyncState = {
+  pendingCount: 0,
+  lastSyncTime: null,
+  syncInProgress: false,
+  failedCount: 0,
+};
+
+// Pre-computed initial metrics
+const INITIAL_METRICS: RecoveryMetrics = {
+  totalDisconnections: 0,
+  averageOfflineDuration: 0,
+  successfulRecoveries: 0,
+  failedRecoveries: 0,
+  requestsQueued: 0,
+  requestsReplayed: 0,
+  networkTransitions: 0,
+};
+
+// Generate unique ID using counter (faster than Date.now())
 export function generateId(): string {
-  return `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `req-${++requestIdCounter}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
 // Calculate backoff delay
@@ -176,37 +207,22 @@ export function useMobileNetworkRecovery(
     ...initialConfig,
   });
 
-  const [state, setState] = useState<RecoveryState>({
-    network: "online",
+  // State - uses module-level constants for initial values
+  const [state, setState] = useState<RecoveryState>(() => ({
+    network: "online" as NetworkState,
     connectionType: getConnectionType(),
-    quality: {
-      latency: 0,
-      bandwidth: 0,
-      packetLoss: 0,
-      jitter: 0,
-      score: 100,
-    },
+    quality: { ...INITIAL_QUALITY },
     queuedRequests: [],
-    sync: {
-      pendingCount: 0,
-      lastSyncTime: null,
-      syncInProgress: false,
-      failedCount: 0,
-    },
+    sync: { ...INITIAL_SYNC },
     reconnectAttempts: 0,
     lastOnlineTime: Date.now(),
     offlineDuration: 0,
-  });
+  }));
 
-  const [metrics, setMetrics] = useState<RecoveryMetrics>({
-    totalDisconnections: 0,
-    averageOfflineDuration: 0,
-    successfulRecoveries: 0,
-    failedRecoveries: 0,
-    requestsQueued: 0,
-    requestsReplayed: 0,
-    networkTransitions: 0,
-  });
+  // Metrics - uses module-level constant
+  const [metrics, setMetrics] = useState<RecoveryMetrics>(() => ({
+    ...INITIAL_METRICS,
+  }));
 
   // Refs
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -579,10 +595,12 @@ export function useMobileNetworkRecovery(
       };
 
       setState((prev) => {
-        const queue = [...prev.queuedRequests, fullRequest];
-        // Enforce max size
-        if (queue.length > config.queueMaxSize) {
-          queue.shift();
+        // Use slice(-N) instead of shift() for O(1) vs O(n) queue limiting
+        let queue: QueuedRequest[];
+        if (prev.queuedRequests.length >= config.queueMaxSize) {
+          queue = [...prev.queuedRequests.slice(-(config.queueMaxSize - 1)), fullRequest];
+        } else {
+          queue = [...prev.queuedRequests, fullRequest];
         }
         return {
           ...prev,

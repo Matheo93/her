@@ -715,12 +715,17 @@ describe("Sprint 628 - generateId utility function (line 142)", () => {
     expect(id.startsWith("req-")).toBe(true);
   });
 
-  it("should generate IDs with timestamp component", () => {
-    const now = Date.now();
-    jest.spyOn(Date, "now").mockReturnValue(now);
+  it("should generate IDs with counter component (not timestamp)", () => {
+    // Counter-based ID format: req-{counter}-{random}
+    const id1 = generateId();
+    const id2 = generateId();
 
-    const id = generateId();
-    expect(id).toContain(now.toString());
+    // IDs should start with req- and contain a number
+    expect(id1).toMatch(/^req-\d+-[a-z0-9]+$/);
+    expect(id2).toMatch(/^req-\d+-[a-z0-9]+$/);
+
+    // IDs should be unique
+    expect(id1).not.toBe(id2);
   });
 
   it("should generate IDs with random suffix", () => {

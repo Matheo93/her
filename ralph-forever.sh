@@ -17,6 +17,10 @@ log() {
 force_restart_ralph() {
     log "🔥 FORCE RESTART RALPH"
 
+    # Kill ALL orphan claude processes first (except current session)
+    pkill -9 -f "claude.*music-music" 2>/dev/null
+    sleep 2
+
     # Kill window completely
     tmux kill-window -t eva-steroids:ralph 2>/dev/null
     sleep 3

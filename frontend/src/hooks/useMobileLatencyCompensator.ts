@@ -254,10 +254,11 @@ function classifyLatency(latencyMs: number): LatencyLevel {
   if (latencyMs < 100) return "fast";
   if (latencyMs < 300) return "normal";
 
-  // Binary search for edge cases
+  // Iterate through sorted levels (last is Infinity which always matches)
   for (const { threshold, level } of LATENCY_LEVELS_SORTED) {
     if (latencyMs < threshold) return level;
   }
+  // This is unreachable due to Infinity threshold, but TypeScript requires it
   return "timeout";
 }
 

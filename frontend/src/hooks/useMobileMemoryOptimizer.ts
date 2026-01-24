@@ -131,12 +131,18 @@ const TYPE_BUDGETS: Record<ResourceType, number> = {
   other: 0.01,
 };
 
+// Module-level counter for resource IDs (avoids Date.now() overhead)
+let resourceIdCounter = 0;
+
+// Pre-computed initial eviction history max size
+const EVICTION_HISTORY_SIZE = 50;
+
 // ============================================================================
 // Utility Functions
 // ============================================================================
 
 function generateId(): string {
-  return `res_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `res_${++resourceIdCounter}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
 function estimateMemoryUsage(): { used: number; total: number } {
@@ -366,7 +372,7 @@ export function useMobileMemoryOptimizer(
       setState((prev) => ({
         ...prev,
         evictionHistory: [
-          ...prev.evictionHistory.slice(-20),
+          ...prev.evictionHistory.slice(-(EVICTION_HISTORY_SIZE - 1)),
           { timestamp: Date.now(), freed: freedBytes, reason: strategy },
         ],
       }));
