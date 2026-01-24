@@ -461,3 +461,66 @@ describe("animation settings calculation", () => {
     expect(lowEnd.current.animations.springStiffness).toBe(80);
   });
 });
+
+// Sprint 635 - Additional coverage tests
+describe("Sprint 635 - Mobile medium connection websocket settings (line 265)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should return medium reconnect settings for mobile with 3g connection", () => {
+    // Set up as mobile device
+    (global.navigator as unknown as typeof mockNavigator).userAgent =
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X)";
+    (global.navigator as unknown as typeof mockNavigator).maxTouchPoints = 5;
+    window.innerWidth = 375;
+    // Set up medium connection (3g)
+    (global.navigator as unknown as typeof mockNavigator).connection.effectiveType = "3g";
+    (global.navigator as unknown as typeof mockNavigator).connection.saveData = false;
+    (global.navigator as unknown as typeof mockNavigator).deviceMemory = 4;
+    (global.navigator as unknown as typeof mockNavigator).hardwareConcurrency = 4;
+
+    const { result } = renderHook(() => useMobileOptimization());
+
+    expect(result.current.device.isMobile).toBe(true);
+    expect(result.current.device.connectionType).toBe("medium");
+    // Mobile with medium connection should have these websocket settings
+    expect(result.current.websocket.reconnectDelay).toBe(1500);
+    expect(result.current.websocket.pingInterval).toBe(15000);
+    expect(result.current.websocket.connectionTimeout).toBe(10000);
+  });
+});
+
+describe("Sprint 635 - measurePerformance caching (line 375)", () => {
+  it("should return cached performance value on subsequent calls", async () => {
+    const mockRAF = jest.fn((cb: FrameRequestCallback) => {
+      setTimeout(() => cb(performance.now()), 16);
+      return 1;
+    });
+    global.requestAnimationFrame = mockRAF;
+
+    const { result } = renderHook(() => useMobileOptimization());
+
+    // First call should measure
+    let fps1: number = 0;
+    await act(async () => {
+      fps1 = await result.current.measurePerformance();
+    });
+
+    expect(fps1).toBeGreaterThan(0);
+
+    // Reset mock call count
+    mockRAF.mockClear();
+
+    // Second call should return cached value immediately
+    let fps2: number = 0;
+    await act(async () => {
+      fps2 = await result.current.measurePerformance();
+    });
+
+    // Should return same value
+    expect(fps2).toBe(fps1);
+    // RAF should not be called again (cached)
+    expect(mockRAF).not.toHaveBeenCalled();
+  });
+});

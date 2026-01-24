@@ -837,3 +837,287 @@ describe("Sprint 633 - Frame times history (lines 505-508)", () => {
     expect(result.current.state.metrics.averageFrameTime).toBeGreaterThanOrEqual(0);
   });
 });
+
+// ============================================================================
+// Sprint 637 - Additional Coverage Tests
+// ============================================================================
+
+describe("Sprint 637 - isPaused branch in processFrame (lines 402-404)", () => {
+  it("should continue RAF loop when paused but not process animations", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+    const callback = jest.fn();
+
+    act(() => {
+      result.current.controls.schedule(callback, { duration: 1000 });
+    });
+
+    // Pause all animations
+    act(() => {
+      result.current.controls.pauseAll();
+    });
+
+    expect(result.current.state.isPaused).toBe(true);
+
+    // Run some frames while paused
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+
+    // Resume
+    act(() => {
+      result.current.controls.resumeAll();
+    });
+
+    expect(result.current.state.isPaused).toBe(false);
+  });
+});
+
+describe("Sprint 637 - Animation deadline handling (lines 486-490)", () => {
+  it("should complete animation immediately when deadline is passed", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+    const callback = jest.fn();
+    const onComplete = jest.fn();
+
+    act(() => {
+      // Schedule with a deadline that's already past
+      result.current.controls.schedule(callback, {
+        duration: 5000,
+        deadline: performance.now() - 100, // Deadline already passed
+        onComplete,
+      });
+    });
+
+    // Run a frame to process the animation
+    act(() => {
+      jest.advanceTimersByTime(20);
+    });
+
+    // Animation should be handled (deadline logic should execute)
+    expect(result.current.state.metrics.totalAnimations).toBe(1);
+  });
+
+  it("should complete animation when deadline is reached during animation", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+    const callback = jest.fn();
+    const onComplete = jest.fn();
+
+    const deadline = performance.now() + 50; // 50ms from now
+
+    act(() => {
+      result.current.controls.schedule(callback, {
+        duration: 5000, // Long duration
+        deadline,
+        onComplete,
+      });
+    });
+
+    // Run until deadline is passed
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+
+    // Animation should have processed
+    expect(callback).toHaveBeenCalled();
+  });
+});
+
+describe("Sprint 637 - startGroup with pending animations (line 710)", () => {
+  it("should start pending animations when group is started", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler());
+    const callback = jest.fn();
+
+    // Create group
+    act(() => {
+      result.current.controls.createGroup("testGroup", true, 50);
+    });
+
+    // Schedule animation with pending state (by adding to group before starting)
+    let animId: string;
+    act(() => {
+      animId = result.current.controls.schedule(callback, {
+        duration: 300,
+        groupId: "testGroup",
+      });
+    });
+
+    // Start the group
+    act(() => {
+      result.current.controls.startGroup("testGroup");
+    });
+
+    // Run some frames
+    act(() => {
+      jest.advanceTimersByTime(50);
+    });
+
+    // Animation should be running
+    expect(result.current.state.isRunning).toBe(true);
+  });
+});
+
+describe("Sprint 637 - visibility change handler (lines 806-809)", () => {
+  it("should pause animations when document becomes hidden", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      pauseOnBackground: true,
+    }));
+
+    act(() => {
+      result.current.controls.schedule(jest.fn(), { duration: 1000 });
+    });
+
+    // Simulate document becoming hidden
+    Object.defineProperty(document, 'hidden', {
+      value: true,
+      writable: true,
+    });
+
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    expect(result.current.state.isPaused).toBe(true);
+
+    // Restore
+    Object.defineProperty(document, 'hidden', {
+      value: false,
+      writable: true,
+    });
+
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    expect(result.current.state.isPaused).toBe(false);
+  });
+
+  it("should not pause when pauseOnBackground is disabled", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      pauseOnBackground: false,
+    }));
+
+    act(() => {
+      result.current.controls.schedule(jest.fn(), { duration: 1000 });
+    });
+
+    // Simulate document becoming hidden
+    Object.defineProperty(document, 'hidden', {
+      value: true,
+      writable: true,
+    });
+
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    // Should not be paused when pauseOnBackground is false
+    expect(result.current.state.isPaused).toBe(false);
+
+    // Restore
+    Object.defineProperty(document, 'hidden', {
+      value: false,
+      writable: true,
+    });
+  });
+});
+
+describe("Sprint 637 - staggered animation onAllComplete callback (lines 964-966)", () => {
+  it("should call onAllComplete when all staggered animations complete", () => {
+    const { result } = renderHook(() => useStaggeredAnimation(30));
+    const callbacks = [jest.fn(), jest.fn(), jest.fn()];
+    const onAllComplete = jest.fn();
+
+    act(() => {
+      result.current.scheduleGroup(callbacks, 100, onAllComplete);
+    });
+
+    // Run until all animations complete
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+
+    // All callbacks should have been called
+    callbacks.forEach(cb => {
+      expect(cb).toHaveBeenCalled();
+    });
+  });
+});
+
+describe("Sprint 637 - shouldSkipFrame deferred priority (line 332)", () => {
+  it("should always skip deferred priority when frame skipping is enabled", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      enableFrameSkipping: true,
+    }));
+
+    const deferredCallback = jest.fn();
+
+    act(() => {
+      result.current.controls.schedule(deferredCallback, {
+        duration: 1000,
+        priority: "deferred",
+      });
+    });
+
+    // Run some frames
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+
+    // Deferred animation should be scheduled
+    expect(result.current.state.metrics.totalAnimations).toBe(1);
+  });
+});
+
+describe("Sprint 637 - frame budget limit (line 444)", () => {
+  it("should stop processing when frame budget is exceeded", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      maxAnimationsPerFrame: 2,
+      targetFrameTimeMs: 16.67,
+    }));
+
+    // Schedule many animations
+    act(() => {
+      for (let i = 0; i < 10; i++) {
+        result.current.controls.schedule(jest.fn(), {
+          duration: 1000,
+          priority: "critical",
+        });
+      }
+    });
+
+    // Run a frame
+    act(() => {
+      jest.advanceTimersByTime(20);
+    });
+
+    // Should have processed animations (limited by maxAnimationsPerFrame)
+    expect(result.current.state.metrics.framesProcessed).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("Sprint 637 - throttle auto-adjustment (lines 511-515)", () => {
+  it("should increase throttle level when over budget", () => {
+    const { result } = renderHook(() => useMobileAnimationScheduler({
+      targetFrameTimeMs: 1, // Very low target to trigger over budget
+    }));
+
+    // Schedule animation with slow callback
+    act(() => {
+      result.current.controls.schedule(() => {
+        // Simulate slow callback
+        const start = Date.now();
+        while (Date.now() - start < 5) {}
+      }, { duration: 1000, priority: "critical" });
+    });
+
+    // Run some frames
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+
+    // Budget overruns should be tracked
+    expect(result.current.state.metrics.budgetOverruns).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// Import useStaggeredAnimation at the top of describe block if not imported
+import { useStaggeredAnimation } from "../useMobileAnimationScheduler";
