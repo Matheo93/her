@@ -61,6 +61,10 @@ beforeEach(() => {
 // Clean up after each test
 afterEach(() => {
   jest.clearAllTimers();
+  // Reset online state by dispatching online event
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("online"));
+  }
 });
 
 // Helper to wait for promises
