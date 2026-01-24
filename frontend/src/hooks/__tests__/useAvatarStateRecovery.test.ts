@@ -801,8 +801,8 @@ describe("useAvatarStatePersistence", () => {
       });
 
       expect(loaded).not.toBeNull();
-      expect((loaded as Record<string, unknown>)?.speaking).toBe(true);
-      expect((loaded as Record<string, unknown>)?.listeningIntensity).toBe(0.7);
+      expect((loaded as unknown as Record<string, unknown>)?.speaking).toBe(true);
+      expect((loaded as unknown as Record<string, unknown>)?.listeningIntensity).toBe(0.7);
     });
 
     it("should return null when no stored state", () => {
