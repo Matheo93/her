@@ -1,5 +1,68 @@
 import '@testing-library/jest-dom';
 
+// Mock AudioContext for Web Audio API tests
+class MockAudioContext {
+  state: AudioContextState = "running";
+  currentTime = 0;
+  sampleRate = 44100;
+  destination = {};
+
+  createGain() {
+    return {
+      gain: { value: 0, linearRampToValueAtTime: jest.fn() },
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    };
+  }
+
+  createOscillator() {
+    return {
+      type: "sine",
+      frequency: { value: 0, linearRampToValueAtTime: jest.fn() },
+      connect: jest.fn(),
+      start: jest.fn(),
+      stop: jest.fn(),
+    };
+  }
+
+  createBiquadFilter() {
+    return {
+      type: "lowpass",
+      frequency: { value: 0, linearRampToValueAtTime: jest.fn() },
+      Q: { value: 0 },
+      connect: jest.fn(),
+    };
+  }
+
+  createBufferSource() {
+    return {
+      buffer: null,
+      loop: false,
+      connect: jest.fn(),
+      start: jest.fn(),
+      stop: jest.fn(),
+    };
+  }
+
+  createBuffer(channels: number, length: number, sampleRate: number) {
+    return {
+      numberOfChannels: channels,
+      length,
+      sampleRate,
+      getChannelData: jest.fn(() => new Float32Array(length)),
+    };
+  }
+
+  resume = jest.fn(() => Promise.resolve());
+  close = jest.fn(() => Promise.resolve());
+}
+
+// Add AudioContext to global and window
+(global as unknown as { AudioContext: typeof MockAudioContext }).AudioContext = MockAudioContext;
+if (typeof window !== 'undefined') {
+  (window as unknown as { AudioContext: typeof MockAudioContext }).AudioContext = MockAudioContext;
+}
+
 // Mock WebGL2RenderingContext class for tests
 class MockWebGL2RenderingContext {
   TEXTURE_2D = 0x0DE1;
