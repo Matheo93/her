@@ -153,14 +153,20 @@ def fast_tts_mp3(text: str) -> Optional[bytes]:
         else:
             audio = (audio * 30000).astype(np.int16)
 
-        # Use pre-initialized encoder or create new one
+        # Use pre-initialized encoder for better latency (~5ms savings)
+        if _lameenc_encoder is not None:
+            mp3_data = _lameenc_encoder.encode(audio.tobytes())
+            mp3_data += _lameenc_encoder.flush()
+            return bytes(mp3_data)
+
+        # Fallback: create new encoder if global not available
         try:
             import lameenc
             encoder = lameenc.Encoder()
-            encoder.set_bit_rate(48)  # Lower bitrate = faster encoding
+            encoder.set_bit_rate(48)
             encoder.set_in_sample_rate(_sample_rate)
             encoder.set_channels(1)
-            encoder.set_quality(9)  # Fastest quality
+            encoder.set_quality(9)
             mp3_data = encoder.encode(audio.tobytes())
             mp3_data += encoder.flush()
             return bytes(mp3_data)
