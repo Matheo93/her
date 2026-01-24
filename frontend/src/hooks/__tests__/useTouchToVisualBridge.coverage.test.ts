@@ -203,7 +203,9 @@ describe("useTouchToVisualBridge coverage - Sprint 765", () => {
       });
 
       // Advance frame to apply smoothing
-      advanceFrame(16);
+      act(() => {
+        advanceFrame(16);
+      });
 
       // Custom properties should be present
       expect(result.current.state.visualState.custom).toBeDefined();
@@ -221,7 +223,9 @@ describe("useTouchToVisualBridge coverage - Sprint 765", () => {
         result.current.controls.onTouchStart(startEvent);
       });
 
-      advanceFrame(16);
+      act(() => {
+        advanceFrame(16);
+      });
 
       // Opacity and brightness should be updated
       expect(result.current.state.visualState.opacity).toBeDefined();
