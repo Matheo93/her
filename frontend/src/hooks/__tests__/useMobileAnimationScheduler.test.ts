@@ -1993,6 +1993,14 @@ describe("Sprint 749 - callback error handling (line 467)", () => {
 });
 
 describe("Sprint 749 - deadline forces completion (lines 487-490)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should set progress to 1 and complete when deadline passed", () => {
     const { result } = renderHook(() => useMobileAnimationScheduler({
       enableFrameSkipping: false,

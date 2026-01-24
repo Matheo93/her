@@ -853,5 +853,43 @@ describe("useMobileLatencyCompensator - branch coverage", () => {
 
       clearTimeoutSpy.mockRestore();
     });
+
+    it("should iterate over timeoutsRef and clear each timeout (line 637)", () => {
+      const clearTimeoutSpy = jest.spyOn(global, "clearTimeout");
+
+      const { result } = renderHook(() =>
+        useMobileLatencyCompensator({
+          timeoutThreshold: 10000, // Long timeout to ensure they're still pending
+          autoRollbackOnTimeout: true
+        })
+      );
+
+      // Create multiple updates which will each register a timeout
+      act(() => {
+        result.current.controls.compensate(
+          () => {}, () => {}, { a: 1 }, { a: 0 }
+        );
+        result.current.controls.compensate(
+          () => {}, () => {}, { b: 2 }, { b: 0 }
+        );
+        result.current.controls.compensate(
+          () => {}, () => {}, { c: 3 }, { c: 0 }
+        );
+      });
+
+      // Record calls before clearPending
+      const callsBefore = clearTimeoutSpy.mock.calls.length;
+
+      // Clear all pending updates (should iterate and clear each timeout - line 637)
+      act(() => {
+        result.current.controls.clearPending();
+      });
+
+      // Should have cleared 3 timeouts (one per compensate call)
+      const newCalls = clearTimeoutSpy.mock.calls.length - callsBefore;
+      expect(newCalls).toBeGreaterThanOrEqual(3);
+
+      clearTimeoutSpy.mockRestore();
+    });
   });
 });

@@ -69,7 +69,18 @@ class EvaPresenceSystem:
     - Silence awareness: Know when to stay quiet
     - Breathing sounds: Subtle presence indicators
     - Turn-taking: Natural conversation flow
+
+    Optimizations:
+    - Pre-computed frozensets for O(1) emotion lookups
+    - Optional timestamp parameters to avoid repeated time.time() calls
     """
+
+    # Pre-computed emotion sets for O(1) lookup (class-level for performance)
+    _SAD_EMOTIONS = frozenset({"sadness", "grief"})
+    _EMOTIONAL_EMOTIONS = frozenset({"fear", "anger", "frustration"})
+    _CRYING_EMOTIONS = frozenset({"grief", "crying"})
+    _SILENCE_NEEDS_SPACE = frozenset({"sadness", "fear"})
+    _DELAY_EMOTIONS = frozenset({"anger", "frustration"})
 
     # Backchannel configurations
     BACKCHANNELS = {
@@ -164,34 +175,51 @@ class EvaPresenceSystem:
         self.set_state(PresenceState.LISTENING)
         self.user_speech_duration = 0
 
-    def user_stopped_speaking(self, duration: float = 0):
-        """Called when VAD detects user speech end"""
+    def user_stopped_speaking(self, duration: float = 0, current_time: Optional[float] = None):
+        """Called when VAD detects user speech end.
+
+        Args:
+            duration: How long user was speaking
+            current_time: Optional timestamp to avoid repeated time.time() calls
+        """
+        now = current_time if current_time is not None else time.time()
         self.user_speaking = False
-        self.last_user_speech_end = time.time()
+        self.last_user_speech_end = now
         self.user_speech_duration = duration
-        self.current_silence_start = time.time()
+        self.current_silence_start = now
         self.set_state(PresenceState.THINKING)
 
     def eva_started_speaking(self):
         """Called when Eva starts speaking"""
         self.set_state(PresenceState.SPEAKING)
 
-    def eva_stopped_speaking(self):
-        """Called when Eva stops speaking"""
-        self.last_eva_speech_end = time.time()
-        self.current_silence_start = time.time()
+    def eva_stopped_speaking(self, current_time: Optional[float] = None):
+        """Called when Eva stops speaking.
+
+        Args:
+            current_time: Optional timestamp to avoid repeated time.time() calls
+        """
+        now = current_time if current_time is not None else time.time()
+        self.last_eva_speech_end = now
+        self.current_silence_start = now
         self.set_state(PresenceState.IDLE)
 
-    def should_backchannel(self, detected_emotion: str = "neutral") -> Optional[Tuple[str, BackchannelType]]:
+    def should_backchannel(
+        self, detected_emotion: str = "neutral", current_time: Optional[float] = None
+    ) -> Optional[Tuple[str, BackchannelType]]:
         """
-        Determine if Eva should produce a backchannel response
+        Determine if Eva should produce a backchannel response.
+
+        Args:
+            detected_emotion: Current detected emotion
+            current_time: Optional timestamp to avoid repeated time.time() calls
 
         Returns: Tuple of (sound, type) or None
         """
         if not self.user_speaking:
             return None
 
-        now = time.time()
+        now = current_time if current_time is not None else time.time()
 
         # Global cooldown
         if now - self.last_backchannel_time < 2.0:
@@ -237,20 +265,26 @@ class EvaPresenceSystem:
 
         return (sound, selected_type)
 
-    def analyze_silence(self, detected_emotion: str = "neutral") -> SilenceContext:
+    def analyze_silence(
+        self, detected_emotion: str = "neutral", current_time: Optional[float] = None
+    ) -> SilenceContext:
         """
-        Analyze current silence and recommend action
+        Analyze current silence and recommend action.
+
+        Args:
+            detected_emotion: Current detected emotion
+            current_time: Optional timestamp to avoid repeated time.time() calls
 
         Returns context about whether to speak or stay silent
         """
-        now = time.time()
+        now = current_time if current_time is not None else time.time()
         silence_duration = now - self.current_silence_start
 
-        # Determine threshold based on context
-        if detected_emotion in ["sadness", "grief"]:
+        # Determine threshold based on context (using frozensets for O(1) lookup)
+        if detected_emotion in self._SAD_EMOTIONS:
             threshold = self.SILENCE_THRESHOLDS["sad"]
             after_emotion = "sad"
-        elif detected_emotion in ["fear", "anger", "frustration"]:
+        elif detected_emotion in self._EMOTIONAL_EMOTIONS:
             threshold = self.SILENCE_THRESHOLDS["emotional"]
             after_emotion = "emotional"
         else:
@@ -260,10 +294,10 @@ class EvaPresenceSystem:
         # Determine if silence is comfortable (should we NOT speak?)
         is_comfortable = silence_duration < threshold
 
-        # Recommend action
+        # Recommend action (using frozenset for O(1) lookup)
         if silence_duration < 0.5:
             action = "wait"  # Too soon
-        elif is_comfortable and detected_emotion in ["sadness", "grief"]:
+        elif is_comfortable and detected_emotion in self._SAD_EMOTIONS:
             action = "presence"  # Show presence without words
         elif silence_duration > threshold * 2:
             action = "speak"  # Should respond
@@ -305,19 +339,25 @@ class EvaPresenceSystem:
 
         return None
 
-    def should_stay_silent(self, detected_emotion: str = "neutral") -> Tuple[bool, str]:
+    def should_stay_silent(
+        self, detected_emotion: str = "neutral", current_time: Optional[float] = None
+    ) -> Tuple[bool, str]:
         """
-        Determine if Eva should stay silent (presence without words)
+        Determine if Eva should stay silent (presence without words).
+
+        Args:
+            detected_emotion: Current detected emotion
+            current_time: Optional timestamp to avoid repeated time.time() calls
 
         Returns: (should_stay_silent, reason)
         """
-        # After very emotional content
-        if detected_emotion in ["grief", "crying"]:
+        # After very emotional content (using frozenset for O(1) lookup)
+        if detected_emotion in self._CRYING_EMOTIONS:
             return True, "emotional_support"
 
-        # User is still processing
-        silence = self.analyze_silence(detected_emotion)
-        if silence.is_comfortable and detected_emotion in ["sadness", "fear"]:
+        # User is still processing (pass timestamp through)
+        silence = self.analyze_silence(detected_emotion, current_time)
+        if silence.is_comfortable and detected_emotion in self._SILENCE_NEEDS_SPACE:
             return True, "giving_space"
 
         # Very short pause - don't interrupt thinking
@@ -328,18 +368,18 @@ class EvaPresenceSystem:
 
     def get_response_delay(self, detected_emotion: str = "neutral") -> float:
         """
-        Calculate appropriate delay before responding
+        Calculate appropriate delay before responding.
 
         Based on emotional context and conversation flow
         """
         base_delay = 0.3  # Minimum 300ms
 
-        # Add delay for emotional content
+        # Add delay for emotional content (using frozenset for O(1) lookup)
         if detected_emotion == "sadness":
             base_delay += 0.8  # Pause before responding to sadness
         elif detected_emotion == "joy":
             base_delay += 0.2  # Quick response to joy
-        elif detected_emotion in ["anger", "frustration"]:
+        elif detected_emotion in self._DELAY_EMOTIONS:
             base_delay += 0.5  # Slight pause for anger
 
         # Add delay based on user speech length
@@ -348,13 +388,16 @@ class EvaPresenceSystem:
 
         return min(base_delay, 2.0)  # Cap at 2 seconds
 
-    def get_turn_taking_cue(self) -> Dict[str, Any]:
+    def get_turn_taking_cue(self, current_time: Optional[float] = None) -> Dict[str, Any]:
         """
-        Get current turn-taking state for coordination
+        Get current turn-taking state for coordination.
+
+        Args:
+            current_time: Optional timestamp to avoid repeated time.time() calls
 
         Used by frontend for avatar animations
         """
-        now = time.time()
+        now = current_time if current_time is not None else time.time()
 
         return {
             "state": self.state.value,
@@ -396,9 +439,15 @@ class InterruptDetector:
         self.interrupt_start: Optional[float] = None
         self.is_interrupted: bool = False
 
-    def process_audio_chunk(self, audio_chunk: np.ndarray) -> bool:
+    def process_audio_chunk(
+        self, audio_chunk: np.ndarray, current_time: Optional[float] = None
+    ) -> bool:
         """
-        Process audio chunk and detect if user is interrupting
+        Process audio chunk and detect if user is interrupting.
+
+        Args:
+            audio_chunk: Audio samples to analyze
+            current_time: Optional timestamp to avoid repeated time.time() calls
 
         Returns True if interrupt detected
         """
@@ -409,9 +458,10 @@ class InterruptDetector:
         energy = np.sqrt(np.mean(audio_chunk ** 2))
 
         if energy > self.energy_threshold:
+            now = current_time if current_time is not None else time.time()
             if self.interrupt_start is None:
-                self.interrupt_start = time.time()
-            elif time.time() - self.interrupt_start > self.min_duration:
+                self.interrupt_start = now
+            elif now - self.interrupt_start > self.min_duration:
                 self.is_interrupted = True
                 return True
         else:

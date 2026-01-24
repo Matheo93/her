@@ -25,6 +25,37 @@ from eva_realtime import init_realtime, get_realtime_manager, process_realtime_a
 from eva_emotional_tts import init_emotional_tts, get_emotional_tts, emotional_tts
 
 
+# Pre-compiled emotion word sets for O(1) lookup (performance optimization)
+_SADNESS_WORDS = frozenset([
+    "triste", "déprimé", "mal", "pleure", "pleurer", "malheureux",
+    "douleur", "souffre", "souffrir", "seul", "solitude", "perdu",
+    "désespoir", "déçu", "déception", "mélancolie", "chagrin",
+    "difficile", "dur", "galère", "nul", "marre", "épuisé"
+])
+
+_JOY_WORDS = frozenset([
+    "content", "heureux", "joie", "super", "génial", "incroyable",
+    "fantastique", "merveilleux", "excellent", "parfait", "ravi",
+    "excité", "enthousiaste", "adore", "aime", "magnifique"
+])
+
+_ANGER_WORDS = frozenset([
+    "énervé", "colère", "furieux", "frustré", "agacé", "rage",
+    "déteste", "horrible", "merde", "putain", "bordel", "con",
+    "insupportable", "injuste", "révoltant"
+])
+
+_FEAR_WORDS = frozenset([
+    "peur", "inquiet", "angoisse", "anxieux", "stressé", "terrifié",
+    "effrayé", "nerveux", "paniqué", "crainte", "flippe"
+])
+
+_SURPRISE_WORDS = frozenset([
+    "surpris", "choqué", "étonnant", "incroyable", "fou", "dingue",
+    "quoi", "sérieux", "comment", "impossible"
+])
+
+
 @dataclass
 class HERConfig:
     """Configuration for HER-like behavior"""
@@ -213,63 +244,29 @@ class EvaHER:
 
         Critical for HER-like empathy - Eva needs to understand emotional
         content even without voice cues.
+
+        Uses module-level frozensets for O(1) word lookup performance.
         """
         text_lower = text.lower()
 
-        # Sadness indicators (French)
-        sadness_words = [
-            "triste", "déprimé", "mal", "pleure", "pleurer", "malheureux",
-            "douleur", "souffre", "souffrir", "seul", "solitude", "perdu",
-            "désespoir", "déçu", "déception", "mélancolie", "chagrin",
-            "difficile", "dur", "galère", "nul", "marre", "épuisé"
-        ]
+        # Extract words once for O(1) intersection check
+        words = set(text_lower.split())
 
-        # Joy indicators
-        joy_words = [
-            "content", "heureux", "joie", "super", "génial", "incroyable",
-            "fantastique", "merveilleux", "excellent", "parfait", "ravi",
-            "excité", "enthousiaste", "adore", "aime", "magnifique"
-        ]
+        # Check for emotion keywords using set intersection (O(min(n,m)))
+        if words & _SADNESS_WORDS:
+            return "sadness"
 
-        # Anger indicators
-        anger_words = [
-            "énervé", "colère", "furieux", "frustré", "agacé", "rage",
-            "déteste", "horrible", "merde", "putain", "bordel", "con",
-            "insupportable", "injuste", "révoltant"
-        ]
+        if words & _JOY_WORDS:
+            return "joy"
 
-        # Fear/worry indicators
-        fear_words = [
-            "peur", "inquiet", "angoisse", "anxieux", "stressé", "terrifié",
-            "effrayé", "nerveux", "paniqué", "crainte", "flippe"
-        ]
+        if words & _ANGER_WORDS:
+            return "anger"
 
-        # Surprise indicators
-        surprise_words = [
-            "surpris", "choqué", "étonnant", "incroyable", "fou", "dingue",
-            "quoi", "sérieux", "comment", "impossible"
-        ]
+        if words & _FEAR_WORDS:
+            return "fear"
 
-        # Check for emotion keywords
-        for word in sadness_words:
-            if word in text_lower:
-                return "sadness"
-
-        for word in joy_words:
-            if word in text_lower:
-                return "joy"
-
-        for word in anger_words:
-            if word in text_lower:
-                return "anger"
-
-        for word in fear_words:
-            if word in text_lower:
-                return "fear"
-
-        for word in surprise_words:
-            if word in text_lower:
-                return "surprise"
+        if words & _SURPRISE_WORDS:
+            return "surprise"
 
         # Check punctuation patterns
         if text.count("!") >= 2:
