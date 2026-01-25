@@ -6701,3 +6701,188 @@ async def reset_perf_metrics():
         "status": "ok",
         "message": "Performance metrics reset"
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Feature Flags API - Sprint 609
+# ═══════════════════════════════════════════════════════════════
+
+from feature_flags import feature_flags
+
+
+@app.get("/flags")
+async def get_all_flags():
+    """Get all feature flags.
+
+    Returns:
+        All flag definitions.
+    """
+    return {
+        "status": "ok",
+        "flags": feature_flags.get_all_flags()
+    }
+
+
+@app.get("/flags/{flag_name}")
+async def get_flag(flag_name: str):
+    """Get a specific flag.
+
+    Args:
+        flag_name: Flag name
+
+    Returns:
+        Flag details.
+    """
+    flag = feature_flags.get_flag(flag_name)
+    if not flag:
+        return {"status": "error", "message": "Flag not found"}
+    return {
+        "status": "ok",
+        "flag": flag
+    }
+
+
+@app.get("/flags/check/{flag_name}")
+async def check_flag(flag_name: str, user_id: Optional[str] = None):
+    """Check if a flag is enabled.
+
+    Args:
+        flag_name: Flag name
+        user_id: Optional user ID for targeting
+
+    Returns:
+        Whether flag is enabled.
+    """
+    return {
+        "status": "ok",
+        "flag": flag_name,
+        "enabled": feature_flags.is_enabled(flag_name, user_id)
+    }
+
+
+@app.get("/flags/user/{user_id}")
+async def get_user_flags(user_id: str):
+    """Get all flags evaluated for a user.
+
+    Args:
+        user_id: User ID
+
+    Returns:
+        Flag statuses for user.
+    """
+    return {
+        "status": "ok",
+        "user_id": user_id,
+        "flags": feature_flags.get_user_flags(user_id)
+    }
+
+
+@app.post("/flags")
+async def create_flag(
+    name: str,
+    flag_type: str = "boolean",
+    enabled: bool = True,
+    percentage: float = 100.0,
+    description: str = ""
+):
+    """Create a new flag.
+
+    Args:
+        name: Flag name
+        flag_type: Type (boolean, percentage, user_list, environment)
+        enabled: Initial enabled state
+        percentage: Initial percentage
+        description: Flag description
+
+    Returns:
+        Created flag.
+    """
+    flag = feature_flags.create_flag(
+        name=name,
+        flag_type=flag_type,
+        enabled=enabled,
+        percentage=percentage,
+        description=description
+    )
+    return {
+        "status": "ok",
+        "flag": flag.to_dict()
+    }
+
+
+@app.put("/flags/{flag_name}")
+async def update_flag(
+    flag_name: str,
+    enabled: Optional[bool] = None,
+    percentage: Optional[float] = None,
+    description: Optional[str] = None
+):
+    """Update a flag.
+
+    Args:
+        flag_name: Flag name
+        enabled: New enabled state
+        percentage: New percentage
+        description: New description
+
+    Returns:
+        Success status.
+    """
+    if feature_flags.set_flag(
+        flag_name,
+        enabled=enabled,
+        percentage=percentage,
+        description=description
+    ):
+        return {
+            "status": "ok",
+            "flag": feature_flags.get_flag(flag_name)
+        }
+    return {"status": "error", "message": "Flag not found"}
+
+
+@app.delete("/flags/{flag_name}")
+async def delete_flag(flag_name: str):
+    """Delete a flag.
+
+    Args:
+        flag_name: Flag name
+
+    Returns:
+        Success status.
+    """
+    if feature_flags.delete_flag(flag_name):
+        return {"status": "ok", "message": "Flag deleted"}
+    return {"status": "error", "message": "Flag not found"}
+
+
+@app.post("/flags/{flag_name}/users/{user_id}")
+async def add_user_to_flag(flag_name: str, user_id: str):
+    """Add user to a USER_LIST flag.
+
+    Args:
+        flag_name: Flag name
+        user_id: User to add
+
+    Returns:
+        Success status.
+    """
+    if feature_flags.add_user_to_flag(flag_name, user_id):
+        return {"status": "ok", "message": f"User {user_id} added to {flag_name}"}
+    return {"status": "error", "message": "Flag not found or wrong type"}
+
+
+@app.delete("/flags/{flag_name}/users/{user_id}")
+async def remove_user_from_flag(flag_name: str, user_id: str):
+    """Remove user from a USER_LIST flag.
+
+    Args:
+        flag_name: Flag name
+        user_id: User to remove
+
+    Returns:
+        Success status.
+    """
+    if feature_flags.remove_user_from_flag(flag_name, user_id):
+        return {"status": "ok", "message": f"User {user_id} removed from {flag_name}"}
+    return {"status": "error", "message": "Flag not found or wrong type"}
