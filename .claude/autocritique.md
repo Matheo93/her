@@ -8858,3 +8858,35 @@ Bonne couverture des cas d'usage média. La technique padding-top est classique 
 ### Note: 7.5/10
 Bon système de batch processing. Le streaming est utile pour les gros volumes. Le parallel processor utilise bien ThreadPoolExecutor pour CPU-bound.
 
+
+---
+
+## Sprint 712 - Frontend Mention
+**Date**: 2026-01-25 12:10
+**Type**: Frontend Component
+**File**: frontend/src/components/Mention.tsx
+
+### Composants créés
+- MentionInput: Input avec triggers configurables (@, #)
+- UserMentionInput: Simplification pour mentions utilisateurs
+- HashtagInput: Simplification pour hashtags
+- MentionText: Affichage de texte avec mentions cliquables
+- MentionBadge: Badge pour mention sélectionnée
+- MentionList: Liste de mentions avec suppression
+- useMentions: Hook de gestion des mentions
+
+### Points positifs
+- Triggers configurables (multi-caractères possible)
+- Autocomplete avec navigation clavier
+- Filtrage par label et value
+- Support avatar dans dropdown
+- Hook réutilisable
+
+### Points à améliorer
+- ContentEditable peut avoir des bugs de curseur
+- Pas de support multi-ligne avancé
+- Pourrait utiliser Tiptap ou Slate pour richtext
+
+### Note: 7/10
+Fonctionnel mais ContentEditable est limité. Pour un vrai richtext avec mentions, il faudrait une librairie comme Tiptap.
+
