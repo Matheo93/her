@@ -2535,6 +2535,85 @@ async def get_ws_stats():
 
 
 # ═══════════════════════════════════════════════════════════════
+# Health Check API - Sprint 589
+# ═══════════════════════════════════════════════════════════════
+
+from health_checks import health_checker
+
+
+@app.get("/health/live")
+async def liveness_probe():
+    """Kubernetes liveness probe - is the service running?
+
+    Returns:
+        Simple alive status with uptime.
+    """
+    return await health_checker.liveness()
+
+
+@app.get("/health/ready")
+async def readiness_probe():
+    """Kubernetes readiness probe - is the service ready?
+
+    Returns:
+        Detailed health status of all components.
+    """
+    return await health_checker.readiness()
+
+
+@app.get("/health/components")
+async def get_health_components():
+    """Get health status of all components.
+
+    Returns:
+        Full system health with component details.
+    """
+    health = await health_checker.check_all(use_cache=False)
+    return {
+        "status": health.status.value,
+        "timestamp": health.timestamp,
+        "uptime_seconds": round(health.uptime_seconds, 1),
+        "version": health.version,
+        "components": {
+            name: {
+                "status": c.status.value,
+                "message": c.message,
+                "latency_ms": round(c.latency_ms, 1) if c.latency_ms else None,
+                "details": c.details,
+            }
+            for name, c in health.components.items()
+        }
+    }
+
+
+@app.get("/health/components/{component_name}")
+async def get_component_health(component_name: str):
+    """Get health of a specific component.
+
+    Args:
+        component_name: Name of component (system, memory, rate_limiter, websocket, config)
+
+    Returns:
+        Component health details.
+    """
+    health = await health_checker.check_component(component_name)
+    if not health:
+        return {"status": "error", "message": f"Component '{component_name}' not found"}
+
+    return {
+        "status": "ok",
+        "component": {
+            "name": health.name,
+            "status": health.status.value,
+            "message": health.message,
+            "latency_ms": round(health.latency_ms, 1) if health.latency_ms else None,
+            "last_check": health.last_check,
+            "details": health.details,
+        }
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
 # Avatar Emotions API - Sprint 579
 # ═══════════════════════════════════════════════════════════════
 
