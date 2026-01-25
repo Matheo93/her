@@ -6938,3 +6938,109 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 641 - Scheduler (BACKEND)
+
+**Fichier:** `backend/scheduler.py`
+
+**Classes créées:**
+1. **Scheduler** - Task scheduling system
+2. **ScheduledTask** - Task dataclass
+3. **TaskExecution** - Execution record
+4. **CronParser** - Cron expression parser
+5. **TaskStatus** - Status enum
+6. **ScheduleType** - Schedule type enum
+
+**Fonctionnalités:**
+- Schedule once (delay ou timestamp)
+- Schedule interval (récurrent)
+- Schedule cron (expressions cron)
+- Schedule daily (hour/minute)
+- Cron parser complet (*, */n, n-m, n,m)
+- Task timeout configurable
+- Max runs limit
+- Retry avec backoff
+- Pause/resume tasks
+- Run task now
+- Execution history
+- Background worker async
+- Statistics détaillées
+
+**10 Endpoints créés:**
+- GET /scheduler/tasks - List tasks
+- GET /scheduler/tasks/{id} - Get task
+- DELETE /scheduler/tasks/{id} - Cancel task
+- POST /scheduler/tasks/{id}/pause - Pause
+- POST /scheduler/tasks/{id}/resume - Resume
+- POST /scheduler/tasks/{id}/run - Run now
+- GET /scheduler/history - Execution history
+- GET /scheduler/stats - Statistics
+- POST /scheduler/start - Start scheduler
+- POST /scheduler/stop - Stop scheduler
+
+**Note: 9/10**
+
+**Points positifs:**
+- Cron parser complet
+- Multiple schedule types
+- Retry avec backoff
+- History détaillée
+- Run now pour debug
+- Heap-based scheduling
+
+**Points négatifs:**
+- Pas de persistence
+- Pas de distributed locking
+- Pas de timezone support
+- Pas de task chaining
+
+**Risques:** Aucun
+
+---
+
+## Sprint 642 - Badge & Tags (FRONTEND)
+
+**Fichier:** `frontend/src/components/Badge.tsx`
+
+**Composants créés:**
+1. **Badge** - Badge de base avec variants
+2. **StatusBadge** - Indicateur de statut (online/offline/etc)
+3. **CounterBadge** - Badge compteur avec max
+4. **NotificationBadge** - Badge notification (wraps content)
+5. **Tag** - Chip/tag removable
+6. **TagGroup** - Groupe de tags avec max
+7. **DotIndicator** - Point indicateur avec pulse
+8. **LabelBadge** - Badge label:value
+
+**Fonctionnalités:**
+- 6 variants (default, primary, success, warning, error, info)
+- 3 tailles (sm, md, lg)
+- Rounded ou square
+- Outline mode
+- Dot indicator animé
+- Status avec animation pulse
+- Counter avec max display
+- Notification badge positionné
+- Tags removable
+- TagGroup avec overflow +N
+- LabelBadge split label/value
+
+**Note: 9/10**
+
+**Points positifs:**
+- Multiple variants utiles
+- Animation pulse pour status
+- Counter avec max intelligent
+- Tags removable
+- TagGroup avec limit
+- LabelBadge pour metadata
+
+**Points négatifs:**
+- Pas de badge icons
+- Pas de avatars dans badges
+- Pas de tooltip sur hover
+- Pas de badge grouping/stacking
+
+**Risques:** Aucun
+
+---
