@@ -8728,3 +8728,25 @@ Système de retry avec stratégies de backoff configurables.
 - Principal pattern matching (user:*)
 - RBACEngine pour permissions simples
 - Cache avec TTL
+
+---
+
+## Sprint 704 - Frontend Typewriter
+**Score: 8.5/10**
+- Typewriter avec delete et retype
+- RotatingText pour héros sections
+- RevealText word-by-word
+- CharacterReveal avec spring
+- GlitchText et ScrambleText effects
+- useTypewriter hook controlé
+
+---
+
+## Sprint 705 - Backend Idempotency
+**Score: 9/10**
+- IdempotencyContext async context manager
+- Request hash pour détection de conflits
+- Lock par clé pour éviter race conditions
+- TTL configurable par requête
+- @idempotent decorator
+- Cache hit tracking et stats
