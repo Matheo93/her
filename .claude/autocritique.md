@@ -8706,3 +8706,25 @@ Système de retry avec stratégies de backoff configurables.
 - Usage tracking et limit checking
 - Feature flags par tenant
 - Suspend/Activate lifecycle
+
+---
+
+## Sprint 702 - Frontend Sheet
+**Score: 8.5/10**
+- 4 positions (bottom, top, left, right)
+- Snap points multiples avec drag
+- ActionSheet style iOS
+- BottomSheet simplifié
+- useSheet hook avec data context
+- Swipe to dismiss
+
+---
+
+## Sprint 703 - Backend Policy Engine
+**Score: 9/10**
+- ABAC avec conditions (eq, gt, in, contains, etc.)
+- PolicyBuilder fluent API
+- Resource wildcards (documents/*)
+- Principal pattern matching (user:*)
+- RBACEngine pour permissions simples
+- Cache avec TTL
