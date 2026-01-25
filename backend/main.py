@@ -7534,3 +7534,251 @@ async def get_webhook_stats():
         "status": "ok",
         "stats": webhook_manager.get_stats()
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Session Store API - Sprint 617
+# ═══════════════════════════════════════════════════════════════
+
+from session_store import session_store
+
+
+@app.post("/sessions")
+async def create_session(
+    request: Request,
+    user_id: Optional[str] = None,
+    ttl: Optional[int] = None
+):
+    """Create a new session.
+
+    Args:
+        user_id: Optional user ID
+        ttl: Session TTL in seconds
+
+    Returns:
+        Created session.
+    """
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+
+    session = session_store.create(
+        user_id=user_id,
+        ttl=ttl,
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
+
+    return {
+        "status": "ok",
+        "session": session.to_dict()
+    }
+
+
+@app.get("/sessions/{session_id}")
+async def get_session(session_id: str, touch: bool = True):
+    """Get session details.
+
+    Args:
+        session_id: Session ID
+        touch: Update last activity
+
+    Returns:
+        Session details.
+    """
+    session = session_store.get(session_id, touch=touch)
+    if not session:
+        return {"status": "error", "message": "Session not found or expired"}
+    return {
+        "status": "ok",
+        "session": session.to_dict()
+    }
+
+
+@app.get("/sessions/{session_id}/validate")
+async def validate_session(session_id: str):
+    """Check if session is valid.
+
+    Args:
+        session_id: Session ID
+
+    Returns:
+        Validation result.
+    """
+    return {
+        "status": "ok",
+        "valid": session_store.validate(session_id)
+    }
+
+
+@app.post("/sessions/{session_id}/authenticate")
+async def authenticate_session(
+    session_id: str,
+    user_id: str,
+    extend_ttl: bool = True
+):
+    """Authenticate a session with a user.
+
+    Args:
+        session_id: Session ID
+        user_id: User ID
+        extend_ttl: Extend session TTL
+
+    Returns:
+        Success status.
+    """
+    if session_store.authenticate(session_id, user_id, extend_ttl):
+        return {
+            "status": "ok",
+            "session": session_store.get(session_id).to_dict()
+        }
+    return {"status": "error", "message": "Session not found or expired"}
+
+
+@app.post("/sessions/{session_id}/logout")
+async def logout_session(session_id: str):
+    """Logout/destroy a session.
+
+    Args:
+        session_id: Session ID
+
+    Returns:
+        Success status.
+    """
+    if session_store.logout(session_id):
+        return {"status": "ok", "message": "Session destroyed"}
+    return {"status": "error", "message": "Session not found"}
+
+
+@app.post("/sessions/{session_id}/renew")
+async def renew_session(session_id: str, ttl: Optional[int] = None):
+    """Renew/extend a session.
+
+    Args:
+        session_id: Session ID
+        ttl: New TTL in seconds
+
+    Returns:
+        Success status.
+    """
+    if session_store.renew(session_id, ttl):
+        return {
+            "status": "ok",
+            "session": session_store.get(session_id).to_dict()
+        }
+    return {"status": "error", "message": "Session not found or expired"}
+
+
+@app.post("/sessions/{session_id}/data")
+async def set_session_data(session_id: str, key: str, value: str):
+    """Set session data.
+
+    Args:
+        session_id: Session ID
+        key: Data key
+        value: Data value (string)
+
+    Returns:
+        Success status.
+    """
+    if session_store.set_data(session_id, key, value):
+        return {"status": "ok", "message": f"Data '{key}' set"}
+    return {"status": "error", "message": "Session not found or expired"}
+
+
+@app.get("/sessions/{session_id}/data/{key}")
+async def get_session_data(session_id: str, key: str):
+    """Get session data.
+
+    Args:
+        session_id: Session ID
+        key: Data key
+
+    Returns:
+        Data value.
+    """
+    value = session_store.get_data(session_id, key)
+    return {
+        "status": "ok",
+        "key": key,
+        "value": value
+    }
+
+
+@app.delete("/sessions/{session_id}/data/{key}")
+async def delete_session_data(session_id: str, key: str):
+    """Delete session data.
+
+    Args:
+        session_id: Session ID
+        key: Data key
+
+    Returns:
+        Success status.
+    """
+    if session_store.delete_data(session_id, key):
+        return {"status": "ok", "message": f"Data '{key}' deleted"}
+    return {"status": "error", "message": "Session or key not found"}
+
+
+@app.get("/sessions/user/{user_id}")
+async def get_user_sessions(user_id: str):
+    """Get all sessions for a user.
+
+    Args:
+        user_id: User ID
+
+    Returns:
+        List of sessions.
+    """
+    return {
+        "status": "ok",
+        "sessions": session_store.get_user_sessions(user_id)
+    }
+
+
+@app.delete("/sessions/user/{user_id}")
+async def terminate_user_sessions(
+    user_id: str,
+    except_session_id: Optional[str] = None
+):
+    """Terminate all sessions for a user.
+
+    Args:
+        user_id: User ID
+        except_session_id: Session to keep
+
+    Returns:
+        Number terminated.
+    """
+    terminated = session_store.terminate_user_sessions(user_id, except_session_id)
+    return {
+        "status": "ok",
+        "terminated": terminated
+    }
+
+
+@app.post("/sessions/cleanup")
+async def cleanup_sessions():
+    """Force cleanup of expired sessions.
+
+    Returns:
+        Number cleaned.
+    """
+    cleaned = session_store.cleanup()
+    return {
+        "status": "ok",
+        "cleaned": cleaned
+    }
+
+
+@app.get("/sessions/stats/summary")
+async def get_session_stats():
+    """Get session statistics.
+
+    Returns:
+        Statistics.
+    """
+    return {
+        "status": "ok",
+        "stats": session_store.get_stats()
+    }
