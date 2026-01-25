@@ -5824,3 +5824,165 @@ async def tts_direct(request: Request, data: dict):
     except Exception as e:
         print(f"Direct TTS error: {e}")
         raise HTTPException(status_code=503, detail=f"TTS error: {str(e)}")
+
+
+# ═══════════════════════════════════════════════════════════════
+# Response Queue API - Sprint 597
+# ═══════════════════════════════════════════════════════════════
+
+from response_queue import response_queue, Priority
+
+
+@app.post("/queue/enqueue")
+async def enqueue_response(
+    session_id: str,
+    payload: dict,
+    priority: str = "normal"
+):
+    """Queue a response for delivery.
+
+    Args:
+        session_id: Target session
+        payload: Response data
+        priority: Priority level (critical, high, normal, low)
+
+    Returns:
+        Response ID and queue position.
+    """
+    priority_map = {
+        "critical": Priority.CRITICAL,
+        "high": Priority.HIGH,
+        "normal": Priority.NORMAL,
+        "low": Priority.LOW
+    }
+    prio = priority_map.get(priority.lower(), Priority.NORMAL)
+
+    try:
+        response_id = response_queue.enqueue(
+            session_id=session_id,
+            payload=payload,
+            priority=prio
+        )
+        return {
+            "status": "ok",
+            "response_id": response_id,
+            "priority": priority,
+            "queue_size": response_queue.get_stats()["current_size"]
+        }
+    except ValueError as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/queue/response/{response_id}")
+async def get_queued_response(response_id: str):
+    """Get response status by ID.
+
+    Args:
+        response_id: Response identifier
+
+    Returns:
+        Response status and details.
+    """
+    response = response_queue.get_response(response_id)
+    if not response:
+        return {"status": "error", "message": "Response not found"}
+    return {
+        "status": "ok",
+        "response": response
+    }
+
+
+@app.get("/queue/session/{session_id}")
+async def get_session_queue(session_id: str):
+    """Get all queued responses for a session.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        List of queued responses.
+    """
+    responses = response_queue.get_session_queue(session_id)
+    return {
+        "status": "ok",
+        "responses": responses,
+        "count": len(responses)
+    }
+
+
+@app.delete("/queue/response/{response_id}")
+async def cancel_response(response_id: str):
+    """Cancel a queued response.
+
+    Args:
+        response_id: Response to cancel
+
+    Returns:
+        Success or error status.
+    """
+    if response_queue.cancel(response_id):
+        return {"status": "ok", "message": "Response cancelled"}
+    return {"status": "error", "message": "Response not found or already processed"}
+
+
+@app.delete("/queue/session/{session_id}")
+async def clear_session_queue(session_id: str):
+    """Clear all queued responses for a session.
+
+    Args:
+        session_id: Session to clear
+
+    Returns:
+        Number of items cleared.
+    """
+    cleared = response_queue.clear_session(session_id)
+    return {
+        "status": "ok",
+        "cleared": cleared
+    }
+
+
+@app.get("/queue/stats")
+async def get_queue_stats():
+    """Get queue statistics.
+
+    Returns:
+        Queue metrics including size, delivery rate, etc.
+    """
+    return {
+        "status": "ok",
+        "stats": response_queue.get_stats()
+    }
+
+
+@app.get("/queue/dead-letters")
+async def get_dead_letters(limit: int = 50):
+    """Get dead letter queue items.
+
+    Args:
+        limit: Maximum items to return
+
+    Returns:
+        List of failed/dead responses.
+    """
+    dead = response_queue.get_dead_letters(limit)
+    return {
+        "status": "ok",
+        "dead_letters": dead,
+        "count": len(dead)
+    }
+
+
+@app.post("/queue/dead-letters/{response_id}/retry")
+async def retry_dead_letter(response_id: str):
+    """Retry a dead letter item.
+
+    Args:
+        response_id: Dead letter to retry
+
+    Returns:
+        Success or error status.
+    """
+    if response_queue.retry_dead_letter(response_id):
+        return {"status": "ok", "message": "Response requeued"}
+    return {"status": "error", "message": "Dead letter not found"}
