@@ -8988,3 +8988,35 @@ Très complet pour un OTP input. Le focus management et le paste handling sont b
 ### Note: 7/10
 Bonne structure mais le SimpleEncryptor n'est pas production-ready. En prod il faudrait utiliser la lib cryptography avec AES-GCM réel.
 
+
+---
+
+## Sprint 716 - Frontend Countdown
+**Date**: 2026-01-25 12:16
+**Type**: Frontend Component
+**File**: frontend/src/components/Countdown.tsx
+
+### Composants créés
+- Countdown: Countdown vers date avec variants (default, compact, cards)
+- FlipCountdown: Animation flip clock style
+- Timer: Minuteur avec start/pause/reset
+- CircularCountdown: Countdown circulaire SVG
+- EventCountdown: Countdown avec titre et description
+- useCountdown: Hook pour état countdown
+- useTimer: Hook pour état timer
+
+### Points positifs
+- FlipDigit avec animation 3D perspective
+- CircularCountdown SVG animé
+- Timer avec barre de progression
+- Formatage automatique avec padStart
+- Warning couleur rouge quand < 10s
+
+### Points à améliorer
+- FlipDigit animation pourrait être plus fluide
+- Pas de son optionnel au tick
+- Pas de persistence du timer state
+
+### Note: 8/10
+Bonne variété de styles de countdown. Le flip clock est un nice effet. Les hooks sont réutilisables. Timer avec contrôles est complet.
+
