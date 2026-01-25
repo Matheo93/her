@@ -5779,3 +5779,54 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 617 - Session Store (BACKEND)
+
+**Fichier:** `backend/session_store.py`
+
+**Classes créées:**
+1. **SessionStore** - Gestionnaire sessions
+2. **Session** - Dataclass session avec expiration
+
+**Fonctionnalités:**
+- Session creation avec TTL
+- Automatic expiration cleanup
+- User authentication
+- Session data key/value store
+- Per-user session limit
+- Session renewal
+- Activity tracking
+- IP/User-Agent capture
+
+**Endpoints (13):**
+- POST /sessions - Create session
+- GET /sessions/{id} - Get session
+- GET /sessions/{id}/validate - Validate session
+- POST /sessions/{id}/authenticate - Authenticate
+- POST /sessions/{id}/logout - Logout/destroy
+- POST /sessions/{id}/renew - Extend TTL
+- POST /sessions/{id}/data - Set data
+- GET /sessions/{id}/data/{key} - Get data
+- DELETE /sessions/{id}/data/{key} - Delete data
+- GET /sessions/user/{id} - User sessions
+- DELETE /sessions/user/{id} - Terminate user sessions
+- POST /sessions/cleanup - Force cleanup
+- GET /sessions/stats/summary - Statistics
+
+**Note: 9/10**
+
+**Points positifs:**
+- SHA256 session IDs sécurisés
+- Automatic expired cleanup
+- Max sessions per user enforced
+- Activity tracking precise
+- Thread-safe avec Lock
+
+**Points négatifs:**
+- Pas de persistence disk
+- Pas de Redis support
+- Pas de session sharing multi-instance
+
+**Risques:** Aucun
+
+---
