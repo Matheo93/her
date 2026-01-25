@@ -1,314 +1,511 @@
 """
-Rate Limiter - Sprint 585
+Rate Limiter - Sprint 643
 
-Per-user rate limiting for API endpoints.
-Uses token bucket algorithm with sliding window.
+Advanced rate limiting system.
 
 Features:
-- Per-user/IP rate limits
-- Configurable limits per endpoint
-- Burst allowance
-- Automatic cleanup
-- Statistics tracking
+- Token bucket algorithm
+- Sliding window
+- Per-user limits
+- Per-endpoint limits
+- Rate limit headers
 """
 
 import time
 import asyncio
-from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Tuple, Any
-from threading import Lock
+from typing import Dict, Optional, List, Any, Tuple
 from enum import Enum
+from threading import Lock
+from collections import defaultdict
 
 
-class RateLimitResult(str, Enum):
+class LimitStrategy(str, Enum):
+    """Rate limiting strategy."""
+    TOKEN_BUCKET = "token_bucket"
+    SLIDING_WINDOW = "sliding_window"
+    FIXED_WINDOW = "fixed_window"
+    LEAKY_BUCKET = "leaky_bucket"
+
+
+@dataclass
+class RateLimitConfig:
+    """Rate limit configuration."""
+    requests: int
+    window: float  # seconds
+    burst: Optional[int] = None  # max burst for token bucket
+    strategy: LimitStrategy = LimitStrategy.SLIDING_WINDOW
+
+    def to_dict(self) -> dict:
+        return {
+            "requests": self.requests,
+            "window": self.window,
+            "burst": self.burst,
+            "strategy": self.strategy.value,
+        }
+
+
+@dataclass
+class RateLimitResult:
     """Result of rate limit check."""
-    ALLOWED = "allowed"
-    DENIED = "denied"
-    WARNING = "warning"  # Close to limit
+    allowed: bool
+    remaining: int
+    reset_at: float
+    retry_after: Optional[float] = None
+
+    def to_headers(self) -> Dict[str, str]:
+        """Get rate limit headers."""
+        headers = {
+            "X-RateLimit-Remaining": str(self.remaining),
+            "X-RateLimit-Reset": str(int(self.reset_at)),
+        }
+        if self.retry_after:
+            headers["Retry-After"] = str(int(self.retry_after))
+        return headers
 
 
 @dataclass
 class TokenBucket:
     """Token bucket for rate limiting."""
+    capacity: int
     tokens: float
-    last_update: float
-    request_count: int = 0
-    last_request: float = 0
+    refill_rate: float  # tokens per second
+    last_update: float = field(default_factory=time.time)
+
+    def consume(self, tokens: int = 1) -> Tuple[bool, int]:
+        """Try to consume tokens.
+
+        Returns:
+            (allowed, remaining_tokens)
+        """
+        now = time.time()
+        elapsed = now - self.last_update
+        self.last_update = now
+
+        # Refill tokens
+        self.tokens = min(
+            self.capacity,
+            self.tokens + elapsed * self.refill_rate
+        )
+
+        if self.tokens >= tokens:
+            self.tokens -= tokens
+            return True, int(self.tokens)
+
+        return False, 0
 
 
 @dataclass
-class RateLimitConfig:
-    """Configuration for a rate limit rule."""
-    requests_per_minute: int = 60
-    burst_size: int = 10  # Extra tokens for burst
-    warning_threshold: float = 0.8  # Warn at 80% usage
+class SlidingWindow:
+    """Sliding window for rate limiting."""
+    window_size: float  # seconds
+    max_requests: int
+    requests: List[float] = field(default_factory=list)
 
+    def add_request(self) -> Tuple[bool, int]:
+        """Try to add a request.
 
-@dataclass
-class RateLimitStats:
-    """Statistics for rate limiting."""
-    total_requests: int = 0
-    allowed_requests: int = 0
-    denied_requests: int = 0
-    warnings_issued: int = 0
-    unique_users: int = 0
+        Returns:
+            (allowed, remaining)
+        """
+        now = time.time()
+        cutoff = now - self.window_size
+
+        # Remove old requests
+        self.requests = [t for t in self.requests if t > cutoff]
+
+        if len(self.requests) < self.max_requests:
+            self.requests.append(now)
+            remaining = self.max_requests - len(self.requests)
+            return True, remaining
+
+        return False, 0
+
+    def get_reset_time(self) -> float:
+        """Get when the oldest request will expire."""
+        if not self.requests:
+            return time.time()
+        return self.requests[0] + self.window_size
 
 
 class RateLimiter:
-    """Per-user rate limiter using token bucket algorithm.
+    """Advanced rate limiting system.
 
     Usage:
         limiter = RateLimiter()
 
-        # Check rate limit
-        result = limiter.check("user123", "chat")
-        if result.result == RateLimitResult.DENIED:
-            return {"error": "Rate limit exceeded"}
+        # Configure global limit
+        limiter.configure_global(100, 60)  # 100 req/min
 
-        # Configure endpoint limits
-        limiter.configure_endpoint("tts", RateLimitConfig(
-            requests_per_minute=30,
-            burst_size=5
-        ))
+        # Configure per-endpoint
+        limiter.configure_endpoint("/chat", 10, 60)  # 10 req/min
+
+        # Check rate limit
+        result = limiter.check("user123", "/chat")
+        if not result.allowed:
+            return 429, result.to_headers()
     """
 
-    def __init__(self, default_config: Optional[RateLimitConfig] = None):
-        self._buckets: Dict[str, TokenBucket] = {}
-        self._lock = Lock()
-        self._configs: Dict[str, RateLimitConfig] = {}
-        self._default_config = default_config or RateLimitConfig()
-        self._stats = RateLimitStats()
-        self._cleanup_interval = 300  # 5 minutes
-        self._last_cleanup = time.time()
+    def __init__(self):
+        """Initialize rate limiter."""
+        self._global_config: Optional[RateLimitConfig] = None
+        self._endpoint_configs: Dict[str, RateLimitConfig] = {}
+        self._user_configs: Dict[str, RateLimitConfig] = {}
 
-    def configure_endpoint(self, endpoint: str, config: RateLimitConfig) -> None:
-        """Configure rate limit for specific endpoint.
+        # State storage
+        self._buckets: Dict[str, TokenBucket] = {}
+        self._windows: Dict[str, SlidingWindow] = {}
+        self._lock = Lock()
+
+        # Stats
+        self._stats = {
+            "total_requests": 0,
+            "allowed_requests": 0,
+            "blocked_requests": 0,
+        }
+        self._blocked_users: Dict[str, int] = defaultdict(int)
+
+    def configure_global(
+        self,
+        requests: int,
+        window: float,
+        burst: Optional[int] = None,
+        strategy: LimitStrategy = LimitStrategy.SLIDING_WINDOW
+    ):
+        """Configure global rate limit.
 
         Args:
-            endpoint: Endpoint identifier (e.g., "chat", "tts")
-            config: Rate limit configuration
+            requests: Max requests per window
+            window: Window size in seconds
+            burst: Max burst (for token bucket)
+            strategy: Limiting strategy
         """
-        self._configs[endpoint] = config
+        self._global_config = RateLimitConfig(
+            requests=requests,
+            window=window,
+            burst=burst or requests,
+            strategy=strategy,
+        )
 
-    def _get_config(self, endpoint: str) -> RateLimitConfig:
-        """Get configuration for endpoint."""
-        return self._configs.get(endpoint, self._default_config)
+    def configure_endpoint(
+        self,
+        endpoint: str,
+        requests: int,
+        window: float,
+        burst: Optional[int] = None,
+        strategy: LimitStrategy = LimitStrategy.SLIDING_WINDOW
+    ):
+        """Configure endpoint-specific rate limit.
 
-    def _get_bucket_key(self, user_id: str, endpoint: str) -> str:
-        """Generate bucket key for user+endpoint."""
-        return f"{user_id}:{endpoint}"
+        Args:
+            endpoint: Endpoint path
+            requests: Max requests per window
+            window: Window size in seconds
+            burst: Max burst
+            strategy: Limiting strategy
+        """
+        self._endpoint_configs[endpoint] = RateLimitConfig(
+            requests=requests,
+            window=window,
+            burst=burst or requests,
+            strategy=strategy,
+        )
 
-    def _refill_tokens(self, bucket: TokenBucket, config: RateLimitConfig) -> None:
-        """Refill tokens based on elapsed time."""
-        now = time.time()
-        elapsed = now - bucket.last_update
+    def configure_user(
+        self,
+        user_id: str,
+        requests: int,
+        window: float,
+        burst: Optional[int] = None,
+        strategy: LimitStrategy = LimitStrategy.SLIDING_WINDOW
+    ):
+        """Configure user-specific rate limit.
 
-        # Calculate tokens to add (per second rate)
-        tokens_per_second = config.requests_per_minute / 60.0
-        new_tokens = elapsed * tokens_per_second
+        Args:
+            user_id: User identifier
+            requests: Max requests per window
+            window: Window size in seconds
+            burst: Max burst
+            strategy: Limiting strategy
+        """
+        self._user_configs[user_id] = RateLimitConfig(
+            requests=requests,
+            window=window,
+            burst=burst or requests,
+            strategy=strategy,
+        )
 
-        # Cap at max tokens (rate + burst)
-        max_tokens = config.requests_per_minute + config.burst_size
-        bucket.tokens = min(max_tokens, bucket.tokens + new_tokens)
-        bucket.last_update = now
+    def remove_endpoint_config(self, endpoint: str) -> bool:
+        """Remove endpoint configuration."""
+        if endpoint in self._endpoint_configs:
+            del self._endpoint_configs[endpoint]
+            return True
+        return False
+
+    def remove_user_config(self, user_id: str) -> bool:
+        """Remove user configuration."""
+        if user_id in self._user_configs:
+            del self._user_configs[user_id]
+            return True
+        return False
+
+    def _get_config(
+        self,
+        user_id: str,
+        endpoint: Optional[str] = None
+    ) -> Optional[RateLimitConfig]:
+        """Get effective rate limit config."""
+        # Priority: user > endpoint > global
+        if user_id in self._user_configs:
+            return self._user_configs[user_id]
+
+        if endpoint and endpoint in self._endpoint_configs:
+            return self._endpoint_configs[endpoint]
+
+        return self._global_config
+
+    def _get_bucket_key(
+        self,
+        user_id: str,
+        endpoint: Optional[str] = None
+    ) -> str:
+        """Get storage key for user/endpoint combination."""
+        if endpoint:
+            return f"{user_id}:{endpoint}"
+        return user_id
+
+    def _check_token_bucket(
+        self,
+        key: str,
+        config: RateLimitConfig
+    ) -> RateLimitResult:
+        """Check using token bucket algorithm."""
+        with self._lock:
+            if key not in self._buckets:
+                self._buckets[key] = TokenBucket(
+                    capacity=config.burst or config.requests,
+                    tokens=config.burst or config.requests,
+                    refill_rate=config.requests / config.window,
+                )
+
+            bucket = self._buckets[key]
+            allowed, remaining = bucket.consume()
+
+            reset_at = time.time() + (1 / bucket.refill_rate)
+            retry_after = None if allowed else (1 / bucket.refill_rate)
+
+            return RateLimitResult(
+                allowed=allowed,
+                remaining=remaining,
+                reset_at=reset_at,
+                retry_after=retry_after,
+            )
+
+    def _check_sliding_window(
+        self,
+        key: str,
+        config: RateLimitConfig
+    ) -> RateLimitResult:
+        """Check using sliding window algorithm."""
+        with self._lock:
+            if key not in self._windows:
+                self._windows[key] = SlidingWindow(
+                    window_size=config.window,
+                    max_requests=config.requests,
+                )
+
+            window = self._windows[key]
+            allowed, remaining = window.add_request()
+
+            reset_at = window.get_reset_time()
+            retry_after = None if allowed else (reset_at - time.time())
+
+            return RateLimitResult(
+                allowed=allowed,
+                remaining=remaining,
+                reset_at=reset_at,
+                retry_after=retry_after if retry_after and retry_after > 0 else None,
+            )
 
     def check(
         self,
         user_id: str,
-        endpoint: str = "default",
-        consume: bool = True
-    ) -> Dict[str, Any]:
-        """Check if request is allowed under rate limit.
-
-        Args:
-            user_id: User or IP identifier
-            endpoint: Endpoint being accessed
-            consume: If True, consume a token. If False, just check.
-
-        Returns:
-            Dict with result, remaining tokens, retry_after if denied
-        """
-        now = time.time()
-        config = self._get_config(endpoint)
-        bucket_key = self._get_bucket_key(user_id, endpoint)
-
-        with self._lock:
-            # Get or create bucket
-            bucket = self._buckets.get(bucket_key)
-            if bucket is None:
-                max_tokens = config.requests_per_minute + config.burst_size
-                bucket = TokenBucket(
-                    tokens=max_tokens,
-                    last_update=now
-                )
-                self._buckets[bucket_key] = bucket
-                self._stats.unique_users += 1
-
-            # Refill tokens
-            self._refill_tokens(bucket, config)
-
-            # Update stats
-            self._stats.total_requests += 1
-
-            # Check if allowed
-            max_tokens = config.requests_per_minute + config.burst_size
-            usage_ratio = 1 - (bucket.tokens / max_tokens)
-
-            if bucket.tokens < 1:
-                # Denied
-                self._stats.denied_requests += 1
-
-                # Calculate retry_after
-                tokens_per_second = config.requests_per_minute / 60.0
-                retry_after = (1 - bucket.tokens) / tokens_per_second
-
-                return {
-                    "result": RateLimitResult.DENIED,
-                    "remaining": 0,
-                    "limit": config.requests_per_minute,
-                    "retry_after": round(retry_after, 1),
-                    "message": "Rate limit exceeded"
-                }
-
-            # Consume token if requested
-            if consume:
-                bucket.tokens -= 1
-                bucket.request_count += 1
-                bucket.last_request = now
-
-            self._stats.allowed_requests += 1
-
-            # Check if warning threshold reached
-            result = RateLimitResult.ALLOWED
-            if usage_ratio >= config.warning_threshold:
-                result = RateLimitResult.WARNING
-                self._stats.warnings_issued += 1
-
-            # Trigger cleanup if needed
-            if now - self._last_cleanup > self._cleanup_interval:
-                self._cleanup_old_buckets()
-
-            return {
-                "result": result,
-                "remaining": int(bucket.tokens),
-                "limit": config.requests_per_minute,
-                "retry_after": 0,
-                "message": "OK" if result == RateLimitResult.ALLOWED else "Approaching rate limit"
-            }
-
-    def _cleanup_old_buckets(self) -> int:
-        """Remove inactive buckets to free memory."""
-        now = time.time()
-        self._last_cleanup = now
-
-        # Remove buckets with no activity for 10 minutes
-        inactive_threshold = now - 600
-        keys_to_remove = [
-            key for key, bucket in self._buckets.items()
-            if bucket.last_request < inactive_threshold
-        ]
-
-        for key in keys_to_remove:
-            del self._buckets[key]
-
-        return len(keys_to_remove)
-
-    def reset_user(self, user_id: str, endpoint: Optional[str] = None) -> int:
-        """Reset rate limit for a user.
+        endpoint: Optional[str] = None
+    ) -> RateLimitResult:
+        """Check if request is allowed.
 
         Args:
             user_id: User identifier
-            endpoint: If specified, only reset that endpoint. Otherwise reset all.
+            endpoint: Optional endpoint path
 
         Returns:
-            Number of buckets reset
+            Rate limit result
+        """
+        config = self._get_config(user_id, endpoint)
+
+        if not config:
+            # No limit configured
+            return RateLimitResult(
+                allowed=True,
+                remaining=999999,
+                reset_at=time.time() + 60,
+            )
+
+        key = self._get_bucket_key(user_id, endpoint)
+
+        # Update stats
+        self._stats["total_requests"] += 1
+
+        if config.strategy == LimitStrategy.TOKEN_BUCKET:
+            result = self._check_token_bucket(key, config)
+        else:
+            result = self._check_sliding_window(key, config)
+
+        if result.allowed:
+            self._stats["allowed_requests"] += 1
+        else:
+            self._stats["blocked_requests"] += 1
+            self._blocked_users[user_id] += 1
+
+        return result
+
+    def reset_user(self, user_id: str):
+        """Reset rate limit state for a user.
+
+        Args:
+            user_id: User identifier
         """
         with self._lock:
-            if endpoint:
-                bucket_key = self._get_bucket_key(user_id, endpoint)
-                if bucket_key in self._buckets:
-                    del self._buckets[bucket_key]
-                    return 1
-                return 0
-
-            # Reset all endpoints for user
-            keys_to_remove = [
-                key for key in self._buckets.keys()
-                if key.startswith(f"{user_id}:")
-            ]
-            for key in keys_to_remove:
+            # Remove all keys starting with user_id
+            bucket_keys = [k for k in self._buckets if k.startswith(user_id)]
+            for key in bucket_keys:
                 del self._buckets[key]
-            return len(keys_to_remove)
+
+            window_keys = [k for k in self._windows if k.startswith(user_id)]
+            for key in window_keys:
+                del self._windows[key]
+
+    def reset_endpoint(self, endpoint: str):
+        """Reset rate limit state for an endpoint.
+
+        Args:
+            endpoint: Endpoint path
+        """
+        with self._lock:
+            bucket_keys = [k for k in self._buckets if k.endswith(f":{endpoint}")]
+            for key in bucket_keys:
+                del self._buckets[key]
+
+            window_keys = [k for k in self._windows if k.endswith(f":{endpoint}")]
+            for key in window_keys:
+                del self._windows[key]
 
     def get_user_status(self, user_id: str) -> Dict[str, Any]:
-        """Get rate limit status for all endpoints for a user.
+        """Get rate limit status for a user.
 
         Args:
             user_id: User identifier
 
         Returns:
-            Dict with status per endpoint
+            User status dict
         """
-        status = {}
-
         with self._lock:
+            result = {
+                "user_id": user_id,
+                "blocked_count": self._blocked_users.get(user_id, 0),
+                "buckets": {},
+                "windows": {},
+            }
+
             for key, bucket in self._buckets.items():
-                if key.startswith(f"{user_id}:"):
-                    endpoint = key.split(":", 1)[1]
-                    config = self._get_config(endpoint)
-                    max_tokens = config.requests_per_minute + config.burst_size
-
-                    # Refill for accurate display
-                    self._refill_tokens(bucket, config)
-
-                    status[endpoint] = {
-                        "remaining": int(bucket.tokens),
-                        "limit": config.requests_per_minute,
-                        "burst": config.burst_size,
-                        "request_count": bucket.request_count,
-                        "last_request": bucket.last_request,
+                if key.startswith(user_id):
+                    result["buckets"][key] = {
+                        "tokens": int(bucket.tokens),
+                        "capacity": bucket.capacity,
                     }
 
-        return status
+            for key, window in self._windows.items():
+                if key.startswith(user_id):
+                    result["windows"][key] = {
+                        "requests": len(window.requests),
+                        "max_requests": window.max_requests,
+                    }
+
+            return result
+
+    def list_configs(self) -> Dict[str, Any]:
+        """List all rate limit configurations."""
+        return {
+            "global": self._global_config.to_dict() if self._global_config else None,
+            "endpoints": {
+                ep: cfg.to_dict() for ep, cfg in self._endpoint_configs.items()
+            },
+            "users": {
+                uid: cfg.to_dict() for uid, cfg in self._user_configs.items()
+            },
+        }
 
     def get_stats(self) -> Dict[str, Any]:
         """Get rate limiter statistics."""
-        return {
-            "total_requests": self._stats.total_requests,
-            "allowed_requests": self._stats.allowed_requests,
-            "denied_requests": self._stats.denied_requests,
-            "warnings_issued": self._stats.warnings_issued,
-            "unique_users": self._stats.unique_users,
-            "active_buckets": len(self._buckets),
-            "denial_rate": round(
-                self._stats.denied_requests / max(1, self._stats.total_requests) * 100, 2
-            ),
+        with self._lock:
+            total = self._stats["total_requests"]
+            blocked = self._stats["blocked_requests"]
+
+            return {
+                **self._stats,
+                "block_rate": blocked / total if total > 0 else 0,
+                "top_blocked_users": dict(
+                    sorted(
+                        self._blocked_users.items(),
+                        key=lambda x: x[1],
+                        reverse=True
+                    )[:10]
+                ),
+                "active_buckets": len(self._buckets),
+                "active_windows": len(self._windows),
+            }
+
+    def clear_stats(self):
+        """Clear statistics."""
+        self._stats = {
+            "total_requests": 0,
+            "allowed_requests": 0,
+            "blocked_requests": 0,
         }
+        self._blocked_users.clear()
+
+    def cleanup(self, max_age: float = 3600):
+        """Cleanup old rate limit state.
+
+        Args:
+            max_age: Max age in seconds for state
+        """
+        now = time.time()
+        cutoff = now - max_age
+
+        with self._lock:
+            # Clean buckets not updated recently
+            bucket_keys = [
+                k for k, b in self._buckets.items()
+                if b.last_update < cutoff
+            ]
+            for key in bucket_keys:
+                del self._buckets[key]
+
+            # Clean windows with no recent requests
+            window_keys = [
+                k for k, w in self._windows.items()
+                if not w.requests or max(w.requests) < cutoff
+            ]
+            for key in window_keys:
+                del self._windows[key]
 
 
-# Singleton instance with default configuration
-rate_limiter = RateLimiter(RateLimitConfig(
-    requests_per_minute=60,
-    burst_size=10,
-    warning_threshold=0.8
-))
+# Singleton instance
+rate_limiter = RateLimiter()
 
-# Configure specific endpoints
-rate_limiter.configure_endpoint("chat", RateLimitConfig(
-    requests_per_minute=30,
-    burst_size=5,
-    warning_threshold=0.7
-))
-
-rate_limiter.configure_endpoint("tts", RateLimitConfig(
-    requests_per_minute=20,
-    burst_size=3,
-    warning_threshold=0.8
-))
-
-rate_limiter.configure_endpoint("export", RateLimitConfig(
-    requests_per_minute=10,
-    burst_size=2,
-    warning_threshold=0.9
-))
+# Configure default limits
+rate_limiter.configure_global(100, 60)  # 100 requests per minute
+rate_limiter.configure_endpoint("/chat", 20, 60)  # 20 per minute
+rate_limiter.configure_endpoint("/tts", 30, 60)  # 30 per minute
+rate_limiter.configure_endpoint("/ws", 5, 60)  # 5 connections per minute

@@ -8080,6 +8080,7 @@ from webhooks import webhook_manager, DeliveryStatus
 from event_bus import event_bus, EventPriority
 from config_manager import config_manager
 from scheduler import scheduler, TaskStatus as SchedulerTaskStatus
+from rate_limiter import rate_limiter, LimitStrategy
 
 
 @app.get("/audit")
@@ -9965,3 +9966,163 @@ async def stop_scheduler():
     """
     await scheduler.stop()
     return {"status": "ok", "stopped": True}
+
+
+# =============================================================================
+# Rate Limiter Endpoints - Sprint 643
+# =============================================================================
+
+
+@app.get("/ratelimit/check/{user_id}")
+async def check_rate_limit(user_id: str, endpoint: Optional[str] = None):
+    """Check rate limit for a user.
+
+    Args:
+        user_id: User identifier.
+        endpoint: Optional endpoint path.
+
+    Returns:
+        Rate limit result.
+    """
+    result = rate_limiter.check(user_id, endpoint)
+    return {
+        "status": "ok",
+        "allowed": result.allowed,
+        "remaining": result.remaining,
+        "reset_at": result.reset_at,
+        "retry_after": result.retry_after,
+        "headers": result.to_headers(),
+    }
+
+
+@app.get("/ratelimit/status/{user_id}")
+async def get_user_rate_limit_status(user_id: str):
+    """Get rate limit status for a user.
+
+    Args:
+        user_id: User identifier.
+
+    Returns:
+        User status.
+    """
+    status = rate_limiter.get_user_status(user_id)
+    return {"status": "ok", "user_status": status}
+
+
+@app.post("/ratelimit/reset/{user_id}")
+async def reset_user_rate_limit(user_id: str):
+    """Reset rate limit for a user.
+
+    Args:
+        user_id: User identifier.
+
+    Returns:
+        Reset status.
+    """
+    rate_limiter.reset_user(user_id)
+    return {"status": "ok", "reset": True}
+
+
+@app.post("/ratelimit/configure/global")
+async def configure_global_rate_limit(
+    requests: int,
+    window: float,
+    burst: Optional[int] = None,
+    strategy: str = "sliding_window"
+):
+    """Configure global rate limit.
+
+    Args:
+        requests: Max requests per window.
+        window: Window size in seconds.
+        burst: Max burst.
+        strategy: Limiting strategy.
+
+    Returns:
+        Configuration status.
+    """
+    try:
+        strat = LimitStrategy(strategy)
+    except ValueError:
+        strat = LimitStrategy.SLIDING_WINDOW
+
+    rate_limiter.configure_global(requests, window, burst, strat)
+    return {"status": "ok", "configured": True}
+
+
+@app.post("/ratelimit/configure/endpoint")
+async def configure_endpoint_rate_limit(
+    endpoint: str,
+    requests: int,
+    window: float,
+    burst: Optional[int] = None,
+    strategy: str = "sliding_window"
+):
+    """Configure endpoint rate limit.
+
+    Args:
+        endpoint: Endpoint path.
+        requests: Max requests per window.
+        window: Window size in seconds.
+        burst: Max burst.
+        strategy: Limiting strategy.
+
+    Returns:
+        Configuration status.
+    """
+    try:
+        strat = LimitStrategy(strategy)
+    except ValueError:
+        strat = LimitStrategy.SLIDING_WINDOW
+
+    rate_limiter.configure_endpoint(endpoint, requests, window, burst, strat)
+    return {"status": "ok", "endpoint": endpoint, "configured": True}
+
+
+@app.delete("/ratelimit/configure/endpoint/{endpoint:path}")
+async def remove_endpoint_rate_limit(endpoint: str):
+    """Remove endpoint rate limit configuration.
+
+    Args:
+        endpoint: Endpoint path.
+
+    Returns:
+        Removal status.
+    """
+    success = rate_limiter.remove_endpoint_config(endpoint)
+    return {"status": "ok" if success else "error", "removed": success}
+
+
+@app.get("/ratelimit/configs")
+async def list_rate_limit_configs():
+    """List all rate limit configurations.
+
+    Returns:
+        All configurations.
+    """
+    configs = rate_limiter.list_configs()
+    return {"status": "ok", "configs": configs}
+
+
+@app.get("/ratelimit/stats")
+async def get_rate_limit_stats():
+    """Get rate limiter statistics.
+
+    Returns:
+        Statistics.
+    """
+    return {"status": "ok", "stats": rate_limiter.get_stats()}
+
+
+@app.post("/ratelimit/cleanup")
+async def cleanup_rate_limit_state(max_age: float = 3600):
+    """Cleanup old rate limit state.
+
+    Args:
+        max_age: Max age in seconds.
+
+    Returns:
+        Cleanup status.
+    """
+    rate_limiter.cleanup(max_age)
+    return {"status": "ok", "cleaned": True}
