@@ -7258,3 +7258,279 @@ async def get_task_stats():
         "status": "ok",
         "stats": task_manager.get_stats()
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Webhook API - Sprint 615
+# ═══════════════════════════════════════════════════════════════
+
+from webhook_system import webhook_manager, EventType, DeliveryStatus
+
+
+@app.on_event("startup")
+async def start_webhook_manager():
+    """Start the webhook manager."""
+    await webhook_manager.start()
+
+
+@app.on_event("shutdown")
+async def stop_webhook_manager():
+    """Stop the webhook manager."""
+    await webhook_manager.stop()
+
+
+@app.get("/webhooks")
+async def list_webhooks(active_only: bool = True):
+    """List all webhooks.
+
+    Args:
+        active_only: Only return active webhooks
+
+    Returns:
+        List of webhooks.
+    """
+    return {
+        "status": "ok",
+        "webhooks": webhook_manager.list_webhooks(active_only)
+    }
+
+
+@app.get("/webhooks/{webhook_id}")
+async def get_webhook(webhook_id: str):
+    """Get webhook details.
+
+    Args:
+        webhook_id: Webhook ID
+
+    Returns:
+        Webhook details with secret.
+    """
+    webhook = webhook_manager.get_webhook(webhook_id)
+    if not webhook:
+        return {"status": "error", "message": "Webhook not found"}
+    return {
+        "status": "ok",
+        "webhook": webhook
+    }
+
+
+@app.post("/webhooks")
+async def register_webhook(
+    url: str,
+    events: str,
+    name: str = ""
+):
+    """Register a new webhook.
+
+    Args:
+        url: Webhook URL
+        events: Comma-separated event types
+        name: Webhook name
+
+    Returns:
+        Created webhook with secret.
+    """
+    event_list = []
+    for event_str in events.split(","):
+        event_str = event_str.strip()
+        try:
+            event_list.append(EventType(event_str))
+        except ValueError:
+            return {"status": "error", "message": f"Unknown event type: {event_str}"}
+
+    if not event_list:
+        return {"status": "error", "message": "At least one event required"}
+
+    webhook = webhook_manager.register(
+        url=url,
+        events=event_list,
+        name=name
+    )
+
+    data = webhook.to_dict()
+    data["secret"] = webhook.secret
+
+    return {
+        "status": "ok",
+        "webhook": data,
+        "message": "Save the secret - it won't be shown again"
+    }
+
+
+@app.put("/webhooks/{webhook_id}")
+async def update_webhook(
+    webhook_id: str,
+    url: Optional[str] = None,
+    events: Optional[str] = None,
+    active: Optional[bool] = None,
+    name: Optional[str] = None
+):
+    """Update a webhook.
+
+    Args:
+        webhook_id: Webhook ID
+        url: New URL
+        events: New comma-separated events
+        active: New active state
+        name: New name
+
+    Returns:
+        Success status.
+    """
+    event_list = None
+    if events:
+        event_list = []
+        for event_str in events.split(","):
+            try:
+                event_list.append(EventType(event_str.strip()))
+            except ValueError:
+                return {"status": "error", "message": f"Unknown event type: {event_str}"}
+
+    if webhook_manager.update_webhook(
+        webhook_id,
+        url=url,
+        events=event_list,
+        active=active,
+        name=name
+    ):
+        return {
+            "status": "ok",
+            "webhook": webhook_manager.get_webhook(webhook_id)
+        }
+    return {"status": "error", "message": "Webhook not found"}
+
+
+@app.delete("/webhooks/{webhook_id}")
+async def delete_webhook(webhook_id: str):
+    """Delete a webhook.
+
+    Args:
+        webhook_id: Webhook ID
+
+    Returns:
+        Success status.
+    """
+    if webhook_manager.delete_webhook(webhook_id):
+        return {"status": "ok", "message": "Webhook deleted"}
+    return {"status": "error", "message": "Webhook not found"}
+
+
+@app.post("/webhooks/test/{webhook_id}")
+async def test_webhook(webhook_id: str):
+    """Send a test event to a webhook.
+
+    Args:
+        webhook_id: Webhook ID
+
+    Returns:
+        Delivery ID.
+    """
+    webhook = webhook_manager.get_webhook(webhook_id)
+    if not webhook:
+        return {"status": "error", "message": "Webhook not found"}
+
+    delivery_ids = await webhook_manager.emit(
+        EventType.SYSTEM_HEALTH,
+        {"test": True, "timestamp": time.time()}
+    )
+
+    return {
+        "status": "ok",
+        "delivery_ids": delivery_ids,
+        "message": "Test event sent"
+    }
+
+
+@app.get("/webhooks/events/types")
+async def get_event_types():
+    """Get all available event types.
+
+    Returns:
+        List of event types.
+    """
+    return {
+        "status": "ok",
+        "events": [e.value for e in EventType]
+    }
+
+
+@app.get("/webhooks/deliveries")
+async def get_deliveries(
+    webhook_id: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 100
+):
+    """Get webhook deliveries.
+
+    Args:
+        webhook_id: Filter by webhook
+        status: Filter by status
+        limit: Max results
+
+    Returns:
+        List of deliveries.
+    """
+    delivery_status = None
+    if status:
+        try:
+            delivery_status = DeliveryStatus(status)
+        except ValueError:
+            pass
+
+    return {
+        "status": "ok",
+        "deliveries": webhook_manager.get_deliveries(
+            webhook_id=webhook_id,
+            status=delivery_status,
+            limit=limit
+        )
+    }
+
+
+@app.get("/webhooks/deliveries/{delivery_id}")
+async def get_delivery(delivery_id: str):
+    """Get delivery status.
+
+    Args:
+        delivery_id: Delivery ID
+
+    Returns:
+        Delivery details.
+    """
+    delivery = webhook_manager.get_delivery(delivery_id)
+    if not delivery:
+        return {"status": "error", "message": "Delivery not found"}
+    return {
+        "status": "ok",
+        "delivery": delivery
+    }
+
+
+@app.delete("/webhooks/deliveries")
+async def clear_old_deliveries(older_than_hours: float = 24):
+    """Clear old deliveries.
+
+    Args:
+        older_than_hours: Age threshold in hours
+
+    Returns:
+        Number cleared.
+    """
+    cleared = webhook_manager.clear_old_deliveries(older_than_hours * 3600)
+    return {
+        "status": "ok",
+        "cleared": cleared
+    }
+
+
+@app.get("/webhooks/stats")
+async def get_webhook_stats():
+    """Get webhook statistics.
+
+    Returns:
+        Statistics.
+    """
+    return {
+        "status": "ok",
+        "stats": webhook_manager.get_stats()
+    }

@@ -5655,3 +5655,40 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 614 - Select Components (FRONTEND)
+
+**Fichier:** `frontend/src/components/Select.tsx`
+
+**Composants créés (4):**
+1. **Select** - Basic dropdown avec option groups
+2. **SearchableSelect** - Avec recherche/filtre
+3. **MultiSelect** - Sélection multiple avec chips
+4. **NativeSelect** - Select HTML natif stylé
+
+**Fonctionnalités:**
+- Support option groups
+- Option avec icon + description
+- Max selection limit pour multi-select
+- Keyboard navigation
+- Animation dropdown smooth
+- Outside click to close
+- 3 tailles (sm/md/lg)
+
+**Note: 9/10**
+
+**Points positifs:**
+- API consistante entre les variants
+- Support groupes d'options
+- Chips removable pour multi-select
+- "Aucun résultat" feedback
+- forwardRef pas nécessaire ici
+
+**Points négatifs:**
+- Pas de keyboard navigation (arrow keys)
+- Pas de virtualization pour grandes listes
+- Pas de async loading options
+
+**Risques:** Aucun
+
+---
