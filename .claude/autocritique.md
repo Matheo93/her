@@ -8639,3 +8639,25 @@ Système de retry avec stratégies de backoff configurables.
 - linear_workflow et approval_workflow helpers
 - Historique des transitions
 - Event handlers pour monitoring
+
+---
+
+## Sprint 696 - Frontend Marquee
+**Score: 8/10**
+- Scrolling continu avec 4 directions
+- TextMarquee, LogoMarquee, TestimonialMarquee
+- AnnouncementMarquee pour bandeaux promo
+- DualMarquee bidirectionnel
+- useMarqueeControl hook
+- Pause on hover et masque dégradé
+
+---
+
+## Sprint 697 - Backend Event Store
+**Score: 9/10**
+- Event sourcing complet avec streams
+- Snapshots pour optimisation
+- Projections avec rebuild
+- AggregateRoot et Repository
+- Optimistic concurrency avec expected_version
+- Subscriptions async pour notifications
