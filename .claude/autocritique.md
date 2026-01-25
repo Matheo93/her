@@ -5958,3 +5958,51 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 621 - Audit Logger (BACKEND)
+
+**Fichier:** `backend/audit_logger.py`
+
+**Classes créées:**
+1. **AuditLogger** - Système de logging d'audit
+2. **AuditEntry** - Dataclass entrée audit
+3. **AuditAction** - 17 types d'actions
+4. **AuditLevel** - 5 niveaux (debug, info, warning, error, critical)
+
+**Fonctionnalités:**
+- Log actions utilisateur
+- Change tracking (old/new values)
+- Search/filter multi-critères
+- User activity history
+- Resource change history
+- Retention policies (90 jours)
+- Export pour backup
+
+**Endpoints (9):**
+- GET /audit - Search logs
+- GET /audit/{id} - Get entry
+- GET /audit/user/{id} - User activity
+- GET /audit/resource/{type}/{id} - Resource history
+- POST /audit - Create entry
+- GET /audit/count - Count entries
+- GET /audit/actions - List actions
+- POST /audit/cleanup - Cleanup old
+- GET /audit/stats - Statistics
+
+**Note: 9/10**
+
+**Points positifs:**
+- Types d'actions bien définis
+- Change tracking avec diff
+- Search flexible
+- Auto-cleanup retention
+- IP/User-Agent capture
+
+**Points négatifs:**
+- Pas de persistence disk
+- Pas d'export vers fichier
+- Pas de compression archives
+
+**Risques:** Aucun
+
+---
