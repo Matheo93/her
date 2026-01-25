@@ -8072,6 +8072,7 @@ async def get_notification_stats():
 from audit_logger import audit_logger, AuditAction, AuditLevel
 from health_checker import health_checker, HealthStatus
 from job_queue import job_queue, JobPriority, JobStatus as JobQueueStatus
+from api_versioning import api_versioning, VersionStatus as APIVersionStatus
 
 
 @app.get("/audit")
@@ -8701,4 +8702,161 @@ async def stop_job_workers(wait: bool = True):
     return {
         "status": "ok",
         "stopped": True
+    }
+
+
+# API Versioning - Sprint 627
+# API versioning system
+
+@app.get("/api/versions")
+async def list_api_versions(include_sunset: bool = False):
+    """List all API versions.
+
+    Args:
+        include_sunset: Include sunset versions.
+
+    Returns:
+        List of versions.
+    """
+    return {
+        "status": "ok",
+        "versions": api_versioning.list_versions(include_sunset),
+        "current": api_versioning.get_current_version()
+    }
+
+
+@app.get("/api/versions/{version}")
+async def get_api_version(version: str):
+    """Get API version details.
+
+    Args:
+        version: Version string.
+
+    Returns:
+        Version details.
+    """
+    info = api_versioning.get_version_info(version)
+    if not info:
+        raise HTTPException(status_code=404, detail="Version not found")
+    return {
+        "status": "ok",
+        "version": info
+    }
+
+
+@app.post("/api/versions")
+async def create_api_version(
+    version: str,
+    status: str = "supported",
+    release_date: Optional[str] = None,
+    changelog: Optional[List[str]] = None
+):
+    """Create a new API version.
+
+    Args:
+        version: Version string.
+        status: Version status.
+        release_date: Release date.
+        changelog: List of changes.
+
+    Returns:
+        Created version.
+    """
+    try:
+        version_status = APIVersionStatus(status.lower())
+    except ValueError:
+        version_status = APIVersionStatus.SUPPORTED
+
+    api_version = api_versioning.add_version(
+        version=version,
+        status=version_status,
+        release_date=release_date,
+        changelog=changelog
+    )
+
+    return {
+        "status": "ok",
+        "version": api_version.to_dict()
+    }
+
+
+@app.post("/api/versions/{version}/deprecate")
+async def deprecate_api_version(
+    version: str,
+    deprecation_date: str,
+    sunset_date: Optional[str] = None
+):
+    """Mark a version as deprecated.
+
+    Args:
+        version: Version to deprecate.
+        deprecation_date: Deprecation date.
+        sunset_date: Optional sunset date.
+
+    Returns:
+        Success status.
+    """
+    success = api_versioning.deprecate_version(
+        version=version,
+        deprecation_date=deprecation_date,
+        sunset_date=sunset_date
+    )
+
+    if not success:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    return {
+        "status": "ok",
+        "deprecated": True
+    }
+
+
+@app.post("/api/versions/{version}/sunset")
+async def sunset_api_version(version: str):
+    """Mark a version as sunset.
+
+    Args:
+        version: Version to sunset.
+
+    Returns:
+        Success status.
+    """
+    success = api_versioning.sunset_version(version)
+    if not success:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    return {
+        "status": "ok",
+        "sunset": True
+    }
+
+
+@app.get("/api/version/current")
+async def get_current_api_version():
+    """Get current API version.
+
+    Returns:
+        Current version.
+    """
+    current = api_versioning.get_current_version()
+    return {
+        "status": "ok",
+        "current_version": current
+    }
+
+
+@app.get("/api/version/detect")
+async def detect_api_version(request: Request):
+    """Detect API version from request.
+
+    Returns:
+        Detected version.
+    """
+    version = api_versioning.get_version(request)
+    return {
+        "status": "ok",
+        "detected_version": version,
+        "is_valid": api_versioning.is_valid(version),
+        "is_deprecated": api_versioning.is_deprecated(version),
+        "is_current": api_versioning.is_current(version)
     }
