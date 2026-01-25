@@ -5692,3 +5692,52 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 615 - Webhook System (BACKEND)
+
+**Fichier:** `backend/webhook_system.py`
+
+**Classes créées:**
+1. **WebhookManager** - Gestionnaire webhooks avec retry
+2. **Webhook** - Définition endpoint avec secret
+3. **WebhookDelivery** - Tracking delivery attempts
+4. **EventType** - 12 types d'événements
+
+**Fonctionnalités:**
+- HMAC signature verification
+- Retry avec exponential backoff
+- Delivery status tracking
+- Event filtering par webhook
+- Test endpoint pour debug
+- Statistics complètes
+
+**Endpoints (11):**
+- GET /webhooks - Liste webhooks
+- GET /webhooks/{id} - Détails webhook
+- POST /webhooks - Register webhook
+- PUT /webhooks/{id} - Update webhook
+- DELETE /webhooks/{id} - Supprimer
+- POST /webhooks/test/{id} - Test event
+- GET /webhooks/events/types - Liste events
+- GET /webhooks/deliveries - Liste deliveries
+- GET /webhooks/deliveries/{id} - Détails delivery
+- DELETE /webhooks/deliveries - Cleanup old
+- GET /webhooks/stats - Statistics
+
+**Note: 9/10**
+
+**Points positifs:**
+- HMAC-SHA256 pour sécurité
+- Retry automatic avec backoff
+- Event types bien définis
+- Async avec aiohttp
+- Headers standards (X-Webhook-*)
+
+**Points négatifs:**
+- Pas de persistence disk
+- Pas de batch sending
+- Pas de webhook validation (ping/pong)
+
+**Risques:** Aucun
+
+---
