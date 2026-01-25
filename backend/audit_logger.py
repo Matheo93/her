@@ -1,14 +1,14 @@
 """
-Audit Logger - Sprint 621
+Audit Logger - Sprint 649
 
-Track and log user actions for compliance and debugging.
+Security and compliance audit logging.
 
 Features:
-- Action logging
-- User tracking
-- Resource tracking
-- Search/filter
-- Retention policies
+- Action tracking
+- User activity logging
+- Security events
+- Compliance reporting
+- Log retention
 """
 
 import time
@@ -18,264 +18,347 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, List, Any
 from enum import Enum
 from threading import Lock
+from datetime import datetime, timedelta
 
 
 class AuditAction(str, Enum):
     """Audit action types."""
-    # Authentication
-    LOGIN = "auth.login"
-    LOGOUT = "auth.logout"
-    LOGIN_FAILED = "auth.login_failed"
-    PASSWORD_CHANGE = "auth.password_change"
-
-    # User management
-    USER_CREATE = "user.create"
-    USER_UPDATE = "user.update"
-    USER_DELETE = "user.delete"
-
-    # Resource operations
-    RESOURCE_CREATE = "resource.create"
-    RESOURCE_READ = "resource.read"
-    RESOURCE_UPDATE = "resource.update"
-    RESOURCE_DELETE = "resource.delete"
-
-    # API operations
-    API_REQUEST = "api.request"
-    API_ERROR = "api.error"
-    RATE_LIMITED = "api.rate_limited"
-
-    # System events
-    SYSTEM_START = "system.start"
-    SYSTEM_STOP = "system.stop"
-    CONFIG_CHANGE = "system.config_change"
-
-    # Custom
-    CUSTOM = "custom"
+    CREATE = "create"
+    READ = "read"
+    UPDATE = "update"
+    DELETE = "delete"
+    LOGIN = "login"
+    LOGOUT = "logout"
+    ACCESS_DENIED = "access_denied"
+    PERMISSION_CHANGE = "permission_change"
+    CONFIG_CHANGE = "config_change"
+    EXPORT = "export"
+    IMPORT = "import"
+    API_CALL = "api_call"
 
 
-class AuditLevel(str, Enum):
-    """Audit severity levels."""
+class AuditSeverity(str, Enum):
+    """Audit event severity."""
     DEBUG = "debug"
     INFO = "info"
     WARNING = "warning"
-    ERROR = "error"
     CRITICAL = "critical"
+
+
+# Alias for backward compatibility
+AuditLevel = AuditSeverity
 
 
 @dataclass
 class AuditEntry:
-    """An audit log entry."""
+    """Single audit log entry."""
     id: str
     action: AuditAction
-    level: AuditLevel = AuditLevel.INFO
-    user_id: Optional[str] = None
-    session_id: Optional[str] = None
-    resource_type: Optional[str] = None
-    resource_id: Optional[str] = None
-    description: str = ""
+    severity: AuditSeverity
+    user_id: Optional[str]
+    resource_type: str
+    resource_id: Optional[str]
+    description: str
+    timestamp: float
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
-    old_value: Optional[Dict[str, Any]] = None
-    new_value: Optional[Dict[str, Any]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
-    created_at: float = field(default_factory=time.time)
+    success: bool = True
+    error_message: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {
             "id": self.id,
             "action": self.action.value,
-            "level": self.level.value,
+            "severity": self.severity.value,
             "user_id": self.user_id,
-            "session_id": self.session_id,
             "resource_type": self.resource_type,
             "resource_id": self.resource_id,
             "description": self.description,
+            "timestamp": self.timestamp,
+            "datetime": datetime.fromtimestamp(self.timestamp).isoformat(),
             "ip_address": self.ip_address,
             "user_agent": self.user_agent,
-            "old_value": self.old_value,
-            "new_value": self.new_value,
             "metadata": self.metadata,
-            "created_at": self.created_at,
+            "success": self.success,
+            "error_message": self.error_message,
         }
 
-    def to_json(self) -> str:
-        """Convert to JSON string."""
-        return json.dumps(self.to_dict())
+
+@dataclass
+class AuditStats:
+    """Audit statistics."""
+    total_entries: int = 0
+    entries_by_action: Dict[str, int] = field(default_factory=dict)
+    entries_by_severity: Dict[str, int] = field(default_factory=dict)
+    entries_by_user: Dict[str, int] = field(default_factory=dict)
+    failed_operations: int = 0
 
 
 class AuditLogger:
-    """Audit logging system.
+    """Security and compliance audit logging.
 
     Usage:
         logger = AuditLogger()
 
         # Log an action
         logger.log(
-            action=AuditAction.LOGIN,
+            action=AuditAction.CREATE,
             user_id="user123",
-            ip_address="192.168.1.1"
+            resource_type="conversation",
+            resource_id="conv456",
+            description="Created new conversation",
         )
 
-        # Log resource change
-        logger.log_change(
-            action=AuditAction.USER_UPDATE,
-            user_id="admin",
-            resource_type="user",
-            resource_id="user123",
-            old_value={"name": "John"},
-            new_value={"name": "Jane"}
-        )
-
-        # Search logs
-        logs = logger.search(user_id="user123", action=AuditAction.LOGIN)
+        # Query logs
+        entries = logger.query(user_id="user123", limit=50)
     """
 
-    def __init__(
-        self,
-        max_entries: int = 100000,
-        retention_days: int = 90
-    ):
+    def __init__(self, max_entries: int = 10000, retention_days: int = 90):
         """Initialize audit logger.
 
         Args:
             max_entries: Maximum entries to keep in memory
-            retention_days: Days to retain entries
+            retention_days: Days to retain logs
         """
         self._entries: List[AuditEntry] = []
         self._lock = Lock()
         self._max_entries = max_entries
         self._retention_days = retention_days
-        self._last_cleanup = time.time()
+        self._stats = AuditStats()
 
     def log(
         self,
         action: AuditAction,
-        level: AuditLevel = AuditLevel.INFO,
+        resource_type: str,
+        description: str,
         user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        resource_type: Optional[str] = None,
         resource_id: Optional[str] = None,
-        description: str = "",
+        severity: AuditSeverity = AuditSeverity.INFO,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> AuditEntry:
+        metadata: Optional[Dict[str, Any]] = None,
+        success: bool = True,
+        error_message: Optional[str] = None,
+    ) -> str:
         """Log an audit entry.
 
         Args:
             action: Action type
-            level: Severity level
-            user_id: User performing action
-            session_id: Session ID
-            resource_type: Resource type affected
-            resource_id: Resource ID affected
-            description: Description of action
-            ip_address: Client IP
+            resource_type: Type of resource affected
+            description: Human-readable description
+            user_id: User who performed the action
+            resource_id: ID of affected resource
+            severity: Event severity
+            ip_address: Client IP address
             user_agent: Client user agent
-            metadata: Additional metadata
+            metadata: Additional context
+            success: Whether operation succeeded
+            error_message: Error message if failed
 
         Returns:
-            Created audit entry
+            Entry ID
         """
+        entry_id = str(uuid.uuid4())[:12]
+
         entry = AuditEntry(
-            id=str(uuid.uuid4())[:12],
+            id=entry_id,
             action=action,
-            level=level,
+            severity=severity,
             user_id=user_id,
-            session_id=session_id,
             resource_type=resource_type,
             resource_id=resource_id,
             description=description,
+            timestamp=time.time(),
             ip_address=ip_address,
             user_agent=user_agent,
             metadata=metadata or {},
+            success=success,
+            error_message=error_message,
         )
 
         with self._lock:
             self._entries.append(entry)
-            self._maybe_cleanup()
+            self._update_stats(entry)
 
-        return entry
+            # Enforce max entries
+            if len(self._entries) > self._max_entries:
+                self._entries = self._entries[-int(self._max_entries * 0.8):]
 
-    def log_change(
+        return entry_id
+
+    def _update_stats(self, entry: AuditEntry):
+        """Update statistics with new entry."""
+        self._stats.total_entries += 1
+
+        action = entry.action.value
+        self._stats.entries_by_action[action] = \
+            self._stats.entries_by_action.get(action, 0) + 1
+
+        severity = entry.severity.value
+        self._stats.entries_by_severity[severity] = \
+            self._stats.entries_by_severity.get(severity, 0) + 1
+
+        if entry.user_id:
+            self._stats.entries_by_user[entry.user_id] = \
+                self._stats.entries_by_user.get(entry.user_id, 0) + 1
+
+        if not entry.success:
+            self._stats.failed_operations += 1
+
+    def log_login(
         self,
-        action: AuditAction,
+        user_id: str,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        success: bool = True,
+        error_message: Optional[str] = None,
+    ) -> str:
+        """Log a login attempt."""
+        return self.log(
+            action=AuditAction.LOGIN,
+            user_id=user_id,
+            resource_type="session",
+            description=f"User login {'successful' if success else 'failed'}",
+            severity=AuditSeverity.INFO if success else AuditSeverity.WARNING,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            success=success,
+            error_message=error_message,
+        )
+
+    def log_access_denied(
+        self,
         user_id: Optional[str],
         resource_type: str,
-        resource_id: str,
-        old_value: Optional[Dict[str, Any]],
-        new_value: Optional[Dict[str, Any]],
-        description: str = "",
-        **kwargs
-    ) -> AuditEntry:
-        """Log a resource change with before/after values.
-
-        Args:
-            action: Action type
-            user_id: User performing action
-            resource_type: Resource type
-            resource_id: Resource ID
-            old_value: Value before change
-            new_value: Value after change
-            description: Description
-            **kwargs: Additional fields
-
-        Returns:
-            Created audit entry
-        """
-        entry = AuditEntry(
-            id=str(uuid.uuid4())[:12],
-            action=action,
-            level=AuditLevel.INFO,
+        resource_id: Optional[str],
+        reason: str,
+        ip_address: Optional[str] = None,
+    ) -> str:
+        """Log an access denied event."""
+        return self.log(
+            action=AuditAction.ACCESS_DENIED,
             user_id=user_id,
             resource_type=resource_type,
             resource_id=resource_id,
-            description=description or f"{action.value} on {resource_type}/{resource_id}",
-            old_value=old_value,
-            new_value=new_value,
-            **kwargs
+            description=f"Access denied: {reason}",
+            severity=AuditSeverity.WARNING,
+            ip_address=ip_address,
+            success=False,
+            error_message=reason,
         )
 
-        with self._lock:
-            self._entries.append(entry)
-            self._maybe_cleanup()
-
-        return entry
-
-    def log_error(
+    def log_config_change(
         self,
-        description: str,
-        user_id: Optional[str] = None,
-        error: Optional[Exception] = None,
-        **kwargs
-    ) -> AuditEntry:
-        """Log an error.
+        user_id: str,
+        config_key: str,
+        old_value: Any,
+        new_value: Any,
+    ) -> str:
+        """Log a configuration change."""
+        return self.log(
+            action=AuditAction.CONFIG_CHANGE,
+            user_id=user_id,
+            resource_type="config",
+            resource_id=config_key,
+            description=f"Configuration changed: {config_key}",
+            severity=AuditSeverity.INFO,
+            metadata={
+                "old_value": str(old_value),
+                "new_value": str(new_value),
+            },
+        )
 
-        Args:
-            description: Error description
-            user_id: User ID
-            error: Exception object
-            **kwargs: Additional fields
-
-        Returns:
-            Created audit entry
-        """
-        metadata = kwargs.pop("metadata", {})
-        if error:
-            metadata["error_type"] = type(error).__name__
-            metadata["error_message"] = str(error)
+    def log_api_call(
+        self,
+        user_id: Optional[str],
+        endpoint: str,
+        method: str,
+        status_code: int,
+        latency_ms: float,
+        ip_address: Optional[str] = None,
+    ) -> str:
+        """Log an API call."""
+        success = 200 <= status_code < 400
+        severity = AuditSeverity.INFO if success else AuditSeverity.WARNING
 
         return self.log(
-            action=AuditAction.API_ERROR,
-            level=AuditLevel.ERROR,
+            action=AuditAction.API_CALL,
             user_id=user_id,
-            description=description,
-            metadata=metadata,
-            **kwargs
+            resource_type="api",
+            resource_id=endpoint,
+            description=f"{method} {endpoint} -> {status_code}",
+            severity=severity,
+            ip_address=ip_address,
+            success=success,
+            metadata={
+                "method": method,
+                "status_code": status_code,
+                "latency_ms": latency_ms,
+            },
         )
 
-    def get(self, entry_id: str) -> Optional[Dict[str, Any]]:
-        """Get entry by ID.
+    def query(
+        self,
+        user_id: Optional[str] = None,
+        action: Optional[AuditAction] = None,
+        severity: Optional[AuditSeverity] = None,
+        resource_type: Optional[str] = None,
+        resource_id: Optional[str] = None,
+        start_time: Optional[float] = None,
+        end_time: Optional[float] = None,
+        success_only: Optional[bool] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List[dict]:
+        """Query audit logs.
+
+        Args:
+            user_id: Filter by user
+            action: Filter by action type
+            severity: Filter by severity
+            resource_type: Filter by resource type
+            resource_id: Filter by resource ID
+            start_time: Filter by start timestamp
+            end_time: Filter by end timestamp
+            success_only: Filter by success status
+            limit: Max results
+            offset: Results offset
+
+        Returns:
+            List of matching entries
+        """
+        with self._lock:
+            results = self._entries.copy()
+
+        # Apply filters
+        if user_id:
+            results = [e for e in results if e.user_id == user_id]
+        if action:
+            results = [e for e in results if e.action == action]
+        if severity:
+            results = [e for e in results if e.severity == severity]
+        if resource_type:
+            results = [e for e in results if e.resource_type == resource_type]
+        if resource_id:
+            results = [e for e in results if e.resource_id == resource_id]
+        if start_time:
+            results = [e for e in results if e.timestamp >= start_time]
+        if end_time:
+            results = [e for e in results if e.timestamp <= end_time]
+        if success_only is not None:
+            results = [e for e in results if e.success == success_only]
+
+        # Sort by timestamp descending
+        results.sort(key=lambda e: e.timestamp, reverse=True)
+
+        # Apply pagination
+        results = results[offset:offset + limit]
+
+        return [e.to_dict() for e in results]
+
+    def get_entry(self, entry_id: str) -> Optional[dict]:
+        """Get a specific audit entry.
 
         Args:
             entry_id: Entry ID
@@ -289,194 +372,76 @@ class AuditLogger:
                     return entry.to_dict()
         return None
 
-    def search(
-        self,
-        action: Optional[AuditAction] = None,
-        level: Optional[AuditLevel] = None,
-        user_id: Optional[str] = None,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
-        start_time: Optional[float] = None,
-        end_time: Optional[float] = None,
-        limit: int = 100,
-        offset: int = 0
-    ) -> List[Dict[str, Any]]:
-        """Search audit logs.
-
-        Args:
-            action: Filter by action
-            level: Filter by level
-            user_id: Filter by user
-            resource_type: Filter by resource type
-            resource_id: Filter by resource ID
-            start_time: Filter by start time
-            end_time: Filter by end time
-            limit: Maximum results
-            offset: Results offset
-
-        Returns:
-            List of matching entries
-        """
-        with self._lock:
-            results = []
-
-            for entry in reversed(self._entries):
-                # Apply filters
-                if action and entry.action != action:
-                    continue
-                if level and entry.level != level:
-                    continue
-                if user_id and entry.user_id != user_id:
-                    continue
-                if resource_type and entry.resource_type != resource_type:
-                    continue
-                if resource_id and entry.resource_id != resource_id:
-                    continue
-                if start_time and entry.created_at < start_time:
-                    continue
-                if end_time and entry.created_at > end_time:
-                    continue
-
-                results.append(entry)
-
-            # Apply pagination
-            paginated = results[offset:offset + limit]
-            return [e.to_dict() for e in paginated]
-
     def get_user_activity(
         self,
         user_id: str,
-        limit: int = 50
-    ) -> List[Dict[str, Any]]:
-        """Get activity log for a user.
+        days: int = 7,
+        limit: int = 100,
+    ) -> Dict[str, Any]:
+        """Get user activity summary.
 
         Args:
             user_id: User ID
-            limit: Maximum entries
+            days: Days to look back
+            limit: Max entries
 
         Returns:
-            List of user's audit entries
+            Activity summary
         """
-        return self.search(user_id=user_id, limit=limit)
+        cutoff = time.time() - (days * 86400)
 
-    def get_resource_history(
-        self,
-        resource_type: str,
-        resource_id: str,
-        limit: int = 50
-    ) -> List[Dict[str, Any]]:
-        """Get change history for a resource.
-
-        Args:
-            resource_type: Resource type
-            resource_id: Resource ID
-            limit: Maximum entries
-
-        Returns:
-            List of resource's audit entries
-        """
-        return self.search(
-            resource_type=resource_type,
-            resource_id=resource_id,
-            limit=limit
-        )
-
-    def count(
-        self,
-        action: Optional[AuditAction] = None,
-        level: Optional[AuditLevel] = None,
-        user_id: Optional[str] = None,
-        start_time: Optional[float] = None,
-        end_time: Optional[float] = None
-    ) -> int:
-        """Count matching entries.
-
-        Args:
-            action: Filter by action
-            level: Filter by level
-            user_id: Filter by user
-            start_time: Filter by start time
-            end_time: Filter by end time
-
-        Returns:
-            Count of matching entries
-        """
         with self._lock:
-            count = 0
+            user_entries = [
+                e for e in self._entries
+                if e.user_id == user_id and e.timestamp >= cutoff
+            ]
 
-            for entry in self._entries:
-                if action and entry.action != action:
-                    continue
-                if level and entry.level != level:
-                    continue
-                if user_id and entry.user_id != user_id:
-                    continue
-                if start_time and entry.created_at < start_time:
-                    continue
-                if end_time and entry.created_at > end_time:
-                    continue
-                count += 1
+        # Count by action
+        by_action: Dict[str, int] = {}
+        for entry in user_entries:
+            by_action[entry.action.value] = by_action.get(entry.action.value, 0) + 1
 
-            return count
+        # Recent entries
+        recent = sorted(user_entries, key=lambda e: e.timestamp, reverse=True)[:limit]
 
-    def _maybe_cleanup(self):
-        """Run cleanup if needed."""
-        now = time.time()
+        return {
+            "user_id": user_id,
+            "period_days": days,
+            "total_actions": len(user_entries),
+            "actions_by_type": by_action,
+            "recent_entries": [e.to_dict() for e in recent],
+        }
 
-        # Cleanup every hour
-        if now - self._last_cleanup < 3600:
-            return
-
-        self._last_cleanup = now
-        self._cleanup()
-
-    def _cleanup(self):
-        """Remove old entries."""
-        if self._retention_days <= 0:
-            return
-
-        cutoff = time.time() - (self._retention_days * 86400)
-
-        # Remove old entries
-        self._entries = [
-            e for e in self._entries
-            if e.created_at >= cutoff
-        ]
-
-        # Enforce max entries
-        if len(self._entries) > self._max_entries:
-            self._entries = self._entries[-self._max_entries:]
-
-    def cleanup(self) -> int:
-        """Force cleanup.
-
-        Returns:
-            Number of entries removed
-        """
-        with self._lock:
-            before = len(self._entries)
-            self._cleanup()
-            return before - len(self._entries)
-
-    def export(
+    def get_security_events(
         self,
-        start_time: Optional[float] = None,
-        end_time: Optional[float] = None
-    ) -> List[Dict[str, Any]]:
-        """Export entries for backup.
+        hours: int = 24,
+        limit: int = 100,
+    ) -> List[dict]:
+        """Get recent security-related events.
 
         Args:
-            start_time: Export from time
-            end_time: Export until time
+            hours: Hours to look back
+            limit: Max results
 
         Returns:
-            List of all matching entries
+            Security events
         """
-        return self.search(
-            start_time=start_time,
-            end_time=end_time,
-            limit=self._max_entries
-        )
+        cutoff = time.time() - (hours * 3600)
+        security_actions = {
+            AuditAction.LOGIN,
+            AuditAction.LOGOUT,
+            AuditAction.ACCESS_DENIED,
+            AuditAction.PERMISSION_CHANGE,
+        }
+
+        with self._lock:
+            events = [
+                e for e in self._entries
+                if e.action in security_actions and e.timestamp >= cutoff
+            ]
+
+        events.sort(key=lambda e: e.timestamp, reverse=True)
+        return [e.to_dict() for e in events[:limit]]
 
     def get_stats(self) -> Dict[str, Any]:
         """Get audit statistics.
@@ -485,37 +450,66 @@ class AuditLogger:
             Statistics dict
         """
         with self._lock:
-            entries = self._entries[:]
+            return {
+                "total_entries": self._stats.total_entries,
+                "current_entries": len(self._entries),
+                "max_entries": self._max_entries,
+                "entries_by_action": self._stats.entries_by_action,
+                "entries_by_severity": self._stats.entries_by_severity,
+                "failed_operations": self._stats.failed_operations,
+                "top_users": dict(
+                    sorted(
+                        self._stats.entries_by_user.items(),
+                        key=lambda x: x[1],
+                        reverse=True
+                    )[:10]
+                ),
+            }
 
-        total = len(entries)
+    def cleanup(self, days: Optional[int] = None) -> int:
+        """Remove old entries.
 
-        # Count by action
-        action_counts = {}
-        for action in AuditAction:
-            action_counts[action.value] = len([e for e in entries if e.action == action])
+        Args:
+            days: Days to retain (default: retention_days)
 
-        # Count by level
-        level_counts = {}
-        for level in AuditLevel:
-            level_counts[level.value] = len([e for e in entries if e.level == level])
+        Returns:
+            Number of entries removed
+        """
+        retention = days or self._retention_days
+        cutoff = time.time() - (retention * 86400)
 
-        # Unique users
-        unique_users = len(set(e.user_id for e in entries if e.user_id))
+        with self._lock:
+            original_count = len(self._entries)
+            self._entries = [e for e in self._entries if e.timestamp >= cutoff]
+            removed = original_count - len(self._entries)
 
-        # Time range
-        oldest = min(e.created_at for e in entries) if entries else None
-        newest = max(e.created_at for e in entries) if entries else None
+        return removed
 
-        return {
-            "total_entries": total,
-            "action_counts": action_counts,
-            "level_counts": level_counts,
-            "unique_users": unique_users,
-            "oldest_entry": oldest,
-            "newest_entry": newest,
-            "retention_days": self._retention_days,
-            "max_entries": self._max_entries,
-        }
+    def export(
+        self,
+        start_time: Optional[float] = None,
+        end_time: Optional[float] = None,
+    ) -> str:
+        """Export audit logs as JSON.
+
+        Args:
+            start_time: Start timestamp
+            end_time: End timestamp
+
+        Returns:
+            JSON string
+        """
+        entries = self.query(
+            start_time=start_time,
+            end_time=end_time,
+            limit=100000,
+        )
+
+        return json.dumps({
+            "export_time": datetime.now().isoformat(),
+            "total_entries": len(entries),
+            "entries": entries,
+        }, indent=2)
 
 
 # Singleton instance

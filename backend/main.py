@@ -10273,3 +10273,138 @@ async def get_thresholds():
         All thresholds.
     """
     return {"status": "ok", "thresholds": health_monitor.get_thresholds()}
+
+
+# ═══════════════════════════════════════════════════════════════
+# Audit Logger API - Sprint 649
+# ═══════════════════════════════════════════════════════════════
+
+from audit_logger import audit_logger, AuditAction, AuditSeverity
+
+
+@app.get("/audit/logs")
+async def query_audit_logs(
+    user_id: Optional[str] = None,
+    action: Optional[str] = None,
+    severity: Optional[str] = None,
+    resource_type: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    """Query audit logs.
+
+    Args:
+        user_id: Filter by user
+        action: Filter by action type
+        severity: Filter by severity
+        resource_type: Filter by resource type
+        limit: Max results
+        offset: Results offset
+
+    Returns:
+        Matching audit entries.
+    """
+    action_enum = None
+    if action:
+        try:
+            action_enum = AuditAction(action)
+        except ValueError:
+            pass
+
+    severity_enum = None
+    if severity:
+        try:
+            severity_enum = AuditSeverity(severity)
+        except ValueError:
+            pass
+
+    entries = audit_logger.query(
+        user_id=user_id,
+        action=action_enum,
+        severity=severity_enum,
+        resource_type=resource_type,
+        limit=limit,
+        offset=offset,
+    )
+    return {"status": "ok", "entries": entries, "count": len(entries)}
+
+
+@app.get("/audit/logs/{entry_id}")
+async def get_audit_entry(entry_id: str):
+    """Get a specific audit entry.
+
+    Args:
+        entry_id: Entry ID
+
+    Returns:
+        Audit entry.
+    """
+    entry = audit_logger.get_entry(entry_id)
+    if not entry:
+        return {"status": "error", "error": "Entry not found"}
+    return {"status": "ok", "entry": entry}
+
+
+@app.get("/audit/user/{user_id}")
+async def get_user_activity(user_id: str, days: int = 7):
+    """Get user activity summary.
+
+    Args:
+        user_id: User ID
+        days: Days to look back
+
+    Returns:
+        Activity summary.
+    """
+    activity = audit_logger.get_user_activity(user_id, days=days)
+    return {"status": "ok", "activity": activity}
+
+
+@app.get("/audit/security")
+async def get_security_events(hours: int = 24, limit: int = 100):
+    """Get security events.
+
+    Args:
+        hours: Hours to look back
+        limit: Max results
+
+    Returns:
+        Security events.
+    """
+    events = audit_logger.get_security_events(hours=hours, limit=limit)
+    return {"status": "ok", "events": events, "count": len(events)}
+
+
+@app.get("/audit/stats")
+async def get_audit_stats():
+    """Get audit statistics.
+
+    Returns:
+        Statistics.
+    """
+    return {"status": "ok", "stats": audit_logger.get_stats()}
+
+
+@app.post("/audit/cleanup")
+async def cleanup_audit_logs(days: int = 90):
+    """Cleanup old audit logs.
+
+    Args:
+        days: Days to retain
+
+    Returns:
+        Cleanup result.
+    """
+    removed = audit_logger.cleanup(days=days)
+    return {"status": "ok", "removed": removed}
+
+
+@app.get("/audit/export")
+async def export_audit_logs():
+    """Export audit logs as JSON.
+
+    Returns:
+        JSON export.
+    """
+    export_data = audit_logger.export()
+    return {"status": "ok", "export": export_data}
