@@ -6424,3 +6424,517 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 631 - Circuit Breaker (BACKEND)
+
+**Fichier:** `backend/circuit_breaker.py`
+
+**Classes créées:**
+1. **CircuitBreaker** - Main circuit breaker with generics
+2. **CircuitBreakerManager** - Manage multiple circuits
+3. **CircuitStats** - Statistics dataclass
+4. **CircuitState** - State enum (CLOSED/OPEN/HALF_OPEN)
+5. **CircuitBreakerError** - Exception for open circuit
+
+**Fonctionnalités:**
+- Three states: closed/open/half-open
+- Failure threshold configurable
+- Success threshold pour recovery
+- Auto-transition to half-open
+- Timeout avec asyncio.wait_for
+- Excluded exceptions support
+- Fallback function support
+- Decorator @breaker.protect
+- Force open/close methods
+- Statistics tracking
+
+**9 Endpoints créés:**
+- GET /circuits - List circuits
+- GET /circuits/{name} - Get circuit details
+- POST /circuits/{name}/reset - Reset circuit
+- POST /circuits/{name}/open - Force open
+- POST /circuits/{name}/close - Force close
+- GET /circuits/states - All states
+- GET /circuits/open - Open circuits
+- POST /circuits/reset-all - Reset all
+- GET /circuits/summary - Summary stats
+
+**Note: 9/10**
+
+**Points positifs:**
+- Pattern resilience standard
+- Generic type support
+- Automatic recovery
+- Statistics comprehensive
+- Manager pour multiple circuits
+- Decorator API clean
+
+**Points négatifs:**
+- Pas de sliding window
+- Pas de half-open concurrent limit
+- Pas de event listeners
+
+**Risques:** Aucun
+
+---
+
+## Sprint 632 - Breadcrumb Navigation (FRONTEND)
+
+**Fichier:** `frontend/src/components/Breadcrumb.tsx`
+
+**Composants créés:**
+1. **Breadcrumb** - Navigation breadcrumb avec collapse
+2. **BreadcrumbDropdown** - Breadcrumb avec dropdown pour navigation
+3. **TextBreadcrumb** - Breadcrumb simple texte
+4. **BreadcrumbWithBack** - Avec bouton retour
+5. **PageHeaderBreadcrumb** - Header de page complet
+6. **DefaultSeparator** - Chevron SVG
+7. **HomeIcon** - Icône maison
+8. **BreadcrumbItemComponent** - Item individuel
+
+**Fonctionnalités:**
+- Collapsible avec ellipsis "•••"
+- maxItems pour limiter les items visibles
+- Home icon optionnel
+- Separator customisable
+- Dropdown pour sélection directe
+- Animation framer-motion hover
+- aria-label et aria-current pour accessibilité
+- Support href et onClick
+- Support icons par item
+- HER-themed styling (coral, cream, warmWhite)
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- Accessibilité avec aria attributes
+- Collapse intelligent (premier + derniers items)
+- Multiple variants pour différents use cases
+- Animation smooth sur expand
+- Dropdown avec checkmark pour current
+- Composants memo pour performance
+
+**Points négatifs:**
+- Pas de keyboard navigation dans dropdown
+- Pas de truncation pour labels longs
+- Pas de click outside pour fermer dropdown
+- Pas de breadcrumb responsive mobile
+
+**Risques:** Aucun
+
+---
+
+## Sprint 633 - Enhanced Feature Flags (BACKEND)
+
+**Fichier:** `backend/feature_flags.py` (refactored)
+
+**Classes créées/améliorées:**
+1. **FeatureFlagManager** - Enhanced manager with targeting
+2. **FeatureFlag** - Flag dataclass with metadata
+3. **FlagVariant** - Variant for A/B testing
+4. **TargetingRule** - Rule-based targeting
+5. **Segment** - User segment grouping
+6. **EvaluationResult** - Result with reason
+7. **FeatureFlagsCompat** - Compatibility layer for Sprint 609
+
+**Fonctionnalités:**
+- Boolean, percentage, variant, JSON flag types
+- Flag lifecycle (draft/active/deprecated/archived)
+- User-specific enable/disable
+- Segment-based targeting
+- Targeting rules (eq, neq, contains, gt, lt, in)
+- Percentage rollout with consistent bucketing (MD5 hash)
+- Variant selection with weighted distribution
+- Evaluation caching with TTL
+- Compatibility with Sprint 609 API
+
+**Nouveaux endpoints:**
+- POST /flags - Create flag
+- DELETE /flags/{key} - Delete flag
+- POST /flags/{key}/activate - Activate flag
+- POST /flags/{key}/deactivate - Deactivate flag
+- POST /flags/{key}/percentage - Set rollout %
+- POST /flags/{key}/evaluate - Evaluate for context
+- POST /flags/evaluate-all - Evaluate all flags
+- GET /flags/stats - Statistics
+- POST /flags/cache/clear - Clear cache
+
+**Note: 9/10**
+
+**Points positifs:**
+- Système complet de feature flags
+- Targeting flexible (users, segments, rules)
+- A/B testing avec variants pondérés
+- Cache intelligent avec TTL
+- Bucket consistent pour rollouts
+- Rétro-compatible avec Sprint 609
+
+**Points négatifs:**
+- Pas de persistence (tout en mémoire)
+- Pas de webhooks pour changements
+- Pas d'audit log des modifications
+
+**Risques:** Aucun
+
+---
+
+## Sprint 634 - Tabs Navigation (FRONTEND)
+
+**Fichier:** `frontend/src/components/Tabs.tsx`
+
+**Composants créés:**
+1. **Tabs** - Navigation avec variants (default, pills, underline, enclosed)
+2. **TabPanel** - Panneau de contenu animé
+3. **TabsWithContent** - Tabs avec contenu intégré
+4. **VerticalTabs** - Tabs verticaux
+5. **ScrollableTabs** - Tabs scrollables avec flèches
+6. **IconTabs** - Tabs avec icônes uniquement
+7. **CardTabs** - Tabs style carte
+
+**Fonctionnalités:**
+- 4 variants de style (default, pills, underline, enclosed)
+- 3 tailles (sm, md, lg)
+- Support fullWidth
+- Indicateur animé (framer-motion)
+- Badges sur les tabs
+- Support icônes
+- Support disabled
+- Aria attributes (role=tab, aria-selected)
+- Tabs verticaux avec indicator
+- Scroll automatique avec gradient fade
+- Card tabs avec hover animation
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- Multiple variants pour tous les use cases
+- Animation fluide de l'indicateur
+- Scrollable pour beaucoup de tabs
+- Accessibilité avec ARIA
+- Composants memo pour performance
+- Vertical tabs responsive
+
+**Points négatifs:**
+- Pas de keyboard navigation (arrow keys)
+- Pas de lazy loading du contenu
+- Pas de tabs closable
+- Pas de tabs drag & drop pour réordonner
+
+**Risques:** Aucun
+
+---
+
+## Sprint 635 - Webhook System (BACKEND)
+
+**Fichier:** `backend/webhooks.py`
+
+**Classes créées:**
+1. **WebhookManager** - Gestion et delivery des webhooks
+2. **WebhookEndpoint** - Configuration d'un endpoint
+3. **WebhookDelivery** - Tentative de delivery
+4. **WebhookEventType** - Enum des types d'événements
+5. **DeliveryStatus** - Enum des statuts de delivery
+
+**Fonctionnalités:**
+- Registration d'endpoints webhook
+- Event subscription flexible
+- HMAC-SHA256 signature pour sécurité
+- Retry avec exponential backoff
+- Async delivery avec worker background
+- Local event handlers
+- Delivery history avec filtres
+- Statistics par endpoint/event/status
+- Queue size monitoring
+
+**12 Endpoints créés:**
+- POST /webhooks - Register endpoint
+- GET /webhooks - List endpoints
+- GET /webhooks/{id} - Get endpoint
+- DELETE /webhooks/{id} - Delete endpoint
+- PUT /webhooks/{id} - Update endpoint
+- POST /webhooks/trigger - Trigger event
+- GET /webhooks/deliveries - List deliveries
+- GET /webhooks/deliveries/{id} - Get delivery
+- POST /webhooks/deliveries/{id}/retry - Retry delivery
+- GET /webhooks/stats - Statistics
+- POST /webhooks/history/clear - Clear history
+
+**Note: 9/10**
+
+**Points positifs:**
+- Signature HMAC pour sécurité
+- Retry automatique avec backoff
+- Background worker pour async
+- Local handlers pour events internes
+- History avec limit automatique
+- Statistics complètes
+
+**Points négatifs:**
+- Pas de persistence (en mémoire)
+- Pas de batch delivery
+- Pas de rate limiting par endpoint
+- Worker pas démarré automatiquement
+
+**Risques:** Aucun
+
+---
+
+## Sprint 636 - Modal & Dialogs (FRONTEND)
+
+**Fichier:** `frontend/src/components/Modal.tsx`
+
+**Composants créés:**
+1. **Modal** - Modal de base avec overlay
+2. **ModalContent** - Contenu du modal
+3. **ModalFooter** - Footer avec actions
+4. **AlertDialog** - Dialog d'alerte (info/success/warning/error)
+5. **ConfirmDialog** - Dialog de confirmation
+6. **Drawer** - Panneau latéral (left/right/top/bottom)
+7. **Sheet** - Bottom sheet mobile-friendly
+8. **useModal** - Hook pour gérer l'état
+
+**Fonctionnalités:**
+- 5 tailles de modal (sm/md/lg/xl/full)
+- Close on overlay click
+- Close on Escape key
+- Body scroll lock quand ouvert
+- Animations framer-motion
+- Portal rendering
+- 4 positions pour Drawer
+- Bottom Sheet avec handle
+- Variants pour AlertDialog
+- Confirm/Cancel pour ConfirmDialog
+- ARIA attributes (role=dialog, aria-modal)
+
+**Note: 9/10**
+
+**Points positifs:**
+- Composants accessibles (ARIA)
+- Animations fluides
+- Multiple variants
+- useModal hook pratique
+- Portal pour z-index
+- Sheet mobile-friendly
+- Drawer flexible (4 directions)
+
+**Points négatifs:**
+- Pas de focus trap
+- Pas de stacking (modal dans modal)
+- Pas de backdrop blur option
+- Pas de fullscreen mobile
+
+**Risques:** Aucun
+
+---
+
+## Sprint 637 - Event Bus (BACKEND)
+
+**Fichier:** `backend/event_bus.py`
+
+**Classes créées:**
+1. **EventBus** - Pub/Sub event system
+2. **Event** - Event dataclass
+3. **Subscription** - Subscription config
+4. **DeadLetter** - Failed delivery record
+5. **EventPriority** - Handler priority enum
+
+**Fonctionnalités:**
+- Topic-based subscriptions
+- Pattern matching (glob wildcards)
+- Priority-based handler ordering
+- Async et sync handlers
+- Data filters pour subscriptions
+- One-time subscriptions (once)
+- Dead letter queue pour erreurs
+- Event history avec limit
+- Pause/resume subscriptions
+- Retry dead letters
+- Statistics détaillées
+- @bus.on() decorator
+
+**13 Endpoints créés:**
+- POST /events/publish - Publish event
+- GET /events/history - Get history
+- GET /events/topics - Get unique topics
+- GET /events/subscriptions - List subscriptions
+- DELETE /events/subscriptions/{id} - Unsubscribe
+- POST /events/subscriptions/{id}/pause - Pause
+- POST /events/subscriptions/{id}/resume - Resume
+- GET /events/dead-letters - Get dead letters
+- POST /events/dead-letters/{idx}/retry - Retry
+- DELETE /events/dead-letters - Clear dead letters
+- GET /events/stats - Statistics
+- DELETE /events/history - Clear history
+
+**Note: 9/10**
+
+**Points positifs:**
+- Pattern matching flexible
+- Priority pour ordering
+- Dead letter queue robuste
+- Decorator API propre
+- Sync et async support
+- Filters pour précision
+
+**Points négatifs:**
+- Pas de persistence
+- Pas de namespaces
+- Pas de message replay
+- Subscriptions runtime only
+
+**Risques:** Aucun
+
+---
+
+## Sprint 638 - Accordion (FRONTEND)
+
+**Fichier:** `frontend/src/components/Accordion.tsx`
+
+**Composants créés:**
+1. **Accordion** - Accordion de base avec variants
+2. **AccordionGroup** - Pattern compound component
+3. **AccordionPanel** - Panel pour AccordionGroup
+4. **FAQAccordion** - Style FAQ avec badge Q
+5. **Collapsible** - Simple collapsible
+6. **Details** - Native details avec style
+
+**Fonctionnalités:**
+- 4 variants (default, bordered, separated, flush)
+- 3 tailles (sm, md, lg)
+- Single ou multiple expand
+- Default expanded items
+- Disabled items support
+- Icons support
+- Animated chevron rotation
+- Height animation smooth
+- Context API pour state partagé
+- Compound component pattern
+- Native details fallback
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- Multiple patterns (data-driven, compound)
+- Animations fluides
+- FAQAccordion prêt à l'emploi
+- Context pour state management
+- Native fallback (Details)
+- Aria attributes
+
+**Points négatifs:**
+- Pas de keyboard navigation
+- Pas de nested accordions
+- Pas de controlled mode explicit
+- Pas de custom animations
+
+**Risques:** Aucun
+
+---
+
+## Sprint 639 - Config Manager (BACKEND)
+
+**Fichier:** `backend/config_manager.py`
+
+**Classes créées:**
+1. **ConfigManager** - Gestionnaire de configuration dynamique
+2. **ConfigSchema** - Définition du schéma
+3. **ConfigValue** - Valeur de config avec metadata
+4. **ConfigChange** - Record de changement
+5. **ConfigSource** - Enum des sources
+6. **ConfigType** - Enum des types
+
+**Fonctionnalités:**
+- Schema avec types (string, int, float, bool, json, list)
+- Sources multiples (default, file, env, runtime, remote)
+- Chargement depuis environment variables
+- Chargement depuis fichier JSON
+- Coercion automatique des types
+- Validation avec validators custom
+- Change history avec limit
+- Watchers pour notifications
+- Pattern matching pour watchers
+- Export nested dictionary
+- Configs prédéfinies (app, api, tts, llm, cache)
+
+**8 Endpoints créés:**
+- GET /config - List all configs
+- GET /config/{key} - Get config value
+- PUT /config/{key} - Set config value
+- DELETE /config/{key} - Reset to default
+- GET /config-history - Change history
+- GET /config-schema - Schema definitions
+- GET /config-export - Nested export
+- GET /config-stats - Statistics
+
+**Note: 9/10**
+
+**Points positifs:**
+- Types avec coercion
+- Multiple sources de config
+- Watchers pattern-based
+- History complète
+- Schema validation
+- Secret values masqués
+
+**Points négatifs:**
+- Pas de persistence
+- Pas de remote config fetch
+- Pas de config encryption
+- Pas de rollback
+
+**Risques:** Aucun
+
+---
+
+## Sprint 640 - Toast & Notifications (FRONTEND)
+
+**Fichier:** `frontend/src/components/Toast.tsx`
+
+**Composants créés:**
+1. **ToastProvider** - Context provider pour toasts
+2. **ToastContainer** - Container avec positioning
+3. **ToastItem** - Toast individuel animé
+4. **Alert** - Alerte inline
+5. **Banner** - Bannière full-width
+6. **useToast** - Hook pour déclencher toasts
+
+**Fonctionnalités:**
+- 4 variants (info, success, warning, error)
+- 6 positions (top-right, top-left, etc.)
+- Auto-dismiss avec duration configurable
+- Dismiss manuel (X button)
+- Actions cliquables
+- Max toasts configurable
+- Animations enter/exit
+- Portal rendering
+- Alert inline dismissible
+- Banner full-width
+
+**useToast API:**
+- toast() - Toast générique
+- success() - Toast success
+- error() - Toast error
+- warning() - Toast warning
+- info() - Toast info
+- dismiss(id) - Dismiss spécifique
+- dismissAll() - Clear all
+
+**Note: 9/10**
+
+**Points positifs:**
+- Hook API intuitive
+- Multiple positions
+- Auto-dismiss configurable
+- Actions cliquables
+- Alert inline alternative
+- Banner pour annonces
+
+**Points négatifs:**
+- Pas de progress bar
+- Pas de toast stacking limit visual
+- Pas de pause on hover
+- Pas de sound notification
+
+**Risques:** Aucun
+
+---
