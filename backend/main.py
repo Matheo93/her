@@ -10646,3 +10646,90 @@ async def validate_custom_request(
         "validation": result.to_dict(),
         "data": result.data,
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Retry Manager API - Sprint 655
+# ═══════════════════════════════════════════════════════════════
+
+from retry_manager import retry_manager, BackoffStrategy
+
+
+@app.get("/retry/stats")
+async def get_retry_stats():
+    """Get retry manager statistics.
+
+    Returns:
+        Statistics.
+    """
+    return {"status": "ok", "stats": retry_manager.get_stats()}
+
+
+@app.post("/retry/reset")
+async def reset_retry_stats():
+    """Reset retry statistics.
+
+    Returns:
+        Reset status.
+    """
+    retry_manager.reset_stats()
+    return {"status": "ok", "reset": True}
+
+
+@app.post("/retry/test")
+async def test_retry(
+    fail_times: int = 2,
+    max_attempts: int = 3,
+    strategy: str = "exponential",
+    base_delay: float = 0.1,
+):
+    """Test retry functionality.
+
+    Args:
+        fail_times: Number of times to fail before success
+        max_attempts: Maximum retry attempts
+        strategy: Backoff strategy
+        base_delay: Base delay between retries
+
+    Returns:
+        Retry result.
+    """
+    attempt_count = 0
+
+    async def flaky_operation():
+        nonlocal attempt_count
+        attempt_count += 1
+        if attempt_count <= fail_times:
+            raise Exception(f"Simulated failure {attempt_count}")
+        return {"success": True, "attempt": attempt_count}
+
+    try:
+        backoff = BackoffStrategy(strategy)
+    except ValueError:
+        backoff = BackoffStrategy.EXPONENTIAL
+
+    result = await retry_manager.execute(
+        flaky_operation,
+        max_attempts=max_attempts,
+        strategy=backoff,
+        base_delay=base_delay,
+    )
+
+    return {
+        "status": "ok" if result.success else "error",
+        "result": {
+            "success": result.success,
+            "value": result.value,
+            "attempts": result.attempts,
+            "total_time_ms": round(result.total_time * 1000, 2),
+            "history": [
+                {
+                    "attempt": h.attempt,
+                    "delay_ms": round(h.delay * 1000, 2),
+                    "error": h.error,
+                }
+                for h in result.history
+            ],
+            "final_error": result.final_error,
+        },
+    }
