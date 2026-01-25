@@ -5919,3 +5919,42 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 620 - Stepper Components (FRONTEND)
+
+**Fichier:** `frontend/src/components/Stepper.tsx`
+
+**Composants créés (6):**
+1. **Stepper** - Horizontal step indicator
+2. **VerticalStepper** - Vertical step indicator
+3. **Wizard** - Multi-step form avec navigation
+4. **ProgressStepper** - Progress bar style
+5. **DotStepper** - Minimal dots indicator
+6. **StepContent** - Content wrapper
+
+**Fonctionnalités:**
+- Click navigation entre steps
+- Completed/Active/Pending states
+- Animated connectors
+- Icon support per step
+- Optional steps marking
+- Context hook useStepperContext
+- AnimatePresence pour transitions
+
+**Note: 9/10**
+
+**Points positifs:**
+- Multiple variants disponibles
+- Context pour contrôle wizard
+- Animations smooth
+- Français labels ("Suivant", "Précédent")
+- Responsive design
+
+**Points négatifs:**
+- Pas de validation per step
+- Pas de async step loading
+- Pas de step error states
+
+**Risques:** Aucun
+
+---

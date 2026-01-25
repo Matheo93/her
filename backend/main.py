@@ -8063,3 +8063,257 @@ async def get_notification_stats():
         "status": "ok",
         "stats": notification_service.get_stats()
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Audit Logger API - Sprint 621
+# ═══════════════════════════════════════════════════════════════
+
+from audit_logger import audit_logger, AuditAction, AuditLevel
+
+
+@app.get("/audit")
+async def search_audit_logs(
+    action: Optional[str] = None,
+    level: Optional[str] = None,
+    user_id: Optional[str] = None,
+    resource_type: Optional[str] = None,
+    resource_id: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0
+):
+    """Search audit logs.
+
+    Args:
+        action: Filter by action
+        level: Filter by level
+        user_id: Filter by user
+        resource_type: Filter by resource type
+        resource_id: Filter by resource ID
+        limit: Maximum results
+        offset: Results offset
+
+    Returns:
+        List of audit entries.
+    """
+    audit_action = None
+    if action:
+        try:
+            audit_action = AuditAction(action)
+        except ValueError:
+            pass
+
+    audit_level = None
+    if level:
+        try:
+            audit_level = AuditLevel(level)
+        except ValueError:
+            pass
+
+    return {
+        "status": "ok",
+        "entries": audit_logger.search(
+            action=audit_action,
+            level=audit_level,
+            user_id=user_id,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            limit=limit,
+            offset=offset
+        )
+    }
+
+
+@app.get("/audit/{entry_id}")
+async def get_audit_entry(entry_id: str):
+    """Get a specific audit entry.
+
+    Args:
+        entry_id: Entry ID
+
+    Returns:
+        Audit entry details.
+    """
+    entry = audit_logger.get(entry_id)
+    if not entry:
+        return {"status": "error", "message": "Entry not found"}
+    return {
+        "status": "ok",
+        "entry": entry
+    }
+
+
+@app.get("/audit/user/{user_id}")
+async def get_user_audit_activity(user_id: str, limit: int = 50):
+    """Get audit activity for a user.
+
+    Args:
+        user_id: User ID
+        limit: Maximum entries
+
+    Returns:
+        User's audit entries.
+    """
+    return {
+        "status": "ok",
+        "entries": audit_logger.get_user_activity(user_id, limit)
+    }
+
+
+@app.get("/audit/resource/{resource_type}/{resource_id}")
+async def get_resource_audit_history(
+    resource_type: str,
+    resource_id: str,
+    limit: int = 50
+):
+    """Get audit history for a resource.
+
+    Args:
+        resource_type: Resource type
+        resource_id: Resource ID
+        limit: Maximum entries
+
+    Returns:
+        Resource's audit entries.
+    """
+    return {
+        "status": "ok",
+        "entries": audit_logger.get_resource_history(
+            resource_type=resource_type,
+            resource_id=resource_id,
+            limit=limit
+        )
+    }
+
+
+@app.post("/audit")
+async def create_audit_entry(
+    request: Request,
+    action: str,
+    level: str = "info",
+    user_id: Optional[str] = None,
+    resource_type: Optional[str] = None,
+    resource_id: Optional[str] = None,
+    description: str = ""
+):
+    """Create an audit entry.
+
+    Args:
+        action: Action type
+        level: Severity level
+        user_id: User ID
+        resource_type: Resource type
+        resource_id: Resource ID
+        description: Description
+
+    Returns:
+        Created entry.
+    """
+    try:
+        audit_action = AuditAction(action)
+    except ValueError:
+        audit_action = AuditAction.CUSTOM
+
+    try:
+        audit_level = AuditLevel(level)
+    except ValueError:
+        audit_level = AuditLevel.INFO
+
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+
+    entry = audit_logger.log(
+        action=audit_action,
+        level=audit_level,
+        user_id=user_id,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        description=description,
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
+
+    return {
+        "status": "ok",
+        "entry": entry.to_dict()
+    }
+
+
+@app.get("/audit/count")
+async def count_audit_entries(
+    action: Optional[str] = None,
+    level: Optional[str] = None,
+    user_id: Optional[str] = None
+):
+    """Count audit entries.
+
+    Args:
+        action: Filter by action
+        level: Filter by level
+        user_id: Filter by user
+
+    Returns:
+        Count of entries.
+    """
+    audit_action = None
+    if action:
+        try:
+            audit_action = AuditAction(action)
+        except ValueError:
+            pass
+
+    audit_level = None
+    if level:
+        try:
+            audit_level = AuditLevel(level)
+        except ValueError:
+            pass
+
+    return {
+        "status": "ok",
+        "count": audit_logger.count(
+            action=audit_action,
+            level=audit_level,
+            user_id=user_id
+        )
+    }
+
+
+@app.get("/audit/actions")
+async def get_audit_actions():
+    """Get all available audit actions.
+
+    Returns:
+        List of actions.
+    """
+    return {
+        "status": "ok",
+        "actions": [a.value for a in AuditAction]
+    }
+
+
+@app.post("/audit/cleanup")
+async def cleanup_audit_logs():
+    """Clean up old audit entries.
+
+    Returns:
+        Number cleaned.
+    """
+    count = audit_logger.cleanup()
+    return {
+        "status": "ok",
+        "cleaned": count
+    }
+
+
+@app.get("/audit/stats")
+async def get_audit_stats():
+    """Get audit statistics.
+
+    Returns:
+        Statistics.
+    """
+    return {
+        "status": "ok",
+        "stats": audit_logger.get_stats()
+    }
