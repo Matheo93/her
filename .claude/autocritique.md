@@ -7567,3 +7567,1031 @@ Système de formulaires React avec validation intégrée.
 **Risques:** Aucun
 
 ---
+
+## Sprint 655 - Backend Retry Manager
+
+**Ce que j'ai fait:**
+Système de retry avec stratégies de backoff configurables.
+
+**Classes créées:**
+- **RetryManager** - Gestionnaire principal
+- **RetryConfig** - Configuration de retry
+- **RetryResult** - Résultat avec historique
+- **RetryAttempt** - Info d'une tentative
+- **BackoffStrategy** - Enum (constant, linear, exponential, fibonacci)
+
+**Features:**
+- 4 stratégies de backoff
+- Jitter pour éviter thundering herd
+- Custom retry conditions (retry_on, retry_if)
+- Décorateur @retry
+- Fonction standalone with_retry
+- Stats tracking
+- Test endpoint
+
+**3 Endpoints créés:**
+- GET /retry/stats - Statistics
+- POST /retry/reset - Reset stats
+- POST /retry/test - Test retry behavior
+
+**Note: 9/10**
+
+**Points positifs:**
+- 4 stratégies de backoff (Fibonacci rare!)
+- Jitter intégré
+- Conditions custom flexibles
+- Décorateur propre
+- Test endpoint pratique
+
+**Points négatifs:**
+- Pas d'intégration circuit breaker
+- Pas de retry budgets
+- Pas de métriques par opération
+
+**Risques:** Aucun
+
+---
+
+---
+
+## Sprint 656 - Frontend Charts
+
+**Date:** 2026-01-25
+**Domaine:** Frontend - Data Visualization
+
+**Ce que j'ai fait:**
+1. **LineChart** - Graphique linéaire SVG avec courbes Bézier smooth
+2. **BarChart** - Histogramme avec barres animées
+3. **PieChart** - Graphique circulaire avec donut mode
+4. **AreaChart** - Zone remplie avec gradient
+5. **Sparkline** - Mini graphique inline
+6. **Axes et Grid** - Système d'axes X/Y configurables
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- SVG pur, pas de dépendance chart.js
+- Animations Framer Motion fluides
+- Support dark/light via ThemeContext
+- Composants mémoïsés pour performance
+- useMemo pour calculs path optimisés
+- Gradient fills pour AreaChart
+- Options: showGrid, showDots, smooth, animate
+
+**Points négatifs:**
+- Pas de tooltips interactifs
+- Pas de légende pour PieChart
+- Responsive via props width/height, pas 100% auto
+- Pas de zoom/pan pour grands datasets
+
+
+---
+
+## Sprint 657 - Backend Rate Limiter
+
+**Date:** 2026-01-25
+**Domaine:** Backend - Rate Limiting
+
+**Ce que j'ai fait:**
+1. **RateLimitStrategy** - 4 algorithmes: token_bucket, sliding_window, fixed_window, leaky_bucket
+2. **TokenBucket** - Implémentation classique avec refill automatique
+3. **SlidingWindow** - Fenêtre glissante précise
+4. **FixedWindow** - Fenêtre fixe simple et efficace
+5. **RateLimitResult** - Génération headers HTTP X-RateLimit-*
+6. **Decorator @limit** - Pour rate limiter les fonctions async
+7. **Penalty system** - Blocage temporaire après dépassement
+
+**Note: 9/10**
+
+**Points positifs:**
+- 4 algorithmes au choix selon le cas d'usage
+- Headers HTTP standards (X-RateLimit-Limit, Remaining, Reset, Retry-After)
+- Thread-safe avec Lock
+- Burst size configurable pour token bucket
+- Système de pénalité pour abus
+- Statistiques de monitoring
+- Decorator réutilisable
+
+**Points négatifs:**
+- Pas de support Redis (tout en mémoire)
+- Pas de cleanup automatique des vieux buckets
+- Pas de rate limit par IP automatique
+
+
+---
+
+## Sprint 658 - Frontend Breadcrumb
+
+**Date:** 2026-01-25
+**Domaine:** Frontend - Navigation
+
+**Ce que j'ai fait:**
+1. **Breadcrumb** - Container principal avec collapse automatique
+2. **BreadcrumbLink** - Items avec support href/onClick
+3. **BreadcrumbSeparator** - Séparateur personnalisable
+4. **BreadcrumbContainer** - Wrapper stylé
+5. **BreadcrumbDropdown** - Menu déroulant pour overflow
+6. **ChevronSeparator** - Séparateur chevron SVG
+7. **ArrowSeparator** - Séparateur flèche SVG
+8. **DotSeparator** - Séparateur point
+9. **HomeIcon** - Icône maison pour le premier item
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- Collapse automatique avec maxItems
+- 3 types de séparateurs pré-faits
+- Support icônes par item
+- Dropdown pour longs chemins
+- Animations Framer Motion
+- Aria labels accessibilité
+- Theme context intégré
+
+**Points négatifs:**
+- Pas de support router Next.js Link natif
+- Pas de breadcrumb schema.org JSON-LD
+- Dropdown basique sans keyboard nav
+
+
+---
+
+## Sprint 659 - Backend Event Emitter
+
+**Date:** 2026-01-25
+**Domaine:** Backend - Pub/Sub System
+
+**Ce que j'ai fait:**
+1. **EventEmitter** - Système pub/sub async complet
+2. **EventPriority** - 6 niveaux de priorité (LOWEST → MONITOR)
+3. **Pattern matching** - Support wildcards fnmatch (user.*, *.created)
+4. **@on decorator** - Pour enregistrer des handlers facilement
+5. **@once decorator** - Handler one-shot auto-supprimé
+6. **Event history** - Historique configurable des événements
+7. **Statistics** - Compteurs, durée moyenne, dernière émission
+8. **pause/resume** - Pause/reprise des événements
+9. **emit_async** - Émission fire-and-forget
+
+**Note: 9/10**
+
+**Points positifs:**
+- Wildcards fnmatch pour patterns flexibles
+- Priorités pour ordre d'exécution contrôlé
+- Cancel event propagation
+- Statistics avec rolling average
+- Thread-safe avec Lock
+- API simple avec decorators
+- Singleton + fonctions globales
+
+**Points négatifs:**
+- Pas de support Redis/external broker
+- Pas de retry sur erreur handler
+- Pas de dead letter queue
+
+
+---
+
+## Sprint 660 - Frontend Stepper
+
+**Date:** 2026-01-25
+**Domaine:** Frontend - Multi-step Navigation
+
+**Ce que j'ai fait:**
+1. **Stepper** - Provider avec context pour état partagé
+2. **StepIndicator** - Affichage horizontal/vertical des étapes
+3. **StepContent** - Container animé pour le contenu de chaque étape
+4. **StepNavigation** - Boutons Next/Back/Finish
+5. **StepProgress** - Barre de progression
+6. **VerticalStepper** - Variante standalone verticale
+7. **useStepperContext** - Hook pour accès au contexte
+
+**Note: 9/10**
+
+**Points positifs:**
+- Context API pour état global stepper
+- Animations Framer Motion fluides
+- Support horizontal et vertical
+- Steps clickables optionnels
+- Tracking des steps complétés
+- Optional steps supportés
+- Pulse animation sur step actif
+- Responsive (labels cachés sur mobile)
+
+**Points négatifs:**
+- Pas de validation entre steps
+- Pas de skip to step avec validation
+- Pas de persistance état (localStorage)
+
+
+---
+
+## Sprint 661 - Backend Config Manager
+
+**Date:** 2026-01-25
+**Domaine:** Backend - Configuration
+
+**Ce que j'ai fait:**
+1. **ConfigManager** - Gestionnaire de config centralisé
+2. **load_env()** - Chargement depuis variables d'environnement
+3. **load_json()** - Chargement depuis fichiers JSON
+4. **load_dict()** - Chargement depuis dictionnaires
+5. **get/get_str/get_int/get_float/get_bool/get_list** - Accesseurs typés
+6. **require()** - Valeurs obligatoires avec exception
+7. **set()** - Modification runtime
+8. **watch()** - Observateurs de changements
+9. **reload()** - Rechargement à chaud des fichiers
+
+**Note: 9/10**
+
+**Points positifs:**
+- Multi-sources avec priorités
+- Coercion automatique des types
+- Notation pointée pour nested config (db.host)
+- Support ENV avec prefix (__MY_APP__)
+- Flatten automatique des dicts nested
+- Thread-safe avec Lock
+- Watch pour réactivité
+- Hot reload des fichiers
+
+**Points négatifs:**
+- Pas de support YAML natif (besoin PyYAML)
+- Pas de file watching automatique
+- Pas de validation de schema
+
+
+---
+
+## Sprint 662 - Frontend FileUpload
+
+**Date:** 2026-01-25
+**Domaine:** Frontend - File Handling
+
+**Ce que j'ai fait:**
+1. **FileUpload** - Zone de drop complète avec validation
+2. **FileDropZone** - Wrapper minimaliste pour drag-and-drop
+3. **UploadProgress** - Barre de progression d'upload
+4. **Validation** - Type, taille, nombre de fichiers
+5. **Preview** - Aperçu d'images base64
+6. **Icons** - Upload, File, Close SVG intégrés
+
+**Note: 9/10**
+
+**Points positifs:**
+- Drag & drop natif HTML5
+- Validation types MIME et extensions
+- Preview images automatique
+- Limite taille configurable
+- Multiple files supporté
+- Animation Framer Motion
+- Formatage bytes intelligent
+- Liste de fichiers avec suppression
+
+**Points négatifs:**
+- Pas de progress réel (mock)
+- Pas de chunked upload
+- Pas de resume upload
+
+
+---
+
+## Sprint 663 - Backend Task Queue
+
+**Date:** 2026-01-25
+**Domaine:** Backend - Async Processing
+
+**Ce que j'ai fait:**
+1. **TaskQueue** - Queue async avec pool de workers
+2. **TaskPriority** - 4 niveaux (LOW, NORMAL, HIGH, CRITICAL)
+3. **TaskStatus** - États complets (PENDING → RUNNING → COMPLETED/FAILED)
+4. **add()** - Ajout de tâches avec priorité
+5. **schedule()** - Tâches différées avec delay
+6. **wait()** - Attente asynchrone du résultat
+7. **cancel()** - Annulation de tâches pending
+8. **Retry logic** - Relance automatique sur erreur
+
+**Note: 9/10**
+
+**Points positifs:**
+- Heap priority queue efficace
+- Pool de workers configurable
+- Retry automatique avec max_retries
+- Scheduling différé
+- Thread-safe avec Lock
+- Condition pour notification workers
+- Stats complètes
+- clear_completed() pour mémoire
+
+**Points négatifs:**
+- Pas de persistance (en mémoire)
+- Pas de rate limiting par worker
+- Pas de dead letter queue
+
+
+---
+
+## Sprint 664 - Frontend ColorPicker
+
+**Date:** 2026-01-25
+**Domaine:** Frontend - Color Selection
+
+**Ce que j'ai fait:**
+1. **ColorPicker** - Picker complet HSL avec popup
+2. **PalettePicker** - Grille de couleurs prédéfinies
+3. **GradientPicker** - Création de gradients linear/radial
+4. **ColorInput** - Input texte + swatch
+5. **Saturation/Lightness area** - Zone 2D interactive
+6. **Hue slider** - Bande arc-en-ciel
+7. **Alpha slider** - Transparence optionnelle
+8. **parseColor/hslToHex** - Conversion couleurs
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- Picker HSL complet et intuitif
+- Support alpha optionnel
+- Presets intégrés
+- Gradient picker avec angle
+- Conversion hex/hsl bidirectionnelle
+- Animations Framer Motion
+- Theme context intégré
+
+**Points négatifs:**
+- Pas d'eyedropper API
+- Pas d'historique couleurs
+- Pas de formats RGB/HSL affichés
+
+
+---
+
+## Sprint 665 - Backend Session Manager
+
+**Date:** 2026-01-25
+**Domaine:** Backend - Authentication
+
+**Ce que j'ai fait:**
+1. **SessionManager** - Gestion complète des sessions
+2. **create()** - Création avec TTL, user_id, IP, user_agent
+3. **validate()** - Validation et refresh automatique
+4. **revoke()** - Révocation simple ou par user
+5. **set_data/get_data** - Stockage données session
+6. **cleanup_expired()** - Nettoyage sessions expirées
+7. **Token hashing** - SHA256 pour stockage sécurisé
+8. **Max sessions per user** - Limite configurable
+
+**Note: 9/10**
+
+**Points positifs:**
+- Tokens sécurisés (secrets.token_urlsafe)
+- Hash SHA256 des tokens en mémoire
+- Refresh on activity optionnel
+- Limite sessions par user avec eviction
+- Tracking IP/User-Agent
+- Session data flexible
+- Stats complètes
+- Thread-safe
+
+**Points négatifs:**
+- Pas de persistance (en mémoire)
+- Pas de session signing JWT
+- Pas de session clustering/Redis
+
+
+---
+
+## Sprint 666 - Frontend Rating
+
+**Date:** 2026-01-25
+**Domaine:** Frontend - User Feedback
+
+**Ce que j'ai fait:**
+1. **Rating** - Composant principal avec stars/hearts/circles
+2. **RatingDisplay** - Affichage read-only avec count
+3. **NumericRating** - Boutons 1-10
+4. **EmojiRating** - 5 visages expressifs
+5. **ThumbsRating** - Like/Dislike avec compteurs
+6. **Half star support** - Demi-étoiles via position souris
+7. **Icons SVG** - Star, Heart, Circle, Thumbs
+
+**Note: 9/10**
+
+**Points positifs:**
+- 5 styles de rating différents
+- Support demi-étoiles précis
+- Hover preview interactif
+- Readonly mode
+- Tailles configurables (sm/md/lg)
+- Compteurs optionnels
+- Animations Framer Motion
+- Icons SVG inline
+
+**Points négatifs:**
+- Pas de rating distribution chart
+- Pas d'animation de sélection complexe
+- Pas de keyboard navigation
+
+
+---
+
+## Sprint 667 - Backend Metrics Collector
+
+**Date:** 2026-01-25
+**Domaine:** Backend - Observability
+
+**Ce que j'ai fait:**
+1. **MetricsCollector** - Registry central des métriques
+2. **Counter** - Compteur croissant uniquement
+3. **Gauge** - Valeur variable (inc/dec/set)
+4. **Histogram** - Distribution avec buckets
+5. **Timer** - Context manager pour mesurer durée
+6. **Labels support** - Dimensions pour filtrage
+7. **to_prometheus()** - Export format Prometheus
+8. **to_dict()** - Export JSON
+
+**Note: 9/10**
+
+**Points positifs:**
+- 4 types de métriques standard
+- Labels multi-dimensionnels
+- Buckets histogram configurables
+- Timer context manager élégant
+- Format Prometheus natif
+- Thread-safe
+- API fluide type prometheus_client
+
+**Points négatifs:**
+- Pas de Summary (percentiles exacts)
+- Pas de push gateway
+- Pas de time series historique
+
+
+---
+
+## Sprint 668 - Frontend Calendar
+
+**Date:** 2026-01-25
+**Domaine:** Frontend - Date Selection
+
+**Ce que j'ai fait:**
+1. **Calendar** - Calendrier mensuel complet
+2. **DatePicker** - Input avec popup calendrier
+3. **DateRangePicker** - Sélection de plage de dates
+4. **Navigation mois** - Flèches prev/next
+5. **minDate/maxDate** - Contraintes de dates
+6. **disabledDates** - Dates désactivées
+7. **highlightedDates** - Mise en avant de dates
+8. **Format configurable** - MM/DD/YYYY
+
+**Note: 9/10**
+
+**Points positifs:**
+- Grille 6 semaines complète
+- Jours du mois précédent/suivant visibles
+- Today indicator
+- Range selection avec highlight
+- Padding automatique des mois
+- Animations Framer Motion
+- Theme context intégré
+
+**Points négatifs:**
+- Pas de vue année/décennie
+- Pas de keyboard navigation
+- Pas de timezone support
+
+
+---
+
+## Sprint 669 - Backend Feature Flags
+
+**Date:** 2026-01-25
+**Domaine:** Backend - Feature Management
+
+**Ce que j'ai fait:**
+1. **FeatureFlags** - Système complet de feature flags
+2. **FlagStatus** - 4 états (enabled, disabled, percentage, targeted)
+3. **FlagRule** - Règles de ciblage avec opérateurs
+4. **FlagContext** - Contexte utilisateur/attributs
+5. **Percentage rollout** - Hash MD5 pour cohérence
+6. **User overrides** - enable/disable par user
+7. **Groups** - Groupes de flags
+8. **import/export** - Sérialisation JSON
+
+**Note: 9/10**
+
+**Points positifs:**
+- 4 modes de flags flexibles
+- Consistent hashing pour percentage
+- Règles avec 8 opérateurs (eq, ne, in, contains, gt, lt, gte, lte)
+- User overrides granulaires
+- Flag groups
+- Change listeners
+- Thread-safe
+- Export/import JSON
+
+**Points négatifs:**
+- Pas de persistance
+- Pas de A/B test analytics
+- Pas de scheduling d'activation
+
+
+---
+
+## Sprint 670 - Frontend Tabs
+
+**Date:** 2026-01-25
+**Domaine:** Frontend - Navigation
+
+**Ce que j'ai fait:**
+1. **Tabs** - Container avec context
+2. **TabList** - Liste des onglets
+3. **Tab** - Onglet individuel avec icon support
+4. **TabPanels** - Container des panels
+5. **TabPanel** - Panel de contenu
+6. **SimpleTabs** - Version tout-en-un
+7. **IconTabs** - Onglets icônes seules
+8. **ScrollableTabs** - Tabs scrollables horizontalement
+
+**Note: 9/10**
+
+**Points positifs:**
+- 3 variants (line, pill, enclosed)
+- Orientation horizontal/vertical
+- Context API pour état partagé
+- layoutId pour animation indicator
+- Support icons
+- Version simple et compound
+- Scrollable pour beaucoup d'onglets
+- Aria roles pour accessibilité
+
+**Points négatifs:**
+- Pas de lazy loading des panels
+- Pas de keyboard navigation complète
+- Pas de close button pour tabs dynamiques
+
+
+---
+
+## Sprint 671 - Backend Webhook Manager
+
+**Date:** 2026-01-25
+**Domaine:** Backend - Integrations
+
+**Ce que j'ai fait:**
+1. **WebhookManager** - Gestion complète des webhooks sortants
+2. **register()** - Enregistrement avec events, secret, headers
+3. **trigger()** - Déclenchement d'événements
+4. **Signature HMAC-SHA256** - Sécurisation des payloads
+5. **Retry with backoff** - Exponential backoff sur échec
+6. **DeliveryAttempt** - Tracking des tentatives
+7. **pause/resume** - Contrôle des webhooks
+8. **Auto-disable** - Désactivation après 5 échecs
+
+**Note: 9/10**
+
+**Points positifs:**
+- Signature HMAC-SHA256 standard
+- Headers X-Webhook-* complets
+- Retry avec exponential backoff
+- Event filtering avec wildcard
+- Delivery tracking détaillé
+- Auto-pause après échecs répétés
+- Cleanup des vieux deliveries
+- aiohttp async
+
+**Points négatifs:**
+- Pas de queue persistante
+- Pas de rate limiting par webhook
+- Pas de batch delivery
+
+
+---
+
+## Sprint 672 - Frontend Carousel
+
+**Date:** 2026-01-25
+**Domaine:** Frontend - Media Display
+
+**Ce que j'ai fait:**
+1. **Carousel** - Carousel principal avec slide/fade
+2. **ImageCarousel** - Spécialisé images avec caption
+3. **CardCarousel** - Multi-cards visibles
+4. **FadeCarousel** - Transition fade simple
+5. **Auto-play** - Timer configurable avec pause on hover
+6. **Indicators** - Dots de navigation
+7. **Thumbnails** - Mini aperçus cliquables
+8. **Loop** - Navigation circulaire optionnelle
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- 4 types de carousel
+- Auto-play avec pause on hover
+- Animations slide ou fade
+- Thumbnails pour preview
+- Direction-aware animations
+- Loop optionnel
+- Responsive CardCarousel
+
+**Points négatifs:**
+- Pas de swipe touch
+- Pas de lazy loading images
+- Pas de preload adjacent slides
+
+
+---
+
+## Sprint 673 - Backend API Key Manager
+
+**Date:** 2026-01-25
+**Domaine:** Backend - Authentication
+
+**Ce que j'ai fait:**
+1. **APIKeyManager** - Gestion complète des clés API
+2. **create()** - Génération sécurisée avec prefix
+3. **validate()** - Validation avec hash SHA256
+4. **Scopes** - Permissions granulaires par clé
+5. **Rate limiting** - Limite par heure par clé
+6. **Expiration** - TTL configurable en jours
+7. **revoke/revoke_all** - Révocation simple ou par owner
+8. **has_scope/has_any_scope** - Vérification permissions
+
+**Note: 9/10**
+
+**Points positifs:**
+- Format clé: prefix_id_secret
+- Hash SHA256 pour stockage
+- Scopes avec wildcard (*)
+- Rate limit par clé
+- Expiration automatique
+- Usage tracking
+- Metadata extensible
+- Thread-safe
+
+**Points négatifs:**
+- Pas de persistance
+- Rate limit hourly fixe (pas sliding)
+- Pas de IP whitelist par clé
+
+
+---
+
+## Sprint 674 - Frontend Pagination
+
+**Date:** 2026-01-25
+**Domaine:** Frontend - Navigation
+
+**Ce que j'ai fait:**
+1. **Pagination** - Composant principal avec numéros
+2. **SimplePagination** - Juste Prev/Next
+3. **PageSizeSelector** - Dropdown taille de page
+4. **JumpToPage** - Input pour aller à une page
+5. **PaginationInfo** - "Showing X to Y of Z"
+6. **Ellipsis** - ... pour grands nombres de pages
+7. **First/Last buttons** - Navigation rapide
+
+**Note: 9/10**
+
+**Points positifs:**
+- Algorithme smart pour ellipsis
+- siblingCount configurable
+- First/Last/Prev/Next optionnels
+- Page size selector
+- Jump to page avec validation
+- Info "Showing X to Y"
+- Aria labels accessibilité
+- Animation Framer Motion
+
+**Points négatifs:**
+- Pas de keyboard navigation complète
+- Pas de infinite scroll option
+- Pas de server-side pagination helper
+
+
+
+## Sprint 675 - Backend Template Engine
+**Fichier**: `backend/template_engine.py`
+**Note**: 8/10
+
+**Points forts**:
+- Syntaxe Jinja-like familière ({{ }}, {% %})
+- 14 filtres intégrés (upper, lower, escape, truncate, join, etc.)
+- Héritage de templates avec blocks
+- Support des boucles avec variable loop (index, first, last)
+- Gestion des conditionnels imbriqués
+- Notation pointée pour accès aux propriétés
+
+**Points à améliorer**:
+- Pas de compilation/cache des expressions régulières
+- Gestion des erreurs de syntaxe template limitée
+- Pas de support pour les macros/fonctions
+
+**Complexité**: Moyenne-haute (parsing regex, récursion pour imbrication)
+
+
+## Sprint 676 - Frontend InputGroup
+**Fichier**: `frontend/src/components/InputGroup.tsx`
+**Note**: 8/10
+
+**Points forts**:
+- Composants flexibles: InputGroup, InputAddon, GroupInput, InputButton, InputSelect
+- Composants prêts à l emploi: SearchInput, PriceInput, UrlInput, EmailInput
+- QuantityInput avec incrémentation/décrémentation
+- CopyInput avec copie clipboard
+- PasswordInput avec visibilité toggle
+
+**Points à améliorer**:
+- Pas de validation intégrée
+- Animation framer-motion pourrait être plus riche
+- Support RTL non géré
+
+**Complexité**: Moyenne (composition de composants)
+
+
+## Sprint 677 - Backend Bulkhead Pattern
+**Fichier**: `backend/bulkhead.py`
+**Note**: 8.5/10
+
+**Points forts**:
+- États clairs: accepting, saturated, queue_full
+- Semaphores async et sync pour concurrence
+- Système de queue avec timeout
+- Support décorateur et context manager
+- Registry pour gestion multiple
+- Métriques détaillées (avg_wait_time, max_concurrent_reached)
+
+**Points à améliorer**:
+- Pas de support pour priorités dans la queue
+- Pas de shed load dynamique
+- Tests de charge non inclus
+
+**Complexité**: Haute (concurrence, async/sync, gestion file attente)
+
+
+## Sprint 678 - Frontend Chip Components
+**Fichier**: `frontend/src/components/Chip.tsx`
+**Note**: 8.5/10
+
+**Points forts**:
+- 8 composants: Chip, ChipGroup, FilterChip, ChoiceChips, MultiChoiceChips, InputChips, StatusChip, AvatarChip
+- 3 variantes (filled, outlined, soft) et 3 tailles
+- InputChips avec saisie et suppression au clavier
+- StatusChip avec couleurs prédéfinies (success, error, warning, info, pending)
+- Animations de sélection fluides
+- Support max pour limitation de sélection
+
+**Points à améliorer**:
+- Pas de support drag-and-drop pour réordonnancement
+- Validation de saisie InputChips basique
+
+**Complexité**: Moyenne (états multiples, animations, composition)
+
+
+## Sprint 679 - Backend Middleware Manager
+**Fichier**: `backend/middleware_manager.py`
+**Note**: 8.5/10
+
+**Points forts**:
+- Pipeline avec 3 phases: before, after, error
+- Priorité pour ordonnancement des middlewares
+- MiddlewareBuilder fluent pour patterns communs
+- Support async et sync
+- Décorateurs @before, @after, @error
+- Middlewares préconstruits: timing, request_id, cors, rate_limit
+
+**Points à améliorer**:
+- Pas de middleware de compression
+- Pas de support pour middleware chains conditionnelles
+- Pas de cache/memoization intégré
+
+**Complexité**: Moyenne-haute (pipeline async, gestion erreurs)
+
+
+## Sprint 680 - Frontend TreeView
+**Fichier**: `frontend/src/components/TreeView.tsx`
+**Note**: 8.5/10
+
+**Points forts**:
+- 4 composants: TreeView, FileTree, CheckboxTree, VirtualTree
+- Context API pour partage état expand/select
+- Support multi-sélection
+- Checkboxes optionnels
+- Icons personnalisables (folder, file, custom)
+- VirtualTree pour grands datasets
+
+**Points à améliorer**:
+- Pas de drag-and-drop natif
+- VirtualTree simpliste (pas de dynamic heights)
+- Pas de lazy loading des enfants
+
+**Complexité**: Haute (récursion, virtualisation, context)
+
+
+## Sprint 681 - Backend Request Pipeline
+**Fichier**: `backend/request_pipeline.py`
+**Note**: 9/10
+
+**Points forts**:
+- 4 types de pipelines: Pipeline, TransformPipeline, ValidationPipeline, FilterPipeline
+- StageResult pour contrôle du flux (continue, skip, abort)
+- Conditions par stage
+- Support async et sync
+- PipelineBuilder pour pattern fluent
+- Statistiques d exécution
+
+**Points à améliorer**:
+- Pas de retry intégré par stage
+- Pas de parallélisation des stages indépendants
+- Pas de serialization/persistence du pipeline
+
+**Complexité**: Haute (generics, async, pipeline patterns)
+
+
+## Sprint 682 - Frontend DataGrid
+**Fichier**: `frontend/src/components/DataGrid.tsx`
+**Note**: 9/10
+
+**Points forts**:
+- Sorting tri-état (asc, desc, none)
+- Filtrage multi-colonnes
+- Pagination intégrée avec info
+- Sélection de lignes (single/multi)
+- Colonnes sticky
+- Support dot notation pour valeurs imbriquées
+- Custom render par cellule
+- États loading et empty
+
+**Points à améliorer**:
+- Pas de resize de colonnes
+- Pas de drag-and-drop pour réordonnancement colonnes
+- Pas de virtualisation pour grandes données
+
+**Complexité**: Haute (generics, tri/filtre/pagination combinés)
+
+
+## Sprint 683 - Backend Service Locator
+**Fichier**: `backend/service_locator.py`
+**Note**: 9/10
+
+**Points forts**:
+- 3 lifetimes: singleton, transient, scoped
+- Support factory et instance pré-créée
+- Services nommés pour multiples implémentations
+- ServiceScope avec context manager
+- Décorateurs @inject et @injectable
+- Statistiques de résolution
+- Dispose automatique des services scoped
+
+**Points à améliorer**:
+- Pas de résolution automatique des dépendances
+- Pas de validation cyclique des dépendances
+- Pas de async factory support
+
+**Complexité**: Haute (DI pattern, generics, lifecycle)
+
+
+## Sprint 684 - Frontend InfiniteScroll
+**Fichier**: `frontend/src/components/InfiniteScroll.tsx`
+**Note**: 8.5/10
+
+**Points forts**:
+- 6 composants: InfiniteScroll, WindowInfiniteScroll, PullToRefresh, VirtualList, LoadMoreButton, ScrollToTop
+- Détection scroll avec threshold configurable
+- IntersectionObserver pour performance
+- VirtualList avec overscan
+- Pull-to-refresh tactile
+
+**Points à améliorer**:
+- VirtualList basique (pas de heights variables)
+- Pas de scroll bidirectionnel
+- PullToRefresh touch-only (pas de mouse)
+
+**Complexité**: Moyenne-haute (IntersectionObserver, touch events, virtualisation)
+
+
+## Sprint 685 - Backend Command Bus
+**Fichier**: `backend/command_bus.py`
+**Note**: 9/10
+
+**Points forts**:
+- Pattern CQRS avec Command et CommandHandler
+- Middlewares: Logging, Validation, Retry, Timeout, Transaction
+- Décorateur @bus.handler pour registration fluide
+- CommandResult générique avec timing
+- Support handler class et function
+- Statistiques d exécution
+
+**Points à améliorer**:
+- Pas de query bus séparé (CQRS complet)
+- Pas de command queue/async dispatch
+- Pas de saga/compensating transactions
+
+**Complexité**: Haute (CQRS pattern, generics, middleware chain)
+
+
+## Sprint 686 - Frontend ContextMenu
+**Fichier**: `frontend/src/components/ContextMenu.tsx`
+**Note**: 8.5/10
+
+**Points forts**:
+- ContextMenuProvider avec Context API
+- Hook useContextMenu pour accès global
+- ContextMenuTrigger pour right-click
+- DropdownMenu pour click-triggered
+- Submenus imbriqués
+- Navigation clavier (arrows, Enter, Escape)
+- Auto-positioning pour éviter overflow
+
+**Points à améliorer**:
+- Pas de support pour checkboxes/radios dans items
+- Animation submenu pourrait être plus fluide
+
+**Complexité**: Moyenne-haute (Context API, positioning, keyboard)
+
+
+## Sprint 687 - Backend Query Bus
+**Fichier**: `backend/query_bus.py`
+**Note**: 9/10
+
+**Points forts**:
+- Complète CQRS avec Command Bus (Sprint 685)
+- CachingMiddleware avec TTL et invalidation
+- query_many pour requêtes parallèles
+- cache_key() auto-généré depuis query data
+- Statistiques avec cache_hit_rate
+- LoggingMiddleware et TimeoutMiddleware
+
+**Points à améliorer**:
+- Pas de cache distribué (Redis)
+- Pas de projection/view support
+- Pas de query composition
+
+**Complexité**: Moyenne-haute (CQRS pattern, caching, generics)
+
+
+## Sprint 688 - Frontend Drawer
+**Fichier**: `frontend/src/components/Drawer.tsx`
+**Note**: 9/10
+
+**Points forts**:
+- 4 positions (left, right, top, bottom)
+- 5 tailles (sm, md, lg, xl, full)
+- Swipe-to-close avec drag constraints
+- ConfirmDrawer et FormDrawer prêts à l emploi
+- useDrawer hook pour state management
+- Focus trap et body scroll lock
+- Animation spring fluide
+
+**Points à améliorer**:
+- Pas de nested drawers support
+- Pas de minimized state
+
+**Complexité**: Moyenne-haute (drag gestures, focus management)
+
+
+## Sprint 689 - Backend Saga Orchestrator
+**Fichier**: `backend/saga_orchestrator.py`
+**Note**: 9/10
+
+**Points forts**:
+- Pattern Saga complet avec compensation
+- Fluent API: saga().step().step().execute()
+- SagaContext pour partage de données entre steps
+- Retry avec exponential backoff par step
+- Timeout par step
+- Orchestrator pour gestion multi-sagas
+- Statistiques d exécution
+
+**Points à améliorer**:
+- Pas de persistence saga state (in-memory only)
+- Pas de resume saga après crash
+- Pas de parallel steps support
+
+**Complexité**: Haute (distributed transactions, compensation pattern)
+
+
+## Sprint 690 - Frontend Combobox
+**Fichier**: `frontend/src/components/Combobox.tsx`
+**Note**: 9/10
+
+**Points forts**:
+- 3 composants: Combobox, MultiCombobox, AsyncCombobox
+- Type-ahead avec debounce
+- Navigation clavier complète (arrows, Enter, Escape)
+- MultiCombobox avec tags et max selection
+- AsyncCombobox avec minChars et loading
+- Scroll-into-view pour highlighted
+
+**Points à améliorer**:
+- Pas de groupes visuels
+- Pas de create-on-fly option
+
+**Complexité**: Haute (keyboard nav, async loading, multi-select state)
+
+---
+
+## Sprint 691 - Backend Outbox Pattern
+**Score: 8/10**
+- OutboxStore avec thread-safe operations
+- OutboxPublisher avec handlers et retry mechanism
+- OutboxTransaction pour les opérations atomiques
+- Convenience functions (emit, on_event decorator)
+- Cleanup des vieilles entrées
+- Manque: persistance réelle (in-memory seulement)
