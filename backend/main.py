@@ -8070,6 +8070,7 @@ async def get_notification_stats():
 # ═══════════════════════════════════════════════════════════════
 
 from audit_logger import audit_logger, AuditAction, AuditLevel
+from health_checker import health_checker, HealthStatus
 
 
 @app.get("/audit")
@@ -8316,4 +8317,146 @@ async def get_audit_stats():
     return {
         "status": "ok",
         "stats": audit_logger.get_stats()
+    }
+
+
+# Health Checker API - Sprint 623
+# Comprehensive health monitoring system
+
+@app.get("/health/status")
+async def get_health_status():
+    """Get current health status.
+
+    Returns:
+        Overall health status with check results.
+    """
+    return {
+        "status": "ok",
+        **health_checker.get_status()
+    }
+
+
+@app.post("/health/check")
+async def run_health_checks():
+    """Run all health checks.
+
+    Returns:
+        Results of all checks.
+    """
+    results = await health_checker.check_all()
+    return {
+        "status": "ok",
+        "results": results
+    }
+
+
+@app.post("/health/check/{name}")
+async def run_single_health_check(name: str):
+    """Run a single health check.
+
+    Args:
+        name: Check name.
+
+    Returns:
+        Check result.
+    """
+    result = await health_checker.run_check(name)
+    return {
+        "status": "ok",
+        "result": result.to_dict()
+    }
+
+
+@app.get("/health/checks")
+async def list_health_checks():
+    """List all registered health checks.
+
+    Returns:
+        List of check configurations.
+    """
+    return {
+        "status": "ok",
+        "checks": health_checker.list_checks()
+    }
+
+
+@app.post("/health/checks/{name}/enable")
+async def enable_health_check(name: str):
+    """Enable a health check.
+
+    Args:
+        name: Check name.
+
+    Returns:
+        Success status.
+    """
+    success = health_checker.enable_check(name)
+    if not success:
+        raise HTTPException(status_code=404, detail="Check not found")
+    return {
+        "status": "ok",
+        "enabled": True
+    }
+
+
+@app.post("/health/checks/{name}/disable")
+async def disable_health_check(name: str):
+    """Disable a health check.
+
+    Args:
+        name: Check name.
+
+    Returns:
+        Success status.
+    """
+    success = health_checker.disable_check(name)
+    if not success:
+        raise HTTPException(status_code=404, detail="Check not found")
+    return {
+        "status": "ok",
+        "disabled": True
+    }
+
+
+@app.get("/health/history")
+async def get_health_history(limit: int = 10):
+    """Get health check history.
+
+    Args:
+        limit: Maximum entries.
+
+    Returns:
+        Historical health snapshots.
+    """
+    return {
+        "status": "ok",
+        "history": health_checker.get_history(limit)
+    }
+
+
+@app.post("/health/monitor/start")
+async def start_health_monitoring():
+    """Start periodic health monitoring.
+
+    Returns:
+        Success status.
+    """
+    await health_checker.start_monitoring()
+    return {
+        "status": "ok",
+        "monitoring": True
+    }
+
+
+@app.post("/health/monitor/stop")
+async def stop_health_monitoring():
+    """Stop periodic health monitoring.
+
+    Returns:
+        Success status.
+    """
+    await health_checker.stop_monitoring()
+    return {
+        "status": "ok",
+        "monitoring": False
     }
