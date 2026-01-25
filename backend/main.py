@@ -8075,6 +8075,7 @@ from job_queue import job_queue, JobPriority, JobStatus as JobQueueStatus
 from api_versioning import api_versioning, VersionStatus as APIVersionStatus
 from plugin_system import plugin_manager, PluginStatus as PluginSystemStatus
 from circuit_breaker import circuit_breaker_manager, CircuitState, get_circuit_breaker
+from feature_flags import feature_flag_manager, FlagType, FlagStatus
 
 
 @app.get("/audit")
@@ -9163,3 +9164,156 @@ async def get_circuits_summary():
         "status": "ok",
         "summary": circuit_breaker_manager.get_stats_summary()
     }
+
+
+# =============================================================================
+# Feature Flags Endpoints - Sprint 633
+# =============================================================================
+
+
+@app.post("/flags")
+async def create_feature_flag(
+    key: str,
+    name: str,
+    description: str = "",
+    flag_type: str = "boolean",
+    default_value: bool = False,
+    tags: List[str] = []
+):
+    """Create a new feature flag.
+
+    Args:
+        key: Unique flag key.
+        name: Display name.
+        description: Flag description.
+        flag_type: Type (boolean, percentage, variant, json).
+        default_value: Default value.
+        tags: Optional tags.
+
+    Returns:
+        Created flag.
+    """
+    try:
+        ftype = FlagType(flag_type)
+    except ValueError:
+        ftype = FlagType.BOOLEAN
+
+    flag = feature_flag_manager.create_flag(
+        key=key,
+        name=name,
+        description=description,
+        flag_type=ftype,
+        default_value=default_value,
+        tags=tags
+    )
+    return {"status": "ok", "flag": flag.to_dict()}
+
+
+@app.delete("/flags/{key}")
+async def delete_feature_flag(key: str):
+    """Delete a feature flag.
+
+    Args:
+        key: Flag key.
+
+    Returns:
+        Deletion status.
+    """
+    success = feature_flag_manager.delete_flag(key)
+    return {"status": "ok" if success else "error", "deleted": success}
+
+
+@app.post("/flags/{key}/activate")
+async def activate_feature_flag(key: str):
+    """Activate a feature flag.
+
+    Args:
+        key: Flag key.
+
+    Returns:
+        Activation status.
+    """
+    success = feature_flag_manager.activate(key)
+    return {"status": "ok" if success else "error", "activated": success}
+
+
+@app.post("/flags/{key}/deactivate")
+async def deactivate_feature_flag(key: str):
+    """Deactivate a feature flag.
+
+    Args:
+        key: Flag key.
+
+    Returns:
+        Deactivation status.
+    """
+    success = feature_flag_manager.deactivate(key)
+    return {"status": "ok" if success else "error", "deactivated": success}
+
+
+@app.post("/flags/{key}/percentage")
+async def set_flag_percentage(key: str, percentage: int):
+    """Set rollout percentage for a flag.
+
+    Args:
+        key: Flag key.
+        percentage: Rollout percentage (0-100).
+
+    Returns:
+        Update status.
+    """
+    success = feature_flag_manager.set_percentage(key, percentage)
+    return {"status": "ok" if success else "error", "percentage": percentage}
+
+
+@app.post("/flags/{key}/evaluate")
+async def evaluate_feature_flag(key: str, context: dict = {}):
+    """Evaluate a feature flag for a given context.
+
+    Args:
+        key: Flag key.
+        context: Evaluation context (user_id, attributes, etc.).
+
+    Returns:
+        Evaluation result.
+    """
+    result = feature_flag_manager.evaluate(key, context)
+    return {"status": "ok", "result": result.to_dict()}
+
+
+@app.post("/flags/evaluate-all")
+async def evaluate_all_flags(context: dict = {}):
+    """Evaluate all flags for a given context.
+
+    Args:
+        context: Evaluation context.
+
+    Returns:
+        All evaluation results.
+    """
+    results = feature_flag_manager.evaluate_all(context)
+    return {
+        "status": "ok",
+        "results": {k: v.to_dict() for k, v in results.items()}
+    }
+
+
+@app.get("/flags/stats")
+async def get_flags_stats():
+    """Get feature flags statistics.
+
+    Returns:
+        Statistics.
+    """
+    return {"status": "ok", "stats": feature_flag_manager.get_stats()}
+
+
+@app.post("/flags/cache/clear")
+async def clear_flags_cache():
+    """Clear evaluation cache.
+
+    Returns:
+        Clear status.
+    """
+    feature_flag_manager.clear_cache()
+    return {"status": "ok", "cleared": True}
