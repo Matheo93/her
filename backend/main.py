@@ -6886,3 +6886,215 @@ async def remove_user_from_flag(flag_name: str, user_id: str):
     if feature_flags.remove_user_from_flag(flag_name, user_id):
         return {"status": "ok", "message": f"User {user_id} removed from {flag_name}"}
     return {"status": "error", "message": "Flag not found or wrong type"}
+
+
+# ═══════════════════════════════════════════════════════════════
+# Voice Profile API - Sprint 611
+# ═══════════════════════════════════════════════════════════════
+
+from voice_profile import voice_profile_manager
+
+
+@app.get("/voice/voices")
+async def get_available_voices():
+    """Get all available voices.
+
+    Returns:
+        List of available voice options.
+    """
+    return {
+        "status": "ok",
+        "voices": voice_profile_manager.get_available_voices()
+    }
+
+
+@app.get("/voice/presets")
+async def get_voice_presets():
+    """Get voice presets.
+
+    Returns:
+        Available voice presets.
+    """
+    return {
+        "status": "ok",
+        "presets": voice_profile_manager.get_presets()
+    }
+
+
+@app.get("/voice/profiles/{user_id}")
+async def get_user_profiles(user_id: str):
+    """Get all voice profiles for a user.
+
+    Args:
+        user_id: User identifier
+
+    Returns:
+        User's voice profiles.
+    """
+    return {
+        "status": "ok",
+        "profiles": voice_profile_manager.get_profiles(user_id)
+    }
+
+
+@app.get("/voice/profiles/{user_id}/active")
+async def get_active_profile(user_id: str):
+    """Get the active voice profile.
+
+    Args:
+        user_id: User identifier
+
+    Returns:
+        Active voice profile.
+    """
+    profile = voice_profile_manager.get_active_profile(user_id)
+    return {
+        "status": "ok",
+        "profile": profile.to_dict()
+    }
+
+
+@app.post("/voice/profiles/{user_id}")
+async def create_voice_profile(
+    user_id: str,
+    name: str,
+    voice_id: Optional[str] = None,
+    speed: Optional[float] = None,
+    pitch: Optional[int] = None,
+    is_default: bool = False
+):
+    """Create a new voice profile.
+
+    Args:
+        user_id: User identifier
+        name: Profile name
+        voice_id: Voice ID
+        speed: Voice speed (0.5-2.0)
+        pitch: Voice pitch (-10 to +10)
+        is_default: Set as default
+
+    Returns:
+        Created profile.
+    """
+    profile = voice_profile_manager.create_profile(
+        user_id=user_id,
+        name=name,
+        voice_id=voice_id,
+        speed=speed,
+        pitch=pitch,
+        is_default=is_default
+    )
+    return {
+        "status": "ok",
+        "profile": profile.to_dict()
+    }
+
+
+@app.put("/voice/profiles/{user_id}/{profile_name}")
+async def update_voice_profile(
+    user_id: str,
+    profile_name: str,
+    voice_id: Optional[str] = None,
+    speed: Optional[float] = None,
+    pitch: Optional[int] = None,
+    volume: Optional[float] = None,
+    new_name: Optional[str] = None
+):
+    """Update a voice profile.
+
+    Args:
+        user_id: User identifier
+        profile_name: Profile name
+        voice_id: New voice ID
+        speed: New speed
+        pitch: New pitch
+        volume: New volume
+        new_name: Rename profile
+
+    Returns:
+        Updated profile.
+    """
+    profile = voice_profile_manager.update_profile(
+        user_id=user_id,
+        name=profile_name,
+        voice_id=voice_id,
+        speed=speed,
+        pitch=pitch,
+        volume=volume,
+        new_name=new_name
+    )
+    if not profile:
+        return {"status": "error", "message": "Profile not found"}
+    return {
+        "status": "ok",
+        "profile": profile.to_dict()
+    }
+
+
+@app.delete("/voice/profiles/{user_id}/{profile_name}")
+async def delete_voice_profile(user_id: str, profile_name: str):
+    """Delete a voice profile.
+
+    Args:
+        user_id: User identifier
+        profile_name: Profile name
+
+    Returns:
+        Success status.
+    """
+    if voice_profile_manager.delete_profile(user_id, profile_name):
+        return {"status": "ok", "message": "Profile deleted"}
+    return {"status": "error", "message": "Profile not found"}
+
+
+@app.post("/voice/profiles/{user_id}/{profile_name}/default")
+async def set_default_profile(user_id: str, profile_name: str):
+    """Set a profile as default.
+
+    Args:
+        user_id: User identifier
+        profile_name: Profile name
+
+    Returns:
+        Success status.
+    """
+    if voice_profile_manager.set_default(user_id, profile_name):
+        return {"status": "ok", "message": f"Profile {profile_name} set as default"}
+    return {"status": "error", "message": "Profile not found"}
+
+
+@app.post("/voice/profiles/{user_id}/{profile_name}/preset/{preset_name}")
+async def apply_preset_to_profile(user_id: str, profile_name: str, preset_name: str):
+    """Apply a preset to a profile.
+
+    Args:
+        user_id: User identifier
+        profile_name: Profile name
+        preset_name: Preset name
+
+    Returns:
+        Updated profile.
+    """
+    profile = voice_profile_manager.apply_preset(user_id, profile_name, preset_name)
+    if not profile:
+        return {"status": "error", "message": "Profile or preset not found"}
+    return {
+        "status": "ok",
+        "profile": profile.to_dict()
+    }
+
+
+@app.get("/voice/profiles/{user_id}/stats")
+async def get_voice_stats(user_id: str):
+    """Get voice usage statistics.
+
+    Args:
+        user_id: User identifier
+
+    Returns:
+        Usage statistics.
+    """
+    return {
+        "status": "ok",
+        "stats": voice_profile_manager.get_stats(user_id)
+    }
