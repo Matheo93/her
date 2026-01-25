@@ -9217,3 +9217,34 @@ Bon moteur de recherche in-memory. TF-IDF bien implémenté. Les facettes sont u
 ### Note: 8.5/10
 Très complet pour un système de navigation. L'architecture Context est propre. La gestion mobile/desktop est bien séparée.
 
+
+---
+
+## Sprint 723 - Backend State Machine
+**Date**: 2026-01-25 12:25
+**Type**: Backend Module
+**File**: backend/state_machine.py
+
+### Composants créés
+- StateMachine: FSM avec états et transitions
+- StateMachineBuilder: API fluente pour création
+- StateMachineRunner: Gestion de multiples FSM
+- State/Transition: Dataclasses
+- Templates: order, document, task FSM
+
+### Points positifs
+- Guards et actions sur transitions
+- Callbacks on_enter/on_exit
+- Historique des transitions
+- Listeners de changement d'état
+- Thread-safe avec locks
+- Templates prêts à l'emploi
+
+### Points à améliorer
+- Pas de persistence de l'état
+- Pas de machine hiérarchique (HSM) complète
+- Pas de parallélisation de régions
+
+### Note: 8/10
+Bonne implémentation de FSM. Le builder est élégant. Les templates permettent un démarrage rapide. Guards et actions bien implémentés.
+
