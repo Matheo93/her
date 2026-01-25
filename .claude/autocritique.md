@@ -8617,3 +8617,25 @@ Système de retry avec stratégies de backoff configurables.
 - Timeout et retry par step
 - Tags et filtrage des processus
 - Statistiques d'exécution complètes
+
+---
+
+## Sprint 694 - Frontend Masonry
+**Score: 8.5/10**
+- Layout Pinterest-style avec colonnes auto
+- Responsive breakpoints (sm, md, lg, xl)
+- ImageMasonry, CardMasonry, QuoteMasonry
+- Animations framer-motion fluides
+- useMasonryItems hook pour gestion d'état
+- Répartition intelligente selon hauteur
+
+---
+
+## Sprint 695 - Backend Workflow Engine
+**Score: 9/10**
+- State machine complet avec on_enter/on_exit
+- Transitions avec guards et actions
+- Auto-advance avec priorités
+- linear_workflow et approval_workflow helpers
+- Historique des transitions
+- Event handlers pour monitoring
