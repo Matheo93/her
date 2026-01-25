@@ -2675,6 +2675,53 @@ async def save_audio_cache(_: str = Depends(verify_api_key)):
 
 
 # ═══════════════════════════════════════════════════════════════
+# Emotion Analyzer API - Sprint 593
+# ═══════════════════════════════════════════════════════════════
+
+from emotion_analyzer import emotion_analyzer
+
+
+@app.post("/analyze/emotion")
+async def analyze_emotion(text: str):
+    """Analyze text for emotional content.
+
+    Args:
+        text: Text to analyze
+
+    Returns:
+        Detected emotions with intensity and confidence.
+    """
+    result = emotion_analyzer.analyze(text)
+    return {
+        "status": "ok",
+        "result": result.to_dict()
+    }
+
+
+@app.post("/analyze/emotion/response")
+async def get_empathic_response(text: str):
+    """Get suggested EVA emotion for empathic response.
+
+    Args:
+        text: User's text to analyze
+
+    Returns:
+        User's emotion and suggested EVA emotion.
+    """
+    user_result = emotion_analyzer.analyze(text)
+    eva_emotion, eva_intensity = emotion_analyzer.get_emotion_for_response(user_result)
+
+    return {
+        "status": "ok",
+        "user_emotion": user_result.to_dict(),
+        "eva_response": {
+            "emotion": eva_emotion,
+            "intensity": round(eva_intensity, 2),
+        }
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
 # Avatar Emotions API - Sprint 579
 # ═══════════════════════════════════════════════════════════════
 
