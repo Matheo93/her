@@ -8071,6 +8071,7 @@ async def get_notification_stats():
 
 from audit_logger import audit_logger, AuditAction, AuditLevel
 from health_checker import health_checker, HealthStatus
+from job_queue import job_queue, JobPriority, JobStatus as JobQueueStatus
 
 
 @app.get("/audit")
@@ -8459,4 +8460,245 @@ async def stop_health_monitoring():
     return {
         "status": "ok",
         "monitoring": False
+    }
+
+
+# Job Queue API - Sprint 625
+# Background job processing system
+
+@app.post("/jobs")
+async def enqueue_job(
+    handler: str,
+    payload: Optional[Dict[str, Any]] = None,
+    name: Optional[str] = None,
+    priority: str = "NORMAL",
+    max_retries: int = 3,
+    timeout: float = 300.0,
+    delay: Optional[float] = None
+):
+    """Enqueue a new job.
+
+    Args:
+        handler: Handler name.
+        payload: Job payload.
+        name: Optional job name.
+        priority: Job priority (CRITICAL, HIGH, NORMAL, LOW, BACKGROUND).
+        max_retries: Maximum retry attempts.
+        timeout: Job timeout in seconds.
+        delay: Delay before processing.
+
+    Returns:
+        Created job ID.
+    """
+    try:
+        job_priority = JobPriority[priority.upper()]
+    except KeyError:
+        job_priority = JobPriority.NORMAL
+
+    job_id = await job_queue.enqueue(
+        handler=handler,
+        payload=payload,
+        name=name,
+        priority=job_priority,
+        max_retries=max_retries,
+        timeout=timeout,
+        delay=delay
+    )
+
+    return {
+        "status": "ok",
+        "job_id": job_id
+    }
+
+
+@app.get("/jobs/{job_id}")
+async def get_job(job_id: str):
+    """Get job by ID.
+
+    Args:
+        job_id: Job ID.
+
+    Returns:
+        Job details.
+    """
+    job = job_queue.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {
+        "status": "ok",
+        "job": job
+    }
+
+
+@app.get("/jobs")
+async def list_jobs(
+    status: Optional[str] = None,
+    handler: Optional[str] = None,
+    limit: int = 100
+):
+    """List jobs.
+
+    Args:
+        status: Filter by status.
+        handler: Filter by handler.
+        limit: Maximum results.
+
+    Returns:
+        List of jobs.
+    """
+    job_status = None
+    if status:
+        try:
+            job_status = JobQueueStatus(status.lower())
+        except ValueError:
+            pass
+
+    jobs = job_queue.get_jobs(
+        status=job_status,
+        handler=handler,
+        limit=limit
+    )
+
+    return {
+        "status": "ok",
+        "jobs": jobs
+    }
+
+
+@app.post("/jobs/{job_id}/cancel")
+async def cancel_job(job_id: str):
+    """Cancel a pending job.
+
+    Args:
+        job_id: Job ID.
+
+    Returns:
+        Success status.
+    """
+    success = job_queue.cancel_job(job_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Cannot cancel job")
+    return {
+        "status": "ok",
+        "cancelled": True
+    }
+
+
+@app.post("/jobs/{job_id}/retry")
+async def retry_job(job_id: str):
+    """Retry a failed job.
+
+    Args:
+        job_id: Job ID.
+
+    Returns:
+        Success status.
+    """
+    success = await job_queue.retry_job(job_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Cannot retry job")
+    return {
+        "status": "ok",
+        "retried": True
+    }
+
+
+@app.get("/jobs/queue/stats")
+async def get_job_queue_stats():
+    """Get job queue statistics.
+
+    Returns:
+        Queue statistics.
+    """
+    return {
+        "status": "ok",
+        "stats": job_queue.get_stats()
+    }
+
+
+@app.get("/jobs/queue/dead-letter")
+async def get_dead_letter_jobs(limit: int = 100):
+    """Get dead letter queue jobs.
+
+    Args:
+        limit: Maximum results.
+
+    Returns:
+        Dead letter jobs.
+    """
+    return {
+        "status": "ok",
+        "jobs": job_queue.get_dead_letter_jobs(limit)
+    }
+
+
+@app.post("/jobs/queue/dead-letter/clear")
+async def clear_dead_letter_queue():
+    """Clear dead letter queue.
+
+    Returns:
+        Number cleared.
+    """
+    count = job_queue.clear_dead_letter()
+    return {
+        "status": "ok",
+        "cleared": count
+    }
+
+
+@app.post("/jobs/queue/purge")
+async def purge_job_queue(status: Optional[str] = None):
+    """Purge completed/cancelled jobs.
+
+    Args:
+        status: Only purge jobs with this status.
+
+    Returns:
+        Number purged.
+    """
+    job_status = None
+    if status:
+        try:
+            job_status = JobQueueStatus(status.lower())
+        except ValueError:
+            pass
+
+    count = job_queue.purge_queue(job_status)
+    return {
+        "status": "ok",
+        "purged": count
+    }
+
+
+@app.post("/jobs/workers/start")
+async def start_job_workers(num_workers: int = 3):
+    """Start job workers.
+
+    Args:
+        num_workers: Number of workers.
+
+    Returns:
+        Success status.
+    """
+    await job_queue.start_workers(num_workers)
+    return {
+        "status": "ok",
+        "workers": num_workers
+    }
+
+
+@app.post("/jobs/workers/stop")
+async def stop_job_workers(wait: bool = True):
+    """Stop job workers.
+
+    Args:
+        wait: Wait for current jobs.
+
+    Returns:
+        Success status.
+    """
+    await job_queue.stop_workers(wait)
+    return {
+        "status": "ok",
+        "stopped": True
     }

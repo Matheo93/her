@@ -6097,3 +6097,42 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 624 - Table Components (FRONTEND)
+
+**Fichier:** `frontend/src/components/Table.tsx`
+
+**Composants créés (4):**
+1. **Table** - Generic table with type-safe columns
+2. **SimpleTable** - Quick table without generics
+3. **DataGrid** - Card-based responsive grid
+4. **PaginatedTable** - Table with built-in pagination
+
+**Fonctionnalités:**
+- Generic Column type avec accessor et render
+- Sortable columns avec direction asc/desc
+- Row selection avec checkbox (all/individual)
+- Expandable rows avec renderExpanded callback
+- Striped, hoverable, bordered, compact variants
+- Sticky header option
+- Null-safe sorting
+- Pagination intégrée
+- Mobile-friendly DataGrid alternative
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- Type-safe avec generics TypeScript
+- Flexible column configuration
+- Multiple selection modes
+- Sort state management
+- Expandable rows animation
+
+**Points négatifs:**
+- Pas de recherche/filtre intégré
+- Pas de resize columns
+- Pas de drag & drop reorder
+
+**Risques:** Aucun
+
+---
