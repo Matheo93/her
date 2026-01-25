@@ -5610,3 +5610,48 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 613 - Background Tasks (BACKEND)
+
+**Fichier:** `backend/background_tasks.py`
+
+**Classes créées:**
+1. **TaskManager** - Gestionnaire tâches async avec queue
+2. **BackgroundTask** - Dataclass tâche avec status, progress
+3. **TaskContext** - Context passé aux handlers
+4. **TaskResult** - Résultat exécution
+
+**Fonctionnalités:**
+- Task scheduling avec priorités (LOW/NORMAL/HIGH/CRITICAL)
+- Progress tracking 0-100%
+- Retry logic avec max_retries configurable
+- Task dependencies (attendre autres tasks)
+- Cancellation support
+- Worker pool concurrent (configurable max)
+- Built-in tasks: echo, delay
+
+**Endpoints (7):**
+- GET /tasks - Liste toutes les tâches
+- GET /tasks/{id} - Détails tâche
+- POST /tasks/submit/{name} - Soumettre nouvelle tâche
+- POST /tasks/{id}/cancel - Annuler tâche
+- DELETE /tasks/completed - Nettoyer tâches terminées
+- GET /tasks/stats/summary - Statistiques
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- Pattern decorator pour register handlers
+- Hash-based deterministic user targeting
+- Progress updates real-time
+- Retry automatique avec backoff implicite
+- Stats avec durée moyenne
+
+**Points négatifs:**
+- DeprecationWarning on_event (à migrer vers lifespan)
+- Pas de persistence disk (perte restart)
+- Pas de distributed lock pour multi-instance
+
+**Risques:** Aucun
+
+---
