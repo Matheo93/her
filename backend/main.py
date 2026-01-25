@@ -6341,3 +6341,113 @@ async def import_preferences(user_id: str, json_data: str):
         "status": "ok",
         "results": results
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Logging API - Sprint 603
+# ═══════════════════════════════════════════════════════════════
+
+from logging_service import logging_service, LogLevel
+
+
+@app.get("/logs/query")
+async def query_logs(
+    level: Optional[str] = None,
+    logger_name: Optional[str] = None,
+    trace_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    search: Optional[str] = None,
+    limit: int = 100
+):
+    """Query log entries.
+
+    Args:
+        level: Minimum level (DEBUG, INFO, WARN, ERROR, CRITICAL)
+        logger_name: Filter by logger name prefix
+        trace_id: Filter by trace ID
+        session_id: Filter by session ID
+        search: Search in message text
+        limit: Maximum entries (max 500)
+
+    Returns:
+        Matching log entries.
+    """
+    log_level = None
+    if level:
+        try:
+            log_level = LogLevel[level.upper()]
+        except KeyError:
+            return {"status": "error", "message": f"Invalid level: {level}"}
+
+    limit = min(500, max(1, limit))
+
+    return {
+        "status": "ok",
+        "logs": logging_service.query(
+            level=log_level,
+            logger_name=logger_name,
+            trace_id=trace_id,
+            session_id=session_id,
+            search=search,
+            limit=limit
+        )
+    }
+
+
+@app.get("/logs/errors")
+async def get_recent_errors(limit: int = 50):
+    """Get recent errors.
+
+    Args:
+        limit: Maximum entries
+
+    Returns:
+        Recent error and critical entries.
+    """
+    limit = min(200, max(1, limit))
+    return {
+        "status": "ok",
+        "errors": logging_service.get_recent_errors(limit)
+    }
+
+
+@app.get("/logs/stats")
+async def get_log_stats():
+    """Get logging statistics.
+
+    Returns:
+        Log counts by level and logger.
+    """
+    return {
+        "status": "ok",
+        "stats": logging_service.get_stats()
+    }
+
+
+@app.put("/logs/level")
+async def set_log_level(level: str):
+    """Set minimum log level.
+
+    Args:
+        level: New minimum level
+
+    Returns:
+        Success status.
+    """
+    try:
+        log_level = LogLevel[level.upper()]
+        logging_service.set_level(log_level)
+        return {"status": "ok", "level": level.upper()}
+    except KeyError:
+        return {"status": "error", "message": f"Invalid level: {level}"}
+
+
+@app.delete("/logs")
+async def clear_logs():
+    """Clear all log entries.
+
+    Returns:
+        Success status.
+    """
+    logging_service.clear()
+    return {"status": "ok", "message": "Logs cleared"}
