@@ -5868,3 +5868,54 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 619 - Notification Service (BACKEND)
+
+**Fichier:** `backend/notification_service.py`
+
+**Classes créées:**
+1. **NotificationService** - Gestionnaire notifications
+2. **Notification** - Dataclass notification
+3. **NotificationType** - 7 types (info, success, warning, error, system, chat, achievement)
+4. **NotificationPriority** - 4 niveaux (low, normal, high, urgent)
+
+**Fonctionnalités:**
+- Create/read/dismiss notifications
+- Read/unread tracking
+- Priority sorting
+- Expiration automatique
+- Broadcast multi-users
+- Max per user limit
+- Action URL/label support
+
+**Endpoints (12):**
+- POST /notifications - Create
+- GET /notifications/user/{id} - Get user notifications
+- GET /notifications/user/{id}/count - Unread count
+- POST /notifications/{id}/read - Mark read
+- POST /notifications/user/{id}/read-all - Mark all read
+- POST /notifications/{id}/dismiss - Dismiss
+- POST /notifications/user/{id}/dismiss-all - Dismiss all
+- DELETE /notifications/{id} - Delete
+- DELETE /notifications/user/{id} - Clear all
+- POST /notifications/broadcast - Broadcast
+- POST /notifications/cleanup - Cleanup expired
+- GET /notifications/stats - Statistics
+
+**Note: 9/10**
+
+**Points positifs:**
+- Types et priorités bien définis
+- Expiration automatique
+- Broadcast multi-users
+- Action URL pour interactivité
+- Tri par priorité puis date
+
+**Points négatifs:**
+- Pas de persistence disk
+- Pas de push notifications
+- Pas de template system
+
+**Risques:** Aucun
+
+---
