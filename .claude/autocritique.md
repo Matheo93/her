@@ -7395,3 +7395,90 @@ Composants Timeline et Activity Feed React.
 **Risques:** Aucun
 
 ---
+
+## Sprint 651 - Backend Service Registry
+
+**Ce que j'ai fait:**
+Système de découverte de services avec load balancing.
+
+**Classes créées:**
+- **ServiceRegistry** - Registre principal
+- **ServiceInstance** - Instance de service
+- **ServiceConfig** - Configuration service
+- **ServiceStatus** - Enum (healthy, unhealthy, starting, stopping)
+- **LoadBalanceStrategy** - Enum (round_robin, random, least_connections, weighted)
+
+**Features:**
+- 4 stratégies de load balancing
+- Heartbeat et health tracking
+- Service discovery
+- Connection counting
+- Stale instance cleanup
+- Weighted load balancing
+
+**10 Endpoints créés:**
+- GET /services - List services
+- POST /services/register - Register service type
+- POST /services/instance - Register instance
+- DELETE /services/instance/{id} - Deregister
+- POST /services/instance/{id}/heartbeat - Heartbeat
+- GET /services/{name}/discover - Discover instances
+- GET /services/{name}/instance - Get LB instance
+- POST /services/cleanup - Cleanup stale
+- GET /services/stats - Statistics
+
+**Note: 9/10**
+
+**Points positifs:**
+- 4 stratégies LB complètes
+- Connection tracking
+- Heartbeat automatique
+- Cleanup des stales
+- Stats détaillées
+
+**Points négatifs:**
+- Pas de health check actif (HTTP)
+- Pas de persistence
+- Pas de événements (service up/down)
+
+**Risques:** Aucun
+
+---
+
+## Sprint 652 - Frontend Data Table
+
+**Ce que j'ai fait:**
+Composants Data Table avancés avec tri et pagination.
+
+**Composants créés:**
+1. **DataTable** - Table principale avec toutes les features
+2. **SimpleTable** - Table simple sans features
+3. **KeyValueTable** - Table clé-valeur
+
+**Features:**
+- Tri multi-colonnes (asc/desc/none)
+- Filtrage par colonne
+- Pagination complète
+- Row selection (single/multi/all)
+- Custom cell renderers
+- Nested key support (key.subkey)
+- Loading state
+- Empty state message
+
+**Note: 9/10**
+
+**Points positifs:**
+- API générique avec TypeScript
+- Tri stable et performant
+- Pagination intuitive
+- Selection avec indeterminate
+- Custom renderers flexibles
+
+**Points négatifs:**
+- Pas de virtualization (grandes listes)
+- Pas de column resize
+- Pas de column reorder
+
+**Risques:** Aucun
+
+---
