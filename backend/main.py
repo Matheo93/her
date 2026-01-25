@@ -8073,6 +8073,7 @@ from audit_logger import audit_logger, AuditAction, AuditLevel
 from health_checker import health_checker, HealthStatus
 from job_queue import job_queue, JobPriority, JobStatus as JobQueueStatus
 from api_versioning import api_versioning, VersionStatus as APIVersionStatus
+from plugin_system import plugin_manager, PluginStatus as PluginSystemStatus
 
 
 @app.get("/audit")
@@ -8859,4 +8860,157 @@ async def detect_api_version(request: Request):
         "is_valid": api_versioning.is_valid(version),
         "is_deprecated": api_versioning.is_deprecated(version),
         "is_current": api_versioning.is_current(version)
+    }
+
+
+# Plugin System API - Sprint 629
+# Extensible plugin architecture
+
+@app.get("/plugins")
+async def list_plugins(status: Optional[str] = None):
+    """List all plugins.
+
+    Args:
+        status: Filter by status.
+
+    Returns:
+        List of plugins.
+    """
+    plugin_status = None
+    if status:
+        try:
+            plugin_status = PluginSystemStatus(status.lower())
+        except ValueError:
+            pass
+
+    return {
+        "status": "ok",
+        "plugins": plugin_manager.list_plugins(plugin_status)
+    }
+
+
+@app.get("/plugins/{name}")
+async def get_plugin(name: str):
+    """Get plugin details.
+
+    Args:
+        name: Plugin name.
+
+    Returns:
+        Plugin details.
+    """
+    plugin = plugin_manager.get_plugin(name)
+    if not plugin:
+        raise HTTPException(status_code=404, detail="Plugin not found")
+    return {
+        "status": "ok",
+        "plugin": plugin
+    }
+
+
+@app.post("/plugins/{name}/load")
+async def load_plugin(
+    name: str,
+    config: Optional[Dict[str, Any]] = None
+):
+    """Load a plugin.
+
+    Args:
+        name: Plugin name.
+        config: Plugin configuration.
+
+    Returns:
+        Success status.
+    """
+    success = await plugin_manager.load_plugin(name, config)
+    if not success:
+        plugin = plugin_manager.get_plugin(name)
+        error = plugin.get("error") if plugin else "Plugin not found"
+        raise HTTPException(status_code=400, detail=error)
+    return {
+        "status": "ok",
+        "loaded": True
+    }
+
+
+@app.post("/plugins/{name}/unload")
+async def unload_plugin(name: str):
+    """Unload a plugin.
+
+    Args:
+        name: Plugin name.
+
+    Returns:
+        Success status.
+    """
+    success = await plugin_manager.unload_plugin(name)
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to unload plugin")
+    return {
+        "status": "ok",
+        "unloaded": True
+    }
+
+
+@app.post("/plugins/{name}/enable")
+async def enable_plugin(name: str):
+    """Enable a plugin.
+
+    Args:
+        name: Plugin name.
+
+    Returns:
+        Success status.
+    """
+    success = await plugin_manager.enable_plugin(name)
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to enable plugin")
+    return {
+        "status": "ok",
+        "enabled": True
+    }
+
+
+@app.post("/plugins/{name}/disable")
+async def disable_plugin(name: str):
+    """Disable a plugin.
+
+    Args:
+        name: Plugin name.
+
+    Returns:
+        Success status.
+    """
+    success = await plugin_manager.disable_plugin(name)
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to disable plugin")
+    return {
+        "status": "ok",
+        "disabled": True
+    }
+
+
+@app.get("/plugins/hooks/list")
+async def list_plugin_hooks():
+    """List all registered hooks.
+
+    Returns:
+        Hooks by name.
+    """
+    return {
+        "status": "ok",
+        "hooks": plugin_manager.list_hooks()
+    }
+
+
+@app.get("/plugins/stats")
+async def get_plugin_stats():
+    """Get plugin statistics.
+
+    Returns:
+        Statistics.
+    """
+    return {
+        "status": "ok",
+        "stats": plugin_manager.get_stats()
     }

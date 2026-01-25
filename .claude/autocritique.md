@@ -6282,3 +6282,47 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 628 - Menu Components (FRONTEND)
+
+**Fichier:** `frontend/src/components/Menu.tsx`
+
+**Composants créés (6):**
+1. **Menu** - Dropdown menu with trigger
+2. **MenuItemComponent** - Individual menu item
+3. **MenuDivider** - Separator line
+4. **ContextMenu** - Right-click menu
+5. **ActionMenu** - Three dots button
+6. **SelectMenu** - Dropdown select
+7. **MenuButtonGroup** - Split button
+
+**Fonctionnalités:**
+- Nested submenus avec hover
+- Portal rendering pour z-index
+- Click outside to close
+- Escape key handler
+- Keyboard shortcuts display
+- Danger/disabled states
+- Icons support
+- Placement options (bottom-start/end, top-start/end)
+- Context API for menu state
+- Width options (auto/trigger/fixed)
+
+**Note: 9/10**
+
+**Points positifs:**
+- Nested submenus smooth
+- Context menu pour right-click
+- Portal pour stacking correct
+- ActionMenu pattern commun
+- SelectMenu réutilisable
+- MenuButtonGroup pour actions split
+
+**Points négatifs:**
+- Pas de keyboard navigation (arrow keys)
+- Pas de search/filter dans menu
+- Pas de virtual scroll pour long lists
+
+**Risques:** Aucun
+
+---
