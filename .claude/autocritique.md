@@ -9248,3 +9248,464 @@ Très complet pour un système de navigation. L'architecture Context est propre.
 ### Note: 8/10
 Bonne implémentation de FSM. Le builder est élégant. Les templates permettent un démarrage rapide. Guards et actions bien implémentés.
 
+
+---
+
+## Sprint 724 - Frontend Stats
+**Date**: 2026-01-25 12:26
+**Type**: Frontend Component
+**File**: frontend/src/components/Stats.tsx
+
+### Composants créés
+- StatCard: Carte de statistique avec trend et icon
+- StatsGrid: Grid responsive pour stats
+- ProgressStat: Barre de progression avec label
+- ComparisonStat: Comparaison current vs previous
+- CircularProgress: Cercle de progression SVG
+- MiniChart: Sparkline (line ou bar)
+- StatList: Liste de stats avec icônes
+- RangeStat: Stat sur une plage min/max
+
+### Points positifs
+- Animations Framer Motion sur toutes les valeurs
+- Variants: default, outline, filled
+- Trend indicator avec couleur vert/rouge
+- MiniChart supportant line et bar
+- CircularProgress SVG animé
+
+### Points à améliorer
+- MiniChart très basique (pas de tooltip)
+- Pas de formatage intelligent des nombres
+- Pourrait supporter les données temps réel
+
+### Note: 8/10
+Bonne collection de composants stats. Les animations ajoutent du polish. Le MiniChart est simple mais efficace.
+
+
+
+## Sprint 725 - Backend Permission System
+**Fichier**: `backend/permission_system.py`
+**Type**: Backend Feature
+
+### Composants créés:
+- `Permission` - Definition with resource/action/conditions matching
+- `Role` - Role with permissions and inheritance
+- `User` - User with roles, direct permissions, denied permissions
+- `AuditEntry` - Access audit logging
+- `PermissionManager` - Full RBAC management system
+- `requires_permission` - Decorator for permission checking
+- `PermissionDenied` - Exception class
+- Convenience functions: `create_role`, `create_user`, `check_permission`
+
+### Points positifs:
+- Full RBAC implementation with role inheritance
+- Wildcard and pattern matching for resources
+- Conditional permissions based on context
+- Denied permissions override (security first)
+- Audit logging with callbacks
+- Thread-safe with locking
+- Fluent API design
+- Complete docstrings
+
+### Points négatifs:
+- Test failed initially due to global vs local instance confusion
+- No persistent storage (in-memory only)
+- Could add permission caching for performance
+
+### Note: 8/10
+Comprehensive RBAC system with all essential features. Good security patterns with deny-first approach. The test failure was a test design issue, not code issue.
+
+
+## Sprint 726 - Frontend Notification Center
+**Fichier**: `frontend/src/components/NotificationCenter.tsx`
+**Type**: Frontend Feature
+
+### Composants créés:
+- `NotificationProvider` - Context provider for notification state
+- `NotificationBell` - Bell icon with unread badge
+- `NotificationCenter` - Full notification panel
+- `NotificationItem` - Individual notification with actions
+- `NotificationToast` - Toast notification popup
+- `NotificationToastContainer` - Container for toast positioning
+- `useNotifications` - Hook for external use
+
+### Points positifs:
+- Complete notification management system
+- Type-safe notification types (info, success, warning, error, message)
+- Read/unread state with visual indicators
+- Action buttons on notifications
+- Toast auto-dismiss with configurable duration
+- Time ago formatting
+- Smooth animations with Framer Motion
+- Mobile-friendly design
+
+### Points négatifs:
+- No persistence (localStorage or API)
+- Could add grouping by date
+- No sound/vibration for notifications
+
+### Note: 9/10
+Full-featured notification system with great UX patterns including toasts, bell badge, and notification center.
+
+
+## Sprint 727 - Backend Pub/Sub System
+**Fichier**: `backend/pubsub.py`
+**Type**: Backend Feature
+
+### Composants créés:
+- `Message` - Pub/Sub message with status tracking
+- `Filter` - Attribute-based message filtering
+- `Subscription` - Topic subscription with handler
+- `Topic` - Topic with subscriptions and history
+- `PubSubBroker` - Full pub/sub broker
+- `TypedPubSub` - Type-safe wrapper
+- `EventBus` - Simple event bus
+- Convenience functions: `create_topic`, `publish`, `subscribe`
+
+### Points positifs:
+- Full async pub/sub implementation
+- Message filtering by attributes
+- Dead letter queue for failed messages
+- Message history per topic
+- Statistics tracking
+- Decorator-based EventBus API
+- Thread-safe operations
+- Comprehensive docstrings
+
+### Points négatifs:
+- Initial syntax error with nonlocal annotation (fixed)
+- No retry mechanism built into broker
+- In-memory only (no persistence)
+
+### Note: 8/10
+Solid pub/sub implementation with good patterns. The dead letter queue and filtering are nice features. Fixed a Python syntax issue with nonlocal variables.
+
+
+## Sprint 728 - Frontend Kbd Components
+**Fichier**: `frontend/src/components/Kbd.tsx`
+**Type**: Frontend Feature
+
+### Composants créés:
+- `Kbd` - Single keyboard key display with variants
+- `KeyCombo` - Key combination (e.g., Ctrl+C)
+- `ShortcutHint` - Shortcut with label and description
+- `ShortcutList` - List of shortcuts with categories
+- `PlatformShortcut` - Platform-aware keys (Mac/Windows)
+- `KeyboardLayout` - Mini keyboard visualization
+- `ShortcutBadge` - Compact shortcut badge
+- `formatKey` - Helper for key symbol formatting
+
+### Points positifs:
+- Complete keyboard UI toolkit
+- Platform detection for Mac/Windows shortcuts
+- Symbol mapping (⌘, ⌥, ⇧, etc.)
+- Interactive keyboard layout
+- Multiple variants and sizes
+- Category grouping for shortcut lists
+- Smooth press animations
+
+### Points négatifs:
+- Keyboard layout is English QWERTY only
+- No screen reader optimizations
+- Could add key recording functionality
+
+### Note: 9/10
+Excellent keyboard shortcut display system with great attention to detail including platform awareness and symbol mapping.
+
+
+## Sprint 729 - Backend Localization System
+**Fichier**: `backend/localization.py`
+**Type**: Backend Feature
+
+### Composants créés:
+- `Locale` - Locale definition with formatting rules
+- `Translation` - Translation entry with plural support
+- `TranslationManager` - Full translation management
+- `Formatter` - Locale-aware number/date/currency formatting
+- `LocaleDetector` - Accept-Language header parsing
+- `LOCALES` - Predefined locales (en, fr, de, es, ja, zh, ar, etc.)
+- Convenience functions: `t`, `set_locale`, `format_number`, etc.
+
+### Points positifs:
+- Complete i18n system with pluralization
+- Variable interpolation in translations
+- Locale-aware formatting (numbers, dates, currency)
+- Accept-Language header parsing
+- RTL language support
+- Relative time formatting
+- Nested translation key support
+- Thread-safe operations
+
+### Points négatifs:
+- Initial bug where count interpolation didnt work without kwargs (fixed)
+- Plural rules are simplified (not full CLDR)
+- No translation file loading (JSON/YAML)
+
+### Note: 8/10
+Comprehensive localization system with good i18n patterns. Fixed the interpolation bug for count-only calls.
+
+
+## Sprint 730 - Frontend Audio Player
+**Fichier**: `frontend/src/components/AudioPlayer.tsx`
+**Type**: Frontend Feature
+
+### Composants créés:
+- `AudioPlayer` - Full-featured audio player with playlist
+- `MiniPlayer` - Compact floating player
+- `ProgressBar` - Seekable progress bar
+- `VolumeSlider` - Volume control with mute
+- `IconButton` - Reusable control button
+- Custom SVG icons (Play, Pause, Skip, Shuffle, Repeat, Volume)
+
+### Points positifs:
+- Complete audio playback functionality
+- Playlist support with shuffle/repeat
+- Progress seeking with drag support
+- Volume control with mute toggle
+- Track info display with album art
+- Mini player for compact view
+- Time formatting utilities
+- Smooth animations
+
+### Points négatifs:
+- No keyboard shortcuts for controls
+- No waveform visualization
+- Could add equalizer support
+- No download/share options
+
+### Note: 9/10
+Full-featured audio player with all essential controls. Great for music-focused apps like this training platform.
+
+
+## Sprint 731 - Backend Dependency Injection
+**Fichier**: `backend/dependency_injection.py`
+**Type**: Backend Feature
+
+### Composants créés:
+- `Lifecycle` - Enum for transient/singleton/scoped
+- `ServiceDescriptor` - Service registration metadata
+- `ServiceScope` - Scoped service container
+- `Container` - Main DI container
+- `ContainerBuilder` - Fluent builder API
+- `Injectable` - Marker base class
+- `inject` - Decorator for dependency injection
+- Convenience functions: `register_singleton`, `resolve`, `create_scope`
+
+### Points positifs:
+- Full lifecycle management (transient, singleton, scoped)
+- Constructor injection with type hints
+- Factory function support
+- Fluent builder pattern
+- Circular dependency detection
+- Scoped context manager
+- Thread-safe operations
+- Pre-registered instance support
+
+### Points négatifs:
+- No auto-registration by convention
+- No property injection (constructor only)
+- No decorator-based registration
+- Could add lazy resolution
+
+### Note: 9/10
+Clean DI implementation with all essential features. The circular dependency detection and scoped containers are particularly valuable for complex applications.
+
+
+## Sprint 732 - Frontend Video Player
+**Fichier**: `frontend/src/components/VideoPlayer.tsx`
+**Type**: Frontend Feature
+
+### Composants créés:
+- `VideoPlayer` - Full-featured video player
+- `VideoProgress` - Progress bar with hover preview
+- `ControlButton` - Reusable control button
+- Custom SVG icons (Play, Pause, Rewind, Forward, Volume, Fullscreen, PiP)
+
+### Points positifs:
+- Complete video playback functionality
+- Fullscreen API support
+- Picture-in-Picture support
+- Playback speed control (0.5x to 2x)
+- Buffering indicator with spinner
+- Auto-hiding controls on inactivity
+- Time hover preview on progress bar
+- Multiple video sources support
+- Title overlay
+
+### Points négatifs:
+- No quality selector implementation (interface exists)
+- No keyboard shortcuts
+- No subtitle/caption support
+- No thumbnail preview on hover
+
+### Note: 9/10
+Professional video player with modern features like PiP and playback speed. Good user experience with auto-hiding controls.
+
+
+## Sprint 733 - Backend API Gateway
+**Fichier**: `backend/api_gateway.py`
+**Type**: Backend Feature
+
+### Composants créés:
+- `Request` - Gateway request with headers/query/body
+- `Response` - Response with status helpers
+- `Route` - Route definition with regex patterns
+- `Middleware` - Base middleware class
+- `LoggingMiddleware` - Request logging
+- `AuthMiddleware` - Token authentication
+- `RateLimitMiddleware` - Request rate limiting
+- `CorsMiddleware` - CORS headers
+- `CompressionMiddleware` - Response compression
+- `APIGateway` - Main gateway class
+- `RouteGroup` - Prefix-based route grouping
+
+### Points positifs:
+- Clean decorator-based routing
+- Path parameter extraction ({id} patterns)
+- Middleware chain architecture
+- Multiple built-in middleware
+- Response helper methods
+- Route groups for API versioning
+- Error handling hooks
+- Thread-safe rate limiting
+
+### Points négatifs:
+- No request validation middleware
+- No caching middleware
+- Could add request tracing
+- No load balancing implementation
+
+### Note: 9/10
+Full-featured API gateway with excellent middleware architecture. The route matching and middleware chain are well-designed.
+
+
+## Sprint 734 - Frontend Image Crop
+**Fichier**: `frontend/src/components/ImageCrop.tsx`
+**Type**: Frontend Feature
+
+### Composants créés:
+- `ImageCrop` - Main cropping component
+- `ImageCropPreview` - Preview of cropped result
+- `ImageCropControls` - Zoom and rotation controls
+- `ResizeHandle` - Corner resize handles
+
+### Points positifs:
+- Full drag-to-crop functionality
+- Aspect ratio locking support
+- Circular crop option (for avatars)
+- Zoom and rotation controls
+- Rule of thirds grid overlay
+- Canvas-based image export
+- Live preview component
+- Corner resize handles
+- Constraint to container bounds
+
+### Points négatifs:
+- No touch support for mobile
+- Preview scale calculation needs work
+- Could add flip horizontal/vertical
+- No undo/redo history
+
+### Note: 8/10
+Functional image cropper with essential features. The circular crop option is great for avatar editing workflows.
+
+
+## Sprint 735 - Backend Event Sourcing
+**Fichier**: `backend/event_sourcing.py`
+**Type**: Backend Feature
+
+### Composants créés:
+- `Event` - Base event with serialization
+- `Snapshot` - Aggregate state snapshot
+- `Aggregate` - Base aggregate class with event application
+- `EventStore` - In-memory event persistence
+- `Repository` - Aggregate loading/saving
+- `Projection` - Read model builder
+- `ProjectionManager` - Projection lifecycle management
+- Convenience functions: `create_event`, `save_events`, `load_events`
+
+### Points positifs:
+- Full event sourcing implementation
+- Aggregate pattern with command/event split
+- Automatic event handler discovery
+- Snapshot support for large aggregates
+- Projection rebuild from scratch
+- Version filtering for partial loads
+- Event subscription for real-time updates
+- Thread-safe operations
+
+### Points négatifs:
+- Initial bug with version filtering (from_version=0 excluded v=0 events)
+- In-memory only (no file/DB persistence)
+- No event schema versioning
+- Could add event upcasting
+
+### Note: 9/10
+Comprehensive event sourcing system with proper aggregate and projection patterns. Fixed the version filtering bug.
+
+
+## Sprint 736 - Frontend Emoji Picker
+**Fichier**: `frontend/src/components/EmojiPicker.tsx`
+**Type**: Frontend Feature
+
+### Composants créés:
+- `EmojiPicker` - Main picker with categories and search
+- `EmojiPickerTrigger` - Popover trigger wrapper
+- `QuickEmojiBar` - Quick reaction bar
+- `EmojiButton` - Individual emoji button
+- Sample emoji data with categories
+
+### Points positifs:
+- Category navigation with icons
+- Search by name and keywords
+- Recent emojis tracking
+- Skin tone selector
+- Scrollable emoji grid
+- Outside click handling
+- Position/alignment options
+- Smooth animations
+
+### Points négatifs:
+- Sample data only (need full emoji dataset)
+- Skin tone not applied to emojis (UI only)
+- No virtualization for large lists
+- Could add emoji variations
+
+### Note: 8/10
+Good emoji picker implementation with all essential features. Would need a complete emoji dataset for production use.
+
+
+## Sprint 737 - Backend Query Builder
+**Fichier**: `backend/query_builder.py`
+**Type**: Backend Feature
+
+### Composants créés:
+- `Operator` - Comparison operators enum
+- `SortOrder` - ASC/DESC enum
+- `JoinType` - Join types enum
+- `Condition` - Single query condition
+- `ConditionGroup` - AND/OR grouped conditions
+- `Join` - Join definition
+- `OrderBy` - Order clause
+- `QueryBuilder` - Main fluent query builder
+- Convenience functions: `query`, `select`
+
+### Points positifs:
+- Clean fluent API design
+- Both SQL generation and in-memory filtering
+- All common operators (eq, ne, gt, lt, like, in, between)
+- Join support (inner, left, right)
+- Order by, limit, offset
+- Select specific fields
+- Distinct support
+- Helper methods (first, count, exists)
+- LIKE pattern matching with regex
+
+### Points négatifs:
+- OR conditions handling could be cleaner
+- No aggregate functions (SUM, AVG, etc.)
+- No subqueries support
+- GROUP BY not implemented for in-memory
+
+### Note: 9/10
+Excellent query builder with dual SQL/in-memory execution. The fluent API makes complex queries readable.
