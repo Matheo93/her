@@ -35,7 +35,7 @@ import sqlite3
 import re
 import random
 from datetime import datetime, timedelta
-from typing import AsyncGenerator, Optional, Callable
+from typing import AsyncGenerator, Optional, Callable, Any
 
 # Fast JSON (10x faster)
 try:
@@ -6156,4 +6156,188 @@ async def cleanup_analytics():
     return {
         "status": "ok",
         "removed": removed
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# User Preferences API - Sprint 601
+# ═══════════════════════════════════════════════════════════════
+
+from user_preferences import preference_manager, PreferenceCategory
+
+
+@app.get("/preferences/definitions")
+async def get_preference_definitions(category: Optional[str] = None):
+    """Get preference definitions.
+
+    Args:
+        category: Filter by category (voice, display, etc.)
+
+    Returns:
+        List of preference definitions.
+    """
+    cat = None
+    if category:
+        try:
+            cat = PreferenceCategory(category)
+        except ValueError:
+            return {"status": "error", "message": f"Invalid category: {category}"}
+
+    return {
+        "status": "ok",
+        "definitions": preference_manager.get_definitions(cat)
+    }
+
+
+@app.get("/preferences/{user_id}")
+async def get_user_preferences(user_id: str):
+    """Get all preferences for a user.
+
+    Args:
+        user_id: User identifier
+
+    Returns:
+        All user preferences with defaults.
+    """
+    return {
+        "status": "ok",
+        "preferences": preference_manager.get_all(user_id)
+    }
+
+
+@app.get("/preferences/{user_id}/categories")
+async def get_preferences_by_category(user_id: str):
+    """Get preferences organized by category.
+
+    Args:
+        user_id: User identifier
+
+    Returns:
+        Preferences grouped by category.
+    """
+    return {
+        "status": "ok",
+        "categories": preference_manager.get_by_category(user_id)
+    }
+
+
+@app.get("/preferences/{user_id}/{key}")
+async def get_preference(user_id: str, key: str):
+    """Get a specific preference.
+
+    Args:
+        user_id: User identifier
+        key: Preference key
+
+    Returns:
+        Preference value.
+    """
+    return {
+        "status": "ok",
+        "key": key,
+        "value": preference_manager.get(user_id, key)
+    }
+
+
+@app.put("/preferences/{user_id}/{key}")
+async def set_preference(user_id: str, key: str, value: Any):
+    """Set a specific preference.
+
+    Args:
+        user_id: User identifier
+        key: Preference key
+        value: Preference value
+
+    Returns:
+        Success status.
+    """
+    if preference_manager.set(user_id, key, value):
+        return {"status": "ok", "key": key, "value": value}
+    return {"status": "error", "message": f"Invalid value for {key}"}
+
+
+@app.put("/preferences/{user_id}")
+async def set_multiple_preferences(user_id: str, preferences: dict):
+    """Set multiple preferences at once.
+
+    Args:
+        user_id: User identifier
+        preferences: Dict of key-value pairs
+
+    Returns:
+        Status for each preference.
+    """
+    results = preference_manager.set_multiple(user_id, preferences)
+    return {
+        "status": "ok",
+        "results": results
+    }
+
+
+@app.delete("/preferences/{user_id}/{key}")
+async def reset_preference(user_id: str, key: str):
+    """Reset a preference to default.
+
+    Args:
+        user_id: User identifier
+        key: Preference key
+
+    Returns:
+        Success status.
+    """
+    preference_manager.reset(user_id, key)
+    return {
+        "status": "ok",
+        "message": f"Preference {key} reset to default"
+    }
+
+
+@app.delete("/preferences/{user_id}")
+async def reset_all_preferences(user_id: str):
+    """Reset all preferences for a user.
+
+    Args:
+        user_id: User identifier
+
+    Returns:
+        Success status.
+    """
+    preference_manager.reset(user_id)
+    return {
+        "status": "ok",
+        "message": "All preferences reset"
+    }
+
+
+@app.get("/preferences/{user_id}/export")
+async def export_preferences(user_id: str):
+    """Export preferences as JSON.
+
+    Args:
+        user_id: User identifier
+
+    Returns:
+        JSON string of preferences.
+    """
+    return {
+        "status": "ok",
+        "json": preference_manager.export_preferences(user_id)
+    }
+
+
+@app.post("/preferences/{user_id}/import")
+async def import_preferences(user_id: str, json_data: str):
+    """Import preferences from JSON.
+
+    Args:
+        user_id: User identifier
+        json_data: JSON string of preferences
+
+    Returns:
+        Status for each preference.
+    """
+    results = preference_manager.import_preferences(user_id, json_data)
+    return {
+        "status": "ok",
+        "results": results
     }
