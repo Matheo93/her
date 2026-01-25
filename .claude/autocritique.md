@@ -6136,3 +6136,56 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 625 - Job Queue (BACKEND)
+
+**Fichier:** `backend/job_queue.py`
+
+**Classes créées:**
+1. **JobQueue** - Main queue manager with worker pool
+2. **Job** - Job dataclass with status/priority
+3. **JobStatus** - Status enum (PENDING/RUNNING/COMPLETED/FAILED/RETRYING/DEAD/CANCELLED)
+4. **JobPriority** - Priority enum (CRITICAL/HIGH/NORMAL/LOW/BACKGROUND)
+
+**Fonctionnalités:**
+- Priority queue avec heapq
+- Async worker pool configurable
+- Retry avec exponential backoff
+- Job dependencies (depends_on)
+- Scheduled/delayed jobs
+- Dead letter queue
+- Handler decorator registration
+- Batch job enqueue
+- Job timeout avec asyncio.wait_for
+
+**11 Endpoints créés:**
+- POST /jobs - Enqueue job
+- GET /jobs/{job_id} - Get job
+- GET /jobs - List jobs
+- POST /jobs/{job_id}/cancel - Cancel job
+- POST /jobs/{job_id}/retry - Retry failed job
+- GET /jobs/queue/stats - Queue stats
+- GET /jobs/queue/dead-letter - Dead letter jobs
+- POST /jobs/queue/dead-letter/clear - Clear dead letter
+- POST /jobs/queue/purge - Purge old jobs
+- POST /jobs/workers/start - Start workers
+- POST /jobs/workers/stop - Stop workers
+
+**Note: 9/10**
+
+**Points positifs:**
+- Priority queue efficient avec heapq
+- Worker pool async scalable
+- Exponential backoff retry
+- Dead letter pour analyse failures
+- Dependencies pour workflows complexes
+- Built-in test handlers (echo, delay)
+
+**Points négatifs:**
+- Pas de persistence Redis/DB
+- Pas de distributed workers
+- Pas de rate limiting per-handler
+
+**Risques:** Aucun
+
+---
