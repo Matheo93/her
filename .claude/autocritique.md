@@ -4603,3 +4603,44 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 585 (BACKEND) - Autocritique
+
+**Date:** 2026-01-25
+**Domaine:** Backend Python - Rate Limiter
+
+**Ce que j'ai fait:**
+1. **Créé rate_limiter.py**
+   - Token bucket algorithm
+   - Per-user + per-endpoint limits
+   - Burst allowance
+   - Auto-cleanup inactive buckets
+   - Statistics tracking
+
+2. **Configurations pré-définies**
+   - chat: 30 req/min, burst 5
+   - tts: 20 req/min, burst 3
+   - export: 10 req/min, burst 2
+
+3. **Endpoints**
+   - GET /rate-limit/check/{user_id}
+   - GET /rate-limit/status/{user_id}
+   - POST /rate-limit/reset/{user_id}
+   - GET /rate-limit/stats
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- Token bucket efficace et précis
+- Warning threshold avant le deny
+- Stats complètes (denial rate, etc.)
+- Cleanup automatique des buckets inactifs
+
+**Points négatifs:**
+- Pas de persistence (reset au restart)
+- Pas de rate limit sur WebSocket
+- Pas de IP fallback si user_id absent
+
+**Risques:** Faibles (nouvelle feature)
+
+---
