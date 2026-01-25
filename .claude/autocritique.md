@@ -8661,3 +8661,25 @@ Système de retry avec stratégies de backoff configurables.
 - AggregateRoot et Repository
 - Optimistic concurrency avec expected_version
 - Subscriptions async pour notifications
+
+---
+
+## Sprint 698 - Frontend Splitter
+**Score: 8.5/10**
+- Horizontal et vertical splits
+- Min/Max size constraints
+- Collapsible avec double-click
+- TripleSplitter pour 3 panneaux
+- CollapsibleSidebar layout
+- localStorage persistence
+
+---
+
+## Sprint 699 - Backend Job Scheduler
+**Score: 9/10**
+- Cron parser complet avec next_run
+- IntervalBuilder fluent API (every(5).seconds.do)
+- Priority queue avec heap
+- Retry avec backoff exponentiel
+- Concurrent execution avec semaphore
+- Jobs one-time et récurrents
