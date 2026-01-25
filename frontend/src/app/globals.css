@@ -1,8 +1,30 @@
 @import "tailwindcss";
 
+/* HER Theme Variables - Warm, intimate, human */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Light mode - HER colors */
+  --her-coral: #E8846B;
+  --her-cream: #F5E6D3;
+  --her-warm-white: #FAF8F5;
+  --her-earth: #8B7355;
+  --her-soft-shadow: #D4C4B5;
+  --her-blush: #E8A090;
+
+  --background: var(--her-warm-white);
+  --foreground: var(--her-earth);
+}
+
+/* Dark mode - HER warm dark */
+.dark {
+  --her-coral: #F0A08A;
+  --her-cream: #3A322D;
+  --her-warm-white: #231F1D;
+  --her-earth: #EDE4D8;
+  --her-soft-shadow: #4D443C;
+  --her-blush: #F2B8A8;
+
+  --background: var(--her-warm-white);
+  --foreground: var(--her-earth);
 }
 
 @theme inline {
@@ -12,11 +34,13 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Theme transition - smooth color changes */
+.theme-transitioning,
+.theme-transitioning * {
+  transition: background-color 0.4s ease-out,
+              color 0.3s ease-out,
+              border-color 0.3s ease-out,
+              box-shadow 0.4s ease-out !important;
 }
 
 body {
