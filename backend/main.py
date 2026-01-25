@@ -2372,6 +2372,86 @@ async def get_export_stats():
 
 
 # ═══════════════════════════════════════════════════════════════
+# Rate Limiter API - Sprint 585
+# ═══════════════════════════════════════════════════════════════
+
+from rate_limiter import rate_limiter, RateLimitResult
+
+
+@app.get("/rate-limit/check/{user_id}")
+async def check_rate_limit(
+    user_id: str,
+    endpoint: str = "default"
+):
+    """Check rate limit status for a user without consuming a token.
+
+    Args:
+        user_id: User identifier
+        endpoint: Endpoint to check (default, chat, tts, export)
+
+    Returns:
+        Rate limit status with remaining tokens.
+    """
+    result = rate_limiter.check(user_id, endpoint, consume=False)
+    return {"status": "ok", **result}
+
+
+@app.get("/rate-limit/status/{user_id}")
+async def get_rate_limit_status(user_id: str):
+    """Get rate limit status for all endpoints for a user.
+
+    Args:
+        user_id: User identifier
+
+    Returns:
+        Status per endpoint with remaining tokens.
+    """
+    status = rate_limiter.get_user_status(user_id)
+    return {
+        "status": "ok",
+        "user_id": user_id,
+        "endpoints": status
+    }
+
+
+@app.post("/rate-limit/reset/{user_id}")
+async def reset_rate_limit(
+    user_id: str,
+    endpoint: Optional[str] = None,
+    _: str = Depends(verify_api_key)
+):
+    """Reset rate limit for a user (admin only).
+
+    Args:
+        user_id: User identifier
+        endpoint: Optional specific endpoint to reset
+
+    Returns:
+        Number of buckets reset.
+    """
+    count = rate_limiter.reset_user(user_id, endpoint)
+    return {
+        "status": "ok",
+        "buckets_reset": count,
+        "user_id": user_id,
+        "endpoint": endpoint or "all"
+    }
+
+
+@app.get("/rate-limit/stats")
+async def get_rate_limit_stats():
+    """Get rate limiter global statistics.
+
+    Returns:
+        Statistics including total requests, denials, unique users.
+    """
+    return {
+        "status": "ok",
+        "stats": rate_limiter.get_stats()
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
 # Avatar Emotions API - Sprint 579
 # ═══════════════════════════════════════════════════════════════
 

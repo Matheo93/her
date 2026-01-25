@@ -4570,3 +4570,36 @@
 **Risques:** Faibles
 
 ---
+
+## Sprint 584 (FRONTEND) - Autocritique
+
+**Date:** 2026-01-25
+**Domaine:** Frontend React - Settings Panel
+
+**Ce que j'ai fait:**
+1. **Créé SettingsPanel.tsx**
+   - Slide-out drawer avec backdrop
+   - 3 sections: Voix, Affichage, Confidentialité
+   - Custom Toggle, Slider, Select components
+
+2. **Settings**
+   - Voice: choix voix, vitesse, tonalité, autoplay
+   - Display: dark mode, taille texte, animations, reduced motion
+   - Privacy: historique, anonymisation
+
+**Note: 8/10**
+
+**Points positifs:**
+- UI complète et organisée par catégories
+- Composants réutilisables (Toggle, Slider, Select)
+- Integration dark mode via ThemeContext
+- Animations fluides (framer-motion)
+
+**Points négatifs:**
+- Settings non persistés (localStorage manquant)
+- Pas de hook useSettings pour état global
+- Pas de reset to defaults button
+
+**Risques:** Aucun
+
+---
