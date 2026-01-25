@@ -66,6 +66,7 @@ from ultra_fast_tts import init_ultra_fast_tts, async_ultra_fast_tts, ultra_fast
 from gpu_tts import init_gpu_tts, async_gpu_tts, gpu_tts, async_gpu_tts_mp3, gpu_tts_mp3
 from streaming_tts import stream_tts_gpu, fast_first_byte_tts, split_into_chunks
 from tts_optimizer import init_tts_optimizer, prewarm_tts_cache, get_tts_optimizer
+from session_insights import session_insights
 
 # Eva Expression System (breathing sounds, emotions, animations)
 from eva_expression import eva_expression, init_expression_system, detect_emotion, get_expression_data
@@ -2189,6 +2190,44 @@ async def trigger_tts_prewarm(_: str = Depends(verify_api_key)):
         "status": "ok",
         "chunks_prewarmed": count,
         "message": f"Pre-warmed {count} TTS chunks"
+    }
+
+
+@app.get("/analytics/sessions")
+async def get_session_insights_global(_: str = Depends(verify_api_key)):
+    """Get global session insights and quality metrics.
+
+    Returns:
+        Active sessions, quality distribution, engagement scores.
+    """
+    return session_insights.get_global_stats()
+
+
+@app.get("/analytics/sessions/{session_id}")
+async def get_session_insight(session_id: str, _: str = Depends(verify_api_key)):
+    """Get insights for a specific session.
+
+    Returns:
+        Session summary with message count, latencies, emotions, quality score.
+    """
+    summary = session_insights.get_session_summary(session_id)
+    if summary:
+        return summary
+    return {"error": "Session not found", "session_id": session_id}
+
+
+@app.post("/analytics/sessions/cleanup")
+async def cleanup_stale_sessions(_: str = Depends(verify_api_key)):
+    """Clean up stale sessions beyond timeout.
+
+    Returns:
+        Number of sessions cleaned up.
+    """
+    count = session_insights.cleanup_stale_sessions()
+    return {
+        "status": "ok",
+        "sessions_cleaned": count,
+        "active_sessions": len(session_insights.sessions)
     }
 
 
