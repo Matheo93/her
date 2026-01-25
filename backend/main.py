@@ -8076,6 +8076,7 @@ from api_versioning import api_versioning, VersionStatus as APIVersionStatus
 from plugin_system import plugin_manager, PluginStatus as PluginSystemStatus
 from circuit_breaker import circuit_breaker_manager, CircuitState, get_circuit_breaker
 from feature_flags import feature_flag_manager, FlagType, FlagStatus
+from webhooks import webhook_manager, DeliveryStatus
 
 
 @app.get("/audit")
@@ -9317,3 +9318,214 @@ async def clear_flags_cache():
     """
     feature_flag_manager.clear_cache()
     return {"status": "ok", "cleared": True}
+
+
+# =============================================================================
+# Webhook Endpoints - Sprint 635
+# =============================================================================
+
+
+@app.post("/webhooks")
+async def register_webhook(
+    url: str,
+    secret: str,
+    events: List[str] = [],
+    description: str = ""
+):
+    """Register a webhook endpoint.
+
+    Args:
+        url: Endpoint URL.
+        secret: Signing secret.
+        events: Event types to subscribe.
+        description: Description.
+
+    Returns:
+        Created endpoint.
+    """
+    endpoint = webhook_manager.register_endpoint(
+        url=url,
+        secret=secret,
+        events=events,
+        description=description
+    )
+    return {"status": "ok", "endpoint": endpoint.to_dict()}
+
+
+@app.get("/webhooks")
+async def list_webhooks():
+    """List all webhook endpoints.
+
+    Returns:
+        List of endpoints.
+    """
+    endpoints = webhook_manager.list_endpoints()
+    return {"status": "ok", "endpoints": endpoints, "count": len(endpoints)}
+
+
+@app.get("/webhooks/{endpoint_id}")
+async def get_webhook(endpoint_id: str):
+    """Get a webhook endpoint.
+
+    Args:
+        endpoint_id: Endpoint ID.
+
+    Returns:
+        Endpoint details.
+    """
+    endpoint = webhook_manager.get_endpoint(endpoint_id)
+    if not endpoint:
+        return {"status": "error", "message": "Endpoint not found"}
+    return {"status": "ok", "endpoint": endpoint.to_dict()}
+
+
+@app.delete("/webhooks/{endpoint_id}")
+async def delete_webhook(endpoint_id: str):
+    """Delete a webhook endpoint.
+
+    Args:
+        endpoint_id: Endpoint ID.
+
+    Returns:
+        Deletion status.
+    """
+    success = webhook_manager.delete_endpoint(endpoint_id)
+    return {"status": "ok" if success else "error", "deleted": success}
+
+
+@app.put("/webhooks/{endpoint_id}")
+async def update_webhook(
+    endpoint_id: str,
+    url: Optional[str] = None,
+    enabled: Optional[bool] = None,
+    events: Optional[List[str]] = None,
+    description: Optional[str] = None
+):
+    """Update a webhook endpoint.
+
+    Args:
+        endpoint_id: Endpoint ID.
+        url: New URL.
+        enabled: Enable/disable.
+        events: New event subscriptions.
+        description: New description.
+
+    Returns:
+        Updated endpoint.
+    """
+    endpoint = webhook_manager.update_endpoint(
+        endpoint_id=endpoint_id,
+        url=url,
+        enabled=enabled,
+        events=events,
+        description=description
+    )
+    if not endpoint:
+        return {"status": "error", "message": "Endpoint not found"}
+    return {"status": "ok", "endpoint": endpoint.to_dict()}
+
+
+@app.post("/webhooks/trigger")
+async def trigger_webhook_event(
+    event_type: str,
+    payload: dict = {}
+):
+    """Trigger a webhook event.
+
+    Args:
+        event_type: Event type.
+        payload: Event payload.
+
+    Returns:
+        Delivery IDs.
+    """
+    delivery_ids = await webhook_manager.trigger_event(event_type, payload)
+    return {"status": "ok", "delivery_ids": delivery_ids}
+
+
+@app.get("/webhooks/deliveries")
+async def list_webhook_deliveries(
+    endpoint_id: Optional[str] = None,
+    event_type: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 100
+):
+    """List webhook deliveries.
+
+    Args:
+        endpoint_id: Filter by endpoint.
+        event_type: Filter by event type.
+        status: Filter by status.
+        limit: Max results.
+
+    Returns:
+        List of deliveries.
+    """
+    dstatus = None
+    if status:
+        try:
+            dstatus = DeliveryStatus(status)
+        except ValueError:
+            pass
+
+    deliveries = webhook_manager.list_deliveries(
+        endpoint_id=endpoint_id,
+        event_type=event_type,
+        status=dstatus,
+        limit=limit
+    )
+    return {"status": "ok", "deliveries": deliveries, "count": len(deliveries)}
+
+
+@app.get("/webhooks/deliveries/{delivery_id}")
+async def get_webhook_delivery(delivery_id: str):
+    """Get a webhook delivery.
+
+    Args:
+        delivery_id: Delivery ID.
+
+    Returns:
+        Delivery details.
+    """
+    delivery = webhook_manager.get_delivery(delivery_id)
+    if not delivery:
+        return {"status": "error", "message": "Delivery not found"}
+    return {"status": "ok", "delivery": delivery}
+
+
+@app.post("/webhooks/deliveries/{delivery_id}/retry")
+async def retry_webhook_delivery(delivery_id: str):
+    """Retry a failed delivery.
+
+    Args:
+        delivery_id: Delivery ID.
+
+    Returns:
+        Retry status.
+    """
+    success = await webhook_manager.retry_delivery(delivery_id)
+    return {"status": "ok" if success else "error", "retried": success}
+
+
+@app.get("/webhooks/stats")
+async def get_webhook_stats():
+    """Get webhook statistics.
+
+    Returns:
+        Statistics.
+    """
+    return {"status": "ok", "stats": webhook_manager.get_stats()}
+
+
+@app.post("/webhooks/history/clear")
+async def clear_webhook_history(before: Optional[float] = None):
+    """Clear webhook delivery history.
+
+    Args:
+        before: Clear before timestamp.
+
+    Returns:
+        Number cleared.
+    """
+    count = webhook_manager.clear_history(before)
+    return {"status": "ok", "cleared": count}
