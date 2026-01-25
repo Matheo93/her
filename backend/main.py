@@ -7098,3 +7098,163 @@ async def get_voice_stats(user_id: str):
         "status": "ok",
         "stats": voice_profile_manager.get_stats(user_id)
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Background Tasks API - Sprint 613
+# ═══════════════════════════════════════════════════════════════
+
+from background_tasks import task_manager, TaskStatus, TaskPriority
+
+
+@app.on_event("startup")
+async def start_task_manager():
+    """Start the background task manager."""
+    await task_manager.start()
+
+
+@app.on_event("shutdown")
+async def stop_task_manager():
+    """Stop the background task manager."""
+    await task_manager.stop()
+
+
+@app.get("/tasks")
+async def get_all_tasks(
+    status: Optional[str] = None,
+    limit: int = 100
+):
+    """Get all background tasks.
+
+    Args:
+        status: Filter by status
+        limit: Maximum tasks to return
+
+    Returns:
+        List of tasks.
+    """
+    task_status = None
+    if status:
+        try:
+            task_status = TaskStatus(status)
+        except ValueError:
+            pass
+
+    return {
+        "status": "ok",
+        "tasks": task_manager.get_all_tasks(status=task_status, limit=limit)
+    }
+
+
+@app.get("/tasks/{task_id}")
+async def get_task(task_id: str):
+    """Get a specific task.
+
+    Args:
+        task_id: Task ID
+
+    Returns:
+        Task details.
+    """
+    task = task_manager.get_task(task_id)
+    if not task:
+        return {"status": "error", "message": "Task not found"}
+    return {
+        "status": "ok",
+        "task": task
+    }
+
+
+@app.post("/tasks/submit/{task_name}")
+async def submit_task(
+    task_name: str,
+    priority: str = "normal",
+    max_retries: int = 3,
+    message: Optional[str] = None,
+    delay: Optional[float] = None
+):
+    """Submit a new background task.
+
+    Args:
+        task_name: Task handler name
+        priority: Task priority (low, normal, high, critical)
+        max_retries: Maximum retry attempts
+        message: Optional message for echo task
+        delay: Optional delay for delay task
+
+    Returns:
+        Created task ID.
+    """
+    priority_map = {
+        "low": TaskPriority.LOW,
+        "normal": TaskPriority.NORMAL,
+        "high": TaskPriority.HIGH,
+        "critical": TaskPriority.CRITICAL,
+    }
+    task_priority = priority_map.get(priority.lower(), TaskPriority.NORMAL)
+
+    metadata = {}
+    if message:
+        metadata["message"] = message
+    if delay is not None:
+        metadata["delay"] = delay
+
+    try:
+        task_id = await task_manager.submit(
+            name=task_name,
+            priority=task_priority,
+            max_retries=max_retries,
+            metadata=metadata
+        )
+        return {
+            "status": "ok",
+            "task_id": task_id,
+            "message": f"Task {task_name} submitted"
+        }
+    except ValueError as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.post("/tasks/{task_id}/cancel")
+async def cancel_task(task_id: str):
+    """Cancel a pending task.
+
+    Args:
+        task_id: Task ID
+
+    Returns:
+        Success status.
+    """
+    if await task_manager.cancel_task(task_id):
+        return {"status": "ok", "message": "Task cancelled"}
+    return {"status": "error", "message": "Task not found or already running"}
+
+
+@app.delete("/tasks/completed")
+async def clear_completed_tasks(older_than_seconds: float = 3600):
+    """Clear completed tasks.
+
+    Args:
+        older_than_seconds: Age threshold in seconds
+
+    Returns:
+        Number of tasks cleared.
+    """
+    cleared = task_manager.clear_completed(older_than_seconds)
+    return {
+        "status": "ok",
+        "cleared": cleared
+    }
+
+
+@app.get("/tasks/stats/summary")
+async def get_task_stats():
+    """Get task statistics.
+
+    Returns:
+        Task statistics.
+    """
+    return {
+        "status": "ok",
+        "stats": task_manager.get_stats()
+    }

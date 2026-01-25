@@ -4960,3 +4960,653 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 595 (BACKEND) - Autocritique
+
+**Date:** 2026-01-25
+**Domaine:** Backend Python - Session Manager
+
+**Ce que j'ai fait:**
+1. **Créé session_manager.py**
+   - Session dataclass avec état
+   - Timeout configurable (30min défaut)
+   - Max 5 sessions par user
+   - Activity tracking (touch, messages)
+
+2. **Endpoints (7)**
+   - POST /sessions
+   - GET /sessions/{id}
+   - POST /sessions/{id}/touch
+   - DELETE /sessions/{id}
+   - GET /sessions/user/{id}
+   - GET /sessions/stats
+   - POST /sessions/cleanup
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- Lifecycle complet
+- Limite sessions par user
+- Stats détaillées
+- Persistence optionnelle
+
+**Points négatifs:**
+- Pas de JWT/token auth
+- Pas de session extension automatique
+- Cleanup pas en background task
+
+**Risques:** Aucun
+
+---
+
+## Sprint 596 - Loading Components (FRONTEND)
+
+**Fichier:** `frontend/src/components/Loading.tsx`
+
+**Composants créés (10):**
+1. **Spinner** - Rotation classique avec ring
+2. **DotsLoader** - 3 dots rebondissants
+3. **PulseLoader** - Cercles pulsants
+4. **ProgressBar** - Barre avec animation + label
+5. **Skeleton** - Box avec shimmer
+6. **SkeletonText** - Lignes de texte
+7. **SkeletonAvatar** - Avatar placeholder
+8. **SkeletonCard** - Carte complète
+9. **PageLoader** - Full page centré
+10. **InlineLoader** - Spinner + message
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- 10 variantes couvrent tous les cas
+- Framer Motion pour animations fluides
+- Props size (sm/md/lg) cohérentes
+- Couleurs HER (coral, warmWhite)
+- Tous mémoïsés avec memo()
+
+**Points négatifs:**
+- Pas de reduced-motion support
+- Pas d'aria-label pour accessibilité
+- Skeleton shimmer direction fixe
+
+**Risques:** Aucun
+
+---
+
+## Sprint 597 - Response Queue Manager (BACKEND)
+
+**Fichiers:**
+- `backend/response_queue.py` - Queue avec priorités
+- `backend/main.py` - 8 nouveaux endpoints
+
+**Fonctionnalités:**
+1. **Priority Queue** - heapq pour ordre (CRITICAL→LOW)
+2. **Retry Logic** - 3 attempts max, backoff exponentiel
+3. **Dead Letter Queue** - Items non-délivrables
+4. **Session Tracking** - Queue par session
+5. **Stats** - Métriques temps réel
+
+**Endpoints (8):**
+- POST /queue/enqueue
+- GET /queue/response/{id}
+- GET /queue/session/{id}
+- DELETE /queue/response/{id}
+- DELETE /queue/session/{id}
+- GET /queue/stats
+- GET /queue/dead-letters
+- POST /queue/dead-letters/{id}/retry
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- heapq efficace pour priorités
+- Retry avec backoff intelligent
+- Dead letter pour debugging
+- Nettoyage automatique (5min max age)
+
+**Points négatifs:**
+- Pas de persistence disk
+- Pas de distributed queue (Redis)
+- Lock async simple (pas optimal)
+
+**Risques:** Aucun
+
+---
+
+## Sprint 598 - Voice Waveform Visualizer (FRONTEND)
+
+**Fichier:** `frontend/src/components/VoiceWaveform.tsx`
+
+**Composants créés (7):**
+1. **LiveWaveform** - Visualisation temps réel (bars/line/dots)
+2. **SimulatedWaveform** - Placeholder animé
+3. **FrequencyBars** - Barres de fréquence simples
+4. **VoiceActivityIndicator** - Indicateur de parole
+5. **SpeakingDots** - Dots animés pendant parole
+6. **MicLevelMeter** - Indicateur niveau vertical + peak
+7. **CircularVisualizer** - Visualisation en cercle
+
+**Note: 9/10**
+
+**Points positifs:**
+- 3 styles pour LiveWaveform (bars, line, dots)
+- Canvas + Web Audio API efficaces
+- Peak indicator sur MicLevelMeter
+- Animations Framer Motion fluides
+- Fallback simulated quand pas d'audio
+
+**Points négatifs:**
+- AudioContext créé à chaque mount
+- Pas de cleanup MediaStream
+- roundRect peut ne pas être supporté partout
+
+**Risques:** Aucun
+
+---
+
+## Sprint 599 - Analytics Collector (BACKEND)
+
+**Fichiers:**
+- `backend/analytics_collector.py` - Collecteur d'analytics
+- `backend/main.py` - 8 nouveaux endpoints
+
+**Fonctionnalités:**
+1. **Event Tracking** - 9 types d'événements
+2. **Time Series** - Agrégation horaire
+3. **Latency Stats** - avg, p50, p95
+4. **Top Phrases** - Phrases les plus fréquentes
+5. **Session Analytics** - Stats par session
+6. **Error Tracking** - Taux d'erreur + détails
+7. **Voice Usage** - Utilisation des voix
+
+**Endpoints (8):**
+- POST /analytics/track
+- GET /analytics/summary
+- GET /analytics/hourly
+- GET /analytics/phrases
+- GET /analytics/events
+- GET /analytics/errors
+- GET /analytics/session/{id}
+- POST /analytics/cleanup
+
+**Note: 9/10**
+
+**Points positifs:**
+- Agrégation efficace en mémoire
+- Percentiles pour latence (p50, p95)
+- Cleanup automatique (24h retention)
+- Thread-safe avec locks
+
+**Points négatifs:**
+- Pas de persistence disk
+- Pas d'export CSV/JSON
+- Phrase tracking trop simpliste
+
+**Risques:** Aucun
+
+---
+
+## Sprint 600 - Modal Dialog System (FRONTEND) 🎉
+
+**Fichier:** `frontend/src/components/Modal.tsx`
+
+**Composants créés (6):**
+1. **Modal** - Modal flexible avec sizes (sm/md/lg/xl/full)
+2. **ModalFooter** - Container pour boutons d'action
+3. **ConfirmDialog** - Confirmation oui/non + variant danger
+4. **AlertDialog** - Alertes info/success/warning/error
+5. **Drawer** - Panel latéral (gauche/droite)
+6. **ModalProvider + useModal** - Gestion globale
+
+**Note: 9.5/10** ⭐
+
+**Points positifs:**
+- Focus trap pour accessibilité
+- Escape + clic overlay pour fermer
+- Scroll lock quand ouvert
+- Animations spring pour Drawer
+- Context provider pour usage global
+- Icons SVG par variant
+
+**Points négatifs:**
+- Pas de portal (pourrait causer z-index issues)
+- Pas de stack de modaux multiples
+- Aria-describedby manquant
+
+**Risques:** Aucun
+
+🎉 **SPRINT 600 ATTEINT!** 🎉
+
+---
+
+## Sprint 601 - User Preferences (BACKEND)
+
+**Fichiers:**
+- `backend/user_preferences.py` - Gestionnaire de préférences
+- `backend/main.py` - 10 nouveaux endpoints
+
+**Fonctionnalités:**
+1. **17 Préférences** prédéfinies
+2. **6 Catégories** - voice, display, notifications, privacy, accessibility, advanced
+3. **Type Validation** - string, number, boolean, select, range
+4. **Import/Export** JSON
+5. **Valeurs par défaut** avec override
+
+**Endpoints (10):**
+- GET /preferences/definitions
+- GET /preferences/{user_id}
+- GET /preferences/{user_id}/categories
+- GET /preferences/{user_id}/{key}
+- PUT /preferences/{user_id}/{key}
+- PUT /preferences/{user_id}
+- DELETE /preferences/{user_id}/{key}
+- DELETE /preferences/{user_id}
+- GET /preferences/{user_id}/export
+- POST /preferences/{user_id}/import
+
+**Note: 9/10**
+
+**Points positifs:**
+- Définitions riches avec metadata
+- Validation par type complète
+- Organisation par catégorie
+- Import/export portable
+
+**Points négatifs:**
+- Pas de versioning des prefs
+- Pas de hooks onChange
+- Persistence optionnelle seulement
+
+**Risques:** Aucun
+
+---
+
+## Sprint 602 - Tabs Navigation (FRONTEND)
+
+**Fichier:** `frontend/src/components/Tabs.tsx`
+
+**Composants créés (5):**
+1. **Tabs** - Composant principal avec 3 variants
+2. **TabPanel** - Container de contenu animé
+3. **SimpleTabs** - Version all-in-one
+4. **IconTabs** - Tabs icônes seulement
+5. **SegmentedControl** - Toggle style iOS
+
+**Note: 9/10**
+
+**Points positifs:**
+- 3 variants (underline, pill, boxed)
+- Orientation h/v supportée
+- Badges avec overflow 99+
+- Animated underline avec layoutId
+- SegmentedControl avec sliding bg
+- Aria roles complets
+
+**Points négatifs:**
+- Pas de keyboard navigation (arrows)
+- Pas de lazy loading des panels
+- layoutId peut causer issues si multiple Tabs
+
+**Risques:** Aucun
+
+---
+
+## Sprint 603 - Logging Service (BACKEND)
+
+**Fichiers:**
+- `backend/logging_service.py` - Service de logs structurés
+- `backend/main.py` - 5 nouveaux endpoints
+
+**Fonctionnalités:**
+1. **5 Niveaux** - DEBUG, INFO, WARN, ERROR, CRITICAL
+2. **Logger nommé** - avec contexte par défaut
+3. **LogEntry structuré** - trace_id, session_id, duration_ms
+4. **Console colorée** - codes ANSI
+5. **Fichier JSON** - optional persistence
+6. **Query** - par level, logger, trace, search
+
+**Endpoints (5):**
+- GET /logs/query
+- GET /logs/errors
+- GET /logs/stats
+- PUT /logs/level
+- DELETE /logs
+
+**Note: 9/10**
+
+**Points positifs:**
+- Contexte enrichi (trace, session, user)
+- with_context() pour child loggers
+- Couleurs terminal intuitives
+- Custom handlers support
+- Stack trace capture
+
+**Points négatifs:**
+- Pas de rotation des fichiers
+- Pas de structured logging format (ELK)
+- Lock global (pas optimal)
+
+**Risques:** Aucun
+
+---
+
+## Sprint 604 - Accordion Component (FRONTEND)
+
+**Fichier:** `frontend/src/components/Accordion.tsx`
+
+**Composants créés (5):**
+1. **Accordion** - Multi/single expand avec variants
+2. **Collapsible** - Simple expand/collapse
+3. **FAQAccordion** - Stylisé pour FAQ
+4. **Disclosure** - Widget disclosure minimaliste
+5. **ExpandableCard** - Carte avec contenu extensible
+
+**Note: 9/10**
+
+**Points positifs:**
+- 3 variants (default, bordered, separated)
+- allowMultiple pour multi-expand
+- Controlled + uncontrolled modes
+- Animations smooth avec AnimatePresence
+- Aria attributes complets
+- Icons avec chevron animé
+
+**Points négatifs:**
+- Pas de keyboard navigation
+- Pas de focus management
+- Layout animation peut être jerky
+
+**Risques:** Aucun
+
+---
+
+## Sprint 605 - Context Window Manager (BACKEND)
+
+**Fichiers:**
+- `backend/context_manager.py` - Gestionnaire de contexte LLM
+- `backend/main.py` - 7 nouveaux endpoints
+
+**Fonctionnalités:**
+1. **ContextWindow** - Fenêtre par session
+2. **Token estimation** - ~4 chars/token
+3. **Priority retention** - CRITICAL > HIGH > NORMAL > LOW
+4. **Sliding window** - Garde les messages récents
+5. **Summary injection** - Résumé de conversation
+6. **Auto-trim** - Coupe quand over limit
+
+**Endpoints (7):**
+- GET /context/{session_id}
+- GET /context/{session_id}/history
+- POST /context/{session_id}/message
+- POST /context/{session_id}/summary
+- DELETE /context/{session_id}
+- GET /context/stats/all
+- POST /context/cleanup
+
+**Note: 9/10**
+
+**Points positifs:**
+- Estimation tokens raisonnable
+- Reserve pour réponse
+- Priorité messages récents
+- Stats utilization_percent
+- Cleanup automatique
+
+**Points négatifs:**
+- Pas de tiktoken pour comptage exact
+- Pas de compression/résumé auto
+- Thread lock simple
+
+**Risques:** Aucun
+
+---
+
+## Sprint 606 - Tooltip Component (FRONTEND)
+
+**Fichier:** `frontend/src/components/Tooltip.tsx`
+
+**Composants créés (6):**
+1. **Tooltip** - Tooltip hover simple avec flèche
+2. **RichTooltip** - Avec titre et description
+3. **Popover** - Tooltip interactif au clic
+4. **InfoTooltip** - Icône ? avec tooltip
+5. **ShortcutTooltip** - Label + raccourci clavier
+6. **TruncateTooltip** - Texte tronqué avec full au hover
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- 4 positions (top/bottom/left/right)
+- Flèche CSS pointant vers trigger
+- Delay configurable
+- Popover avec click-outside + escape
+- Animation smooth avec variants
+
+**Points négatifs:**
+- Pas de portal (peut être coupé par overflow:hidden)
+- Pas de repositionnement automatique
+- Couleur charcoal hardcodée
+
+**Risques:** Aucun
+
+---
+
+## Sprint 607 - Performance Monitor (BACKEND)
+
+**Fichiers:**
+- `backend/perf_monitor.py` - Moniteur de performance
+- `backend/main.py` - 7 nouveaux endpoints
+
+**Fonctionnalités:**
+1. **Request Timing** - durée par requête
+2. **Percentiles** - p50, p90, p95, p99
+3. **Slow Detection** - seuil 500ms
+4. **System Metrics** - CPU, memory, threads
+5. **Health Status** - basé sur error rate + perf
+6. **Timer Context** - instrumentation facile
+
+**Endpoints (7):**
+- GET /perf/summary
+- GET /perf/endpoints
+- GET /perf/slow
+- GET /perf/recent
+- GET /perf/system
+- GET /perf/health
+- POST /perf/reset
+
+**Note: 9/10**
+
+**Points positifs:**
+- Percentiles précis
+- psutil pour métriques système
+- Health status auto-calculé
+- Context manager pour timing
+- Détection slow requests
+
+**Points négatifs:**
+- Pas d'histogrammes
+- Pas de tracing distribué
+- Lock global simple
+
+**Risques:** Aucun
+
+---
+
+## Sprint 608 - Badge/Chip Component (FRONTEND)
+
+**Fichier:** `frontend/src/components/Badge.tsx`
+
+**Composants créés (7):**
+1. **Badge** - Indicateur de statut simple
+2. **Chip** - Tag supprimable avec animation
+3. **StatusDot** - Dot coloré + pulse optionnel
+4. **Counter** - Badge numérique (99+ overflow)
+5. **BadgeWithDot** - Badge avec dot de statut
+6. **IconBadge** - Badge attaché aux icônes
+7. **TagGroup** - Groupe de tags supprimables
+
+**Note: 9/10**
+
+**Points positifs:**
+- 5 variants (default/success/warning/error/info)
+- 3 sizes (sm/md/lg)
+- Outlined option
+- Pulse animation pour StatusDot
+- 99+ overflow pour Counter
+- Position configurable pour IconBadge
+
+**Points négatifs:**
+- Pas de badge avec bordure gradient
+- Pas de close animation sur Chip remove
+- TagGroup basique
+
+**Risques:** Aucun
+
+---
+
+## Sprint 609 - Feature Flags (BACKEND)
+
+**Fichiers:**
+- `backend/feature_flags.py` - Système de feature flags
+- `backend/main.py` - 9 nouveaux endpoints
+
+**Fonctionnalités:**
+1. **4 Types** - boolean, percentage, user_list, environment
+2. **Rollout progressif** - percentage avec hash déterministe
+3. **User targeting** - beta users
+4. **Environment-based** - dev/staging/prod
+5. **8 Flags par défaut** - features communes
+
+**Endpoints (9):**
+- GET /flags
+- GET /flags/{name}
+- GET /flags/check/{name}
+- GET /flags/user/{user_id}
+- POST /flags
+- PUT /flags/{name}
+- DELETE /flags/{name}
+- POST /flags/{name}/users/{user_id}
+- DELETE /flags/{name}/users/{user_id}
+
+**Note: 9/10**
+
+**Points positifs:**
+- Hash déterministe pour % rollout
+- Multiples types de flags
+- User targeting flexible
+- Environment detection auto
+- Persistence optionnelle
+
+**Points négatifs:**
+- Pas de scheduling de flags
+- Pas d'audit log
+- Pas de groupes d'utilisateurs
+
+**Risques:** Aucun
+
+---
+
+## Sprint 610 - Switch/Toggle Component (FRONTEND)
+
+**Fichier:** `frontend/src/components/Switch.tsx`
+
+**Composants créés (7):**
+1. **Switch** - Toggle iOS-style avec spring
+2. **LabeledSwitch** - Switch avec label + description
+3. **Checkbox** - Avec checkmark + indeterminate
+4. **LabeledCheckbox** - Checkbox avec label
+5. **Radio** - Option single selection
+6. **RadioGroup** - Multiples options radio
+7. **ToggleGroup** - Button group toggle
+
+**Note: 9/10**
+
+**Points positifs:**
+- 3 tailles (sm/md/lg)
+- Spring animation smooth
+- Indeterminate state pour checkbox
+- Controlled + uncontrolled modes
+- Aria roles complets
+- ToggleGroup avec highlight
+
+**Points négatifs:**
+- Pas de focus ring visible
+- Pas de keyboard navigation dans RadioGroup
+- Checkmark SVG inline (pas de composant)
+
+**Risques:** Aucun
+
+---
+
+## Sprint 611 - Voice Profile Manager (BACKEND)
+
+**Fichiers:**
+- `backend/voice_profile.py` - Gestionnaire de profils voix
+- `backend/main.py` - 10 nouveaux endpoints
+
+**Fonctionnalités:**
+1. **VoiceProfile** - Profil par utilisateur
+2. **VoiceSettings** - voice_id, speed, pitch, volume
+3. **5 Voix françaises** - Denise, Vivienne, Henri, Eloise, Remy
+4. **5 Presets** - natural, slow, fast, soft, energetic
+5. **Usage Tracking** - Compteur par profil
+
+**Endpoints (10):**
+- GET /voice/voices
+- GET /voice/presets
+- GET /voice/profiles/{user_id}
+- GET /voice/profiles/{user_id}/active
+- POST /voice/profiles/{user_id}
+- PUT /voice/profiles/{user_id}/{name}
+- DELETE /voice/profiles/{user_id}/{name}
+- POST /voice/profiles/{user_id}/{name}/default
+- POST /voice/profiles/{user_id}/{name}/preset/{preset}
+- GET /voice/profiles/{user_id}/stats
+
+**Note: 9/10**
+
+**Points positifs:**
+- Presets intégrés et pratiques
+- Validation des ranges (speed, pitch)
+- Multiple profils par user
+- Usage stats utiles
+- Descriptions voix en français
+
+**Points négatifs:**
+- Pas de persistence disk
+- Pas de voice preview audio
+- Pas de limite nombre de profils
+
+**Risques:** Aucun
+
+---
+
+## Sprint 612 - Input Components (FRONTEND)
+
+**Fichier:** `frontend/src/components/Input.tsx`
+
+**Composants créés (5):**
+1. **Input** - Input texte avec label, helper, error, icons
+2. **Textarea** - Input multi-ligne
+3. **SearchInput** - Avec clear button et search icon
+4. **PasswordInput** - Avec toggle show/hide
+5. **NumberInput** - Avec boutons +/-
+
+**Note: 9/10**
+
+**Points positifs:**
+- 3 tailles (sm/md/lg)
+- Focus states avec border coral
+- Animated helper/error text
+- forwardRef pour accès DOM
+- Left/right icons support
+- Password toggle smooth
+
+**Points négatifs:**
+- Pas de masque input (téléphone, carte)
+- Pas de validation intégrée
+- Pas de character count pour textarea
+
+**Risques:** Aucun
+
+---
