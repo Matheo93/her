@@ -8772,3 +8772,25 @@ Système de retry avec stratégies de backoff configurables.
 - LeaderElection avec on_elected/on_demoted
 - Non-blocking mode pour try-lock
 - Stats complètes (acquisitions, timeouts, etc.)
+
+---
+
+## Sprint 708 - Frontend HoverCard
+**Score: 8.5/10**
+- Positionnement intelligent (4 sides + 3 aligns)
+- Open/close delays configurables
+- Arrow pointer animé
+- UserHoverCard, LinkHoverCard, ImageHoverCard
+- CodeHoverCard avec syntax preview
+- useHoverCard hook controlé
+
+---
+
+## Sprint 709 - Backend Message Queue
+**Score: 9/10**
+- Priority queue avec heap
+- Pub/Sub avec @subscribe decorator
+- Request/Reply pattern avec timeout
+- Dead letter queue pour failed messages
+- Retry avec exponential backoff
+- Topic wrapper pour API simplifiée
