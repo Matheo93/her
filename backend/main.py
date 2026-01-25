@@ -6451,3 +6451,146 @@ async def clear_logs():
     """
     logging_service.clear()
     return {"status": "ok", "message": "Logs cleared"}
+
+
+# ═══════════════════════════════════════════════════════════════
+# Context Window API - Sprint 605
+# ═══════════════════════════════════════════════════════════════
+
+from context_manager import context_manager
+
+
+@app.get("/context/{session_id}")
+async def get_context_window(session_id: str):
+    """Get context window for a session.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        Context messages in API format.
+    """
+    window = context_manager.get_window(session_id)
+    return {
+        "status": "ok",
+        "messages": window.get_context(),
+        "stats": window.get_stats()
+    }
+
+
+@app.get("/context/{session_id}/history")
+async def get_context_history(session_id: str):
+    """Get full message history for a session.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        Full message history with metadata.
+    """
+    window = context_manager.get_window(session_id)
+    return {
+        "status": "ok",
+        "history": window.get_history()
+    }
+
+
+@app.post("/context/{session_id}/message")
+async def add_context_message(
+    session_id: str,
+    role: str,
+    content: str
+):
+    """Add message to context window.
+
+    Args:
+        session_id: Session identifier
+        role: Message role (user, assistant, system)
+        content: Message content
+
+    Returns:
+        Updated stats.
+    """
+    window = context_manager.get_window(session_id)
+
+    if role == "user":
+        window.add_user(content)
+    elif role == "assistant":
+        window.add_assistant(content)
+    elif role == "system":
+        window.add_system(content)
+    else:
+        return {"status": "error", "message": f"Invalid role: {role}"}
+
+    return {
+        "status": "ok",
+        "stats": window.get_stats()
+    }
+
+
+@app.post("/context/{session_id}/summary")
+async def set_context_summary(session_id: str, summary: str):
+    """Set conversation summary.
+
+    Args:
+        session_id: Session identifier
+        summary: Summary content
+
+    Returns:
+        Updated stats.
+    """
+    window = context_manager.get_window(session_id)
+    window.set_summary(summary)
+    return {
+        "status": "ok",
+        "stats": window.get_stats()
+    }
+
+
+@app.delete("/context/{session_id}")
+async def clear_context(session_id: str, keep_system: bool = True):
+    """Clear context window.
+
+    Args:
+        session_id: Session identifier
+        keep_system: Whether to keep system prompt
+
+    Returns:
+        Success status.
+    """
+    window = context_manager.get_window(session_id)
+    window.clear(keep_system=keep_system)
+    return {
+        "status": "ok",
+        "message": "Context cleared"
+    }
+
+
+@app.get("/context/stats/all")
+async def get_all_context_stats():
+    """Get stats for all context windows.
+
+    Returns:
+        Stats for all active windows.
+    """
+    return {
+        "status": "ok",
+        "windows": context_manager.get_all_stats()
+    }
+
+
+@app.post("/context/cleanup")
+async def cleanup_old_contexts(max_age_seconds: int = 3600):
+    """Clean up old context windows.
+
+    Args:
+        max_age_seconds: Maximum age for windows
+
+    Returns:
+        Number of windows removed.
+    """
+    removed = context_manager.cleanup_old(max_age_seconds)
+    return {
+        "status": "ok",
+        "removed": removed
+    }
