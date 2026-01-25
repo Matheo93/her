@@ -4749,3 +4749,36 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 589 (BACKEND) - Autocritique
+
+**Date:** 2026-01-25
+**Domaine:** Backend Python - Health Checks
+
+**Ce que j'ai fait:**
+1. **Créé health_checks.py**
+   - HealthChecker avec cache 5s
+   - HealthCheckRegistry pour custom checks
+   - 5 built-in checks: system, memory, rate_limiter, websocket, config
+
+2. **Endpoints Kubernetes-ready**
+   - GET /health/live (liveness)
+   - GET /health/ready (readiness)
+   - GET /health/components
+   - GET /health/components/{name}
+
+**Note: 9/10**
+
+**Points positifs:**
+- K8s ready (liveness/readiness probes)
+- Resource monitoring (CPU, RAM, disk)
+- Extensible registry pattern
+- Cache pour éviter surcharge
+
+**Points négatifs:**
+- Pas de check LLM/TTS external services
+- Pas d'alerting/webhook sur unhealthy
+
+**Risques:** Aucun
+
+---
