@@ -8074,6 +8074,7 @@ from health_checker import health_checker, HealthStatus
 from job_queue import job_queue, JobPriority, JobStatus as JobQueueStatus
 from api_versioning import api_versioning, VersionStatus as APIVersionStatus
 from plugin_system import plugin_manager, PluginStatus as PluginSystemStatus
+from circuit_breaker import circuit_breaker_manager, CircuitState, get_circuit_breaker
 
 
 @app.get("/audit")
@@ -9013,4 +9014,152 @@ async def get_plugin_stats():
     return {
         "status": "ok",
         "stats": plugin_manager.get_stats()
+    }
+
+
+# Circuit Breaker API - Sprint 631
+# Resilience pattern for service calls
+
+@app.get("/circuits")
+async def list_circuits():
+    """List all circuit breakers.
+
+    Returns:
+        Circuit breaker states.
+    """
+    return {
+        "status": "ok",
+        "circuits": circuit_breaker_manager.get_all_stats()
+    }
+
+
+@app.get("/circuits/{name}")
+async def get_circuit(name: str):
+    """Get circuit breaker details.
+
+    Args:
+        name: Circuit breaker name.
+
+    Returns:
+        Circuit details.
+    """
+    breaker = circuit_breaker_manager.get_all().get(name)
+    if not breaker:
+        raise HTTPException(status_code=404, detail="Circuit not found")
+    return {
+        "status": "ok",
+        "circuit": breaker.to_dict()
+    }
+
+
+@app.post("/circuits/{name}/reset")
+async def reset_circuit(name: str):
+    """Reset a circuit breaker.
+
+    Args:
+        name: Circuit breaker name.
+
+    Returns:
+        Success status.
+    """
+    breaker = circuit_breaker_manager.get_all().get(name)
+    if not breaker:
+        raise HTTPException(status_code=404, detail="Circuit not found")
+    breaker.reset()
+    return {
+        "status": "ok",
+        "reset": True
+    }
+
+
+@app.post("/circuits/{name}/open")
+async def force_open_circuit(name: str):
+    """Force a circuit to open.
+
+    Args:
+        name: Circuit breaker name.
+
+    Returns:
+        Success status.
+    """
+    breaker = circuit_breaker_manager.get_all().get(name)
+    if not breaker:
+        raise HTTPException(status_code=404, detail="Circuit not found")
+    breaker.force_open()
+    return {
+        "status": "ok",
+        "state": "open"
+    }
+
+
+@app.post("/circuits/{name}/close")
+async def force_close_circuit(name: str):
+    """Force a circuit to close.
+
+    Args:
+        name: Circuit breaker name.
+
+    Returns:
+        Success status.
+    """
+    breaker = circuit_breaker_manager.get_all().get(name)
+    if not breaker:
+        raise HTTPException(status_code=404, detail="Circuit not found")
+    breaker.force_close()
+    return {
+        "status": "ok",
+        "state": "closed"
+    }
+
+
+@app.get("/circuits/states")
+async def get_circuit_states():
+    """Get all circuit states.
+
+    Returns:
+        States by name.
+    """
+    return {
+        "status": "ok",
+        "states": circuit_breaker_manager.get_all_states()
+    }
+
+
+@app.get("/circuits/open")
+async def get_open_circuits():
+    """Get names of open circuits.
+
+    Returns:
+        List of open circuit names.
+    """
+    return {
+        "status": "ok",
+        "open_circuits": circuit_breaker_manager.get_open_circuits()
+    }
+
+
+@app.post("/circuits/reset-all")
+async def reset_all_circuits():
+    """Reset all circuit breakers.
+
+    Returns:
+        Success status.
+    """
+    circuit_breaker_manager.reset_all()
+    return {
+        "status": "ok",
+        "reset": True
+    }
+
+
+@app.get("/circuits/summary")
+async def get_circuits_summary():
+    """Get circuit breakers summary.
+
+    Returns:
+        Summary statistics.
+    """
+    return {
+        "status": "ok",
+        "summary": circuit_breaker_manager.get_stats_summary()
     }
