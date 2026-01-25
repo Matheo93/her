@@ -2614,6 +2614,67 @@ async def get_component_health(component_name: str):
 
 
 # ═══════════════════════════════════════════════════════════════
+# Audio Cache API - Sprint 591
+# ═══════════════════════════════════════════════════════════════
+
+from audio_cache import audio_cache
+
+
+@app.get("/audio-cache/stats")
+async def get_audio_cache_stats():
+    """Get audio cache statistics.
+
+    Returns:
+        Cache hit rate, size, entries count.
+    """
+    return {
+        "status": "ok",
+        "stats": audio_cache.get_stats()
+    }
+
+
+@app.get("/audio-cache/entries")
+async def get_audio_cache_entries():
+    """Get list of cached audio entries.
+
+    Returns:
+        List of cached phrases with metadata.
+    """
+    return {
+        "status": "ok",
+        "entries": audio_cache.get_cached_phrases()
+    }
+
+
+@app.post("/audio-cache/clear")
+async def clear_audio_cache(_: str = Depends(verify_api_key)):
+    """Clear audio cache (admin only).
+
+    Returns:
+        Confirmation of cache clear.
+    """
+    audio_cache.clear()
+    return {
+        "status": "ok",
+        "message": "Audio cache cleared"
+    }
+
+
+@app.post("/audio-cache/save")
+async def save_audio_cache(_: str = Depends(verify_api_key)):
+    """Save audio cache to disk (admin only).
+
+    Returns:
+        Confirmation of save.
+    """
+    await audio_cache.save_to_disk()
+    return {
+        "status": "ok",
+        "message": "Audio cache saved to disk"
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
 # Avatar Emotions API - Sprint 579
 # ═══════════════════════════════════════════════════════════════
 
