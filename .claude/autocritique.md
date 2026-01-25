@@ -4678,3 +4678,40 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 587 (BACKEND) - Autocritique
+
+**Date:** 2026-01-25
+**Domaine:** Backend Python - WebSocket Manager
+
+**Ce que j'ai fait:**
+1. **Créé websocket_manager.py**
+   - ConnectionInfo dataclass
+   - WebSocketManager avec lifecycle tracking
+   - Session association
+   - Heartbeat/ping support
+   - Statistics tracking
+
+2. **Endpoints**
+   - GET /ws/connections
+   - GET /ws/connections/{id}
+   - GET /ws/sessions/{id}
+   - POST /ws/cleanup
+   - GET /ws/stats
+
+**Note: 8/10**
+
+**Points positifs:**
+- Lifecycle complet (connect/disconnect)
+- Session-to-connection mapping
+- Stats détaillées (bytes, messages, duration)
+- Cleanup automatique
+
+**Points négatifs:**
+- Pas encore intégré au WebSocket existant
+- Pas de reconnection token
+- Pas de rate limiting sur WS messages
+
+**Risques:** Faibles (nouvelle feature isolée)
+
+---
