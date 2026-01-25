@@ -6047,3 +6047,53 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 623 - Health Checker (BACKEND)
+
+**Fichier:** `backend/health_checker.py`
+
+**Classes créées:**
+1. **HealthChecker** - Main health monitoring system
+2. **HealthCheck** - Check configuration dataclass
+3. **HealthResult** - Check result dataclass
+4. **HealthStatus** - Status enum (HEALTHY/DEGRADED/UNHEALTHY/UNKNOWN)
+
+**Fonctionnalités:**
+- Decorator @register pour enregistrer checks
+- Async health check execution
+- Timeout handling per check
+- Health history tracking
+- Periodic monitoring loop
+- Built-in system/process/uptime checks with psutil
+- Critical vs non-critical check flagging
+- Enable/disable individual checks
+
+**9 Endpoints créés:**
+- GET /health/status - Status global
+- POST /health/check - Run all checks
+- POST /health/check/{name} - Run single check
+- GET /health/checks - List checks
+- POST /health/checks/{name}/enable - Enable check
+- POST /health/checks/{name}/disable - Disable check
+- GET /health/history - Historical snapshots
+- POST /health/monitor/start - Start periodic monitoring
+- POST /health/monitor/stop - Stop monitoring
+
+**Note: 9/10**
+
+**Points positifs:**
+- System metrics avec psutil (CPU, RAM, disk)
+- Overall status calculation basé sur checks critiques
+- Thread-safe avec Lock
+- Configurable intervals et timeouts
+- History snapshots pour debug
+- Clean decorator API pour ajouter checks
+
+**Points négatifs:**
+- Pas d'alerting/notifications
+- Pas de persistence database
+- Pas de dashboard endpoint
+
+**Risques:** Aucun
+
+---
