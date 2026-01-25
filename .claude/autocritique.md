@@ -7482,3 +7482,88 @@ Composants Data Table avancés avec tri et pagination.
 **Risques:** Aucun
 
 ---
+
+## Sprint 653 - Backend Request Validator
+
+**Ce que j'ai fait:**
+Système de validation de requêtes avec schémas.
+
+**Classes créées:**
+- **RequestValidator** - Validateur principal avec chainable API
+- **FieldValidator** - Validation de champ individuel
+- **ValidationResult** - Résultat avec erreurs
+- **ValidationError** - Erreur individuelle
+
+**Features:**
+- Type coercion automatique
+- Validation: required, min/max length, min/max value, pattern, enum
+- Custom validators avec closures
+- String sanitization
+- Pre-built validators (email, url, uuid)
+- Chainable API fluent
+- Transform functions
+- Strict mode (reject unknown fields)
+
+**3 Endpoints créés:**
+- POST /validate/chat - Validate chat request
+- POST /validate/tts - Validate TTS request
+- POST /validate/custom - Validate with custom schema
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- API fluent très lisible
+- Type coercion intelligent
+- Sanitization intégrée
+- Pre-built validators utiles
+- Erreurs détaillées
+
+**Points négatifs:**
+- Pas de validation nested objects
+- Pas de validation async
+- Pas de i18n pour messages
+
+**Risques:** Aucun
+
+---
+
+## Sprint 654 - Frontend Form Components
+
+**Ce que j'ai fait:**
+Système de formulaires React avec validation intégrée.
+
+**Composants créés:**
+1. **Form** - Container avec FormContext
+2. **FormField** - Input/textarea/select générique
+3. **FormSubmit** - Bouton submit
+4. **FormErrorSummary** - Résumé des erreurs
+5. **FormGroup** - Layout helper
+6. **CheckboxField** - Checkbox avec label
+7. **RadioGroup** - Radio buttons groupés
+
+**Features:**
+- Context-based state management
+- Validation rules (required, min/max, pattern, email, custom)
+- Touch tracking (errors show on blur)
+- Error animations
+- Loading state on submit
+- Async submit support
+- Type coercion pour numbers
+
+**Note: 9/10**
+
+**Points positifs:**
+- API simple et intuitive
+- Validation déclarative
+- Touch tracking intelligent
+- Error animations smooth
+- Context évite prop drilling
+
+**Points négatifs:**
+- Pas de field arrays
+- Pas de nested forms
+- Pas de watch/subscribe
+
+**Risques:** Aucun
+
+---
