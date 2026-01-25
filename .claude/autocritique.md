@@ -8750,3 +8750,25 @@ Système de retry avec stratégies de backoff configurables.
 - TTL configurable par requête
 - @idempotent decorator
 - Cache hit tracking et stats
+
+---
+
+## Sprint 706 - Frontend FloatingLabel
+**Score: 8.5/10**
+- Material-style floating labels animés
+- Input, Textarea, Select variants
+- FloatingPassword avec toggle visibility
+- FloatingSearch avec icon et onSearch
+- Validation states avec error/hint
+- Sizes configurables (sm/md/lg)
+
+---
+
+## Sprint 707 - Backend Distributed Lock
+**Score: 9/10**
+- Lock acquisition avec TTL
+- Wait queue avec events
+- Lock extension pour renouvellement
+- LeaderElection avec on_elected/on_demoted
+- Non-blocking mode pour try-lock
+- Stats complètes (acquisitions, timeouts, etc.)
