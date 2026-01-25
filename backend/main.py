@@ -8078,6 +8078,7 @@ from circuit_breaker import circuit_breaker_manager, CircuitState, get_circuit_b
 from feature_flags import feature_flag_manager, FlagType, FlagStatus
 from webhooks import webhook_manager, DeliveryStatus
 from event_bus import event_bus, EventPriority
+from config_manager import config_manager
 
 
 @app.get("/audit")
@@ -9697,3 +9698,115 @@ async def clear_event_history():
     """
     count = event_bus.clear_history()
     return {"status": "ok", "cleared": count}
+
+
+# =============================================================================
+# Config Manager Endpoints - Sprint 639
+# =============================================================================
+
+
+@app.get("/config")
+async def get_all_config():
+    """Get all configuration values.
+
+    Returns:
+        All config values.
+    """
+    configs = config_manager.get_all()
+    return {"status": "ok", "configs": configs, "count": len(configs)}
+
+
+@app.get("/config/{key:path}")
+async def get_config_value(key: str):
+    """Get a specific config value.
+
+    Args:
+        key: Config key.
+
+    Returns:
+        Config value.
+    """
+    value = config_manager.get(key)
+    if value is None:
+        return {"status": "error", "message": "Config not found"}
+    return {"status": "ok", "key": key, "value": value}
+
+
+@app.put("/config/{key:path}")
+async def set_config_value(key: str, value: Any, reason: str = ""):
+    """Set a config value.
+
+    Args:
+        key: Config key.
+        value: New value.
+        reason: Change reason.
+
+    Returns:
+        Update status.
+    """
+    success = config_manager.set(key, value, reason=reason)
+    return {"status": "ok" if success else "error", "updated": success}
+
+
+@app.delete("/config/{key:path}")
+async def reset_config_value(key: str):
+    """Reset config to default.
+
+    Args:
+        key: Config key.
+
+    Returns:
+        Reset status.
+    """
+    success = config_manager.reset(key)
+    return {"status": "ok" if success else "error", "reset": success}
+
+
+@app.get("/config-history")
+async def get_config_history(
+    key: Optional[str] = None,
+    limit: int = 100
+):
+    """Get config change history.
+
+    Args:
+        key: Filter by key.
+        limit: Max items.
+
+    Returns:
+        List of changes.
+    """
+    history = config_manager.get_history(key=key, limit=limit)
+    return {"status": "ok", "history": history, "count": len(history)}
+
+
+@app.get("/config-schema")
+async def get_config_schema():
+    """Get config schema definitions.
+
+    Returns:
+        Schema definitions.
+    """
+    definitions = config_manager.schema.list_definitions()
+    return {"status": "ok", "definitions": definitions}
+
+
+@app.get("/config-export")
+async def export_config():
+    """Export config as nested object.
+
+    Returns:
+        Config export.
+    """
+    export = config_manager.export()
+    return {"status": "ok", "config": export}
+
+
+@app.get("/config-stats")
+async def get_config_stats():
+    """Get config statistics.
+
+    Returns:
+        Statistics.
+    """
+    return {"status": "ok", "stats": config_manager.get_stats()}
