@@ -4495,3 +4495,38 @@
 **Risques:** Faibles (optimisations non-breaking)
 
 ---
+
+## Sprint 582 (FRONTEND) - Autocritique
+
+**Date:** 2026-01-25
+**Domaine:** Frontend React - Voice Mode UI
+
+**Ce que j'ai fait:**
+1. **Créé VoiceModePanel.tsx**
+   - VoiceModePanel: UI complète avec PTT et mode auto
+   - CompactVoiceButton: bouton minimal pour header
+   - Waveforms pour user et EVA
+   - 5 états: idle, listening, processing, speaking, error
+
+2. **Features**
+   - Push-to-talk avec events pointer
+   - Toggle PTT/Auto mode
+   - Mute toggle
+   - Animations de pulse actives
+
+**Note: 8/10**
+
+**Points positifs:**
+- UI complète et cohérente
+- PTT avec pointer events (mobile-friendly)
+- Réutilise WaveformVisualizer
+- Compact button pour intégration flexible
+
+**Points négatifs:**
+- Pas de hook useVoiceMode associé
+- Manque keyboard shortcut (spacebar PTT)
+- Pas encore intégré dans page.tsx
+
+**Risques:** Aucun
+
+---

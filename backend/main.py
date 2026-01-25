@@ -2272,6 +2272,106 @@ async def flush_memory_buffers():
 
 
 # ═══════════════════════════════════════════════════════════════
+# Conversation Export API - Sprint 583
+# ═══════════════════════════════════════════════════════════════
+
+from conversation_export import conversation_exporter, ExportFormat
+
+
+@app.get("/export/{session_id}")
+async def export_conversation(
+    session_id: str,
+    format: str = "json",
+    pretty: bool = True,
+    include_metadata: bool = True,
+    anonymize: bool = False,
+    dark_mode: bool = False,
+):
+    """Export conversation history in specified format.
+
+    Args:
+        session_id: Session to export
+        format: Export format (json, txt, html, md)
+        pretty: For JSON, whether to format with indentation
+        include_metadata: Include metadata header (txt, md)
+        anonymize: Replace user_id with "User" (txt)
+        dark_mode: Use dark theme (html)
+
+    Returns:
+        Exported conversation in specified format
+    """
+    # Get messages from conversation history
+    messages = conversation_history.get(session_id, [])
+
+    if not messages:
+        return {"status": "error", "message": "Session not found or empty"}
+
+    # Convert format string to enum
+    try:
+        export_format = ExportFormat(format.lower())
+    except ValueError:
+        return {"status": "error", "message": f"Invalid format. Use: json, txt, html, md"}
+
+    # Build message list with metadata
+    msg_list = []
+    for msg in messages:
+        msg_data = {
+            "role": msg.get("role", "user"),
+            "content": msg.get("content", ""),
+            "timestamp": msg.get("timestamp", time.time()),
+        }
+        if "emotion" in msg:
+            msg_data["emotion"] = msg["emotion"]
+        if "voice" in msg:
+            msg_data["voice_used"] = msg["voice"]
+        if "latency_ms" in msg:
+            msg_data["latency_ms"] = msg["latency_ms"]
+        msg_list.append(msg_data)
+
+    # Export
+    result = conversation_exporter.export(
+        messages=msg_list,
+        session_id=session_id,
+        user_id=session_id,  # Use session_id as user_id for now
+        format=export_format,
+        pretty=pretty,
+        include_metadata=include_metadata,
+        anonymize=anonymize,
+        dark_mode=dark_mode,
+    )
+
+    # Return appropriate content type
+    content_types = {
+        ExportFormat.JSON: "application/json",
+        ExportFormat.TXT: "text/plain",
+        ExportFormat.HTML: "text/html",
+        ExportFormat.MARKDOWN: "text/markdown",
+    }
+
+    from fastapi.responses import Response
+    return Response(
+        content=result,
+        media_type=content_types.get(export_format, "text/plain"),
+        headers={
+            "Content-Disposition": f'attachment; filename="conversation_{session_id}.{format}"'
+        }
+    )
+
+
+@app.get("/export/stats")
+async def get_export_stats():
+    """Get export statistics - Sprint 583.
+
+    Returns:
+        Export operation statistics.
+    """
+    return {
+        "status": "ok",
+        "stats": conversation_exporter.get_stats()
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
 # Avatar Emotions API - Sprint 579
 # ═══════════════════════════════════════════════════════════════
 
