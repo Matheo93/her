@@ -10132,3 +10132,144 @@ async def cleanup_rate_limit_state(max_age: float = 3600):
 
 
 # ═══════════════════════════════════════════════════════════════
+
+
+# ═══════════════════════════════════════════════════════════════
+# Health Monitor API - Sprint 647
+# ═══════════════════════════════════════════════════════════════
+
+from health_monitor import health_monitor, HealthStatus, AlertLevel
+
+
+@app.get("/health/full")
+async def full_health_check():
+    """Run all health checks.
+
+    Returns:
+        Combined health status with all checks.
+    """
+    result = await health_monitor.check_all()
+    return {"status": "ok", "health": result}
+
+
+@app.get("/health/check/{name}")
+async def run_health_check(name: str):
+    """Run a specific health check.
+
+    Args:
+        name: Check name
+
+    Returns:
+        Check result.
+    """
+    result = await health_monitor.run_check(name)
+    if not result:
+        return {"status": "error", "error": "Check not found"}
+    return {"status": "ok", "check": result.to_dict()}
+
+
+@app.get("/health/resources")
+async def get_resources():
+    """Get system resource metrics.
+
+    Returns:
+        CPU, memory, disk metrics.
+    """
+    metrics = health_monitor.get_resources()
+    return {"status": "ok", "resources": metrics.to_dict()}
+
+
+@app.get("/health/alerts")
+async def get_alerts(
+    active_only: bool = False,
+    level: Optional[str] = None,
+    limit: int = 50
+):
+    """Get health alerts.
+
+    Args:
+        active_only: Only unresolved alerts
+        level: Filter by level (info, warning, critical)
+        limit: Max alerts
+
+    Returns:
+        List of alerts.
+    """
+    alert_level = None
+    if level:
+        try:
+            alert_level = AlertLevel(level)
+        except ValueError:
+            pass
+
+    alerts = health_monitor.get_alerts(
+        active_only=active_only,
+        level=alert_level,
+        limit=limit,
+    )
+    return {"status": "ok", "alerts": alerts, "count": len(alerts)}
+
+
+@app.post("/health/alerts/{alert_id}/resolve")
+async def resolve_alert(alert_id: str):
+    """Resolve an alert.
+
+    Args:
+        alert_id: Alert ID
+
+    Returns:
+        Resolution status.
+    """
+    success = health_monitor.resolve_alert(alert_id)
+    return {"status": "ok" if success else "error", "resolved": success}
+
+
+@app.get("/health/history/{name}")
+async def get_health_history(name: str, limit: int = 20):
+    """Get health check history.
+
+    Args:
+        name: Check name
+        limit: Max results
+
+    Returns:
+        Historical check results.
+    """
+    history = health_monitor.get_history(name, limit)
+    return {"status": "ok", "history": history}
+
+
+@app.get("/health/summary")
+async def get_health_summary():
+    """Get health summary.
+
+    Returns:
+        Summary with alerts and resources.
+    """
+    summary = health_monitor.get_summary()
+    return {"status": "ok", "summary": summary}
+
+
+@app.post("/health/thresholds")
+async def set_threshold(name: str, value: float):
+    """Set a health threshold.
+
+    Args:
+        name: Threshold name
+        value: Threshold value
+
+    Returns:
+        Updated threshold.
+    """
+    health_monitor.set_threshold(name, value)
+    return {"status": "ok", "threshold": {name: value}}
+
+
+@app.get("/health/thresholds")
+async def get_thresholds():
+    """Get all health thresholds.
+
+    Returns:
+        All thresholds.
+    """
+    return {"status": "ok", "thresholds": health_monitor.get_thresholds()}
