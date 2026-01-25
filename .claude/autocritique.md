@@ -7044,3 +7044,59 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 643 - Rate Limiter (BACKEND)
+
+**Fichier:** `backend/rate_limiter.py`
+
+**Classes créées:**
+1. **RateLimiter** - Main rate limiting system
+2. **RateLimitConfig** - Configuration dataclass
+3. **RateLimitResult** - Result with headers
+4. **TokenBucket** - Token bucket algorithm
+5. **SlidingWindow** - Sliding window algorithm
+6. **LimitStrategy** - Strategy enum
+
+**Fonctionnalités:**
+- Token bucket algorithm
+- Sliding window algorithm
+- Per-user rate limits
+- Per-endpoint rate limits
+- Global rate limits
+- Priority: user > endpoint > global
+- Rate limit headers (X-RateLimit-*)
+- Retry-After header
+- User status tracking
+- Top blocked users
+- Cleanup old state
+- Default configs pour /chat, /tts, /ws
+
+**10 Endpoints créés:**
+- GET /ratelimit/check/{user_id} - Check limit
+- GET /ratelimit/status/{user_id} - User status
+- POST /ratelimit/reset/{user_id} - Reset user
+- POST /ratelimit/configure/global - Configure global
+- POST /ratelimit/configure/endpoint - Configure endpoint
+- DELETE /ratelimit/configure/endpoint/{ep} - Remove endpoint config
+- GET /ratelimit/configs - List configs
+- GET /ratelimit/stats - Statistics
+- POST /ratelimit/cleanup - Cleanup state
+
+**Note: 9/10**
+
+**Points positifs:**
+- Deux algorithmes (token bucket, sliding window)
+- Headers HTTP standards
+- Priority config (user > endpoint > global)
+- Stats avec top blocked users
+- Cleanup automatique possible
+
+**Points négatifs:**
+- Pas de persistence Redis
+- Pas de distributed rate limiting
+- Pas de rate limit burst warming
+- Pas de webhook on limit hit
+
+**Risques:** Aucun
+
+---
