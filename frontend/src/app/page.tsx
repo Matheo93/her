@@ -7,6 +7,7 @@ import { HER_COLORS, HER_SPRINGS, EMOTION_PRESENCE } from "@/styles/her-theme";
 import { usePersistentMemory } from "@/hooks/usePersistentMemory";
 import { useTheme } from "@/context/ThemeContext";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
+import { AvatarPresence } from "@/components/AvatarPresence";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
@@ -386,23 +387,18 @@ export default function Home() {
       <main className="max-w-2xl mx-auto px-6 pt-24 pb-32">
         {messages.length === 0 && !currentResponse && (
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-            {/* Breathing presence orb - no face, just warm glow */}
-            <motion.div
-              data-testid="avatar"
-              className="avatar w-24 h-24 rounded-full mb-8"
-              style={{
-                background: `radial-gradient(circle, ${colors.coral} 0%, ${colors.blush} 50%, ${colors.cream} 100%)`,
-                boxShadow: `0 0 60px ${emotionGlow}`,
-                transform: `scale(${breathScale})`,
-              }}
-              animate={isSpeaking ? {
-                scale: [1, 1.1, 1],
-              } : {}}
-              transition={isSpeaking ? {
-                duration: 0.5,
-                repeat: Infinity,
-              } : {}}
-            />
+            {/* Enhanced Avatar with emotion glow and animations - Sprint 576 */}
+            <div data-testid="avatar" className="mb-8">
+              <AvatarPresence
+                emotion={currentEmotion as any}
+                state={isListening ? "listening" : isSpeaking ? "speaking" : isLoading ? "thinking" : "idle"}
+                size={150}
+                intensity={0.6}
+                showBreathing={true}
+                showPulse={true}
+                showGlow={true}
+              />
+            </div>
             <h2
               className="text-2xl font-light mb-2"
               style={{ color: colors.earth }}
