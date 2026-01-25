@@ -6233,3 +6233,52 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 627 - API Versioning (BACKEND)
+
+**Fichier:** `backend/api_versioning.py`
+
+**Classes créées:**
+1. **APIVersionManager** - Main versioning manager
+2. **APIVersion** - Version dataclass
+3. **VersionedResponse** - Response wrapper
+4. **VersionStatus** - Status enum (CURRENT/SUPPORTED/DEPRECATED/SUNSET)
+5. **VersionSource** - Extraction source (HEADER/PATH/QUERY)
+
+**Fonctionnalités:**
+- Version detection from header/path/query
+- Version lifecycle management
+- Deprecation avec dates
+- Sunset pour removal
+- Response transformers pour migration
+- Deprecation headers (Deprecation, Sunset, Link)
+- Changelog tracking per version
+- Breaking changes documentation
+- version_required decorator
+
+**7 Endpoints créés:**
+- GET /api/versions - List versions
+- GET /api/versions/{version} - Get version details
+- POST /api/versions - Create version
+- POST /api/versions/{version}/deprecate - Deprecate
+- POST /api/versions/{version}/sunset - Sunset
+- GET /api/version/current - Current version
+- GET /api/version/detect - Detect from request
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- Lifecycle complet (current -> deprecated -> sunset)
+- Multiple sources de version
+- Headers standard (RFC 8594 Deprecation)
+- Response transformers extensibles
+- Default versions v1/v2 préconfigurés
+
+**Points négatifs:**
+- Pas de version négociation automatique
+- Pas de persistence des versions
+- Comparison string basique
+
+**Risques:** Aucun
+
+---
