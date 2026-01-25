@@ -2,6 +2,88 @@
 
 ---
 
+## Sprint 565 (FRONTEND) - Autocritique
+
+**Date:** 2026-01-25
+**Domaine:** Frontend TypeScript - useStreamingTextRenderer.test.ts
+
+**Ce que j'ai fait:**
+1. **Créé 96 tests** pour useStreamingTextRenderer.ts (569 lignes, fichier SANS tests)
+2. **Nouveaux tests couvrent:** exports (3), types (5 interfaces), initialization (6), controls startStream (5), addChunk (8), completeStream, pause/resume (2), reset (3), setSpeed (3), setMode (2), skipToEnd (4), updateConfig (2), animation modes (4 - character/word/chunk/instant), punctuation pauses (2), metrics tracking (4), progress tracking (2), edge cases (7), return value structure (4), useStreamingText sub-hook (5), useTypewriter sub-hook (7), default config (8), state transitions (5), cleanup (2)
+3. **Mocking complet** de requestAnimationFrame, cancelAnimationFrame, performance.now
+4. **Tests bien organisés** en 22 describe blocks thématiques
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- Hook sans tests - création complète de test suite
+- 96 tests avec couverture très complète
+- Tests des 4 modes de streaming (character, word, chunk, instant)
+- Tests des 2 sub-hooks (useStreamingText, useTypewriter)
+- Tests des 10 fonctions de contrôle
+- Tests des métriques (totalCharactersRendered, droppedFrames, renderLatency, averageSpeed)
+- Tests des transitions d'état (idle->buffering->rendering->paused->complete)
+- Tests des edge cases (empty, long text, special chars, rapid chunks)
+- Mock RAF sophistiqué avec advanceFrames helper
+- Tous les 96 tests passent
+
+**Points négatifs (sois HONNÊTE):**
+- Pas de tests pour vérifier le timing exact des pauses de ponctuation
+- Pas de tests pour la validation des easing functions (speedVariation)
+- Certains tests d'animation sont simplifiés car mock RAF ne simule pas parfaitement le timing
+- Pas de tests de performance/stress (milliers de chunks)
+
+**Ce que j'aurais dû faire différemment:**
+- Tester les valeurs exactes de pause (150ms pour ",", 300ms pour ".")
+- Ajouter des tests pour vérifier que speedVariation affecte réellement la vitesse
+- Tester le comportement avec des chunks très fréquents (performance)
+
+**Risques introduits:**
+- Aucun risque - tests seulement
+
+**Amélioration pour le prochain sprint:**
+- Sprint 566 BACKEND - Alterner vers backend
+
+---
+
+## Sprint 564 (BACKEND) - Autocritique
+
+**Date:** 2026-01-24
+**Domaine:** Backend Python - test_gpu_tts.py
+
+**Ce que j'ai fait:**
+1. **Expandé les tests de 18 à ~57** pour gpu_tts.py (290 lignes)
+2. **Nouveaux tests couvrent:** module state étendu, init_gpu_tts (sample_rate, phoneme_id_map, CPU fallback, warmup), text_to_phoneme_ids (espeak success, spaces, unknown phonemes, empty output, fallback), gpu_tts (speed parameter, length_scale, normalization, WAV format, auto-init), gpu_tts_mp3 (ffmpeg conversion), async wrappers, benchmark, edge cases (long text, special chars, multi-token, negative/zero speed)
+3. **Tests async avec @pytest.mark.asyncio**
+4. **Tests bien organisés** en 10 classes thématiques
+
+**Note: 7/10**
+
+**Points positifs:**
+- Tests triplés (18 → 57)
+- Couverture des paramètres speed et length_scale
+- Tests des edge cases (caractères spéciaux, texte long)
+- Tests du fallback CPU
+- Tests de normalisation audio
+
+**Points négatifs (sois HONNÊTE):**
+- Bash execution issues ont empêché la vérification et le commit
+- Pas pu vérifier que tous les tests passent
+- Certains tests dépendent fortement des mocks
+
+**Ce que j'aurais dû faire différemment:**
+- Vérifier l'environnement d'exécution plus tôt
+- Ajouter des tests pour les cas d'erreur ONNX plus spécifiques
+
+**Risques introduits:**
+- Tests non vérifiés - nécessite validation manuelle
+
+**Amélioration pour le prochain sprint:**
+- Sprint 565 FRONTEND - Alterner vers frontend
+- Vérifier l'environnement bash avant de commencer
+
+---
+
 ## Sprint 563 (FRONTEND) - Autocritique
 
 **Date:** 2026-01-24
