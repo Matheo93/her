@@ -4348,3 +4348,48 @@
 - Ajouter des visualisations pour les insights
 
 ---
+
+## Sprint 578 (FRONTEND) - Autocritique
+
+**Date:** 2026-01-25
+**Domaine:** Frontend React - UI Components
+
+**Ce que j'ai fait:**
+1. **Créé ConnectionStatus.tsx** - Indicateur de connexion WebSocket
+   - 4 états: disconnected, connecting, connected, reconnecting
+   - Animations HER (pulsing, breathing)
+   - Affichage latence optionnel avec couleur qualité
+   - 3 tailles (sm, md, lg)
+2. **Créé WaveformVisualizer.tsx** - Visualisation audio temps réel
+   - 3 variants: bars, wave, dots
+   - Distribution pondérée au centre
+   - Transitions fluides
+   - Support dark mode
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- Composants réutilisables et bien typés
+- Animations fluides avec Framer Motion
+- Design cohérent avec palette HER
+- Variants multiples pour flexibilité
+- Memoization pour performance
+
+**Points négatifs (sois HONNÊTE):**
+- Composants pas encore intégrés dans la page principale
+- WaveformVisualizer utilise Date.now() dans useMemo (anti-pattern)
+- Pas de tests unitaires
+
+**Ce que j'aurais dû faire différemment:**
+- Intégrer les composants dans page.tsx
+- Utiliser useRef pour le seed au lieu de Date.now()
+- Ajouter des stories Storybook
+
+**Risques introduits:**
+- Aucun risque (composants isolés)
+
+**Amélioration pour le prochain sprint:**
+- Sprint 579 BACKEND - alterner comme requis
+- Continuer à enrichir les fonctionnalités
+
+---

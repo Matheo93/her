@@ -67,6 +67,12 @@ from gpu_tts import init_gpu_tts, async_gpu_tts, gpu_tts, async_gpu_tts_mp3, gpu
 from streaming_tts import stream_tts_gpu, fast_first_byte_tts, split_into_chunks
 from tts_optimizer import init_tts_optimizer, prewarm_tts_cache, get_tts_optimizer
 from session_insights import session_insights
+from avatar_emotions import (
+    avatar_emotion_controller,
+    Emotion,
+    MicroExpression,
+    EMOTION_PRESETS,
+)
 
 # Eva Expression System (breathing sounds, emotions, animations)
 from eva_expression import eva_expression, init_expression_system, detect_emotion, get_expression_data
@@ -2228,6 +2234,175 @@ async def cleanup_stale_sessions(_: str = Depends(verify_api_key)):
         "status": "ok",
         "sessions_cleaned": count,
         "active_sessions": len(session_insights.sessions)
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Avatar Emotions API - Sprint 579
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/avatar/emotions")
+async def get_avatar_emotion_state():
+    """Get current avatar emotional state.
+
+    Returns:
+        Current emotion, intensity, blend state, micro-expressions.
+    """
+    return avatar_emotion_controller.get_state()
+
+
+@app.post("/avatar/emotions")
+async def set_avatar_emotion(
+    emotion: str,
+    intensity: float = 0.6,
+    transition_ms: int = 300,
+):
+    """Set avatar emotion.
+
+    Args:
+        emotion: Target emotion (joy, sadness, neutral, etc.)
+        intensity: Emotion intensity (0.0-1.0)
+        transition_ms: Transition duration in ms
+    """
+    try:
+        emotion_enum = Emotion(emotion.lower())
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid emotion. Valid: {[e.value for e in Emotion]}"
+        )
+
+    state = avatar_emotion_controller.set_emotion(emotion_enum, intensity, transition_ms)
+    return {
+        "status": "ok",
+        "emotion": state.emotion.value,
+        "intensity": state.intensity,
+    }
+
+
+@app.post("/avatar/emotions/blend")
+async def blend_avatar_emotions(
+    primary: str,
+    secondary: str,
+    ratio: float = 0.5,
+    intensity: float = 0.6,
+):
+    """Blend two emotions together.
+
+    Args:
+        primary: Primary emotion
+        secondary: Secondary emotion
+        ratio: Blend ratio (0.0-1.0)
+        intensity: Overall intensity
+    """
+    try:
+        primary_enum = Emotion(primary.lower())
+        secondary_enum = Emotion(secondary.lower())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid emotion")
+
+    state = avatar_emotion_controller.blend_emotions(
+        primary_enum, secondary_enum, ratio, intensity
+    )
+    return {
+        "status": "ok",
+        "primary": state.emotion.value,
+        "secondary": state.secondary_emotion.value if state.secondary_emotion else None,
+        "blend_ratio": state.blend_ratio,
+    }
+
+
+@app.post("/avatar/emotions/preset/{preset_name}")
+async def apply_emotion_preset(preset_name: str):
+    """Apply a predefined emotion preset.
+
+    Args:
+        preset_name: Preset name (greeting, thinking, listening, etc.)
+    """
+    if preset_name not in EMOTION_PRESETS:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown preset. Available: {list(EMOTION_PRESETS.keys())}"
+        )
+
+    preset = EMOTION_PRESETS[preset_name]
+    avatar_emotion_controller.set_emotion(preset["emotion"], preset["intensity"])
+
+    if preset.get("micro_expression"):
+        avatar_emotion_controller.trigger_micro_expression(preset["micro_expression"])
+
+    return {
+        "status": "ok",
+        "preset": preset_name,
+        "emotion": preset["emotion"].value,
+    }
+
+
+@app.post("/avatar/micro-expression")
+async def trigger_micro_expression(
+    expression: str,
+    duration_ms: int = 300,
+):
+    """Trigger a micro-expression animation.
+
+    Args:
+        expression: Expression type (blink, smile, wink, etc.)
+        duration_ms: Duration in ms
+    """
+    try:
+        expr_enum = MicroExpression(expression.lower())
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid expression. Valid: {[e.value for e in MicroExpression]}"
+        )
+
+    triggered = avatar_emotion_controller.trigger_micro_expression(expr_enum, duration_ms)
+    return {
+        "status": "ok" if triggered else "cooldown",
+        "expression": expr_enum.value,
+        "triggered": triggered,
+    }
+
+
+@app.post("/avatar/emotions/queue")
+async def queue_emotion(
+    emotion: str,
+    intensity: float = 0.6,
+    duration_ms: int = 2000,
+    transition_ms: int = 300,
+):
+    """Add emotion to transition queue.
+
+    Args:
+        emotion: Emotion to queue
+        intensity: Emotion intensity
+        duration_ms: How long to hold emotion
+        transition_ms: Transition duration
+    """
+    try:
+        emotion_enum = Emotion(emotion.lower())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid emotion")
+
+    position = avatar_emotion_controller.queue_emotion(
+        emotion_enum, intensity, duration_ms, transition_ms
+    )
+    return {
+        "status": "queued",
+        "emotion": emotion_enum.value,
+        "position": position,
+        "queue_length": len(avatar_emotion_controller.emotion_queue),
+    }
+
+
+@app.delete("/avatar/emotions/queue")
+async def clear_emotion_queue():
+    """Clear all queued emotions."""
+    count = avatar_emotion_controller.clear_queue()
+    return {
+        "status": "cleared",
+        "emotions_removed": count,
     }
 
 
