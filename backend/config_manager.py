@@ -1,588 +1,403 @@
 """
-Config Manager - Sprint 639
+Config Manager - Sprint 661
 
-Dynamic configuration management.
+Centralized configuration system.
 
 Features:
-- Runtime config updates
-- Environment-aware
-- Config validation
-- Config history
-- Change notifications
+- Environment variables
+- JSON/YAML config files
+- Nested config access
+- Type coercion
+- Validation
+- Hot reload
 """
 
-import time
 import os
 import json
+import time
 from dataclasses import dataclass, field
-from typing import Dict, Optional, List, Any, Callable, TypeVar, Generic
-from enum import Enum
-from threading import Lock
+from typing import Dict, Any, Optional, List, TypeVar, Type, Union
 from pathlib import Path
+import threading
 
 
-class ConfigSource(str, Enum):
-    """Config value source."""
-    DEFAULT = "default"
-    FILE = "file"
-    ENVIRONMENT = "environment"
-    RUNTIME = "runtime"
-    REMOTE = "remote"
-
-
-class ConfigType(str, Enum):
-    """Config value type."""
-    STRING = "string"
-    INTEGER = "integer"
-    FLOAT = "float"
-    BOOLEAN = "boolean"
-    JSON = "json"
-    LIST = "list"
+T = TypeVar("T")
 
 
 @dataclass
-class ConfigValue:
-    """A configuration value."""
-    key: str
-    value: Any
-    default: Any
-    source: ConfigSource
-    config_type: ConfigType
-    description: str = ""
-    required: bool = False
-    secret: bool = False
-    validators: List[str] = field(default_factory=list)
-    updated_at: float = field(default_factory=time.time)
-
-    def to_dict(self, include_secret: bool = False) -> dict:
-        return {
-            "key": self.key,
-            "value": "***" if self.secret and not include_secret else self.value,
-            "default": "***" if self.secret else self.default,
-            "source": self.source.value,
-            "type": self.config_type.value,
-            "description": self.description,
-            "required": self.required,
-            "secret": self.secret,
-            "updated_at": self.updated_at,
-        }
-
-
-@dataclass
-class ConfigChange:
-    """A config change record."""
-    key: str
-    old_value: Any
-    new_value: Any
-    source: ConfigSource
-    timestamp: float = field(default_factory=time.time)
-    reason: str = ""
-
-
-class ConfigSchema:
-    """Config schema definition."""
-
-    def __init__(self):
-        self._definitions: Dict[str, Dict[str, Any]] = {}
-
-    def define(
-        self,
-        key: str,
-        config_type: ConfigType,
-        default: Any = None,
-        description: str = "",
-        required: bool = False,
-        secret: bool = False,
-        validators: Optional[List[Callable]] = None,
-        env_var: Optional[str] = None
-    ):
-        """Define a config key.
-
-        Args:
-            key: Config key
-            config_type: Value type
-            default: Default value
-            description: Description
-            required: Is required
-            secret: Is secret
-            validators: Validation functions
-            env_var: Environment variable name
-        """
-        self._definitions[key] = {
-            "type": config_type,
-            "default": default,
-            "description": description,
-            "required": required,
-            "secret": secret,
-            "validators": validators or [],
-            "env_var": env_var or key.upper().replace(".", "_"),
-        }
-
-    def get_definition(self, key: str) -> Optional[Dict[str, Any]]:
-        """Get a config definition."""
-        return self._definitions.get(key)
-
-    def list_definitions(self) -> List[Dict[str, Any]]:
-        """List all definitions."""
-        return [
-            {"key": k, **v}
-            for k, v in self._definitions.items()
-        ]
+class ConfigSource:
+    """Configuration source."""
+    name: str
+    data: Dict[str, Any]
+    priority: int = 0
+    file_path: Optional[str] = None
+    last_loaded: float = field(default_factory=time.time)
 
 
 class ConfigManager:
-    """Dynamic configuration manager.
+    """Centralized configuration management.
 
     Usage:
         config = ConfigManager()
 
-        # Define schema
-        config.schema.define(
-            "api.timeout",
-            ConfigType.INTEGER,
-            default=30,
-            description="API request timeout"
-        )
+        # Load from sources
+        config.load_env()
+        config.load_json("config.json")
 
-        # Get config
-        timeout = config.get("api.timeout")
+        # Access values
+        api_key = config.get("api.key")
+        port = config.get("server.port", default=8000)
+        debug = config.get_bool("debug", default=False)
 
-        # Set runtime config
-        config.set("api.timeout", 60)
-
-        # Watch for changes
-        config.watch("api.*", lambda key, old, new: print(f"{key} changed"))
+        # Required values (raises if missing)
+        secret = config.require("jwt.secret")
     """
 
-    def __init__(self, env: str = "development"):
-        """Initialize config manager.
+    def __init__(self):
+        """Initialize config manager."""
+        self._sources: List[ConfigSource] = []
+        self._cache: Dict[str, Any] = {}
+        self._lock = threading.Lock()
+        self._watchers: List[callable] = []
 
-        Args:
-            env: Environment name
-        """
-        self.env = env
-        self.schema = ConfigSchema()
-        self._values: Dict[str, ConfigValue] = {}
-        self._history: List[ConfigChange] = []
-        self._watchers: Dict[str, List[Callable]] = {}
-        self._lock = Lock()
-        self._max_history = 1000
-
-    def _coerce_value(self, value: Any, config_type: ConfigType) -> Any:
-        """Coerce value to expected type."""
-        if value is None:
-            return None
-
-        if config_type == ConfigType.STRING:
-            return str(value)
-        elif config_type == ConfigType.INTEGER:
-            return int(value)
-        elif config_type == ConfigType.FLOAT:
-            return float(value)
-        elif config_type == ConfigType.BOOLEAN:
-            if isinstance(value, bool):
-                return value
-            if isinstance(value, str):
-                return value.lower() in ("true", "1", "yes", "on")
-            return bool(value)
-        elif config_type == ConfigType.JSON:
-            if isinstance(value, str):
-                return json.loads(value)
-            return value
-        elif config_type == ConfigType.LIST:
-            if isinstance(value, str):
-                return [v.strip() for v in value.split(",")]
-            return list(value)
-
-        return value
-
-    def _validate_value(
+    def load_env(
         self,
-        key: str,
-        value: Any,
-        validators: List[Callable]
-    ) -> bool:
-        """Validate a config value."""
-        for validator in validators:
-            try:
-                if not validator(value):
-                    return False
-            except Exception:
-                return False
-        return True
-
-    def load_from_env(self):
-        """Load config from environment variables."""
-        for key, definition in self.schema._definitions.items():
-            env_var = definition.get("env_var", key.upper().replace(".", "_"))
-            env_value = os.environ.get(env_var)
-
-            if env_value is not None:
-                try:
-                    coerced = self._coerce_value(env_value, definition["type"])
-                    self._set_value(
-                        key,
-                        coerced,
-                        ConfigSource.ENVIRONMENT,
-                        definition
-                    )
-                except Exception:
-                    pass
-
-    def load_from_file(self, path: str):
-        """Load config from JSON file.
+        prefix: str = "",
+        strip_prefix: bool = True,
+        priority: int = 100,
+    ) -> "ConfigManager":
+        """Load from environment variables.
 
         Args:
-            path: Path to config file
+            prefix: Only load vars with this prefix
+            strip_prefix: Remove prefix from keys
+            priority: Source priority (higher = override)
         """
-        file_path = Path(path)
-        if not file_path.exists():
-            return
+        data = {}
 
-        with open(file_path) as f:
+        for key, value in os.environ.items():
+            if prefix and not key.startswith(prefix):
+                continue
+
+            config_key = key
+            if prefix and strip_prefix:
+                config_key = key[len(prefix):].lstrip("_")
+
+            # Convert to nested dict (MY_APP__DB__HOST -> db.host)
+            config_key = config_key.lower().replace("__", ".")
+            data[config_key] = self._coerce_value(value)
+
+        with self._lock:
+            self._sources.append(ConfigSource(
+                name="env",
+                data=data,
+                priority=priority,
+            ))
+            self._rebuild_cache()
+
+        return self
+
+    def load_json(
+        self,
+        file_path: str,
+        priority: int = 50,
+        required: bool = False,
+    ) -> "ConfigManager":
+        """Load from JSON file.
+
+        Args:
+            file_path: Path to JSON file
+            priority: Source priority
+            required: Raise if file not found
+        """
+        path = Path(file_path)
+
+        if not path.exists():
+            if required:
+                raise FileNotFoundError(f"Config file not found: {file_path}")
+            return self
+
+        with open(path) as f:
             data = json.load(f)
 
-        self._load_from_dict(data, ConfigSource.FILE)
+        with self._lock:
+            self._sources.append(ConfigSource(
+                name=f"json:{path.name}",
+                data=self._flatten_dict(data),
+                priority=priority,
+                file_path=str(path),
+            ))
+            self._rebuild_cache()
 
-    def _load_from_dict(self, data: Dict[str, Any], source: ConfigSource):
-        """Load config from dictionary."""
-        for key, value in self._flatten_dict(data).items():
-            definition = self.schema.get_definition(key)
-            if definition:
-                try:
-                    coerced = self._coerce_value(value, definition["type"])
-                    self._set_value(key, coerced, source, definition)
-                except Exception:
-                    pass
+        return self
+
+    def load_dict(
+        self,
+        data: Dict[str, Any],
+        name: str = "dict",
+        priority: int = 75,
+    ) -> "ConfigManager":
+        """Load from dictionary.
+
+        Args:
+            data: Configuration dictionary
+            name: Source name
+            priority: Source priority
+        """
+        with self._lock:
+            self._sources.append(ConfigSource(
+                name=name,
+                data=self._flatten_dict(data),
+                priority=priority,
+            ))
+            self._rebuild_cache()
+
+        return self
+
+    def get(
+        self,
+        key: str,
+        default: Optional[T] = None,
+    ) -> Optional[T]:
+        """Get config value.
+
+        Args:
+            key: Dot-notation key (e.g., "database.host")
+            default: Default if not found
+        """
+        with self._lock:
+            return self._cache.get(key.lower(), default)
+
+    def get_str(self, key: str, default: str = "") -> str:
+        """Get string value."""
+        value = self.get(key)
+        return str(value) if value is not None else default
+
+    def get_int(self, key: str, default: int = 0) -> int:
+        """Get integer value."""
+        value = self.get(key)
+        if value is None:
+            return default
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return default
+
+    def get_float(self, key: str, default: float = 0.0) -> float:
+        """Get float value."""
+        value = self.get(key)
+        if value is None:
+            return default
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+
+    def get_bool(self, key: str, default: bool = False) -> bool:
+        """Get boolean value."""
+        value = self.get(key)
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.lower() in ("true", "1", "yes", "on")
+        return bool(value)
+
+    def get_list(self, key: str, default: Optional[List] = None) -> List:
+        """Get list value."""
+        value = self.get(key)
+        if value is None:
+            return default or []
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            return [v.strip() for v in value.split(",")]
+        return [value]
+
+    def require(self, key: str) -> Any:
+        """Get required value (raises if missing).
+
+        Args:
+            key: Config key
+
+        Raises:
+            KeyError: If key not found
+        """
+        value = self.get(key)
+        if value is None:
+            raise KeyError(f"Required config key not found: {key}")
+        return value
+
+    def set(self, key: str, value: Any, source: str = "runtime"):
+        """Set config value at runtime.
+
+        Args:
+            key: Config key
+            value: Value to set
+            source: Source name for tracking
+        """
+        with self._lock:
+            # Find or create runtime source
+            runtime_source = None
+            for s in self._sources:
+                if s.name == source:
+                    runtime_source = s
+                    break
+
+            if not runtime_source:
+                runtime_source = ConfigSource(
+                    name=source,
+                    data={},
+                    priority=200,  # High priority for runtime
+                )
+                self._sources.append(runtime_source)
+
+            runtime_source.data[key.lower()] = value
+            self._rebuild_cache()
+            self._notify_watchers(key, value)
+
+    def has(self, key: str) -> bool:
+        """Check if key exists."""
+        return self.get(key) is not None
+
+    def keys(self, prefix: str = "") -> List[str]:
+        """Get all config keys."""
+        with self._lock:
+            if prefix:
+                prefix = prefix.lower()
+                return [k for k in self._cache.keys() if k.startswith(prefix)]
+            return list(self._cache.keys())
+
+    def to_dict(self, prefix: str = "") -> Dict[str, Any]:
+        """Export config as dictionary."""
+        with self._lock:
+            if prefix:
+                prefix = prefix.lower()
+                return {k: v for k, v in self._cache.items() if k.startswith(prefix)}
+            return self._cache.copy()
+
+    def reload(self):
+        """Reload all file-based sources."""
+        with self._lock:
+            for source in self._sources:
+                if source.file_path:
+                    path = Path(source.file_path)
+                    if path.exists():
+                        with open(path) as f:
+                            if path.suffix == ".json":
+                                data = json.load(f)
+                                source.data = self._flatten_dict(data)
+                        source.last_loaded = time.time()
+
+            self._rebuild_cache()
+
+    def watch(self, callback: callable):
+        """Register config change watcher."""
+        self._watchers.append(callback)
+
+    def _rebuild_cache(self):
+        """Rebuild merged config cache."""
+        # Sort by priority
+        sorted_sources = sorted(self._sources, key=lambda s: s.priority)
+
+        # Merge in priority order
+        self._cache = {}
+        for source in sorted_sources:
+            self._cache.update(source.data)
+
+    def _notify_watchers(self, key: str, value: Any):
+        """Notify watchers of config change."""
+        for watcher in self._watchers:
+            try:
+                watcher(key, value)
+            except Exception:
+                pass
 
     def _flatten_dict(
         self,
-        d: Dict[str, Any],
-        parent_key: str = "",
-        sep: str = "."
+        data: Dict[str, Any],
+        prefix: str = "",
     ) -> Dict[str, Any]:
-        """Flatten nested dictionary."""
-        items = []
-        for k, v in d.items():
-            new_key = parent_key + sep + k if parent_key else k
-            if isinstance(v, dict):
-                items.extend(self._flatten_dict(v, new_key, sep).items())
-            else:
-                items.append((new_key, v))
-        return dict(items)
-
-    def _set_value(
-        self,
-        key: str,
-        value: Any,
-        source: ConfigSource,
-        definition: Dict[str, Any]
-    ):
-        """Set a config value."""
-        with self._lock:
-            old_value = self._values.get(key)
-
-            config_value = ConfigValue(
-                key=key,
-                value=value,
-                default=definition.get("default"),
-                source=source,
-                config_type=definition["type"],
-                description=definition.get("description", ""),
-                required=definition.get("required", False),
-                secret=definition.get("secret", False),
-            )
-
-            self._values[key] = config_value
-
-            # Record history
-            if old_value:
-                change = ConfigChange(
-                    key=key,
-                    old_value=old_value.value,
-                    new_value=value,
-                    source=source,
-                )
-                self._history.append(change)
-                if len(self._history) > self._max_history:
-                    self._history = self._history[-self._max_history:]
-
-                # Notify watchers
-                self._notify_watchers(key, old_value.value, value)
-
-    def _notify_watchers(self, key: str, old_value: Any, new_value: Any):
-        """Notify watchers of config change."""
-        for pattern, handlers in self._watchers.items():
-            if self._matches_pattern(key, pattern):
-                for handler in handlers:
-                    try:
-                        handler(key, old_value, new_value)
-                    except Exception:
-                        pass
-
-    def _matches_pattern(self, key: str, pattern: str) -> bool:
-        """Check if key matches pattern."""
-        if pattern == "*":
-            return True
-
-        if pattern.endswith(".*"):
-            prefix = pattern[:-2]
-            return key.startswith(prefix + ".")
-
-        return key == pattern
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Get a config value.
-
-        Args:
-            key: Config key
-            default: Default if not found
-
-        Returns:
-            Config value
-        """
-        with self._lock:
-            config_value = self._values.get(key)
-
-            if config_value:
-                return config_value.value
-
-            # Check schema for default
-            definition = self.schema.get_definition(key)
-            if definition:
-                return definition.get("default", default)
-
-            return default
-
-    def set(
-        self,
-        key: str,
-        value: Any,
-        reason: str = ""
-    ) -> bool:
-        """Set a runtime config value.
-
-        Args:
-            key: Config key
-            value: New value
-            reason: Change reason
-
-        Returns:
-            True if set successfully
-        """
-        definition = self.schema.get_definition(key)
-        if not definition:
-            return False
-
-        try:
-            coerced = self._coerce_value(value, definition["type"])
-
-            # Validate
-            validators = definition.get("validators", [])
-            if not self._validate_value(key, coerced, validators):
-                return False
-
-            self._set_value(key, coerced, ConfigSource.RUNTIME, definition)
-            return True
-
-        except Exception:
-            return False
-
-    def reset(self, key: str) -> bool:
-        """Reset config to default value.
-
-        Args:
-            key: Config key
-
-        Returns:
-            True if reset
-        """
-        definition = self.schema.get_definition(key)
-        if not definition:
-            return False
-
-        default = definition.get("default")
-        return self.set(key, default, reason="reset to default")
-
-    def watch(self, pattern: str, handler: Callable):
-        """Watch for config changes.
-
-        Args:
-            pattern: Key pattern (e.g., "api.*" or "*")
-            handler: Handler function (key, old_value, new_value)
-        """
-        with self._lock:
-            if pattern not in self._watchers:
-                self._watchers[pattern] = []
-            self._watchers[pattern].append(handler)
-
-    def unwatch(self, pattern: str, handler: Callable):
-        """Stop watching for changes.
-
-        Args:
-            pattern: Key pattern
-            handler: Handler to remove
-        """
-        with self._lock:
-            if pattern in self._watchers:
-                self._watchers[pattern] = [
-                    h for h in self._watchers[pattern]
-                    if h != handler
-                ]
-
-    def get_all(self, include_secrets: bool = False) -> Dict[str, Any]:
-        """Get all config values.
-
-        Args:
-            include_secrets: Include secret values
-
-        Returns:
-            Dict of all configs
-        """
-        with self._lock:
-            return {
-                key: cv.to_dict(include_secret=include_secrets)
-                for key, cv in self._values.items()
-            }
-
-    def get_history(
-        self,
-        key: Optional[str] = None,
-        limit: int = 100
-    ) -> List[Dict[str, Any]]:
-        """Get config change history.
-
-        Args:
-            key: Filter by key
-            limit: Max items
-
-        Returns:
-            List of changes
-        """
-        with self._lock:
-            changes = list(self._history)
-
-        if key:
-            changes = [c for c in changes if c.key == key]
-
-        changes = sorted(changes, key=lambda c: c.timestamp, reverse=True)
-
-        return [
-            {
-                "key": c.key,
-                "old_value": c.old_value,
-                "new_value": c.new_value,
-                "source": c.source.value,
-                "timestamp": c.timestamp,
-                "reason": c.reason,
-            }
-            for c in changes[:limit]
-        ]
-
-    def export(self, include_secrets: bool = False) -> Dict[str, Any]:
-        """Export config as dictionary.
-
-        Args:
-            include_secrets: Include secret values
-
-        Returns:
-            Config dictionary
-        """
+        """Flatten nested dict to dot notation."""
         result = {}
-        with self._lock:
-            for key, cv in self._values.items():
-                value = cv.value if (include_secrets or not cv.secret) else "***"
-                parts = key.split(".")
-                current = result
-                for part in parts[:-1]:
-                    current = current.setdefault(part, {})
-                current[parts[-1]] = value
+
+        for key, value in data.items():
+            full_key = f"{prefix}.{key}" if prefix else key
+            full_key = full_key.lower()
+
+            if isinstance(value, dict):
+                result.update(self._flatten_dict(value, full_key))
+            else:
+                result[full_key] = value
+
         return result
 
-    def get_stats(self) -> Dict[str, Any]:
-        """Get config statistics.
+    def _coerce_value(self, value: str) -> Any:
+        """Coerce string value to appropriate type."""
+        # Boolean
+        if value.lower() in ("true", "false"):
+            return value.lower() == "true"
 
-        Returns:
-            Statistics dict
-        """
-        with self._lock:
-            values = list(self._values.values())
+        # None
+        if value.lower() in ("null", "none", ""):
+            return None
 
-        by_source = {}
-        for source in ConfigSource:
-            by_source[source.value] = len([v for v in values if v.source == source])
+        # Integer
+        try:
+            return int(value)
+        except ValueError:
+            pass
 
-        by_type = {}
-        for ctype in ConfigType:
-            by_type[ctype.value] = len([v for v in values if v.config_type == ctype])
+        # Float
+        try:
+            return float(value)
+        except ValueError:
+            pass
 
-        return {
-            "total_configs": len(values),
-            "by_source": by_source,
-            "by_type": by_type,
-            "secrets_count": len([v for v in values if v.secret]),
-            "required_count": len([v for v in values if v.required]),
-            "history_size": len(self._history),
-            "watchers_count": sum(len(h) for h in self._watchers.values()),
-            "environment": self.env,
-        }
+        # JSON array/object
+        if value.startswith("[") or value.startswith("{"):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                pass
+
+        return value
+
+    def get_sources(self) -> List[dict]:
+        """Get loaded sources info."""
+        return [
+            {
+                "name": s.name,
+                "priority": s.priority,
+                "keys": len(s.data),
+                "file_path": s.file_path,
+                "last_loaded": s.last_loaded,
+            }
+            for s in self._sources
+        ]
 
 
 # Singleton instance
-config_manager = ConfigManager(
-    env=os.environ.get("APP_ENV", "development")
-)
+config_manager = ConfigManager()
 
 
-# Define common configs
-config_manager.schema.define(
-    "app.name",
-    ConfigType.STRING,
-    default="EVA Voice",
-    description="Application name"
-)
+# Convenience functions
+def get(key: str, default: Any = None) -> Any:
+    """Get config value from global manager."""
+    return config_manager.get(key, default)
 
-config_manager.schema.define(
-    "app.debug",
-    ConfigType.BOOLEAN,
-    default=False,
-    description="Debug mode"
-)
 
-config_manager.schema.define(
-    "api.timeout",
-    ConfigType.INTEGER,
-    default=30,
-    description="API request timeout in seconds"
-)
+def require(key: str) -> Any:
+    """Get required config value from global manager."""
+    return config_manager.require(key)
 
-config_manager.schema.define(
-    "api.rate_limit",
-    ConfigType.INTEGER,
-    default=100,
-    description="Requests per minute"
-)
 
-config_manager.schema.define(
-    "tts.default_voice",
-    ConfigType.STRING,
-    default="eva",
-    description="Default TTS voice"
-)
+def get_bool(key: str, default: bool = False) -> bool:
+    """Get boolean config value."""
+    return config_manager.get_bool(key, default)
 
-config_manager.schema.define(
-    "llm.max_tokens",
-    ConfigType.INTEGER,
-    default=1024,
-    description="Max LLM tokens"
-)
 
-config_manager.schema.define(
-    "cache.ttl",
-    ConfigType.INTEGER,
-    default=3600,
-    description="Cache TTL in seconds"
-)
-
-# Load from environment
-config_manager.load_from_env()
+def get_int(key: str, default: int = 0) -> int:
+    """Get integer config value."""
+    return config_manager.get_int(key, default)
