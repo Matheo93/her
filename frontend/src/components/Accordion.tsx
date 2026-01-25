@@ -1,168 +1,124 @@
 "use client";
 
 /**
- * Accordion Components - Sprint 604
+ * Accordion Components - Sprint 638
  *
- * Collapsible content panels:
- * - Single expand accordion
- * - Multi expand accordion
- * - Collapsible section
+ * Collapsible content components:
+ * - Basic accordion
+ * - Multiple expand
+ * - With icons
+ * - FAQ style
  * - HER-themed styling
  */
 
-import React, {
-  memo,
-  useState,
-  useCallback,
-  createContext,
-  useContext,
-  ReactNode,
-} from "react";
+import React, { memo, useState, useCallback, ReactNode, createContext, useContext } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/context/ThemeContext";
 
-interface AccordionItemData {
-  /** Unique item identifier */
+interface AccordionItem {
   id: string;
-  /** Item title */
   title: string;
-  /** Item content */
   content: ReactNode;
-  /** Optional icon */
   icon?: ReactNode;
-  /** Whether item is disabled */
   disabled?: boolean;
 }
 
+interface AccordionContextType {
+  expandedIds: Set<string>;
+  toggleItem: (id: string) => void;
+  isExpanded: (id: string) => boolean;
+}
+
+const AccordionContext = createContext<AccordionContextType | null>(null);
+
 interface AccordionProps {
-  /** Accordion items */
-  items: AccordionItemData[];
-  /** Allow multiple items open */
-  allowMultiple?: boolean;
-  /** Default expanded item IDs */
+  items: AccordionItem[];
   defaultExpanded?: string[];
-  /** Controlled expanded state */
-  expanded?: string[];
-  /** Change callback */
-  onChange?: (expanded: string[]) => void;
-  /** Visual variant */
-  variant?: "default" | "bordered" | "separated";
-  /** Additional class names */
+  allowMultiple?: boolean;
+  variant?: "default" | "bordered" | "separated" | "flush";
+  size?: "sm" | "md" | "lg";
   className?: string;
 }
 
 /**
- * Chevron Icon
- */
-const ChevronIcon = ({ isOpen }: { isOpen: boolean }) => (
-  <motion.svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    animate={{ rotate: isOpen ? 180 : 0 }}
-    transition={{ duration: 0.2 }}
-  >
-    <polyline points="6 9 12 15 18 9" />
-  </motion.svg>
-);
-
-/**
- * Accordion Context
- */
-interface AccordionContextValue {
-  expanded: string[];
-  toggle: (id: string) => void;
-  variant: AccordionProps["variant"];
-  isFirst: (id: string) => boolean;
-  isLast: (id: string) => boolean;
-}
-
-const AccordionContext = createContext<AccordionContextValue | null>(null);
-
-function useAccordionContext() {
-  const context = useContext(AccordionContext);
-  if (!context) {
-    throw new Error("AccordionItem must be used within Accordion");
-  }
-  return context;
-}
-
-/**
- * Main Accordion Component
+ * Accordion Component
  */
 export const Accordion = memo(function Accordion({
   items,
-  allowMultiple = false,
   defaultExpanded = [],
-  expanded: controlledExpanded,
-  onChange,
+  allowMultiple = false,
   variant = "default",
+  size = "md",
   className = "",
 }: AccordionProps) {
   const { colors } = useTheme();
-  const [internalExpanded, setInternalExpanded] = useState<string[]>(defaultExpanded);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(
+    new Set(defaultExpanded)
+  );
 
-  const expanded = controlledExpanded ?? internalExpanded;
-
-  const toggle = useCallback(
+  const toggleItem = useCallback(
     (id: string) => {
-      let newExpanded: string[];
-
-      if (expanded.includes(id)) {
-        newExpanded = expanded.filter((e) => e !== id);
-      } else {
-        newExpanded = allowMultiple ? [...expanded, id] : [id];
-      }
-
-      setInternalExpanded(newExpanded);
-      onChange?.(newExpanded);
+      setExpandedIds((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(id)) {
+          newSet.delete(id);
+        } else {
+          if (!allowMultiple) {
+            newSet.clear();
+          }
+          newSet.add(id);
+        }
+        return newSet;
+      });
     },
-    [expanded, allowMultiple, onChange]
+    [allowMultiple]
   );
 
-  const isFirst = useCallback(
-    (id: string) => items[0]?.id === id,
-    [items]
+  const isExpanded = useCallback(
+    (id: string) => expandedIds.has(id),
+    [expandedIds]
   );
 
-  const isLast = useCallback(
-    (id: string) => items[items.length - 1]?.id === id,
-    [items]
-  );
+  const sizeClasses = {
+    sm: "text-sm",
+    md: "text-base",
+    lg: "text-lg",
+  };
 
   const getContainerStyle = () => {
     switch (variant) {
       case "bordered":
         return {
-          border: `1px solid ${colors.cream}`,
-          borderRadius: "12px",
+          border: "1px solid " + colors.cream,
+          borderRadius: "0.75rem",
           overflow: "hidden",
         };
       case "separated":
         return {};
+      case "flush":
+        return {};
       default:
         return {
-          borderRadius: "12px",
+          backgroundColor: colors.warmWhite,
+          borderRadius: "0.75rem",
           overflow: "hidden",
         };
     }
   };
 
   return (
-    <AccordionContext.Provider value={{ expanded, toggle, variant, isFirst, isLast }}>
+    <AccordionContext.Provider value={{ expandedIds, toggleItem, isExpanded }}>
       <div
-        className={`${variant === "separated" ? "space-y-2" : ""} ${className}`}
+        className={sizeClasses[size] + " " + className}
         style={getContainerStyle()}
       >
         {items.map((item, index) => (
-          <AccordionItem
+          <AccordionItemComponent
             key={item.id}
             item={item}
+            variant={variant}
+            isFirst={index === 0}
             isLast={index === items.length - 1}
-            colors={colors}
           />
         ))}
       </div>
@@ -170,91 +126,95 @@ export const Accordion = memo(function Accordion({
   );
 });
 
-/**
- * Accordion Item
- */
-const AccordionItem = memo(function AccordionItem({
-  item,
-  isLast,
-  colors,
-}: {
-  item: AccordionItemData;
+interface AccordionItemComponentProps {
+  item: AccordionItem;
+  variant: "default" | "bordered" | "separated" | "flush";
+  isFirst: boolean;
   isLast: boolean;
-  colors: any;
-}) {
-  const { expanded, toggle, variant } = useAccordionContext();
-  const isExpanded = expanded.includes(item.id);
+}
+
+/**
+ * Accordion Item Component
+ */
+const AccordionItemComponent = memo(function AccordionItemComponent({
+  item,
+  variant,
+  isFirst,
+  isLast,
+}: AccordionItemComponentProps) {
+  const { colors } = useTheme();
+  const context = useContext(AccordionContext);
+
+  if (!context) return null;
+
+  const { toggleItem, isExpanded } = context;
+  const expanded = isExpanded(item.id);
 
   const getItemStyle = () => {
-    const base = {
-      backgroundColor: colors.warmWhite,
-    };
-
-    if (variant === "separated") {
-      return {
-        ...base,
-        borderRadius: "12px",
-        border: `1px solid ${colors.cream}`,
-      };
+    switch (variant) {
+      case "separated":
+        return {
+          backgroundColor: colors.warmWhite,
+          borderRadius: "0.75rem",
+          marginBottom: isLast ? 0 : "0.5rem",
+          border: "1px solid " + colors.cream,
+        };
+      case "flush":
+        return {
+          borderBottom: isLast ? "none" : "1px solid " + colors.cream,
+        };
+      default:
+        return {
+          borderBottom: isLast ? "none" : "1px solid " + colors.cream,
+        };
     }
-
-    return base;
-  };
-
-  const getBorderStyle = () => {
-    if (variant === "separated" || isLast) {
-      return {};
-    }
-    return {
-      borderBottom: `1px solid ${colors.cream}`,
-    };
   };
 
   return (
     <div style={getItemStyle()}>
-      {/* Header */}
-      <motion.button
-        className="w-full flex items-center justify-between px-4 py-3 text-left"
+      <button
+        type="button"
+        className="w-full flex items-center justify-between px-4 py-3 text-left transition-colors"
         style={{
-          ...getBorderStyle(),
           color: item.disabled ? colors.textMuted : colors.textPrimary,
-          cursor: item.disabled ? "not-allowed" : "pointer",
           opacity: item.disabled ? 0.5 : 1,
+          cursor: item.disabled ? "not-allowed" : "pointer",
+          backgroundColor: expanded ? colors.cream + "50" : "transparent",
         }}
-        onClick={() => !item.disabled && toggle(item.id)}
-        disabled={item.disabled}
-        whileHover={
-          !item.disabled
-            ? { backgroundColor: colors.cream }
-            : undefined
-        }
-        whileTap={!item.disabled ? { scale: 0.995 } : undefined}
-        aria-expanded={isExpanded}
-        aria-controls={`panel-${item.id}`}
+        onClick={() => !item.disabled && toggleItem(item.id)}
+        aria-expanded={expanded}
+        aria-disabled={item.disabled}
       >
-        <div className="flex items-center gap-3">
-          {item.icon && (
-            <span style={{ color: colors.coral }}>{item.icon}</span>
-          )}
-          <span className="font-medium">{item.title}</span>
-        </div>
-        <ChevronIcon isOpen={isExpanded} />
-      </motion.button>
+        <span className="flex items-center gap-2 font-medium">
+          {item.icon}
+          {item.title}
+        </span>
+        <motion.svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={colors.textMuted}
+          strokeWidth="2"
+          animate={{ rotate: expanded ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </motion.svg>
+      </button>
 
-      {/* Content */}
       <AnimatePresence initial={false}>
-        {isExpanded && (
+        {expanded && (
           <motion.div
-            id={`panel-${item.id}`}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" as const }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
             style={{ overflow: "hidden" }}
           >
             <div
-              className="px-4 pb-4 text-sm"
-              style={{ color: colors.textSecondary }}
+              className="px-4 pb-4"
+              style={{ color: colors.textMuted }}
             >
               {item.content}
             </div>
@@ -265,157 +225,113 @@ const AccordionItem = memo(function AccordionItem({
   );
 });
 
+interface FAQAccordionProps {
+  items: { question: string; answer: string }[];
+  className?: string;
+}
+
 /**
- * Simple Collapsible - Single expand/collapse
+ * FAQ Accordion
+ */
+export const FAQAccordion = memo(function FAQAccordion({
+  items,
+  className = "",
+}: FAQAccordionProps) {
+  const { colors } = useTheme();
+
+  const accordionItems: AccordionItem[] = items.map((item, index) => ({
+    id: "faq-" + index,
+    title: item.question,
+    content: item.answer,
+    icon: (
+      <span
+        className="flex items-center justify-center w-6 h-6 rounded-full text-sm font-bold"
+        style={{ backgroundColor: colors.coral, color: colors.warmWhite }}
+      >
+        Q
+      </span>
+    ),
+  }));
+
+  return (
+    <Accordion
+      items={accordionItems}
+      variant="separated"
+      className={className}
+    />
+  );
+});
+
+interface CollapsibleProps {
+  title: string;
+  children: ReactNode;
+  defaultOpen?: boolean;
+  icon?: ReactNode;
+  className?: string;
+}
+
+/**
+ * Simple Collapsible
  */
 export const Collapsible = memo(function Collapsible({
   title,
   children,
   defaultOpen = false,
-  isOpen: controlledOpen,
-  onToggle,
   icon,
   className = "",
-}: {
-  title: string;
-  children: ReactNode;
-  defaultOpen?: boolean;
-  isOpen?: boolean;
-  onToggle?: (isOpen: boolean) => void;
-  icon?: ReactNode;
-  className?: string;
-}) {
-  const { colors } = useTheme();
-  const [internalOpen, setInternalOpen] = useState(defaultOpen);
-
-  const isOpen = controlledOpen ?? internalOpen;
-
-  const handleToggle = useCallback(() => {
-    const newOpen = !isOpen;
-    setInternalOpen(newOpen);
-    onToggle?.(newOpen);
-  }, [isOpen, onToggle]);
-
-  return (
-    <div
-      className={`rounded-xl overflow-hidden ${className}`}
-      style={{
-        backgroundColor: colors.warmWhite,
-        border: `1px solid ${colors.cream}`,
-      }}
-    >
-      <motion.button
-        className="w-full flex items-center justify-between px-4 py-3 text-left"
-        style={{ color: colors.textPrimary }}
-        onClick={handleToggle}
-        whileHover={{ backgroundColor: colors.cream }}
-        whileTap={{ scale: 0.995 }}
-        aria-expanded={isOpen}
-      >
-        <div className="flex items-center gap-3">
-          {icon && <span style={{ color: colors.coral }}>{icon}</span>}
-          <span className="font-medium">{title}</span>
-        </div>
-        <ChevronIcon isOpen={isOpen} />
-      </motion.button>
-
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" as const }}
-            style={{ overflow: "hidden" }}
-          >
-            <div
-              className="px-4 pb-4 text-sm"
-              style={{
-                color: colors.textSecondary,
-                borderTop: `1px solid ${colors.cream}`,
-                paddingTop: "1rem",
-              }}
-            >
-              {children}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-});
-
-/**
- * FAQ Accordion - Styled for FAQ sections
- */
-export const FAQAccordion = memo(function FAQAccordion({
-  items,
-  className = "",
-}: {
-  items: Array<{ question: string; answer: string }>;
-  className?: string;
-}) {
-  const { colors } = useTheme();
-
-  const accordionItems = items.map((item, index) => ({
-    id: `faq-${index}`,
-    title: item.question,
-    content: item.answer,
-  }));
-
-  return (
-    <div className={className}>
-      <Accordion items={accordionItems} variant="separated" />
-    </div>
-  );
-});
-
-/**
- * Details Disclosure - Native-like disclosure
- */
-export const Disclosure = memo(function Disclosure({
-  summary,
-  children,
-  defaultOpen = false,
-  className = "",
-}: {
-  summary: string;
-  children: ReactNode;
-  defaultOpen?: boolean;
-  className?: string;
-}) {
+}: CollapsibleProps) {
   const { colors } = useTheme();
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className={className}>
-      <motion.button
-        className="flex items-center gap-2 text-sm font-medium"
-        style={{ color: colors.coral }}
+    <div
+      className={"rounded-xl overflow-hidden " + className}
+      style={{
+        backgroundColor: colors.warmWhite,
+        border: "1px solid " + colors.cream,
+      }}
+    >
+      <button
+        type="button"
+        className="w-full flex items-center justify-between px-4 py-3 text-left"
+        style={{ color: colors.textPrimary }}
         onClick={() => setIsOpen(!isOpen)}
-        whileHover={{ opacity: 0.8 }}
+        aria-expanded={isOpen}
       >
-        <motion.span
-          animate={{ rotate: isOpen ? 90 : 0 }}
-          transition={{ duration: 0.15 }}
+        <span className="flex items-center gap-2 font-medium">
+          {icon}
+          {title}
+        </span>
+        <motion.svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={colors.textMuted}
+          strokeWidth="2"
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
         >
-          ▶
-        </motion.span>
-        {summary}
-      </motion.button>
+          <polyline points="6 9 12 15 18 9" />
+        </motion.svg>
+      </button>
 
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {isOpen && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="overflow-hidden"
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            style={{ overflow: "hidden" }}
           >
             <div
-              className="pl-5 pt-2 text-sm"
-              style={{ color: colors.textSecondary }}
+              className="px-4 pb-4"
+              style={{
+                color: colors.textMuted,
+                borderTop: "1px solid " + colors.cream,
+                paddingTop: "1rem",
+              }}
             >
               {children}
             </div>
@@ -426,90 +342,196 @@ export const Disclosure = memo(function Disclosure({
   );
 });
 
-/**
- * Expandable Card - Card that expands to show more
- */
-export const ExpandableCard = memo(function ExpandableCard({
-  title,
-  preview,
-  children,
-  defaultExpanded = false,
-  className = "",
-}: {
-  title: string;
-  preview?: ReactNode;
+interface AccordionGroupProps {
   children: ReactNode;
-  defaultExpanded?: boolean;
+  allowMultiple?: boolean;
   className?: string;
-}) {
+}
+
+interface AccordionPanelProps {
+  id: string;
+  title: string;
+  children: ReactNode;
+  icon?: ReactNode;
+  disabled?: boolean;
+}
+
+/**
+ * Accordion Group (Compound Component Pattern)
+ */
+export const AccordionGroup = memo(function AccordionGroup({
+  children,
+  allowMultiple = false,
+  className = "",
+}: AccordionGroupProps) {
   const { colors } = useTheme();
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleItem = useCallback(
+    (id: string) => {
+      setExpandedIds((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(id)) {
+          newSet.delete(id);
+        } else {
+          if (!allowMultiple) {
+            newSet.clear();
+          }
+          newSet.add(id);
+        }
+        return newSet;
+      });
+    },
+    [allowMultiple]
+  );
+
+  const isExpanded = useCallback(
+    (id: string) => expandedIds.has(id),
+    [expandedIds]
+  );
 
   return (
-    <motion.div
-      className={`rounded-xl overflow-hidden ${className}`}
-      style={{
-        backgroundColor: colors.warmWhite,
-        border: `1px solid ${colors.cream}`,
-      }}
-      layout
-    >
-      {/* Header */}
-      <div className="p-4">
-        <h3
-          className="font-semibold mb-2"
-          style={{ color: colors.textPrimary }}
-        >
-          {title}
-        </h3>
-        {preview && (
-          <div
-            className="text-sm"
-            style={{ color: colors.textSecondary }}
-          >
-            {preview}
-          </div>
-        )}
+    <AccordionContext.Provider value={{ expandedIds, toggleItem, isExpanded }}>
+      <div
+        className={"rounded-xl overflow-hidden " + className}
+        style={{
+          backgroundColor: colors.warmWhite,
+          border: "1px solid " + colors.cream,
+        }}
+      >
+        {children}
       </div>
+    </AccordionContext.Provider>
+  );
+});
 
-      {/* Expanded content */}
+/**
+ * Accordion Panel (for use with AccordionGroup)
+ */
+export const AccordionPanel = memo(function AccordionPanel({
+  id,
+  title,
+  children,
+  icon,
+  disabled = false,
+}: AccordionPanelProps) {
+  const { colors } = useTheme();
+  const context = useContext(AccordionContext);
+
+  if (!context) {
+    console.warn("AccordionPanel must be used within AccordionGroup");
+    return null;
+  }
+
+  const { toggleItem, isExpanded } = context;
+  const expanded = isExpanded(id);
+
+  return (
+    <div style={{ borderBottom: "1px solid " + colors.cream }}>
+      <button
+        type="button"
+        className="w-full flex items-center justify-between px-4 py-3 text-left transition-colors"
+        style={{
+          color: disabled ? colors.textMuted : colors.textPrimary,
+          opacity: disabled ? 0.5 : 1,
+          cursor: disabled ? "not-allowed" : "pointer",
+        }}
+        onClick={() => !disabled && toggleItem(id)}
+        aria-expanded={expanded}
+        aria-disabled={disabled}
+      >
+        <span className="flex items-center gap-2 font-medium">
+          {icon}
+          {title}
+        </span>
+        <motion.svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={colors.textMuted}
+          strokeWidth="2"
+          animate={{ rotate: expanded ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </motion.svg>
+      </button>
+
       <AnimatePresence initial={false}>
-        {isExpanded && (
+        {expanded && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            style={{ overflow: "hidden" }}
           >
-            <div
-              className="px-4 pb-4 text-sm"
-              style={{
-                color: colors.textSecondary,
-                borderTop: `1px solid ${colors.cream}`,
-                paddingTop: "1rem",
-              }}
-            >
+            <div className="px-4 pb-4" style={{ color: colors.textMuted }}>
               {children}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+});
 
-      {/* Toggle button */}
-      <motion.button
-        className="w-full py-2 text-sm font-medium flex items-center justify-center gap-1"
-        style={{
-          backgroundColor: colors.cream,
-          color: colors.coral,
-        }}
-        onClick={() => setIsExpanded(!isExpanded)}
-        whileHover={{ backgroundColor: `${colors.coral}10` }}
+interface DetailsProps {
+  summary: string;
+  children: ReactNode;
+  open?: boolean;
+  className?: string;
+}
+
+/**
+ * Native Details Component (Progressive Enhancement)
+ */
+export const Details = memo(function Details({
+  summary,
+  children,
+  open = false,
+  className = "",
+}: DetailsProps) {
+  const { colors } = useTheme();
+
+  return (
+    <details
+      open={open}
+      className={"rounded-xl overflow-hidden " + className}
+      style={{
+        backgroundColor: colors.warmWhite,
+        border: "1px solid " + colors.cream,
+      }}
+    >
+      <summary
+        className="px-4 py-3 font-medium cursor-pointer list-none flex items-center justify-between"
+        style={{ color: colors.textPrimary }}
       >
-        {isExpanded ? "Voir moins" : "Voir plus"}
-        <ChevronIcon isOpen={isExpanded} />
-      </motion.button>
-    </motion.div>
+        {summary}
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={colors.textMuted}
+          strokeWidth="2"
+          className="details-marker"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </summary>
+      <div
+        className="px-4 pb-4"
+        style={{
+          color: colors.textMuted,
+          borderTop: "1px solid " + colors.cream,
+          paddingTop: "1rem",
+        }}
+      >
+        {children}
+      </div>
+    </details>
   );
 });
 
