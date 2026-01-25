@@ -4818,3 +4818,38 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 591 (BACKEND) - Autocritique
+
+**Date:** 2026-01-25
+**Domaine:** Backend Python - Audio Cache
+
+**Ce que j'ai fait:**
+1. **Créé audio_cache.py**
+   - LRU cache avec OrderedDict
+   - TTL configurable (7 jours par défaut)
+   - Disk persistence (index.json + .mp3 files)
+   - Stats: hit rate, size, saved time
+
+2. **Endpoints**
+   - GET /audio-cache/stats
+   - GET /audio-cache/entries
+   - POST /audio-cache/clear
+   - POST /audio-cache/save
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- LRU eviction efficace
+- Disk persistence pour restart
+- Stats complètes (hit rate, time saved)
+- Phrases communes pour prewarm
+
+**Points négatifs:**
+- Pas de compression audio
+- Pas de prewarm endpoint automatique
+- Pas intégré au TTS endpoint encore
+
+**Risques:** Aucun
+
+---
