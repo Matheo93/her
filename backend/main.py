@@ -10408,3 +10408,153 @@ async def export_audit_logs():
     """
     export_data = audit_logger.export()
     return {"status": "ok", "export": export_data}
+
+
+# ═══════════════════════════════════════════════════════════════
+# Service Registry API - Sprint 651
+# ═══════════════════════════════════════════════════════════════
+
+from service_registry import service_registry, ServiceStatus, LoadBalanceStrategy
+
+
+@app.get("/services")
+async def list_services():
+    """List all registered services.
+
+    Returns:
+        All services with instance counts.
+    """
+    return {"status": "ok", "services": service_registry.list_services()}
+
+
+@app.post("/services/register")
+async def register_service_type(
+    name: str,
+    load_balance: str = "round_robin",
+):
+    """Register a service type.
+
+    Args:
+        name: Service name
+        load_balance: Load balancing strategy
+
+    Returns:
+        Registration status.
+    """
+    try:
+        strategy = LoadBalanceStrategy(load_balance)
+    except ValueError:
+        strategy = LoadBalanceStrategy.ROUND_ROBIN
+
+    service_registry.register_service(name=name, load_balance=strategy)
+    return {"status": "ok", "registered": True}
+
+
+@app.post("/services/instance")
+async def register_instance(
+    service_name: str,
+    host: str,
+    port: int,
+    weight: int = 1,
+):
+    """Register a service instance.
+
+    Args:
+        service_name: Service name
+        host: Instance host
+        port: Instance port
+        weight: Load balancing weight
+
+    Returns:
+        Instance ID.
+    """
+    instance_id = service_registry.register(
+        service_name=service_name,
+        host=host,
+        port=port,
+        weight=weight,
+    )
+    return {"status": "ok", "instance_id": instance_id}
+
+
+@app.delete("/services/instance/{instance_id}")
+async def deregister_instance(instance_id: str):
+    """Deregister a service instance.
+
+    Args:
+        instance_id: Instance ID
+
+    Returns:
+        Deregistration status.
+    """
+    success = service_registry.deregister(instance_id)
+    return {"status": "ok" if success else "error", "deregistered": success}
+
+
+@app.post("/services/instance/{instance_id}/heartbeat")
+async def instance_heartbeat(instance_id: str):
+    """Update instance heartbeat.
+
+    Args:
+        instance_id: Instance ID
+
+    Returns:
+        Heartbeat status.
+    """
+    success = service_registry.heartbeat(instance_id)
+    return {"status": "ok" if success else "error", "updated": success}
+
+
+@app.get("/services/{service_name}/discover")
+async def discover_service(service_name: str, healthy_only: bool = True):
+    """Discover service instances.
+
+    Args:
+        service_name: Service to discover
+        healthy_only: Only healthy instances
+
+    Returns:
+        List of instances.
+    """
+    instances = service_registry.discover(service_name, healthy_only=healthy_only)
+    return {"status": "ok", "instances": instances, "count": len(instances)}
+
+
+@app.get("/services/{service_name}/instance")
+async def get_service_instance(service_name: str):
+    """Get a service instance for load balancing.
+
+    Args:
+        service_name: Service name
+
+    Returns:
+        Selected instance.
+    """
+    instance = service_registry.get_instance(service_name)
+    if not instance:
+        return {"status": "error", "error": "No healthy instances"}
+    return {"status": "ok", "instance": instance}
+
+
+@app.post("/services/cleanup")
+async def cleanup_stale_instances(timeout: float = 90.0):
+    """Remove stale instances.
+
+    Args:
+        timeout: Stale timeout in seconds
+
+    Returns:
+        Cleanup result.
+    """
+    removed = service_registry.cleanup_stale(timeout)
+    return {"status": "ok", "removed": removed}
+
+
+@app.get("/services/stats")
+async def get_service_stats():
+    """Get service registry statistics.
+
+    Returns:
+        Statistics.
+    """
+    return {"status": "ok", "stats": service_registry.get_stats()}
