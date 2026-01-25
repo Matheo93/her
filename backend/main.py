@@ -8079,6 +8079,7 @@ from feature_flags import feature_flag_manager, FlagType, FlagStatus
 from webhooks import webhook_manager, DeliveryStatus
 from event_bus import event_bus, EventPriority
 from config_manager import config_manager
+from scheduler import scheduler, TaskStatus as SchedulerTaskStatus
 
 
 @app.get("/audit")
@@ -9810,3 +9811,157 @@ async def get_config_stats():
         Statistics.
     """
     return {"status": "ok", "stats": config_manager.get_stats()}
+
+
+# =============================================================================
+# Scheduler Endpoints - Sprint 641
+# =============================================================================
+
+
+@app.get("/scheduler/tasks")
+async def list_scheduled_tasks(
+    tag: Optional[str] = None,
+    enabled_only: bool = False
+):
+    """List scheduled tasks.
+
+    Args:
+        tag: Filter by tag.
+        enabled_only: Only enabled tasks.
+
+    Returns:
+        List of tasks.
+    """
+    tasks = scheduler.list_tasks(tag=tag, enabled_only=enabled_only)
+    return {"status": "ok", "tasks": tasks, "count": len(tasks)}
+
+
+@app.get("/scheduler/tasks/{task_id}")
+async def get_scheduled_task(task_id: str):
+    """Get a scheduled task.
+
+    Args:
+        task_id: Task ID.
+
+    Returns:
+        Task details.
+    """
+    task = scheduler.get_task(task_id)
+    if not task:
+        return {"status": "error", "message": "Task not found"}
+    return {"status": "ok", "task": task}
+
+
+@app.delete("/scheduler/tasks/{task_id}")
+async def cancel_scheduled_task(task_id: str):
+    """Cancel a scheduled task.
+
+    Args:
+        task_id: Task ID.
+
+    Returns:
+        Cancel status.
+    """
+    success = scheduler.cancel_task(task_id)
+    return {"status": "ok" if success else "error", "cancelled": success}
+
+
+@app.post("/scheduler/tasks/{task_id}/pause")
+async def pause_scheduled_task(task_id: str):
+    """Pause a scheduled task.
+
+    Args:
+        task_id: Task ID.
+
+    Returns:
+        Pause status.
+    """
+    success = scheduler.pause_task(task_id)
+    return {"status": "ok" if success else "error", "paused": success}
+
+
+@app.post("/scheduler/tasks/{task_id}/resume")
+async def resume_scheduled_task(task_id: str):
+    """Resume a scheduled task.
+
+    Args:
+        task_id: Task ID.
+
+    Returns:
+        Resume status.
+    """
+    success = scheduler.resume_task(task_id)
+    return {"status": "ok" if success else "error", "resumed": success}
+
+
+@app.post("/scheduler/tasks/{task_id}/run")
+async def run_scheduled_task_now(task_id: str):
+    """Run a scheduled task immediately.
+
+    Args:
+        task_id: Task ID.
+
+    Returns:
+        Run status.
+    """
+    success = await scheduler.run_task_now(task_id)
+    return {"status": "ok" if success else "error", "executed": success}
+
+
+@app.get("/scheduler/history")
+async def get_scheduler_history(
+    task_id: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 100
+):
+    """Get scheduler execution history.
+
+    Args:
+        task_id: Filter by task.
+        status: Filter by status.
+        limit: Max items.
+
+    Returns:
+        List of executions.
+    """
+    tstatus = None
+    if status:
+        try:
+            tstatus = SchedulerTaskStatus(status)
+        except ValueError:
+            pass
+
+    history = scheduler.get_history(task_id=task_id, status=tstatus, limit=limit)
+    return {"status": "ok", "history": history, "count": len(history)}
+
+
+@app.get("/scheduler/stats")
+async def get_scheduler_stats():
+    """Get scheduler statistics.
+
+    Returns:
+        Statistics.
+    """
+    return {"status": "ok", "stats": scheduler.get_stats()}
+
+
+@app.post("/scheduler/start")
+async def start_scheduler():
+    """Start the scheduler.
+
+    Returns:
+        Start status.
+    """
+    await scheduler.start()
+    return {"status": "ok", "started": True}
+
+
+@app.post("/scheduler/stop")
+async def stop_scheduler():
+    """Stop the scheduler.
+
+    Returns:
+        Stop status.
+    """
+    await scheduler.stop()
+    return {"status": "ok", "stopped": True}
