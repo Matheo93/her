@@ -2237,6 +2237,40 @@ async def cleanup_stale_sessions(_: str = Depends(verify_api_key)):
     }
 
 
+@app.get("/analytics/memory")
+async def get_memory_analytics():
+    """Get memory system performance metrics - Sprint 581.
+
+    Returns:
+        Performance statistics for memory operations (add, retrieve, get_context).
+    """
+    from eva_memory import get_memory_metrics
+    return {
+        "status": "ok",
+        "metrics": get_memory_metrics()
+    }
+
+
+@app.post("/analytics/memory/flush")
+async def flush_memory_buffers():
+    """Flush pending memory operations - Sprint 581.
+
+    Forces batch adds and dirty saves to complete immediately.
+
+    Returns:
+        Status of flush operation.
+    """
+    if eva_memory is None:
+        return {"status": "error", "message": "Memory system not initialized"}
+
+    try:
+        eva_memory._flush_batch_adds()
+        await eva_memory.flush_pending_saves_async()
+        return {"status": "ok", "message": "Memory buffers flushed"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 # ═══════════════════════════════════════════════════════════════
 # Avatar Emotions API - Sprint 579
 # ═══════════════════════════════════════════════════════════════
