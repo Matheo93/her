@@ -4530,3 +4530,43 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 583 (BACKEND) - Autocritique
+
+**Date:** 2026-01-25
+**Domaine:** Backend Python - Conversation Export
+
+**Ce que j'ai fait:**
+1. **Créé conversation_export.py**
+   - ConversationExporter: classe d'export multi-format
+   - 4 formats: JSON, TXT, HTML, Markdown
+   - Message et ConversationExport dataclasses
+   - Statistiques d'export
+
+2. **Ajouté endpoints**
+   - GET /export/{session_id}?format=json|txt|html|md
+   - GET /export/stats
+
+3. **Features**
+   - JSON pretty print
+   - TXT avec timestamps
+   - HTML avec thème HER (+ dark mode)
+   - Markdown pour documentation
+   - Anonymisation optionnelle
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- 4 formats couvrent tous les besoins
+- HTML exportable et joli (HER theme)
+- Content-Disposition pour téléchargement
+- Statistiques d'export
+
+**Points négatifs:**
+- Pas de pagination pour grosses conversations
+- Pas de filtre par date
+- HTML inline (pourrait être template externe)
+
+**Risques:** Faibles
+
+---
