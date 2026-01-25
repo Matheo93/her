@@ -5986,3 +5986,174 @@ async def retry_dead_letter(response_id: str):
     if response_queue.retry_dead_letter(response_id):
         return {"status": "ok", "message": "Response requeued"}
     return {"status": "error", "message": "Dead letter not found"}
+
+
+# ═══════════════════════════════════════════════════════════════
+# Analytics API - Sprint 599
+# ═══════════════════════════════════════════════════════════════
+
+from analytics_collector import analytics, EventType
+
+
+@app.post("/analytics/track")
+async def track_event(
+    event_type: str,
+    session_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    metadata: Optional[dict] = None,
+    duration_ms: Optional[float] = None,
+    success: bool = True
+):
+    """Track an analytics event.
+
+    Args:
+        event_type: Type of event (message, tts, stt, etc.)
+        session_id: Optional session identifier
+        user_id: Optional user identifier
+        metadata: Additional event data
+        duration_ms: Event duration in milliseconds
+        success: Whether event was successful
+
+    Returns:
+        Tracked event details.
+    """
+    try:
+        etype = EventType(event_type)
+    except ValueError:
+        return {"status": "error", "message": f"Invalid event type: {event_type}"}
+
+    event = analytics.track(
+        event_type=etype,
+        session_id=session_id,
+        user_id=user_id,
+        metadata=metadata,
+        duration_ms=duration_ms,
+        success=success
+    )
+    return {
+        "status": "ok",
+        "event": event.to_dict()
+    }
+
+
+@app.get("/analytics/summary")
+async def get_analytics_summary():
+    """Get analytics summary.
+
+    Returns:
+        Summary of all analytics data.
+    """
+    return {
+        "status": "ok",
+        "summary": analytics.get_summary()
+    }
+
+
+@app.get("/analytics/hourly")
+async def get_hourly_stats(hours: int = 24):
+    """Get hourly statistics.
+
+    Args:
+        hours: Number of hours to return (max 168)
+
+    Returns:
+        Hourly event counts and latencies.
+    """
+    hours = min(168, max(1, hours))
+    return {
+        "status": "ok",
+        "stats": analytics.get_hourly_stats(hours)
+    }
+
+
+@app.get("/analytics/phrases")
+async def get_top_phrases(limit: int = 20):
+    """Get most common phrases.
+
+    Args:
+        limit: Maximum phrases to return
+
+    Returns:
+        List of phrase counts.
+    """
+    limit = min(100, max(1, limit))
+    return {
+        "status": "ok",
+        "phrases": analytics.get_top_phrases(limit)
+    }
+
+
+@app.get("/analytics/events")
+async def get_recent_events(
+    event_type: Optional[str] = None,
+    session_id: Optional[str] = None,
+    limit: int = 100
+):
+    """Get recent events.
+
+    Args:
+        event_type: Filter by event type
+        session_id: Filter by session
+        limit: Maximum events to return
+
+    Returns:
+        List of recent events.
+    """
+    etype = None
+    if event_type:
+        try:
+            etype = EventType(event_type)
+        except ValueError:
+            return {"status": "error", "message": f"Invalid event type: {event_type}"}
+
+    limit = min(500, max(1, limit))
+    return {
+        "status": "ok",
+        "events": analytics.get_recent_events(etype, session_id, limit)
+    }
+
+
+@app.get("/analytics/errors")
+async def get_error_summary():
+    """Get error statistics.
+
+    Returns:
+        Error counts and recent errors.
+    """
+    return {
+        "status": "ok",
+        "errors": analytics.get_error_summary()
+    }
+
+
+@app.get("/analytics/session/{session_id}")
+async def get_session_analytics(session_id: str):
+    """Get analytics for a specific session.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        Session statistics.
+    """
+    stats = analytics.get_session_stats(session_id)
+    if stats.get("status") == "not_found":
+        return {"status": "error", "message": "Session not found"}
+    return {
+        "status": "ok",
+        "session": stats
+    }
+
+
+@app.post("/analytics/cleanup")
+async def cleanup_analytics():
+    """Clean up old analytics data.
+
+    Returns:
+        Number of events removed.
+    """
+    removed = analytics.cleanup_old_data()
+    return {
+        "status": "ok",
+        "removed": removed
+    }
