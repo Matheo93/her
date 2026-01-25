@@ -8925,3 +8925,34 @@ Fonctionnel mais ContentEditable est limité. Pour un vrai richtext avec mention
 ### Note: 8/10
 Système de validation complet et bien conçu. Le Schema builder est élégant. Bonne gestion des erreurs avec codes.
 
+
+---
+
+## Sprint 714 - Frontend OTPInput
+**Date**: 2026-01-25 12:12
+**Type**: Frontend Component
+**File**: frontend/src/components/OTPInput.tsx
+
+### Composants créés
+- OTPInput: Input multi-champs avec navigation clavier
+- PINInput: Input masqué avec indicateur dots
+- VerificationCode: Input avec resend et countdown
+- SplitOTPInput: Input groupé avec séparateurs
+- useOTP: Hook de gestion d'état
+
+### Points positifs
+- Auto-focus sur champ suivant
+- Support paste multi-caractères
+- Navigation ArrowLeft/ArrowRight
+- Backspace intelligent (revient au précédent)
+- Animation cursor clignotant
+- Types: numeric, alpha, alphanumeric
+
+### Points à améliorer
+- Pourrait supporter le pattern autocomplete sms
+- Pas de validation côté serveur intégrée
+- SplitOTPInput a une logique complexe
+
+### Note: 8/10
+Très complet pour un OTP input. Le focus management et le paste handling sont bien implémentés. Animation du curseur est un nice touch.
+
