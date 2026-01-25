@@ -2452,6 +2452,89 @@ async def get_rate_limit_stats():
 
 
 # ═══════════════════════════════════════════════════════════════
+# WebSocket Manager API - Sprint 587
+# ═══════════════════════════════════════════════════════════════
+
+from websocket_manager import ws_manager
+
+
+@app.get("/ws/connections")
+async def get_ws_connections():
+    """Get all active WebSocket connections.
+
+    Returns:
+        List of active connections with their status.
+    """
+    return {
+        "status": "ok",
+        "connections": ws_manager.get_all_connections()
+    }
+
+
+@app.get("/ws/connections/{connection_id}")
+async def get_ws_connection_status(connection_id: str):
+    """Get status of a specific WebSocket connection.
+
+    Args:
+        connection_id: The connection ID
+
+    Returns:
+        Connection status details.
+    """
+    status = ws_manager.get_connection_status(connection_id)
+    if not status:
+        return {"status": "error", "message": "Connection not found"}
+    return {"status": "ok", "connection": status}
+
+
+@app.get("/ws/sessions/{session_id}")
+async def get_ws_session_connections(session_id: str):
+    """Get all WebSocket connections for a session.
+
+    Args:
+        session_id: The session ID
+
+    Returns:
+        List of connection IDs for the session.
+    """
+    connections = ws_manager.get_session_connections(session_id)
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "connection_count": len(connections),
+        "connections": connections
+    }
+
+
+@app.post("/ws/cleanup")
+async def cleanup_stale_ws_connections(_: str = Depends(verify_api_key)):
+    """Cleanup stale WebSocket connections (admin only).
+
+    Returns:
+        Number of connections cleaned up.
+    """
+    count = await ws_manager.cleanup_stale_connections()
+    return {
+        "status": "ok",
+        "cleaned_up": count,
+        "active_connections": ws_manager.get_stats()["active_connections"]
+    }
+
+
+@app.get("/ws/stats")
+async def get_ws_stats():
+    """Get WebSocket connection statistics.
+
+    Returns:
+        Statistics including total connections, messages, bytes.
+    """
+    return {
+        "status": "ok",
+        "stats": ws_manager.get_stats()
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
 # Avatar Emotions API - Sprint 579
 # ═══════════════════════════════════════════════════════════════
 

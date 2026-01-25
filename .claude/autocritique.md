@@ -4644,3 +4644,37 @@
 **Risques:** Faibles (nouvelle feature)
 
 ---
+
+## Sprint 586 (FRONTEND) - Autocritique
+
+**Date:** 2026-01-25
+**Domaine:** Frontend React - Chat Input
+
+**Ce que j'ai fait:**
+1. **Créé ChatInput.tsx**
+   - Auto-expanding textarea (max 150px)
+   - Voice button intégré
+   - Character count avec couleurs
+   - Send on Enter, Shift+Enter pour newline
+   - Loading state avec dots animés
+
+2. **CompactChatInput**
+   - Variante single-line
+   - Pour espaces réduits
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- Auto-resize fluide
+- Intégration voice button prête
+- Loading state clair
+- Focus ring style HER
+
+**Points négatifs:**
+- Pas de support emoji picker
+- Pas de file attachment
+- Pas de @mentions
+
+**Risques:** Aucun
+
+---
