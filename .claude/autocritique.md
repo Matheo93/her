@@ -9117,3 +9117,34 @@ Très fonctionnel comme spotlight search. Le hook useSpotlight rend l'intégrati
 ### Note: 8/10
 Système de pipeline ETL complet. Le builder fluent est ergonomique. Les stages sont composables. StreamPipeline pour gros volumes.
 
+
+---
+
+## Sprint 720 - Frontend CopyButton
+**Date**: 2026-01-25 12:21
+**Type**: Frontend Component
+**File**: frontend/src/components/CopyButton.tsx
+
+### Composants créés
+- CopyButton: Bouton copier avec feedback visuel
+- CopyField: Champ input avec bouton copier intégré
+- CopyCodeBlock: Bloc de code avec header et copie
+- CopyLink: Lien cliquable avec copie
+- ShareButtons: Boutons de partage social + copy
+- useClipboard: Hook pour gérer le clipboard
+
+### Points positifs
+- Animation check/copy avec AnimatePresence
+- Variants: default, icon, outline, ghost
+- CopyField avec masquage et révélation
+- CopyCodeBlock avec numéros de ligne
+- ShareButtons avec Twitter, LinkedIn, Email
+
+### Points à améliorer
+- CopyCodeBlock pas de syntax highlighting
+- Pas de fallback pour browsers sans clipboard API
+- Pourrait supporter le copy riche (HTML)
+
+### Note: 8/10
+Complet pour les besoins courants de copie. Le feedback visuel est bien fait. Les variantes permettent de l'adapter à différents contextes.
+
