@@ -4926,3 +4926,37 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 594 (FRONTEND) - Autocritique
+
+**Date:** 2026-01-25
+**Domaine:** Frontend React - Conversation List
+
+**Ce que j'ai fait:**
+1. **Créé ConversationList.tsx**
+   - Groupement par date (Aujourd'hui, Hier, Cette semaine, Plus ancien)
+   - Search/filter
+   - Preview + message count
+   - Actions delete/export on hover
+
+2. **Sub-components**
+   - ConversationItem avec actions
+   - LoadingSkeleton
+   - EmptyState
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- Groupement temporel intuitif
+- Search fonctionnel
+- Actions on hover discret
+- Animations fluides
+
+**Points négatifs:**
+- Pas de pagination/infinite scroll
+- Pas de tri options
+- Pas de confirmation delete
+
+**Risques:** Aucun
+
+---

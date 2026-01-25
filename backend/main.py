@@ -2722,6 +2722,125 @@ async def get_empathic_response(text: str):
 
 
 # ═══════════════════════════════════════════════════════════════
+# Session Manager API - Sprint 595
+# ═══════════════════════════════════════════════════════════════
+
+from session_manager import session_manager
+
+
+@app.post("/sessions")
+async def create_session(
+    user_id: Optional[str] = None,
+    device_info: Optional[str] = None,
+):
+    """Create a new session.
+
+    Args:
+        user_id: Optional user identifier
+        device_info: Optional device information
+
+    Returns:
+        Created session details.
+    """
+    session = session_manager.create_session(
+        user_id=user_id,
+        device_info=device_info,
+    )
+    return {
+        "status": "ok",
+        "session": session.to_dict()
+    }
+
+
+@app.get("/sessions/{session_id}")
+async def get_session(session_id: str):
+    """Get session details.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        Session details or error if not found.
+    """
+    session = session_manager.get_session(session_id)
+    if not session:
+        return {"status": "error", "message": "Session not found or expired"}
+    return {
+        "status": "ok",
+        "session": session.to_dict()
+    }
+
+
+@app.post("/sessions/{session_id}/touch")
+async def touch_session(session_id: str):
+    """Update session activity.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        Updated session or error.
+    """
+    if session_manager.touch(session_id):
+        session = session_manager.get_session(session_id)
+        return {"status": "ok", "session": session.to_dict() if session else None}
+    return {"status": "error", "message": "Session not found"}
+
+
+@app.delete("/sessions/{session_id}")
+async def terminate_session(session_id: str):
+    """Terminate a session.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        Confirmation of termination.
+    """
+    if session_manager.terminate(session_id):
+        return {"status": "ok", "message": "Session terminated"}
+    return {"status": "error", "message": "Session not found"}
+
+
+@app.get("/sessions/user/{user_id}")
+async def get_user_sessions(user_id: str):
+    """Get all sessions for a user.
+
+    Args:
+        user_id: User identifier
+
+    Returns:
+        List of user's sessions.
+    """
+    sessions = session_manager.get_user_sessions(user_id)
+    return {
+        "status": "ok",
+        "user_id": user_id,
+        "sessions": [s.to_dict() for s in sessions]
+    }
+
+
+@app.get("/sessions/stats")
+async def get_session_stats():
+    """Get session statistics."""
+    return {
+        "status": "ok",
+        "stats": session_manager.get_stats()
+    }
+
+
+@app.post("/sessions/cleanup")
+async def cleanup_sessions(_: str = Depends(verify_api_key)):
+    """Cleanup expired sessions (admin only)."""
+    count = session_manager.cleanup_expired()
+    return {
+        "status": "ok",
+        "cleaned_up": count,
+        "active_sessions": session_manager.get_stats()["active_sessions"]
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
 # Avatar Emotions API - Sprint 579
 # ═══════════════════════════════════════════════════════════════
 
