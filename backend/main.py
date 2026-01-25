@@ -65,6 +65,7 @@ from ultra_fast_tts import init_ultra_fast_tts, async_ultra_fast_tts, ultra_fast
 # GPU TTS (Piper VITS - ~30-100ms, local)
 from gpu_tts import init_gpu_tts, async_gpu_tts, gpu_tts, async_gpu_tts_mp3, gpu_tts_mp3
 from streaming_tts import stream_tts_gpu, fast_first_byte_tts, split_into_chunks
+from tts_optimizer import init_tts_optimizer, prewarm_tts_cache, get_tts_optimizer
 
 # Eva Expression System (breathing sounds, emotions, animations)
 from eva_expression import eva_expression, init_expression_system, detect_emotion, get_expression_data
@@ -1179,6 +1180,13 @@ async def lifespan(app: FastAPI):
             # Initialize micro-expressions (blinks, gaze, etc.)
             if init_micro_expressions():
                 print("✅ Micro-expressions ready (blink, gaze, smile, breath)")
+            # Initialize TTS optimizer with chunk caching - Sprint 575
+            try:
+                from fast_tts import fast_tts as tts_generate_fn
+                init_tts_optimizer(tts_generate_fn)
+                print("✅ TTS Optimizer ready (chunk caching enabled)")
+            except Exception as e:
+                print(f"⚠️  TTS Optimizer init failed: {e}")
 
     try:
         import edge_tts
@@ -2145,6 +2153,43 @@ async def reset_analytics(_: str = Depends(verify_api_key)):
     """Reset analytics counters. Use with caution."""
     analytics.reset()
     return {"status": "reset", "message": "Analytics counters have been reset"}
+
+
+@app.get("/analytics/tts")
+async def get_tts_optimizer_stats(_: str = Depends(verify_api_key)):
+    """Get TTS streaming optimizer statistics.
+
+    Returns:
+        TTS cache stats, first-byte latencies, and optimization metrics.
+    """
+    optimizer = get_tts_optimizer()
+    if optimizer:
+        return {
+            "enabled": True,
+            **optimizer.get_metrics()
+        }
+    return {
+        "enabled": False,
+        "message": "TTS optimizer not initialized"
+    }
+
+
+@app.post("/analytics/tts/prewarm")
+async def trigger_tts_prewarm(_: str = Depends(verify_api_key)):
+    """Manually trigger TTS cache pre-warming.
+
+    Pre-generates common first chunks for instant responses.
+    """
+    optimizer = get_tts_optimizer()
+    if not optimizer:
+        return {"status": "error", "message": "TTS optimizer not initialized"}
+
+    count = await prewarm_tts_cache()
+    return {
+        "status": "ok",
+        "chunks_prewarmed": count,
+        "message": f"Pre-warmed {count} TTS chunks"
+    }
 
 
 @app.get("/cache/{namespace}/{key}")
