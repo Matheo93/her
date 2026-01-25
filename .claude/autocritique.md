@@ -5830,3 +5830,41 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 618 - DatePicker Components (FRONTEND)
+
+**Fichier:** `frontend/src/components/DatePicker.tsx`
+
+**Composants créés (3):**
+1. **DatePicker** - Calendar picker avec min/max dates
+2. **MonthYearPicker** - Sélection mois/année
+3. **DateRangePicker** - Sélection période (start/end)
+
+**Fonctionnalités:**
+- Calendrier grille interactive
+- Min/Max date validation
+- Today highlight
+- "Aujourd'hui" quick button
+- Month/Year navigation
+- French locale (jours/mois)
+- Clear button
+- Range selection avec indicateur visuel
+
+**Note: 8.5/10**
+
+**Points positifs:**
+- UI calendrier intuitive
+- Validation min/max strict
+- Animation smooth dropdown
+- Range selection feedback visuel
+- Labels français
+
+**Points négatifs:**
+- Pas de keyboard navigation
+- Pas de time picker
+- Pas de preset ranges (7 jours, 30 jours)
+- Pas de week number display
+
+**Risques:** Aucun
+
+---

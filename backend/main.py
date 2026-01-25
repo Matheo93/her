@@ -7782,3 +7782,284 @@ async def get_session_stats():
         "status": "ok",
         "stats": session_store.get_stats()
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Notification API - Sprint 619
+# ═══════════════════════════════════════════════════════════════
+
+from notification_service import notification_service, NotificationType, NotificationPriority
+
+
+@app.post("/notifications")
+async def create_notification(
+    user_id: str,
+    title: str,
+    message: str,
+    type: str = "info",
+    priority: str = "normal",
+    expires_hours: Optional[int] = None,
+    action_url: Optional[str] = None,
+    action_label: Optional[str] = None
+):
+    """Create a notification.
+
+    Args:
+        user_id: User ID
+        title: Notification title
+        message: Notification message
+        type: Type (info, success, warning, error, system, chat, achievement)
+        priority: Priority (low, normal, high, urgent)
+        expires_hours: Hours until expiry
+        action_url: Optional action URL
+        action_label: Optional action label
+
+    Returns:
+        Created notification.
+    """
+    try:
+        ntype = NotificationType(type)
+    except ValueError:
+        ntype = NotificationType.INFO
+
+    priority_map = {
+        "low": NotificationPriority.LOW,
+        "normal": NotificationPriority.NORMAL,
+        "high": NotificationPriority.HIGH,
+        "urgent": NotificationPriority.URGENT,
+    }
+    npriority = priority_map.get(priority.lower(), NotificationPriority.NORMAL)
+
+    notification = notification_service.create(
+        user_id=user_id,
+        title=title,
+        message=message,
+        type=ntype,
+        priority=npriority,
+        expires_hours=expires_hours,
+        action_url=action_url,
+        action_label=action_label
+    )
+
+    return {
+        "status": "ok",
+        "notification": notification.to_dict()
+    }
+
+
+@app.get("/notifications/user/{user_id}")
+async def get_user_notifications(
+    user_id: str,
+    unread_only: bool = False,
+    type: Optional[str] = None,
+    limit: int = 50
+):
+    """Get notifications for a user.
+
+    Args:
+        user_id: User ID
+        unread_only: Only return unread
+        type: Filter by type
+        limit: Maximum to return
+
+    Returns:
+        List of notifications.
+    """
+    type_filter = None
+    if type:
+        try:
+            type_filter = NotificationType(type)
+        except ValueError:
+            pass
+
+    return {
+        "status": "ok",
+        "notifications": notification_service.get_user_notifications(
+            user_id=user_id,
+            unread_only=unread_only,
+            type_filter=type_filter,
+            limit=limit
+        )
+    }
+
+
+@app.get("/notifications/user/{user_id}/count")
+async def get_unread_count(user_id: str):
+    """Get unread notification count.
+
+    Args:
+        user_id: User ID
+
+    Returns:
+        Unread count.
+    """
+    return {
+        "status": "ok",
+        "unread_count": notification_service.get_unread_count(user_id)
+    }
+
+
+@app.post("/notifications/{notification_id}/read")
+async def mark_notification_read(user_id: str, notification_id: str):
+    """Mark notification as read.
+
+    Args:
+        user_id: User ID
+        notification_id: Notification ID
+
+    Returns:
+        Success status.
+    """
+    if notification_service.mark_read(user_id, notification_id):
+        return {"status": "ok", "message": "Marked as read"}
+    return {"status": "error", "message": "Notification not found"}
+
+
+@app.post("/notifications/user/{user_id}/read-all")
+async def mark_all_read(user_id: str):
+    """Mark all notifications as read.
+
+    Args:
+        user_id: User ID
+
+    Returns:
+        Number marked.
+    """
+    count = notification_service.mark_all_read(user_id)
+    return {
+        "status": "ok",
+        "marked": count
+    }
+
+
+@app.post("/notifications/{notification_id}/dismiss")
+async def dismiss_notification(user_id: str, notification_id: str):
+    """Dismiss a notification.
+
+    Args:
+        user_id: User ID
+        notification_id: Notification ID
+
+    Returns:
+        Success status.
+    """
+    if notification_service.dismiss(user_id, notification_id):
+        return {"status": "ok", "message": "Dismissed"}
+    return {"status": "error", "message": "Notification not found"}
+
+
+@app.post("/notifications/user/{user_id}/dismiss-all")
+async def dismiss_all_notifications(user_id: str):
+    """Dismiss all notifications.
+
+    Args:
+        user_id: User ID
+
+    Returns:
+        Number dismissed.
+    """
+    count = notification_service.dismiss_all(user_id)
+    return {
+        "status": "ok",
+        "dismissed": count
+    }
+
+
+@app.delete("/notifications/{notification_id}")
+async def delete_notification(user_id: str, notification_id: str):
+    """Delete a notification.
+
+    Args:
+        user_id: User ID
+        notification_id: Notification ID
+
+    Returns:
+        Success status.
+    """
+    if notification_service.delete(user_id, notification_id):
+        return {"status": "ok", "message": "Deleted"}
+    return {"status": "error", "message": "Notification not found"}
+
+
+@app.delete("/notifications/user/{user_id}")
+async def clear_user_notifications(user_id: str):
+    """Clear all notifications for a user.
+
+    Args:
+        user_id: User ID
+
+    Returns:
+        Number cleared.
+    """
+    count = notification_service.clear_user(user_id)
+    return {
+        "status": "ok",
+        "cleared": count
+    }
+
+
+@app.post("/notifications/broadcast")
+async def broadcast_notification(
+    user_ids: str,
+    title: str,
+    message: str,
+    type: str = "system"
+):
+    """Broadcast notification to multiple users.
+
+    Args:
+        user_ids: Comma-separated user IDs
+        title: Notification title
+        message: Notification message
+        type: Notification type
+
+    Returns:
+        Number sent.
+    """
+    users = [u.strip() for u in user_ids.split(",") if u.strip()]
+    if not users:
+        return {"status": "error", "message": "No users specified"}
+
+    try:
+        ntype = NotificationType(type)
+    except ValueError:
+        ntype = NotificationType.SYSTEM
+
+    count = notification_service.broadcast(
+        user_ids=users,
+        title=title,
+        message=message,
+        type=ntype
+    )
+
+    return {
+        "status": "ok",
+        "sent": count
+    }
+
+
+@app.post("/notifications/cleanup")
+async def cleanup_expired_notifications():
+    """Clean up expired notifications.
+
+    Returns:
+        Number cleaned.
+    """
+    count = notification_service.cleanup_expired()
+    return {
+        "status": "ok",
+        "cleaned": count
+    }
+
+
+@app.get("/notifications/stats")
+async def get_notification_stats():
+    """Get notification statistics.
+
+    Returns:
+        Statistics.
+    """
+    return {
+        "status": "ok",
+        "stats": notification_service.get_stats()
+    }
