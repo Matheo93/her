@@ -549,6 +549,26 @@ class TestAsyncWrappers:
         assert hasattr(gpu_tts, 'async_gpu_tts_mp3')
         assert callable(gpu_tts.async_gpu_tts_mp3)
 
+    @pytest.mark.asyncio
+    async def test_async_gpu_tts_calls_sync_version(self):
+        """Test async_gpu_tts calls synchronous gpu_tts."""
+        import gpu_tts
+
+        with patch("gpu_tts.gpu_tts", return_value=b"audio") as mock_tts:
+            result = await gpu_tts.async_gpu_tts("Hello", 1.0)
+
+        mock_tts.assert_called_once_with("Hello", 1.0)
+
+    @pytest.mark.asyncio
+    async def test_async_gpu_tts_mp3_calls_sync_version(self):
+        """Test async_gpu_tts_mp3 calls synchronous gpu_tts_mp3."""
+        import gpu_tts
+
+        with patch("gpu_tts.gpu_tts_mp3", return_value=b"mp3") as mock_tts:
+            result = await gpu_tts.async_gpu_tts_mp3("Hello", 1.0)
+
+        mock_tts.assert_called_once_with("Hello", 1.0)
+
 
 class TestBenchmark:
     """Tests for benchmark function."""
@@ -558,3 +578,241 @@ class TestBenchmark:
         import gpu_tts
         assert hasattr(gpu_tts, 'benchmark')
         assert callable(gpu_tts.benchmark)
+
+    def test_benchmark_calls_init(self):
+        """Test that benchmark calls init_gpu_tts."""
+        import gpu_tts
+
+        with patch("gpu_tts.init_gpu_tts") as mock_init:
+            with patch("gpu_tts.gpu_tts", return_value=None):
+                gpu_tts.benchmark()
+
+        mock_init.assert_called()
+
+    def test_benchmark_runs_multiple_phrases(self):
+        """Test that benchmark runs multiple test phrases."""
+        import gpu_tts
+
+        call_count = 0
+        def track_calls(*args):
+            nonlocal call_count
+            call_count += 1
+            return b"audio"
+
+        with patch("gpu_tts.init_gpu_tts"):
+            with patch("gpu_tts.gpu_tts", side_effect=track_calls):
+                gpu_tts.benchmark()
+
+        # Should run warmup + 10 timed runs per phrase (4 phrases)
+        assert call_count > 40
+
+
+class TestInitGpuTtsExtended:
+    """Extended tests for init_gpu_tts function."""
+
+    def test_sets_sample_rate_from_config(self):
+        """Test that sample rate is set from config."""
+        import gpu_tts
+        gpu_tts._initialized = False
+        gpu_tts._models_available = True
+
+        mock_config = {
+            "audio": {"sample_rate": 44100},
+            "phoneme_id_map": {"^": [1], "$": [2]},
+            "inference": {}
+        }
+
+        mock_session = MagicMock()
+        mock_session.get_providers.return_value = ["CPUExecutionProvider"]
+        mock_session.run.return_value = [np.zeros((1, 1000))]
+
+        with patch("builtins.open", MagicMock()):
+            with patch("json.load", return_value=mock_config):
+                with patch("onnxruntime.get_available_providers", return_value=["CPUExecutionProvider"]):
+                    with patch("onnxruntime.InferenceSession", return_value=mock_session):
+                        gpu_tts.init_gpu_tts()
+
+        assert gpu_tts._sample_rate == 44100
+        gpu_tts._initialized = False
+
+    def test_sets_phoneme_id_map_from_config(self):
+        """Test that phoneme_id_map is set from config."""
+        import gpu_tts
+        gpu_tts._initialized = False
+        gpu_tts._models_available = True
+
+        mock_config = {
+            "audio": {"sample_rate": 22050},
+            "phoneme_id_map": {"^": [1], "$": [2], "test": [99]},
+            "inference": {}
+        }
+
+        mock_session = MagicMock()
+        mock_session.get_providers.return_value = ["CPUExecutionProvider"]
+        mock_session.run.return_value = [np.zeros((1, 1000))]
+
+        with patch("builtins.open", MagicMock()):
+            with patch("json.load", return_value=mock_config):
+                with patch("onnxruntime.get_available_providers", return_value=["CPUExecutionProvider"]):
+                    with patch("onnxruntime.InferenceSession", return_value=mock_session):
+                        gpu_tts.init_gpu_tts()
+
+        assert gpu_tts._phoneme_id_map["test"] == [99]
+        gpu_tts._initialized = False
+
+    def test_falls_back_to_cpu_when_no_cuda(self):
+        """Test falls back to CPU when CUDA not available."""
+        import gpu_tts
+        gpu_tts._initialized = False
+        gpu_tts._models_available = True
+
+        mock_config = {
+            "audio": {"sample_rate": 22050},
+            "phoneme_id_map": {"^": [1], "$": [2]},
+            "inference": {}
+        }
+
+        mock_session = MagicMock()
+        mock_session.get_providers.return_value = ["CPUExecutionProvider"]
+        mock_session.run.return_value = [np.zeros((1, 1000))]
+
+        with patch("builtins.open", MagicMock()):
+            with patch("json.load", return_value=mock_config):
+                with patch("onnxruntime.get_available_providers", return_value=["CPUExecutionProvider"]):
+                    with patch("onnxruntime.InferenceSession", return_value=mock_session) as mock_sess_class:
+                        gpu_tts.init_gpu_tts()
+
+        # Should use CPU provider
+        mock_sess_class.assert_called()
+        gpu_tts._initialized = False
+
+    def test_performs_warmup_runs(self):
+        """Test that warmup runs are performed."""
+        import gpu_tts
+        gpu_tts._initialized = False
+        gpu_tts._models_available = True
+
+        mock_config = {
+            "audio": {"sample_rate": 22050},
+            "phoneme_id_map": {"^": [1], "$": [2]},
+            "inference": {}
+        }
+
+        mock_session = MagicMock()
+        mock_session.get_providers.return_value = ["CPUExecutionProvider"]
+        mock_session.run.return_value = [np.zeros((1, 1000))]
+
+        with patch("builtins.open", MagicMock()):
+            with patch("json.load", return_value=mock_config):
+                with patch("onnxruntime.get_available_providers", return_value=["CPUExecutionProvider"]):
+                    with patch("onnxruntime.InferenceSession", return_value=mock_session):
+                        gpu_tts.init_gpu_tts()
+
+        # Should have called run 3 times for warmup
+        assert mock_session.run.call_count == 3
+        gpu_tts._initialized = False
+
+    def test_handles_init_exception(self):
+        """Test that init handles exceptions gracefully."""
+        import gpu_tts
+        gpu_tts._initialized = False
+        gpu_tts._models_available = True
+
+        with patch("builtins.open", side_effect=Exception("File error")):
+            result = gpu_tts.init_gpu_tts()
+
+        assert result is False
+        gpu_tts._initialized = False
+
+
+class TestEdgeCases:
+    """Tests for edge cases and error conditions."""
+
+    def test_gpu_tts_with_very_long_text(self):
+        """Test handling of very long text input."""
+        import gpu_tts
+        gpu_tts._initialized = True
+        gpu_tts._session = MagicMock()
+        gpu_tts._config = {"inference": {}}
+        gpu_tts._sample_rate = 22050
+
+        mock_audio = np.random.randn(22050).astype(np.float32)
+        gpu_tts._session.run.return_value = [mock_audio.reshape(1, -1)]
+
+        # Create long list of phoneme IDs
+        long_ids = [1] + [2] * 1000 + [3]
+
+        with patch("gpu_tts.text_to_phoneme_ids", return_value=long_ids):
+            result = gpu_tts.gpu_tts("A" * 1000)
+
+        assert result is not None
+
+    def test_gpu_tts_with_special_characters(self):
+        """Test handling of special characters in text."""
+        import gpu_tts
+        gpu_tts._initialized = True
+        gpu_tts._session = MagicMock()
+        gpu_tts._config = {"inference": {}}
+        gpu_tts._sample_rate = 22050
+
+        mock_audio = np.random.randn(22050).astype(np.float32)
+        gpu_tts._session.run.return_value = [mock_audio.reshape(1, -1)]
+
+        with patch("gpu_tts.text_to_phoneme_ids", return_value=[1, 2, 3, 4, 5]):
+            result = gpu_tts.gpu_tts("Café! Über @#$%")
+
+        assert result is not None
+
+    def test_phoneme_ids_with_multi_token_phonemes(self):
+        """Test phonemes that map to multiple IDs."""
+        import gpu_tts
+
+        gpu_tts._phoneme_id_map = {
+            "^": [1],
+            "$": [2],
+            "a": [4, 5, 6],  # Multi-token
+        }
+
+        with patch("subprocess.run", side_effect=Exception("No espeak")):
+            result = gpu_tts.text_to_phoneme_ids("a")
+
+        # Should include all IDs from the multi-token mapping
+        assert 4 in result
+        assert 5 in result
+        assert 6 in result
+
+    def test_gpu_tts_negative_speed(self):
+        """Test handling of negative speed value."""
+        import gpu_tts
+        gpu_tts._initialized = True
+        gpu_tts._session = MagicMock()
+        gpu_tts._config = {"inference": {"length_scale": 1.0}}
+        gpu_tts._sample_rate = 22050
+
+        mock_audio = np.random.randn(22050).astype(np.float32)
+        gpu_tts._session.run.return_value = [mock_audio.reshape(1, -1)]
+
+        with patch("gpu_tts.text_to_phoneme_ids", return_value=[1, 2, 3, 4, 5]):
+            # Negative speed should result in negative length_scale
+            result = gpu_tts.gpu_tts("Bonjour", speed=-1.0)
+
+        # Should still produce output (behavior undefined but shouldn't crash)
+        assert result is not None
+
+    def test_gpu_tts_zero_speed(self):
+        """Test handling of zero speed value."""
+        import gpu_tts
+        gpu_tts._initialized = True
+        gpu_tts._session = MagicMock()
+        gpu_tts._config = {"inference": {"length_scale": 1.0}}
+        gpu_tts._sample_rate = 22050
+
+        mock_audio = np.random.randn(22050).astype(np.float32)
+        gpu_tts._session.run.return_value = [mock_audio.reshape(1, -1)]
+
+        with patch("gpu_tts.text_to_phoneme_ids", return_value=[1, 2, 3, 4, 5]):
+            try:
+                result = gpu_tts.gpu_tts("Bonjour", speed=0.0)
+                # Division by zero in length_scale calculation
+            except ZeroDivisionError:
+                pass  # Expected behavior

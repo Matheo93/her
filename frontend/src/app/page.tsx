@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { VideoCall } from "@/components/video-call";
 import { HER_COLORS, HER_SPRINGS, EMOTION_PRESENCE } from "@/styles/her-theme";
 import { usePersistentMemory } from "@/hooks/usePersistentMemory";
+import { useTheme } from "@/context/ThemeContext";
+import { DarkModeToggle } from "@/components/DarkModeToggle";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
@@ -28,6 +30,9 @@ export default function Home() {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [selectedVoice, setSelectedVoice] = useState("eva");
   // EVA has one voice - no selection menu needed
+
+  // Theme context for dark mode - Sprint 574
+  const { mode, colors } = useTheme();
 
   // HER Feature: Persistent Memory - EVA remembers you
   const persistentMemory = usePersistentMemory();
@@ -271,17 +276,17 @@ export default function Home() {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen transition-colors duration-400"
       style={{
-        background: `radial-gradient(ellipse at 50% 30%, ${HER_COLORS.cream} 0%, ${HER_COLORS.warmWhite} 70%)`,
+        background: `radial-gradient(ellipse at 50% 30%, ${colors.cream} 0%, ${colors.warmWhite} 70%)`,
       }}
     >
       {/* Header - Minimal, invisible */}
       <header
-        className="fixed top-0 left-0 right-0 z-10 backdrop-blur-sm"
+        className="fixed top-0 left-0 right-0 z-10 backdrop-blur-sm transition-colors duration-400"
         style={{
-          backgroundColor: `${HER_COLORS.warmWhite}E6`,
-          borderBottom: `1px solid ${HER_COLORS.cream}`,
+          backgroundColor: `${colors.warmWhite}E6`,
+          borderBottom: `1px solid ${colors.cream}`,
         }}
       >
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -290,7 +295,7 @@ export default function Home() {
             <motion.div
               className="w-2 h-2 rounded-full"
               style={{
-                backgroundColor: isConnected ? HER_COLORS.success : HER_COLORS.softShadow,
+                backgroundColor: isConnected ? colors.success : colors.softShadow,
               }}
               animate={{
                 scale: isConnected ? [1, 1.1, 1] : 1,
@@ -306,7 +311,7 @@ export default function Home() {
             {/* Eva name - warm typography */}
             <h1
               className="text-xl font-light tracking-wide"
-              style={{ color: HER_COLORS.earth }}
+              style={{ color: colors.earth }}
             >
               Eva
             </h1>
@@ -324,7 +329,7 @@ export default function Home() {
                     <motion.span
                       key={i}
                       className="w-0.5 rounded-full"
-                      style={{ backgroundColor: HER_COLORS.coral }}
+                      style={{ backgroundColor: colors.coral }}
                       animate={{
                         height: [8, 16, 8],
                       }}
@@ -352,8 +357,8 @@ export default function Home() {
               }}
               className="p-2 rounded-full transition-all duration-300"
               style={{
-                backgroundColor: voiceEnabled ? HER_COLORS.blush : HER_COLORS.cream,
-                color: HER_COLORS.earth,
+                backgroundColor: voiceEnabled ? colors.blush : colors.cream,
+                color: colors.earth,
               }}
               title={voiceEnabled ? "Désactiver la voix" : "Activer la voix"}
             >
@@ -369,6 +374,9 @@ export default function Home() {
               )}
             </button>
 
+            {/* Dark Mode Toggle - Sprint 574 */}
+            <DarkModeToggle size="sm" />
+
             {/* HER: EVA has ONE voice. No selection needed. Just her. */}
           </div>
         </div>
@@ -383,7 +391,7 @@ export default function Home() {
               data-testid="avatar"
               className="avatar w-24 h-24 rounded-full mb-8"
               style={{
-                background: `radial-gradient(circle, ${HER_COLORS.coral} 0%, ${HER_COLORS.blush} 50%, ${HER_COLORS.cream} 100%)`,
+                background: `radial-gradient(circle, ${colors.coral} 0%, ${colors.blush} 50%, ${colors.cream} 100%)`,
                 boxShadow: `0 0 60px ${emotionGlow}`,
                 transform: `scale(${breathScale})`,
               }}
@@ -397,7 +405,7 @@ export default function Home() {
             />
             <h2
               className="text-2xl font-light mb-2"
-              style={{ color: HER_COLORS.earth }}
+              style={{ color: colors.earth }}
             >
               {persistentMemory.isReunion
                 ? persistentMemory.reunionType === "very_long"
@@ -411,7 +419,7 @@ export default function Home() {
             </h2>
             <p
               className="max-w-sm"
-              style={{ color: HER_COLORS.textSecondary }}
+              style={{ color: colors.textSecondary }}
             >
               {persistentMemory.isReturningUser
                 ? "Contente de te revoir. Comment vas-tu ?"
@@ -419,7 +427,7 @@ export default function Home() {
             </p>
             <p
               className="text-sm mt-4"
-              style={{ color: HER_COLORS.textMuted }}
+              style={{ color: colors.textMuted }}
             >
               Maintiens le micro appuyé pour parler
             </p>
@@ -439,14 +447,14 @@ export default function Home() {
                 className="max-w-[80%] px-5 py-3 rounded-2xl"
                 style={msg.role === "user"
                   ? {
-                      backgroundColor: HER_COLORS.earth,
-                      color: HER_COLORS.warmWhite,
+                      backgroundColor: colors.earth,
+                      color: colors.warmWhite,
                     }
                   : {
-                      backgroundColor: HER_COLORS.warmWhite,
-                      color: HER_COLORS.earth,
-                      boxShadow: `0 2px 12px ${HER_COLORS.softShadow}40`,
-                      border: `1px solid ${HER_COLORS.cream}`,
+                      backgroundColor: colors.warmWhite,
+                      color: colors.earth,
+                      boxShadow: `0 2px 12px ${colors.softShadow}40`,
+                      border: `1px solid ${colors.cream}`,
                     }
                 }
               >
@@ -465,16 +473,16 @@ export default function Home() {
               <div
                 className="max-w-[80%] px-5 py-3 rounded-2xl"
                 style={{
-                  backgroundColor: HER_COLORS.warmWhite,
-                  color: HER_COLORS.earth,
-                  boxShadow: `0 2px 12px ${HER_COLORS.softShadow}40`,
-                  border: `1px solid ${HER_COLORS.cream}`,
+                  backgroundColor: colors.warmWhite,
+                  color: colors.earth,
+                  boxShadow: `0 2px 12px ${colors.softShadow}40`,
+                  border: `1px solid ${colors.cream}`,
                 }}
               >
                 <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{currentResponse}</p>
                 <motion.span
                   className="inline-block w-0.5 h-4 ml-1 rounded"
-                  style={{ backgroundColor: HER_COLORS.coral }}
+                  style={{ backgroundColor: colors.coral }}
                   animate={{ opacity: [1, 0] }}
                   transition={{ duration: 0.8, repeat: Infinity }}
                 />
@@ -492,9 +500,9 @@ export default function Home() {
               <div
                 className="px-5 py-3 rounded-2xl"
                 style={{
-                  backgroundColor: HER_COLORS.warmWhite,
-                  boxShadow: `0 2px 12px ${HER_COLORS.softShadow}40`,
-                  border: `1px solid ${HER_COLORS.cream}`,
+                  backgroundColor: colors.warmWhite,
+                  boxShadow: `0 2px 12px ${colors.softShadow}40`,
+                  border: `1px solid ${colors.cream}`,
                 }}
               >
                 <div className="flex gap-1.5">
@@ -502,7 +510,7 @@ export default function Home() {
                     <motion.span
                       key={i}
                       className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: HER_COLORS.blush }}
+                      style={{ backgroundColor: colors.blush }}
                       animate={{
                         scale: [1, 1.2, 1],
                         opacity: [0.5, 1, 0.5],
@@ -526,10 +534,10 @@ export default function Home() {
 
       {/* Input */}
       <footer
-        className="fixed bottom-0 left-0 right-0 backdrop-blur-sm"
+        className="fixed bottom-0 left-0 right-0 backdrop-blur-sm transition-colors duration-400"
         style={{
-          backgroundColor: `${HER_COLORS.warmWhite}E6`,
-          borderTop: `1px solid ${HER_COLORS.cream}`,
+          backgroundColor: `${colors.warmWhite}E6`,
+          borderTop: `1px solid ${colors.cream}`,
         }}
       >
         <div className="max-w-2xl mx-auto px-6 py-4">
@@ -545,11 +553,11 @@ export default function Home() {
               className="p-4 rounded-full transition-all duration-300"
               style={{
                 backgroundColor: isListening
-                  ? HER_COLORS.coral
+                  ? colors.coral
                   : isConnected
-                    ? HER_COLORS.cream
-                    : HER_COLORS.softShadow,
-                color: isListening ? HER_COLORS.warmWhite : HER_COLORS.earth,
+                    ? colors.cream
+                    : colors.softShadow,
+                color: isListening ? colors.warmWhite : colors.earth,
                 cursor: isConnected ? "pointer" : "not-allowed",
                 opacity: isConnected ? 1 : 0.5,
               }}
@@ -572,8 +580,8 @@ export default function Home() {
               disabled={!isConnected}
               className="flex-1 px-5 py-3 rounded-full focus:outline-none transition-all duration-300"
               style={{
-                backgroundColor: HER_COLORS.cream,
-                color: HER_COLORS.earth,
+                backgroundColor: colors.cream,
+                color: colors.earth,
                 opacity: isConnected ? 1 : 0.5,
               }}
             />
@@ -584,8 +592,8 @@ export default function Home() {
               disabled={!input.trim() || isLoading || !isConnected}
               className="p-3 rounded-full transition-all duration-300"
               style={{
-                backgroundColor: HER_COLORS.coral,
-                color: HER_COLORS.warmWhite,
+                backgroundColor: colors.coral,
+                color: colors.warmWhite,
                 opacity: (!input.trim() || isLoading || !isConnected) ? 0.5 : 1,
                 cursor: (!input.trim() || isLoading || !isConnected) ? "not-allowed" : "pointer",
               }}
@@ -603,14 +611,14 @@ export default function Home() {
             {isListening && (
               <motion.div
                 className="flex items-center justify-center gap-2 mt-3"
-                style={{ color: HER_COLORS.coral }}
+                style={{ color: colors.coral }}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
               >
                 <motion.span
                   className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: HER_COLORS.coral }}
+                  style={{ backgroundColor: colors.coral }}
                   animate={{ scale: [1, 1.2, 1] }}
                   transition={{ duration: 1, repeat: Infinity }}
                 />
