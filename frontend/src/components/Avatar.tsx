@@ -1,420 +1,448 @@
 "use client";
 
 /**
- * Avatar Component - Sprint 592
+ * Avatar Components - Sprint 644
  *
- * Core avatar display with:
- * - Emotion-based expressions
- * - State animations (idle, listening, speaking)
- * - Glow and breathing effects
+ * Avatar and user display components:
+ * - Basic avatar
+ * - Avatar with status
+ * - Avatar group
+ * - Initials avatar
  * - HER-themed styling
  */
 
-import React, { memo, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { memo, ReactNode } from "react";
+import { motion } from "framer-motion";
 import { useTheme } from "@/context/ThemeContext";
 
-type AvatarState = "idle" | "listening" | "thinking" | "speaking";
-type AvatarEmotion =
-  | "neutral"
-  | "joy"
-  | "sadness"
-  | "tenderness"
-  | "excitement"
-  | "curiosity"
-  | "playful"
-  | "love";
+type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl" | "2xl";
+type AvatarStatus = "online" | "offline" | "busy" | "away";
 
 interface AvatarProps {
-  /** Current avatar state */
-  state?: AvatarState;
-  /** Current emotion */
-  emotion?: AvatarEmotion;
-  /** Emotion intensity (0-1) */
-  intensity?: number;
-  /** Avatar size in pixels */
-  size?: number;
-  /** Image source URL */
   src?: string;
-  /** Show breathing animation */
-  showBreathing?: boolean;
-  /** Show glow effect */
-  showGlow?: boolean;
-  /** Show pulse ring */
-  showPulse?: boolean;
-  /** Additional class names */
+  alt?: string;
+  name?: string;
+  size?: AvatarSize;
+  status?: AvatarStatus;
+  showStatus?: boolean;
+  border?: boolean;
   className?: string;
 }
 
 /**
- * Emotion color mapping
- */
-const EMOTION_COLORS: Record<AvatarEmotion, string> = {
-  neutral: "#d4886a",
-  joy: "#f0c040",
-  sadness: "#6a9cd4",
-  tenderness: "#d4a6d4",
-  excitement: "#ff6b6b",
-  curiosity: "#4ecdc4",
-  playful: "#ff9f43",
-  love: "#ff6b9d",
-};
-
-/**
- * State animation configs
- */
-const STATE_CONFIGS: Record<AvatarState, {
-  glowIntensity: number;
-  pulseSpeed: number;
-  breathSpeed: number;
-}> = {
-  idle: { glowIntensity: 0.3, pulseSpeed: 4, breathSpeed: 4 },
-  listening: { glowIntensity: 0.6, pulseSpeed: 2, breathSpeed: 3 },
-  thinking: { glowIntensity: 0.5, pulseSpeed: 1.5, breathSpeed: 2 },
-  speaking: { glowIntensity: 0.8, pulseSpeed: 1, breathSpeed: 1.5 },
-};
-
-/**
- * Breathing overlay animation
- */
-const BreathingOverlay = memo(function BreathingOverlay({
-  size,
-  speed,
-  color,
-}: {
-  size: number;
-  speed: number;
-  color: string;
-}) {
-  return (
-    <motion.div
-      className="absolute inset-0 rounded-full"
-      style={{
-        background: `radial-gradient(circle, ${color}20 0%, transparent 70%)`,
-      }}
-      animate={{
-        scale: [1, 1.02, 1],
-        opacity: [0.3, 0.5, 0.3],
-      }}
-      transition={{
-        duration: speed,
-        repeat: Infinity,
-        ease: "easeInOut" as const,
-      }}
-    />
-  );
-});
-
-/**
- * Pulse ring animation
- */
-const PulseRing = memo(function PulseRing({
-  size,
-  speed,
-  color,
-}: {
-  size: number;
-  speed: number;
-  color: string;
-}) {
-  return (
-    <>
-      {[0, 1].map((i) => (
-        <motion.div
-          key={i}
-          className="absolute inset-0 rounded-full"
-          style={{
-            border: `2px solid ${color}`,
-          }}
-          animate={{
-            scale: [1, 1.3, 1.5],
-            opacity: [0.6, 0.2, 0],
-          }}
-          transition={{
-            duration: speed,
-            repeat: Infinity,
-            delay: i * (speed / 2),
-            ease: "easeOut" as const,
-          }}
-        />
-      ))}
-    </>
-  );
-});
-
-/**
- * Glow effect
- */
-const GlowEffect = memo(function GlowEffect({
-  color,
-  intensity,
-}: {
-  color: string;
-  intensity: number;
-}) {
-  return (
-    <motion.div
-      className="absolute inset-0 rounded-full"
-      style={{
-        boxShadow: `0 0 ${30 * intensity}px ${10 * intensity}px ${color}40`,
-      }}
-      animate={{
-        opacity: [0.5, 0.8, 0.5],
-      }}
-      transition={{
-        duration: 3,
-        repeat: Infinity,
-        ease: "easeInOut" as const,
-      }}
-    />
-  );
-});
-
-/**
- * Default avatar placeholder
- */
-const DefaultAvatar = memo(function DefaultAvatar({
-  size,
-  color,
-}: {
-  size: number;
-  color: string;
-}) {
-  return (
-    <svg
-      width={size * 0.6}
-      height={size * 0.6}
-      viewBox="0 0 100 100"
-      fill="none"
-    >
-      {/* Face circle */}
-      <circle cx="50" cy="50" r="40" fill={color} opacity="0.2" />
-
-      {/* Eyes */}
-      <ellipse cx="35" cy="45" rx="5" ry="6" fill={color} opacity="0.6" />
-      <ellipse cx="65" cy="45" rx="5" ry="6" fill={color} opacity="0.6" />
-
-      {/* Smile */}
-      <path
-        d="M 35 60 Q 50 75 65 60"
-        stroke={color}
-        strokeWidth="3"
-        fill="none"
-        opacity="0.6"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-});
-
-/**
- * Speaking indicator
- */
-const SpeakingIndicator = memo(function SpeakingIndicator({
-  color,
-}: {
-  color: string;
-}) {
-  return (
-    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
-      {[0, 1, 2].map((i) => (
-        <motion.div
-          key={i}
-          className="rounded-full"
-          style={{
-            width: 4,
-            height: 4,
-            backgroundColor: color,
-          }}
-          animate={{
-            y: [0, -4, 0],
-            opacity: [0.4, 1, 0.4],
-          }}
-          transition={{
-            duration: 0.5,
-            repeat: Infinity,
-            delay: i * 0.1,
-            ease: "easeInOut" as const,
-          }}
-        />
-      ))}
-    </div>
-  );
-});
-
-/**
- * Listening indicator
- */
-const ListeningIndicator = memo(function ListeningIndicator({
-  color,
-}: {
-  color: string;
-}) {
-  return (
-    <motion.div
-      className="absolute -bottom-1 left-1/2 -translate-x-1/2"
-      style={{
-        width: 8,
-        height: 8,
-        borderRadius: "50%",
-        backgroundColor: color,
-      }}
-      animate={{
-        scale: [1, 1.4, 1],
-        opacity: [0.8, 0.4, 0.8],
-      }}
-      transition={{
-        duration: 1.5,
-        repeat: Infinity,
-        ease: "easeInOut" as const,
-      }}
-    />
-  );
-});
-
-/**
- * Main Avatar Component
+ * Avatar Component
  */
 export const Avatar = memo(function Avatar({
-  state = "idle",
-  emotion = "neutral",
-  intensity = 0.6,
-  size = 120,
   src,
-  showBreathing = true,
-  showGlow = true,
-  showPulse = false,
+  alt,
+  name,
+  size = "md",
+  status,
+  showStatus = false,
+  border = false,
   className = "",
 }: AvatarProps) {
   const { colors } = useTheme();
 
-  const emotionColor = EMOTION_COLORS[emotion] || colors.coral;
-  const stateConfig = STATE_CONFIGS[state];
-  const adjustedIntensity = intensity * stateConfig.glowIntensity;
+  const sizeClasses = {
+    xs: "w-6 h-6 text-xs",
+    sm: "w-8 h-8 text-sm",
+    md: "w-10 h-10 text-sm",
+    lg: "w-12 h-12 text-base",
+    xl: "w-16 h-16 text-lg",
+    "2xl": "w-20 h-20 text-xl",
+  };
 
-  const containerStyle = useMemo(() => ({
-    width: size,
-    height: size,
-  }), [size]);
+  const statusSizes = {
+    xs: "w-1.5 h-1.5",
+    sm: "w-2 h-2",
+    md: "w-2.5 h-2.5",
+    lg: "w-3 h-3",
+    xl: "w-4 h-4",
+    "2xl": "w-5 h-5",
+  };
+
+  const statusColors = {
+    online: "#22c55e",
+    offline: "#9ca3af",
+    busy: "#ef4444",
+    away: "#f59e0b",
+  };
+
+  const getInitials = (name: string): string => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+  };
+
+  const bgColor = name
+    ? getColorFromName(name, colors.coral)
+    : colors.cream;
 
   return (
-    <div
-      className={`relative flex items-center justify-center ${className}`}
-      style={containerStyle}
-    >
-      {/* Glow effect */}
-      {showGlow && (
-        <GlowEffect color={emotionColor} intensity={adjustedIntensity} />
-      )}
-
-      {/* Pulse rings */}
-      <AnimatePresence>
-        {showPulse && (state === "listening" || state === "speaking") && (
-          <PulseRing
-            size={size}
-            speed={stateConfig.pulseSpeed}
-            color={emotionColor}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Main avatar container */}
-      <motion.div
-        className="relative rounded-full overflow-hidden flex items-center justify-center"
+    <div className={"relative inline-flex " + className}>
+      <div
+        className={
+          "flex items-center justify-center rounded-full overflow-hidden " +
+          sizeClasses[size]
+        }
         style={{
-          width: size,
-          height: size,
-          backgroundColor: colors.cream,
-          border: `3px solid ${emotionColor}40`,
-        }}
-        animate={{
-          scale: state === "speaking" ? [1, 1.02, 1] : 1,
-        }}
-        transition={{
-          duration: 0.5,
-          repeat: state === "speaking" ? Infinity : 0,
-          ease: "easeInOut" as const,
+          backgroundColor: bgColor,
+          border: border ? "2px solid " + colors.warmWhite : undefined,
+          boxShadow: border ? "0 0 0 2px " + colors.cream : undefined,
         }}
       >
-        {/* Breathing overlay */}
-        {showBreathing && (
-          <BreathingOverlay
-            size={size}
-            speed={stateConfig.breathSpeed}
-            color={emotionColor}
-          />
-        )}
-
-        {/* Avatar image or placeholder */}
         {src ? (
           <img
             src={src}
-            alt="EVA"
+            alt={alt || name || "Avatar"}
             className="w-full h-full object-cover"
           />
+        ) : name ? (
+          <span
+            className="font-semibold"
+            style={{ color: colors.warmWhite }}
+          >
+            {getInitials(name)}
+          </span>
         ) : (
-          <DefaultAvatar size={size} color={emotionColor} />
+          <svg
+            className="w-1/2 h-1/2"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={colors.textMuted}
+            strokeWidth="2"
+          >
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
         )}
-      </motion.div>
+      </div>
 
-      {/* State indicators */}
-      <AnimatePresence mode="wait">
-        {state === "speaking" && (
-          <motion.div
-            key="speaking"
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 5 }}
-          >
-            <SpeakingIndicator color={emotionColor} />
-          </motion.div>
-        )}
-        {state === "listening" && (
-          <motion.div
-            key="listening"
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 5 }}
-          >
-            <ListeningIndicator color={emotionColor} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {showStatus && status && (
+        <span
+          className={
+            "absolute bottom-0 right-0 rounded-full border-2 " +
+            statusSizes[size]
+          }
+          style={{
+            backgroundColor: statusColors[status],
+            borderColor: colors.warmWhite,
+          }}
+        />
+      )}
+    </div>
+  );
+});
 
-      {/* Thinking indicator */}
-      <AnimatePresence>
-        {state === "thinking" && (
-          <motion.div
-            className="absolute -top-2 -right-2"
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0 }}
+function getColorFromName(name: string, defaultColor: string): string {
+  const colors = [
+    "#ef4444", "#f97316", "#f59e0b", "#eab308",
+    "#84cc16", "#22c55e", "#10b981", "#14b8a6",
+    "#06b6d4", "#0ea5e9", "#3b82f6", "#6366f1",
+    "#8b5cf6", "#a855f7", "#d946ef", "#ec4899",
+  ];
+  
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  return colors[Math.abs(hash) % colors.length] || defaultColor;
+}
+
+interface AvatarGroupProps {
+  avatars: Array<{
+    src?: string;
+    name?: string;
+    alt?: string;
+  }>;
+  size?: AvatarSize;
+  max?: number;
+  className?: string;
+}
+
+/**
+ * Avatar Group
+ */
+export const AvatarGroup = memo(function AvatarGroup({
+  avatars,
+  size = "md",
+  max = 4,
+  className = "",
+}: AvatarGroupProps) {
+  const { colors } = useTheme();
+  const displayed = avatars.slice(0, max);
+  const remaining = avatars.length - max;
+
+  const overlapClasses = {
+    xs: "-ml-2",
+    sm: "-ml-2",
+    md: "-ml-3",
+    lg: "-ml-4",
+    xl: "-ml-5",
+    "2xl": "-ml-6",
+  };
+
+  const sizeClasses = {
+    xs: "w-6 h-6 text-xs",
+    sm: "w-8 h-8 text-xs",
+    md: "w-10 h-10 text-sm",
+    lg: "w-12 h-12 text-sm",
+    xl: "w-16 h-16 text-base",
+    "2xl": "w-20 h-20 text-lg",
+  };
+
+  return (
+    <div className={"flex items-center " + className}>
+      {displayed.map((avatar, index) => (
+        <div
+          key={index}
+          className={index > 0 ? overlapClasses[size] : ""}
+          style={{ zIndex: displayed.length - index }}
+        >
+          <Avatar
+            src={avatar.src}
+            name={avatar.name}
+            alt={avatar.alt}
+            size={size}
+            border
+          />
+        </div>
+      ))}
+      {remaining > 0 && (
+        <div
+          className={
+            "flex items-center justify-center rounded-full font-medium " +
+            overlapClasses[size] + " " +
+            sizeClasses[size]
+          }
+          style={{
+            backgroundColor: colors.cream,
+            color: colors.textMuted,
+            border: "2px solid " + colors.warmWhite,
+            zIndex: 0,
+          }}
+        >
+          +{remaining}
+        </div>
+      )}
+    </div>
+  );
+});
+
+interface AvatarWithTextProps {
+  src?: string;
+  name: string;
+  subtitle?: string;
+  size?: AvatarSize;
+  status?: AvatarStatus;
+  action?: ReactNode;
+  className?: string;
+}
+
+/**
+ * Avatar with Text
+ */
+export const AvatarWithText = memo(function AvatarWithText({
+  src,
+  name,
+  subtitle,
+  size = "md",
+  status,
+  action,
+  className = "",
+}: AvatarWithTextProps) {
+  const { colors } = useTheme();
+
+  return (
+    <div className={"flex items-center gap-3 " + className}>
+      <Avatar
+        src={src}
+        name={name}
+        size={size}
+        status={status}
+        showStatus={!!status}
+      />
+      <div className="flex-1 min-w-0">
+        <p
+          className="font-medium truncate"
+          style={{ color: colors.textPrimary }}
+        >
+          {name}
+        </p>
+        {subtitle && (
+          <p
+            className="text-sm truncate"
+            style={{ color: colors.textMuted }}
           >
-            <motion.div
-              style={{
-                width: 24,
-                height: 24,
-                borderRadius: "50%",
-                backgroundColor: emotionColor,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 12,
-              }}
-              animate={{
-                rotate: [0, 10, -10, 0],
-              }}
+            {subtitle}
+          </p>
+        )}
+      </div>
+      {action}
+    </div>
+  );
+});
+
+interface AvatarBadgeProps {
+  children: ReactNode;
+  badge: ReactNode;
+  position?: "top-right" | "bottom-right" | "top-left" | "bottom-left";
+  className?: string;
+}
+
+/**
+ * Avatar with Badge
+ */
+export const AvatarBadge = memo(function AvatarBadge({
+  children,
+  badge,
+  position = "bottom-right",
+  className = "",
+}: AvatarBadgeProps) {
+  const positionClasses = {
+    "top-right": "top-0 right-0",
+    "bottom-right": "bottom-0 right-0",
+    "top-left": "top-0 left-0",
+    "bottom-left": "bottom-0 left-0",
+  };
+
+  return (
+    <div className={"relative inline-flex " + className}>
+      {children}
+      <span className={"absolute " + positionClasses[position]}>
+        {badge}
+      </span>
+    </div>
+  );
+});
+
+interface AnimatedAvatarProps extends AvatarProps {
+  pulse?: boolean;
+  glow?: boolean;
+  glowColor?: string;
+}
+
+/**
+ * Animated Avatar
+ */
+export const AnimatedAvatar = memo(function AnimatedAvatar({
+  pulse = false,
+  glow = false,
+  glowColor,
+  ...props
+}: AnimatedAvatarProps) {
+  const { colors } = useTheme();
+  const effectColor = glowColor || colors.coral;
+
+  return (
+    <motion.div
+      className="relative inline-flex"
+      animate={pulse ? { scale: [1, 1.05, 1] } : undefined}
+      transition={pulse ? { duration: 2, repeat: Infinity } : undefined}
+    >
+      {glow && (
+        <motion.div
+          className="absolute inset-0 rounded-full"
+          style={{
+            backgroundColor: effectColor,
+            filter: "blur(8px)",
+            opacity: 0.4,
+          }}
+          animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.2, 0.4] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        />
+      )}
+      <Avatar {...props} />
+    </motion.div>
+  );
+});
+
+interface EditableAvatarProps extends AvatarProps {
+  onEdit?: () => void;
+  editable?: boolean;
+}
+
+/**
+ * Editable Avatar
+ */
+export const EditableAvatar = memo(function EditableAvatar({
+  onEdit,
+  editable = true,
+  ...props
+}: EditableAvatarProps) {
+  const { colors } = useTheme();
+
+  return (
+    <div className="relative inline-flex group">
+      <Avatar {...props} />
+      {editable && (
+        <motion.button
+          type="button"
+          className="absolute inset-0 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+          onClick={onEdit}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <svg
+            className="w-1/3 h-1/3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+          >
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+        </motion.button>
+      )}
+    </div>
+  );
+});
+
+interface PresenceAvatarProps extends AvatarProps {
+  isTyping?: boolean;
+  lastSeen?: string;
+}
+
+/**
+ * Presence Avatar (shows typing or last seen)
+ */
+export const PresenceAvatar = memo(function PresenceAvatar({
+  isTyping = false,
+  lastSeen,
+  ...props
+}: PresenceAvatarProps) {
+  const { colors } = useTheme();
+
+  return (
+    <div className="relative inline-flex">
+      <Avatar {...props} />
+      {isTyping && (
+        <motion.div
+          className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5 px-1.5 py-0.5 rounded-full"
+          style={{ backgroundColor: colors.cream }}
+        >
+          {[0, 1, 2].map((i) => (
+            <motion.span
+              key={i}
+              className="w-1 h-1 rounded-full"
+              style={{ backgroundColor: colors.textMuted }}
+              animate={{ y: [0, -3, 0] }}
               transition={{
-                duration: 2,
+                duration: 0.6,
                 repeat: Infinity,
-                ease: "easeInOut" as const,
+                delay: i * 0.1,
               }}
-            >
-              💭
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            />
+          ))}
+        </motion.div>
+      )}
     </div>
   );
 });
