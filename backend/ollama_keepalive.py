@@ -17,8 +17,9 @@ from typing import Optional
 import httpx
 
 # Configuration
-OLLAMA_URL = "http://127.0.0.1:11434"
-OLLAMA_MODEL = "tinyllama"
+import os
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b-instruct-q4_K_M")  # Match main app model
 KEEPALIVE_INTERVAL = 0.5  # seconds - EXTREME: GPU weights deactivate in <1s on this setup
 KEEP_ALIVE_VALUE = -1  # Infinite - tell Ollama to never unload model
 WARMUP_BURST_COUNT = 5  # More burst requests to ensure model is fully GPU-active
