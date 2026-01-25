@@ -9148,3 +9148,35 @@ Système de pipeline ETL complet. Le builder fluent est ergonomique. Les stages 
 ### Note: 8/10
 Complet pour les besoins courants de copie. Le feedback visuel est bien fait. Les variantes permettent de l'adapter à différents contextes.
 
+
+---
+
+## Sprint 721 - Backend Search Engine
+**Date**: 2026-01-25 12:23
+**Type**: Backend Module
+**File**: backend/search_engine.py
+
+### Composants créés
+- SearchEngine: Moteur de recherche full-text
+- InvertedIndex: Index inversé avec TF-IDF
+- Tokenizer: Tokenisation avec stop words
+- Stemmer: Stemming simple basé sur suffixes
+- SearchResult/SearchResponse: Résultats structurés
+
+### Points positifs
+- Scoring TF-IDF normalisé
+- Recherche fuzzy avec Levenshtein
+- Facettes dynamiques
+- Highlighting des matches
+- Suggestions de recherche
+- Match types: exact, prefix, fuzzy, contains
+
+### Points à améliorer
+- Stemmer très basique (pas Porter/Snowball)
+- Pas de persistence de l'index
+- Pas de sharding pour gros volumes
+- Pas d'analyseurs par langue
+
+### Note: 8/10
+Bon moteur de recherche in-memory. TF-IDF bien implémenté. Les facettes sont utiles. Pour la prod il faudrait Elasticsearch ou MeiliSearch.
+
