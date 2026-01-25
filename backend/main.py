@@ -6594,3 +6594,110 @@ async def cleanup_old_contexts(max_age_seconds: int = 3600):
         "status": "ok",
         "removed": removed
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Performance Monitor API - Sprint 607
+# ═══════════════════════════════════════════════════════════════
+
+from perf_monitor import perf_monitor
+
+
+@app.get("/perf/summary")
+async def get_perf_summary():
+    """Get performance summary.
+
+    Returns:
+        Performance metrics summary.
+    """
+    return {
+        "status": "ok",
+        "summary": perf_monitor.get_summary()
+    }
+
+
+@app.get("/perf/endpoints")
+async def get_endpoint_stats():
+    """Get per-endpoint statistics.
+
+    Returns:
+        Stats for each endpoint.
+    """
+    return {
+        "status": "ok",
+        "endpoints": perf_monitor.get_endpoint_stats()
+    }
+
+
+@app.get("/perf/slow")
+async def get_slow_requests(limit: int = 50):
+    """Get slow requests.
+
+    Args:
+        limit: Maximum requests to return
+
+    Returns:
+        List of slow requests.
+    """
+    limit = min(200, max(1, limit))
+    return {
+        "status": "ok",
+        "slow_requests": perf_monitor.get_slow_requests(limit)
+    }
+
+
+@app.get("/perf/recent")
+async def get_recent_requests(limit: int = 100):
+    """Get recent requests.
+
+    Args:
+        limit: Maximum requests to return
+
+    Returns:
+        List of recent requests.
+    """
+    limit = min(500, max(1, limit))
+    return {
+        "status": "ok",
+        "requests": perf_monitor.get_recent_requests(limit)
+    }
+
+
+@app.get("/perf/system")
+async def get_system_metrics():
+    """Get system resource metrics.
+
+    Returns:
+        CPU, memory, and other system metrics.
+    """
+    return {
+        "status": "ok",
+        "system": perf_monitor.get_system_metrics()
+    }
+
+
+@app.get("/perf/health")
+async def get_perf_health():
+    """Get health status based on performance.
+
+    Returns:
+        Health status and any issues.
+    """
+    return {
+        "status": "ok",
+        **perf_monitor.get_health_status()
+    }
+
+
+@app.post("/perf/reset")
+async def reset_perf_metrics():
+    """Reset all performance metrics.
+
+    Returns:
+        Success status.
+    """
+    perf_monitor.reset()
+    return {
+        "status": "ok",
+        "message": "Performance metrics reset"
+    }
