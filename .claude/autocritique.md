@@ -6326,3 +6326,55 @@
 **Risques:** Aucun
 
 ---
+
+## Sprint 629 - Plugin System (BACKEND)
+
+**Fichier:** `backend/plugin_system.py`
+
+**Classes créées:**
+1. **PluginManager** - Main plugin orchestrator
+2. **Plugin** - Abstract base class for plugins
+3. **PluginInfo** - Plugin metadata dataclass
+4. **PluginInstance** - Loaded plugin wrapper
+5. **HookRegistration** - Hook handler registration
+6. **PluginStatus** - Status enum
+7. **HookPriority** - Priority enum
+
+**Fonctionnalités:**
+- Plugin discovery via module import
+- Plugin lifecycle (load/unload/enable/disable)
+- Hook system avec priorities
+- Filter chain execution (chained transformations)
+- Dependency resolution
+- Configuration schema support
+- Example plugin inclus
+- Thread-safe avec Lock
+
+**8 Endpoints créés:**
+- GET /plugins - List plugins
+- GET /plugins/{name} - Get plugin details
+- POST /plugins/{name}/load - Load plugin
+- POST /plugins/{name}/unload - Unload plugin
+- POST /plugins/{name}/enable - Enable plugin
+- POST /plugins/{name}/disable - Disable plugin
+- GET /plugins/hooks/list - List hooks
+- GET /plugins/stats - Plugin stats
+
+**Note: 9/10**
+
+**Points positifs:**
+- Architecture extensible clean
+- Hook priorities pour ordering
+- Filter chain pour transformations
+- Dependency checking
+- Example plugin fonctionnel
+- Abstract base class clear
+
+**Points négatifs:**
+- Pas de hot reload
+- Pas de sandboxing
+- Pas de versioning plugins
+
+**Risques:** Aucun
+
+---
