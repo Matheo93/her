@@ -8683,3 +8683,26 @@ Système de retry avec stratégies de backoff configurables.
 - Retry avec backoff exponentiel
 - Concurrent execution avec semaphore
 - Jobs one-time et récurrents
+
+---
+
+## Sprint 700 - Frontend KanbanBoard
+**Score: 9/10**
+- Colonnes avec drag-drop de cartes
+- Reorder dans la même colonne
+- Move entre colonnes avec drop zone
+- Priority indicators (low/medium/high)
+- Column limits (WIP limits)
+- useKanban hook complet pour CRUD
+- SimpleKanban pour usage rapide
+
+---
+
+## Sprint 701 - Backend Multi-Tenancy
+**Score: 9/10**
+- TenantContext avec contextvars isolation
+- TenantIsolatedData pour données par tenant
+- TenantLimits par tier (Free/Basic/Pro/Enterprise)
+- Usage tracking et limit checking
+- Feature flags par tenant
+- Suspend/Activate lifecycle
