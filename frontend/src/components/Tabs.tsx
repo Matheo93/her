@@ -1,552 +1,607 @@
 "use client";
 
 /**
- * Tabs Components - Sprint 602
+ * Tabs Components - Sprint 634
  *
- * Tab navigation system:
- * - Horizontal tabs
- * - Vertical tabs
+ * Tab navigation components:
+ * - Basic tabs
  * - Pill tabs
- * - Underline tabs
+ * - Vertical tabs
+ * - Scrollable tabs
+ * - With icons
  * - HER-themed styling
  */
 
-import React, {
-  memo,
-  useState,
-  useCallback,
-  createContext,
-  useContext,
-  ReactNode,
-} from "react";
+import React, { memo, useState, useRef, useEffect, ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/context/ThemeContext";
 
-interface TabItem {
-  /** Unique tab identifier */
+interface Tab {
   id: string;
-  /** Tab label */
   label: string;
-  /** Optional icon */
   icon?: ReactNode;
-  /** Whether tab is disabled */
   disabled?: boolean;
-  /** Badge count */
-  badge?: number;
+  badge?: string | number;
 }
 
 interface TabsProps {
-  /** Tab items */
-  items: TabItem[];
-  /** Currently selected tab ID */
-  value?: string;
-  /** Change callback */
-  onChange?: (id: string) => void;
-  /** Tab style variant */
-  variant?: "underline" | "pill" | "boxed";
-  /** Tab orientation */
-  orientation?: "horizontal" | "vertical";
-  /** Size variant */
-  size?: "sm" | "md" | "lg";
-  /** Whether to fill container width */
-  fullWidth?: boolean;
-  /** Additional class names */
-  className?: string;
-}
-
-interface TabPanelProps {
-  /** Tab ID this panel belongs to */
-  id: string;
-  /** Panel content */
-  children: ReactNode;
-  /** Additional class names */
-  className?: string;
-}
-
-/**
- * Tabs Context
- */
-interface TabsContextValue {
+  tabs: Tab[];
   activeTab: string;
-  setActiveTab: (id: string) => void;
-}
-
-const TabsContext = createContext<TabsContextValue | null>(null);
-
-function useTabsContext() {
-  const context = useContext(TabsContext);
-  if (!context) {
-    throw new Error("TabPanel must be used within Tabs component");
-  }
-  return context;
+  onChange: (id: string) => void;
+  variant?: "default" | "pills" | "underline" | "enclosed";
+  size?: "sm" | "md" | "lg";
+  fullWidth?: boolean;
+  className?: string;
 }
 
 /**
- * Get size classes
- */
-function getSizeClasses(size: TabsProps["size"]) {
-  switch (size) {
-    case "sm":
-      return { tab: "px-3 py-1.5 text-xs", gap: "gap-1" };
-    case "lg":
-      return { tab: "px-6 py-3 text-base", gap: "gap-3" };
-    case "md":
-    default:
-      return { tab: "px-4 py-2 text-sm", gap: "gap-2" };
-  }
-}
-
-/**
- * Main Tabs Component
+ * Tabs Navigation
  */
 export const Tabs = memo(function Tabs({
-  items,
-  value,
+  tabs,
+  activeTab,
   onChange,
-  variant = "underline",
-  orientation = "horizontal",
+  variant = "default",
   size = "md",
   fullWidth = false,
   className = "",
-  children,
-}: TabsProps & { children?: ReactNode }) {
+}: TabsProps) {
   const { colors } = useTheme();
-  const [internalValue, setInternalValue] = useState(items[0]?.id || "");
-  const sizeClasses = getSizeClasses(size);
+  const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
+  const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
-  const activeTab = value ?? internalValue;
-  const setActiveTab = useCallback(
-    (id: string) => {
-      setInternalValue(id);
-      onChange?.(id);
-    },
-    [onChange]
-  );
-
-  const isVertical = orientation === "vertical";
-
-  return (
-    <TabsContext.Provider value={{ activeTab, setActiveTab }}>
-      <div
-        className={`${isVertical ? "flex" : ""} ${className}`}
-      >
-        {/* Tab List */}
-        <div
-          className={`
-            ${isVertical ? "flex-col border-r" : "border-b"}
-            ${fullWidth ? "w-full" : ""}
-            flex ${sizeClasses.gap}
-          `}
-          style={{ borderColor: colors.cream }}
-          role="tablist"
-          aria-orientation={orientation}
-        >
-          {items.map((item, index) => (
-            <TabButton
-              key={item.id}
-              item={item}
-              isActive={activeTab === item.id}
-              variant={variant}
-              sizeClasses={sizeClasses}
-              fullWidth={fullWidth}
-              isVertical={isVertical}
-              colors={colors}
-              onClick={() => !item.disabled && setActiveTab(item.id)}
-              index={index}
-            />
-          ))}
-        </div>
-
-        {/* Tab Panels */}
-        {children && (
-          <div className={`${isVertical ? "flex-1 pl-4" : "pt-4"}`}>
-            {children}
-          </div>
-        )}
-      </div>
-    </TabsContext.Provider>
-  );
-});
-
-/**
- * Tab Button
- */
-const TabButton = memo(function TabButton({
-  item,
-  isActive,
-  variant,
-  sizeClasses,
-  fullWidth,
-  isVertical,
-  colors,
-  onClick,
-  index,
-}: {
-  item: TabItem;
-  isActive: boolean;
-  variant: TabsProps["variant"];
-  sizeClasses: ReturnType<typeof getSizeClasses>;
-  fullWidth: boolean;
-  isVertical: boolean;
-  colors: any;
-  onClick: () => void;
-  index: number;
-}) {
-  const getVariantStyles = () => {
-    const base = {
-      backgroundColor: "transparent",
-      color: isActive ? colors.coral : colors.textSecondary,
-      borderColor: "transparent",
-    };
-
-    if (item.disabled) {
-      return {
-        ...base,
-        opacity: 0.5,
-        cursor: "not-allowed",
-      };
-    }
-
-    switch (variant) {
-      case "pill":
-        return {
-          ...base,
-          backgroundColor: isActive ? `${colors.coral}15` : "transparent",
-          borderRadius: "9999px",
-        };
-      case "boxed":
-        return {
-          ...base,
-          backgroundColor: isActive ? colors.warmWhite : "transparent",
-          borderColor: isActive ? colors.cream : "transparent",
-          borderWidth: "1px",
-          borderRadius: "8px",
-        };
-      case "underline":
-      default:
-        return base;
-    }
-  };
-
-  return (
-    <motion.button
-      className={`
-        relative flex items-center justify-center font-medium
-        ${sizeClasses.tab}
-        ${fullWidth ? "flex-1" : ""}
-        transition-colors
-      `}
-      style={getVariantStyles()}
-      onClick={onClick}
-      disabled={item.disabled}
-      role="tab"
-      aria-selected={isActive}
-      aria-controls={`panel-${item.id}`}
-      tabIndex={isActive ? 0 : -1}
-      whileHover={
-        !item.disabled
-          ? {
-              color: colors.coral,
-              backgroundColor:
-                variant === "pill"
-                  ? `${colors.coral}10`
-                  : variant === "boxed"
-                  ? colors.cream
-                  : undefined,
-            }
-          : undefined
-      }
-      whileTap={!item.disabled ? { scale: 0.98 } : undefined}
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-    >
-      {/* Icon */}
-      {item.icon && <span className="mr-2">{item.icon}</span>}
-
-      {/* Label */}
-      <span>{item.label}</span>
-
-      {/* Badge */}
-      {item.badge !== undefined && item.badge > 0 && (
-        <span
-          className="ml-2 px-1.5 py-0.5 text-xs rounded-full"
-          style={{
-            backgroundColor: colors.coral,
-            color: "white",
-          }}
-        >
-          {item.badge > 99 ? "99+" : item.badge}
-        </span>
-      )}
-
-      {/* Underline indicator */}
-      {variant === "underline" && isActive && (
-        <motion.div
-          className="absolute bottom-0 left-0 right-0 h-0.5"
-          style={{ backgroundColor: colors.coral }}
-          layoutId="tab-underline"
-          transition={{ type: "spring", stiffness: 500, damping: 30 }}
-        />
-      )}
-
-      {/* Vertical indicator */}
-      {variant === "underline" && isActive && isVertical && (
-        <motion.div
-          className="absolute top-0 bottom-0 right-0 w-0.5"
-          style={{ backgroundColor: colors.coral }}
-          layoutId="tab-vertical-indicator"
-          transition={{ type: "spring", stiffness: 500, damping: 30 }}
-        />
-      )}
-    </motion.button>
-  );
-});
-
-/**
- * Tab Panel - Content container for each tab
- */
-export const TabPanel = memo(function TabPanel({
-  id,
-  children,
-  className = "",
-}: TabPanelProps) {
-  const { activeTab } = useTabsContext();
-  const isActive = activeTab === id;
-
-  return (
-    <AnimatePresence mode="wait">
-      {isActive && (
-        <motion.div
-          id={`panel-${id}`}
-          role="tabpanel"
-          aria-labelledby={`tab-${id}`}
-          className={className}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
-        >
-          {children}
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-});
-
-/**
- * Simple Tabs - All-in-one with panels as objects
- */
-export const SimpleTabs = memo(function SimpleTabs({
-  tabs,
-  defaultTab,
-  variant = "underline",
-  size = "md",
-  className = "",
-}: {
-  tabs: Array<{
-    id: string;
-    label: string;
-    icon?: ReactNode;
-    content: ReactNode;
-    disabled?: boolean;
-  }>;
-  defaultTab?: string;
-  variant?: TabsProps["variant"];
-  size?: TabsProps["size"];
-  className?: string;
-}) {
-  const [activeTab, setActiveTab] = useState(defaultTab || tabs[0]?.id || "");
-  const { colors } = useTheme();
-
-  const items = tabs.map((t) => ({
-    id: t.id,
-    label: t.label,
-    icon: t.icon,
-    disabled: t.disabled,
-  }));
-
-  return (
-    <div className={className}>
-      <Tabs
-        items={items}
-        value={activeTab}
-        onChange={setActiveTab}
-        variant={variant}
-        size={size}
-      />
-      <div className="mt-4">
-        <AnimatePresence mode="wait">
-          {tabs.map(
-            (tab) =>
-              activeTab === tab.id && (
-                <motion.div
-                  key={tab.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {tab.content}
-                </motion.div>
-              )
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
-});
-
-/**
- * Icon Tabs - Tabs with only icons
- */
-export const IconTabs = memo(function IconTabs({
-  items,
-  value,
-  onChange,
-  size = "md",
-  className = "",
-}: {
-  items: Array<{
-    id: string;
-    icon: ReactNode;
-    tooltip?: string;
-    disabled?: boolean;
-  }>;
-  value?: string;
-  onChange?: (id: string) => void;
-  size?: "sm" | "md" | "lg";
-  className?: string;
-}) {
-  const { colors } = useTheme();
-  const [internalValue, setInternalValue] = useState(items[0]?.id || "");
-  const activeTab = value ?? internalValue;
-
-  const sizes = {
-    sm: "w-8 h-8",
-    md: "w-10 h-10",
-    lg: "w-12 h-12",
-  };
-
-  const handleChange = useCallback(
-    (id: string) => {
-      setInternalValue(id);
-      onChange?.(id);
-    },
-    [onChange]
-  );
-
-  return (
-    <div
-      className={`flex items-center gap-1 p-1 rounded-xl ${className}`}
-      style={{ backgroundColor: colors.cream }}
-      role="tablist"
-    >
-      {items.map((item) => (
-        <motion.button
-          key={item.id}
-          className={`
-            ${sizes[size]} rounded-lg flex items-center justify-center
-            transition-colors
-          `}
-          style={{
-            backgroundColor:
-              activeTab === item.id ? colors.warmWhite : "transparent",
-            color:
-              activeTab === item.id ? colors.coral : colors.textSecondary,
-            boxShadow:
-              activeTab === item.id
-                ? "0 1px 3px rgba(0,0,0,0.1)"
-                : "none",
-            opacity: item.disabled ? 0.5 : 1,
-          }}
-          onClick={() => !item.disabled && handleChange(item.id)}
-          disabled={item.disabled}
-          title={item.tooltip}
-          whileHover={!item.disabled ? { scale: 1.05 } : undefined}
-          whileTap={!item.disabled ? { scale: 0.95 } : undefined}
-          role="tab"
-          aria-selected={activeTab === item.id}
-        >
-          {item.icon}
-        </motion.button>
-      ))}
-    </div>
-  );
-});
-
-/**
- * Segmented Control - iOS-style toggle
- */
-export const SegmentedControl = memo(function SegmentedControl({
-  items,
-  value,
-  onChange,
-  size = "md",
-  className = "",
-}: {
-  items: Array<{ id: string; label: string }>;
-  value?: string;
-  onChange?: (id: string) => void;
-  size?: "sm" | "md" | "lg";
-  className?: string;
-}) {
-  const { colors } = useTheme();
-  const [internalValue, setInternalValue] = useState(items[0]?.id || "");
-  const activeTab = value ?? internalValue;
-
-  const sizes = {
-    sm: "px-3 py-1 text-xs",
+  const sizeClasses = {
+    sm: "px-3 py-1.5 text-sm",
     md: "px-4 py-2 text-sm",
     lg: "px-6 py-3 text-base",
   };
 
-  const handleChange = useCallback(
-    (id: string) => {
-      setInternalValue(id);
-      onChange?.(id);
-    },
-    [onChange]
+  useEffect(() => {
+    const activeTabEl = tabRefs.current.get(activeTab);
+    if (activeTabEl) {
+      setIndicatorStyle({
+        width: activeTabEl.offsetWidth,
+        left: activeTabEl.offsetLeft,
+      });
+    }
+  }, [activeTab]);
+
+  const getTabStyle = (tab: Tab) => {
+    const isActive = tab.id === activeTab;
+    const isDisabled = tab.disabled;
+
+    if (isDisabled) {
+      return {
+        color: colors.textMuted,
+        opacity: 0.5,
+        cursor: "not-allowed" as const,
+      };
+    }
+
+    switch (variant) {
+      case "pills":
+        return {
+          color: isActive ? colors.warmWhite : colors.textMuted,
+          backgroundColor: isActive ? colors.coral : "transparent",
+          borderRadius: "9999px",
+        };
+
+      case "enclosed":
+        return {
+          color: isActive ? colors.textPrimary : colors.textMuted,
+          backgroundColor: isActive ? colors.warmWhite : "transparent",
+          borderBottom: isActive ? "none" : "1px solid " + colors.cream,
+          marginBottom: isActive ? "-1px" : "0",
+        };
+
+      default:
+        return {
+          color: isActive ? colors.coral : colors.textMuted,
+        };
+    }
+  };
+
+  return (
+    <div className={"relative " + className}>
+      <div
+        className={"flex " + (fullWidth ? "w-full" : "")}
+        style={{
+          borderBottom: variant !== "pills" && variant !== "enclosed" 
+            ? "1px solid " + colors.cream
+            : undefined,
+          backgroundColor: variant === "enclosed" ? colors.cream : undefined,
+          borderRadius: variant === "enclosed" ? "0.5rem 0.5rem 0 0" : undefined,
+          padding: variant === "enclosed" ? "0.25rem 0.25rem 0 0.25rem" : undefined,
+        }}
+        role="tablist"
+      >
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            ref={(el) => {
+              if (el) tabRefs.current.set(tab.id, el);
+            }}
+            role="tab"
+            aria-selected={tab.id === activeTab}
+            aria-disabled={tab.disabled}
+            disabled={tab.disabled}
+            className={
+              "relative flex items-center gap-2 font-medium transition-colors " +
+              sizeClasses[size] + " " +
+              (fullWidth ? "flex-1 justify-center" : "")
+            }
+            style={getTabStyle(tab)}
+            onClick={() => !tab.disabled && onChange(tab.id)}
+          >
+            {tab.icon}
+            <span>{tab.label}</span>
+            {tab.badge !== undefined && (
+              <span
+                className="px-1.5 py-0.5 text-xs rounded-full"
+                style={{
+                  backgroundColor: tab.id === activeTab ? colors.warmWhite : colors.cream,
+                  color: tab.id === activeTab ? colors.coral : colors.textMuted,
+                }}
+              >
+                {tab.badge}
+              </span>
+            )}
+          </button>
+        ))}
+
+        {(variant === "default" || variant === "underline") && (
+          <motion.div
+            className="absolute bottom-0 h-0.5"
+            style={{
+              backgroundColor: colors.coral,
+              ...indicatorStyle,
+            }}
+            layout
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+          />
+        )}
+      </div>
+    </div>
   );
+});
+
+interface TabPanelProps {
+  id: string;
+  activeTab: string;
+  children: ReactNode;
+  className?: string;
+}
+
+/**
+ * Tab Panel
+ */
+export const TabPanel = memo(function TabPanel({
+  id,
+  activeTab,
+  children,
+  className = "",
+}: TabPanelProps) {
+  if (id !== activeTab) return null;
+
+  return (
+    <motion.div
+      role="tabpanel"
+      id={"tabpanel-" + id}
+      aria-labelledby={"tab-" + id}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.2 }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+});
+
+interface TabsWithContentProps {
+  tabs: (Tab & { content: ReactNode })[];
+  defaultTab?: string;
+  variant?: "default" | "pills" | "underline" | "enclosed";
+  size?: "sm" | "md" | "lg";
+  fullWidth?: boolean;
+  className?: string;
+  contentClassName?: string;
+}
+
+/**
+ * Tabs with Content
+ */
+export const TabsWithContent = memo(function TabsWithContent({
+  tabs,
+  defaultTab,
+  variant = "default",
+  size = "md",
+  fullWidth = false,
+  className = "",
+  contentClassName = "",
+}: TabsWithContentProps) {
+  const [activeTab, setActiveTab] = useState(defaultTab || tabs[0]?.id || "");
+
+  return (
+    <div className={className}>
+      <Tabs
+        tabs={tabs}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+        variant={variant}
+        size={size}
+        fullWidth={fullWidth}
+      />
+      <AnimatePresence mode="wait">
+        <div className={"mt-4 " + contentClassName}>
+          {tabs.map((tab) => (
+            <TabPanel key={tab.id} id={tab.id} activeTab={activeTab}>
+              {tab.content}
+            </TabPanel>
+          ))}
+        </div>
+      </AnimatePresence>
+    </div>
+  );
+});
+
+interface VerticalTabsProps {
+  tabs: Tab[];
+  activeTab: string;
+  onChange: (id: string) => void;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}
+
+/**
+ * Vertical Tabs
+ */
+export const VerticalTabs = memo(function VerticalTabs({
+  tabs,
+  activeTab,
+  onChange,
+  size = "md",
+  className = "",
+}: VerticalTabsProps) {
+  const { colors } = useTheme();
+
+  const sizeClasses = {
+    sm: "px-3 py-2 text-sm",
+    md: "px-4 py-2.5 text-sm",
+    lg: "px-5 py-3 text-base",
+  };
 
   return (
     <div
-      className={`relative flex p-1 rounded-xl ${className}`}
-      style={{ backgroundColor: colors.cream }}
+      className={"flex flex-col " + className}
+      style={{ borderRight: "1px solid " + colors.cream }}
+      role="tablist"
+      aria-orientation="vertical"
     >
-      {/* Sliding background */}
-      <motion.div
-        className="absolute top-1 bottom-1 rounded-lg"
-        style={{
-          backgroundColor: colors.warmWhite,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-        }}
-        layout
-        layoutId="segment-bg"
-        transition={{ type: "spring", stiffness: 500, damping: 35 }}
-        initial={false}
-        animate={{
-          width: `${100 / items.length}%`,
-          x: `${items.findIndex((i) => i.id === activeTab) * 100}%`,
-        }}
-      />
+      {tabs.map((tab) => {
+        const isActive = tab.id === activeTab;
+        const isDisabled = tab.disabled;
 
-      {items.map((item) => (
+        return (
+          <button
+            key={tab.id}
+            role="tab"
+            aria-selected={isActive}
+            aria-disabled={isDisabled}
+            disabled={isDisabled}
+            className={
+              "relative flex items-center gap-2 font-medium text-left transition-colors " +
+              sizeClasses[size]
+            }
+            style={{
+              color: isDisabled 
+                ? colors.textMuted 
+                : isActive 
+                  ? colors.coral 
+                  : colors.textMuted,
+              backgroundColor: isActive ? colors.coral + "10" : "transparent",
+              opacity: isDisabled ? 0.5 : 1,
+              cursor: isDisabled ? "not-allowed" : "pointer",
+            }}
+            onClick={() => !isDisabled && onChange(tab.id)}
+          >
+            {isActive && (
+              <motion.div
+                layoutId="vertical-tab-indicator"
+                className="absolute right-0 top-0 bottom-0 w-0.5"
+                style={{ backgroundColor: colors.coral }}
+              />
+            )}
+            {tab.icon}
+            <span>{tab.label}</span>
+            {tab.badge !== undefined && (
+              <span
+                className="ml-auto px-1.5 py-0.5 text-xs rounded-full"
+                style={{
+                  backgroundColor: colors.cream,
+                  color: colors.textMuted,
+                }}
+              >
+                {tab.badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+});
+
+interface ScrollableTabsProps {
+  tabs: Tab[];
+  activeTab: string;
+  onChange: (id: string) => void;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}
+
+/**
+ * Scrollable Tabs
+ */
+export const ScrollableTabs = memo(function ScrollableTabs({
+  tabs,
+  activeTab,
+  onChange,
+  size = "md",
+  className = "",
+}: ScrollableTabsProps) {
+  const { colors } = useTheme();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+
+  const sizeClasses = {
+    sm: "px-3 py-1.5 text-sm",
+    md: "px-4 py-2 text-sm",
+    lg: "px-6 py-3 text-base",
+  };
+
+  const checkScroll = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setShowLeftArrow(scrollLeft > 0);
+      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 1);
+    }
+  };
+
+  useEffect(() => {
+    checkScroll();
+    window.addEventListener("resize", checkScroll);
+    return () => window.removeEventListener("resize", checkScroll);
+  }, []);
+
+  const scroll = (direction: "left" | "right") => {
+    if (scrollRef.current) {
+      const scrollAmount = 200;
+      scrollRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  return (
+    <div className={"relative " + className}>
+      {showLeftArrow && (
         <button
-          key={item.id}
-          className={`
-            relative z-10 flex-1 font-medium ${sizes[size]}
-            transition-colors
-          `}
+          className="absolute left-0 top-0 bottom-0 z-10 px-2 flex items-center"
           style={{
-            color:
-              activeTab === item.id ? colors.coral : colors.textSecondary,
+            background: "linear-gradient(to right, " + colors.warmWhite + ", transparent)",
           }}
-          onClick={() => handleChange(item.id)}
+          onClick={() => scroll("left")}
         >
-          {item.label}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted}>
+            <polyline points="15 18 9 12 15 6" strokeWidth="2" />
+          </svg>
         </button>
-      ))}
+      )}
+
+      <div
+        ref={scrollRef}
+        className="flex overflow-x-auto scrollbar-hide"
+        style={{ borderBottom: "1px solid " + colors.cream }}
+        onScroll={checkScroll}
+        role="tablist"
+      >
+        {tabs.map((tab) => {
+          const isActive = tab.id === activeTab;
+          const isDisabled = tab.disabled;
+
+          return (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={isActive}
+              aria-disabled={isDisabled}
+              disabled={isDisabled}
+              className={
+                "relative flex-shrink-0 flex items-center gap-2 font-medium whitespace-nowrap " +
+                sizeClasses[size]
+              }
+              style={{
+                color: isDisabled 
+                  ? colors.textMuted 
+                  : isActive 
+                    ? colors.coral 
+                    : colors.textMuted,
+                opacity: isDisabled ? 0.5 : 1,
+                cursor: isDisabled ? "not-allowed" : "pointer",
+              }}
+              onClick={() => !isDisabled && onChange(tab.id)}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+              {tab.badge !== undefined && (
+                <span
+                  className="px-1.5 py-0.5 text-xs rounded-full"
+                  style={{
+                    backgroundColor: colors.cream,
+                    color: colors.textMuted,
+                  }}
+                >
+                  {tab.badge}
+                </span>
+              )}
+              {isActive && (
+                <motion.div
+                  layoutId="scrollable-tab-indicator"
+                  className="absolute bottom-0 left-0 right-0 h-0.5"
+                  style={{ backgroundColor: colors.coral }}
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {showRightArrow && (
+        <button
+          className="absolute right-0 top-0 bottom-0 z-10 px-2 flex items-center"
+          style={{
+            background: "linear-gradient(to left, " + colors.warmWhite + ", transparent)",
+          }}
+          onClick={() => scroll("right")}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted}>
+            <polyline points="9 18 15 12 9 6" strokeWidth="2" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+});
+
+interface IconTabsProps {
+  tabs: Tab[];
+  activeTab: string;
+  onChange: (id: string) => void;
+  showLabels?: boolean;
+  className?: string;
+}
+
+/**
+ * Icon Tabs
+ */
+export const IconTabs = memo(function IconTabs({
+  tabs,
+  activeTab,
+  onChange,
+  showLabels = false,
+  className = "",
+}: IconTabsProps) {
+  const { colors } = useTheme();
+
+  return (
+    <div
+      className={"inline-flex rounded-lg p-1 " + className}
+      style={{ backgroundColor: colors.cream }}
+      role="tablist"
+    >
+      {tabs.map((tab) => {
+        const isActive = tab.id === activeTab;
+        const isDisabled = tab.disabled;
+
+        return (
+          <button
+            key={tab.id}
+            role="tab"
+            aria-selected={isActive}
+            aria-disabled={isDisabled}
+            aria-label={tab.label}
+            disabled={isDisabled}
+            className={
+              "relative flex items-center justify-center gap-2 p-2 rounded-md transition-colors " +
+              (showLabels ? "px-4" : "")
+            }
+            style={{
+              color: isDisabled 
+                ? colors.textMuted 
+                : isActive 
+                  ? colors.coral 
+                  : colors.textMuted,
+              backgroundColor: isActive ? colors.warmWhite : "transparent",
+              opacity: isDisabled ? 0.5 : 1,
+              cursor: isDisabled ? "not-allowed" : "pointer",
+              boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+            }}
+            onClick={() => !isDisabled && onChange(tab.id)}
+          >
+            {tab.icon}
+            {showLabels && <span className="text-sm font-medium">{tab.label}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+});
+
+interface CardTabsProps {
+  tabs: Tab[];
+  activeTab: string;
+  onChange: (id: string) => void;
+  className?: string;
+}
+
+/**
+ * Card-style Tabs
+ */
+export const CardTabs = memo(function CardTabs({
+  tabs,
+  activeTab,
+  onChange,
+  className = "",
+}: CardTabsProps) {
+  const { colors } = useTheme();
+
+  return (
+    <div className={"flex gap-3 " + className} role="tablist">
+      {tabs.map((tab) => {
+        const isActive = tab.id === activeTab;
+        const isDisabled = tab.disabled;
+
+        return (
+          <motion.button
+            key={tab.id}
+            role="tab"
+            aria-selected={isActive}
+            aria-disabled={isDisabled}
+            disabled={isDisabled}
+            className="relative flex flex-col items-center p-4 rounded-xl transition-colors"
+            style={{
+              backgroundColor: isActive ? colors.coral : colors.warmWhite,
+              color: isActive ? colors.warmWhite : colors.textPrimary,
+              border: "1px solid " + (isActive ? colors.coral : colors.cream),
+              opacity: isDisabled ? 0.5 : 1,
+              cursor: isDisabled ? "not-allowed" : "pointer",
+            }}
+            onClick={() => !isDisabled && onChange(tab.id)}
+            whileHover={!isDisabled ? { scale: 1.02 } : undefined}
+            whileTap={!isDisabled ? { scale: 0.98 } : undefined}
+          >
+            {tab.icon && (
+              <div className="mb-2">{tab.icon}</div>
+            )}
+            <span className="text-sm font-medium">{tab.label}</span>
+            {tab.badge !== undefined && (
+              <span
+                className="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs rounded-full"
+                style={{
+                  backgroundColor: isActive ? colors.warmWhite : colors.coral,
+                  color: isActive ? colors.coral : colors.warmWhite,
+                }}
+              >
+                {tab.badge}
+              </span>
+            )}
+          </motion.button>
+        );
+      })}
     </div>
   );
 });
