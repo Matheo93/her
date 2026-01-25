@@ -10558,3 +10558,91 @@ async def get_service_stats():
         Statistics.
     """
     return {"status": "ok", "stats": service_registry.get_stats()}
+
+
+# ═══════════════════════════════════════════════════════════════
+# Request Validator API - Sprint 653
+# ═══════════════════════════════════════════════════════════════
+
+from request_validator import RequestValidator, chat_validator, tts_validator
+
+
+@app.post("/validate/chat")
+async def validate_chat_request(data: dict):
+    """Validate chat request data.
+
+    Args:
+        data: Request data to validate
+
+    Returns:
+        Validation result.
+    """
+    result = chat_validator.validate(data)
+    return {
+        "status": "ok" if result.valid else "error",
+        "validation": result.to_dict(),
+        "data": result.data,
+    }
+
+
+@app.post("/validate/tts")
+async def validate_tts_request(data: dict):
+    """Validate TTS request data.
+
+    Args:
+        data: Request data to validate
+
+    Returns:
+        Validation result.
+    """
+    result = tts_validator.validate(data)
+    return {
+        "status": "ok" if result.valid else "error",
+        "validation": result.to_dict(),
+        "data": result.data,
+    }
+
+
+@app.post("/validate/custom")
+async def validate_custom_request(
+    data: dict,
+    schema: dict,
+):
+    """Validate with custom schema.
+
+    Args:
+        data: Request data to validate
+        schema: Validation schema (field -> rules)
+
+    Returns:
+        Validation result.
+    """
+    validator = RequestValidator()
+
+    for field_name, rules in schema.items():
+        field_type = {
+            "string": str,
+            "integer": int,
+            "number": float,
+            "boolean": bool,
+            "array": list,
+        }.get(rules.get("type", "string"), str)
+
+        validator.add_field(
+            field_name,
+            field_type=field_type,
+            required=rules.get("required", True),
+            min_length=rules.get("min_length"),
+            max_length=rules.get("max_length"),
+            min_value=rules.get("min_value"),
+            max_value=rules.get("max_value"),
+            pattern=rules.get("pattern"),
+            enum=rules.get("enum"),
+        )
+
+    result = validator.validate(data)
+    return {
+        "status": "ok" if result.valid else "error",
+        "validation": result.to_dict(),
+        "data": result.data,
+    }
