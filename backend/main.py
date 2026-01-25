@@ -8077,6 +8077,7 @@ from plugin_system import plugin_manager, PluginStatus as PluginSystemStatus
 from circuit_breaker import circuit_breaker_manager, CircuitState, get_circuit_breaker
 from feature_flags import feature_flag_manager, FlagType, FlagStatus
 from webhooks import webhook_manager, DeliveryStatus
+from event_bus import event_bus, EventPriority
 
 
 @app.get("/audit")
@@ -9528,4 +9529,171 @@ async def clear_webhook_history(before: Optional[float] = None):
         Number cleared.
     """
     count = webhook_manager.clear_history(before)
+    return {"status": "ok", "cleared": count}
+
+
+# =============================================================================
+# Event Bus Endpoints - Sprint 637
+# =============================================================================
+
+
+@app.post("/events/publish")
+async def publish_event(
+    topic: str,
+    data: dict = {},
+    source: str = ""
+):
+    """Publish an event.
+
+    Args:
+        topic: Event topic.
+        data: Event data.
+        source: Event source.
+
+    Returns:
+        Published event.
+    """
+    event = await event_bus.publish(topic, data, source=source)
+    return {"status": "ok", "event": event.to_dict()}
+
+
+@app.get("/events/history")
+async def get_event_history(
+    topic: Optional[str] = None,
+    limit: int = 100
+):
+    """Get event history.
+
+    Args:
+        topic: Filter by topic.
+        limit: Max events.
+
+    Returns:
+        List of events.
+    """
+    events = event_bus.get_history(topic=topic, limit=limit)
+    return {"status": "ok", "events": events, "count": len(events)}
+
+
+@app.get("/events/topics")
+async def get_event_topics():
+    """Get all unique topics.
+
+    Returns:
+        List of topics.
+    """
+    topics = event_bus.get_topics()
+    return {"status": "ok", "topics": topics}
+
+
+@app.get("/events/subscriptions")
+async def list_event_subscriptions():
+    """List all subscriptions.
+
+    Returns:
+        List of subscriptions.
+    """
+    subscriptions = event_bus.list_subscriptions()
+    return {"status": "ok", "subscriptions": subscriptions, "count": len(subscriptions)}
+
+
+@app.delete("/events/subscriptions/{subscription_id}")
+async def delete_event_subscription(subscription_id: str):
+    """Unsubscribe from events.
+
+    Args:
+        subscription_id: Subscription ID.
+
+    Returns:
+        Unsubscribe status.
+    """
+    success = event_bus.unsubscribe(subscription_id)
+    return {"status": "ok" if success else "error", "unsubscribed": success}
+
+
+@app.post("/events/subscriptions/{subscription_id}/pause")
+async def pause_event_subscription(subscription_id: str):
+    """Pause a subscription.
+
+    Args:
+        subscription_id: Subscription ID.
+
+    Returns:
+        Pause status.
+    """
+    success = event_bus.pause_subscription(subscription_id)
+    return {"status": "ok" if success else "error", "paused": success}
+
+
+@app.post("/events/subscriptions/{subscription_id}/resume")
+async def resume_event_subscription(subscription_id: str):
+    """Resume a subscription.
+
+    Args:
+        subscription_id: Subscription ID.
+
+    Returns:
+        Resume status.
+    """
+    success = event_bus.resume_subscription(subscription_id)
+    return {"status": "ok" if success else "error", "resumed": success}
+
+
+@app.get("/events/dead-letters")
+async def get_dead_letters(limit: int = 100):
+    """Get dead letter queue.
+
+    Args:
+        limit: Max items.
+
+    Returns:
+        List of dead letters.
+    """
+    letters = event_bus.get_dead_letters(limit=limit)
+    return {"status": "ok", "dead_letters": letters, "count": len(letters)}
+
+
+@app.post("/events/dead-letters/{index}/retry")
+async def retry_dead_letter(index: int):
+    """Retry a dead letter.
+
+    Args:
+        index: Dead letter index.
+
+    Returns:
+        Retry status.
+    """
+    success = await event_bus.retry_dead_letter(index)
+    return {"status": "ok" if success else "error", "retried": success}
+
+
+@app.delete("/events/dead-letters")
+async def clear_dead_letters():
+    """Clear dead letter queue.
+
+    Returns:
+        Number cleared.
+    """
+    count = event_bus.clear_dead_letters()
+    return {"status": "ok", "cleared": count}
+
+
+@app.get("/events/stats")
+async def get_event_stats():
+    """Get event bus statistics.
+
+    Returns:
+        Statistics.
+    """
+    return {"status": "ok", "stats": event_bus.get_stats()}
+
+
+@app.delete("/events/history")
+async def clear_event_history():
+    """Clear event history.
+
+    Returns:
+        Number cleared.
+    """
+    count = event_bus.clear_history()
     return {"status": "ok", "cleared": count}
