@@ -8794,3 +8794,37 @@ Système de retry avec stratégies de backoff configurables.
 - Dead letter queue pour failed messages
 - Retry avec exponential backoff
 - Topic wrapper pour API simplifiée
+
+---
+
+## Sprint 710 - Frontend AspectRatio
+**Date**: 2026-01-25 12:07
+**Type**: Frontend Component
+**File**: frontend/src/components/AspectRatio.tsx
+
+### Composants créés
+- AspectRatio: Conteneur avec ratio contraint via padding-top
+- AspectImage: Image avec ratio
+- AspectVideo: Vidéo avec ratio
+- AspectIframe: Iframe avec ratio
+- YouTubeEmbed: Embed YouTube avec URL construction
+- VimeoEmbed: Embed Vimeo
+- AspectCard: Card cliquable avec overlay
+- ResponsiveAspect: Ratios différents par breakpoint
+- useAspectRatio: Hook pour calculer ratio
+
+### Points positifs
+- 8 presets de ratios (1:1, 4:3, 16:9, etc.)
+- Technique CSS padding-top pour le ratio
+- Support ratios custom numériques
+- Embeds média avec paramètres
+- Responsive avec breakpoints CSS
+
+### Points à améliorer
+- ResponsiveAspect duplique les enfants pour chaque breakpoint
+- Pourrait utiliser CSS container queries
+- Pas de lazy loading natif pour iframes
+
+### Note: 7.5/10
+Bonne couverture des cas d'usage média. La technique padding-top est classique mais fiable. ResponsiveAspect pourrait être optimisé.
+
