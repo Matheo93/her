@@ -95,6 +95,9 @@ import httpx
 # Ollama keepalive service (prevents model unloading)
 from ollama_keepalive import start_keepalive, stop_keepalive, is_warm, ensure_warm, warmup_on_startup
 
+# Caching and analytics utilities
+from utils.cache import smart_cache, analytics, response_cache, tts_cache, rate_limiter
+
 # Try to use uvloop for faster async (20-30% speedup)
 try:
     import uvloop
@@ -2101,6 +2104,73 @@ async def health_detailed():
         results["status"] = "degraded"
 
     return results
+
+
+# ============================================
+# ANALYTICS API - Sprint 571
+# ============================================
+
+@app.get("/analytics")
+async def get_analytics(_: str = Depends(verify_api_key)):
+    """Get real-time conversation analytics and metrics.
+
+    Returns:
+        Analytics data including response times, emotion distribution, and top topics.
+    """
+    return analytics.get_metrics()
+
+
+@app.get("/analytics/cache")
+async def get_cache_stats(_: str = Depends(verify_api_key)):
+    """Get cache performance statistics.
+
+    Returns:
+        Cache hit/miss rates, size, and eviction stats.
+    """
+    return {
+        "smart_cache": smart_cache.get_stats(),
+        "tts_cache": {
+            "size": len(tts_cache.cache),
+            "max_size": tts_cache.max_size,
+        },
+        "response_cache": {
+            "exact_patterns": len(response_cache.EXACT_MATCHES),
+            "regex_patterns": len(response_cache.GREETING_PATTERNS),
+        }
+    }
+
+
+@app.post("/analytics/reset")
+async def reset_analytics(_: str = Depends(verify_api_key)):
+    """Reset analytics counters. Use with caution."""
+    analytics.reset()
+    return {"status": "reset", "message": "Analytics counters have been reset"}
+
+
+@app.get("/cache/{namespace}/{key}")
+async def get_cached_value(namespace: str, key: str, _: str = Depends(verify_api_key)):
+    """Get a value from the smart cache.
+
+    Args:
+        namespace: Cache namespace (e.g., 'tts', 'response', 'user')
+        key: Cache key
+    """
+    value = smart_cache.get(namespace, key)
+    if value is None:
+        raise HTTPException(status_code=404, detail="Key not found or expired")
+    return {"namespace": namespace, "key": key, "value": value}
+
+
+@app.post("/cache/cleanup")
+async def cleanup_cache(_: str = Depends(verify_api_key)):
+    """Run cache cleanup to remove expired entries."""
+    expired_count = smart_cache.cleanup_expired()
+    return {
+        "status": "cleaned",
+        "expired_removed": expired_count,
+        "current_size": len(smart_cache.data)
+    }
+
 
 @app.get("/voices")
 async def get_voices():

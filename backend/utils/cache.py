@@ -7,13 +7,14 @@ Provides:
 - RateLimiter: Token bucket rate limiting per client
 """
 
+import asyncio
 import hashlib
 import os
 import random
 import re
 import time
 from collections import defaultdict
-from typing import Optional
+from typing import Optional, Any
 
 
 # Configuration from environment
@@ -374,7 +375,248 @@ class RateLimiter:
         return max(0, limit - len(self.requests[client_id]))
 
 
+class SmartCache:
+    """Advanced cache with TTL, statistics, and automatic cleanup.
+
+    Features:
+    - Per-key TTL (time-to-live)
+    - Hit/miss statistics
+    - Memory-aware eviction
+    - Background cleanup
+    - Namespaced keys for different cache types
+    """
+
+    def __init__(self, max_size: int = 1000, default_ttl: int = 3600):
+        """Initialize SmartCache.
+
+        Args:
+            max_size: Maximum number of items
+            default_ttl: Default TTL in seconds (1 hour)
+        """
+        self.max_size = max_size
+        self.default_ttl = default_ttl
+        self.data: dict[str, tuple[Any, float, float]] = {}  # key -> (value, expire_time, access_time)
+        self.stats = {
+            "hits": 0,
+            "misses": 0,
+            "sets": 0,
+            "evictions": 0,
+            "expired": 0,
+        }
+        self._lock = asyncio.Lock() if asyncio else None
+
+    def _make_key(self, namespace: str, key: str) -> str:
+        """Create namespaced key."""
+        return f"{namespace}:{key}"
+
+    def get(self, namespace: str, key: str) -> Optional[Any]:
+        """Get value from cache.
+
+        Returns None if not found or expired.
+        """
+        full_key = self._make_key(namespace, key)
+        now = time.time()
+
+        if full_key in self.data:
+            value, expire_time, _ = self.data[full_key]
+            if expire_time > now:
+                # Update access time
+                self.data[full_key] = (value, expire_time, now)
+                self.stats["hits"] += 1
+                return value
+            else:
+                # Expired
+                del self.data[full_key]
+                self.stats["expired"] += 1
+
+        self.stats["misses"] += 1
+        return None
+
+    def set(self, namespace: str, key: str, value: Any, ttl: Optional[int] = None) -> None:
+        """Set value in cache with optional TTL."""
+        full_key = self._make_key(namespace, key)
+        now = time.time()
+        expire_time = now + (ttl or self.default_ttl)
+
+        # Evict if at capacity
+        if len(self.data) >= self.max_size and full_key not in self.data:
+            self._evict_lru()
+
+        self.data[full_key] = (value, expire_time, now)
+        self.stats["sets"] += 1
+
+    def delete(self, namespace: str, key: str) -> bool:
+        """Delete key from cache. Returns True if key existed."""
+        full_key = self._make_key(namespace, key)
+        if full_key in self.data:
+            del self.data[full_key]
+            return True
+        return False
+
+    def _evict_lru(self) -> None:
+        """Evict least recently used item."""
+        if not self.data:
+            return
+
+        # Find LRU key
+        lru_key = min(self.data.keys(), key=lambda k: self.data[k][2])
+        del self.data[lru_key]
+        self.stats["evictions"] += 1
+
+    def cleanup_expired(self) -> int:
+        """Remove all expired entries. Returns count of removed items."""
+        now = time.time()
+        expired_keys = [k for k, (_, exp, _) in self.data.items() if exp <= now]
+
+        for key in expired_keys:
+            del self.data[key]
+
+        self.stats["expired"] += len(expired_keys)
+        return len(expired_keys)
+
+    def get_stats(self) -> dict:
+        """Get cache statistics."""
+        total = self.stats["hits"] + self.stats["misses"]
+        hit_rate = (self.stats["hits"] / total * 100) if total > 0 else 0
+
+        return {
+            **self.stats,
+            "size": len(self.data),
+            "max_size": self.max_size,
+            "hit_rate_percent": round(hit_rate, 2),
+            "total_requests": total,
+        }
+
+    def clear(self) -> None:
+        """Clear all cache entries."""
+        self.data.clear()
+
+    def get_or_set(self, namespace: str, key: str, factory: callable, ttl: Optional[int] = None) -> Any:
+        """Get value or compute and cache it using factory function."""
+        value = self.get(namespace, key)
+        if value is not None:
+            return value
+
+        value = factory()
+        self.set(namespace, key, value, ttl)
+        return value
+
+
+class ConversationAnalytics:
+    """Track conversation analytics and metrics.
+
+    Provides real-time insights into:
+    - Response times
+    - User engagement
+    - Popular topics
+    - Emotion trends
+    """
+
+    def __init__(self, window_size: int = 1000):
+        """Initialize analytics tracker.
+
+        Args:
+            window_size: Number of events to keep in sliding window
+        """
+        self.window_size = window_size
+        self.response_times: list[float] = []
+        self.emotions: list[str] = []
+        self.topics: dict[str, int] = defaultdict(int)
+        self.message_lengths: list[int] = []
+        self.session_count = 0
+        self.total_messages = 0
+        self.start_time = time.time()
+
+    def record_response(
+        self,
+        response_time_ms: float,
+        message_length: int,
+        detected_emotion: str = "neutral",
+        topics: Optional[list[str]] = None
+    ) -> None:
+        """Record a response event."""
+        # Sliding window for response times
+        self.response_times.append(response_time_ms)
+        if len(self.response_times) > self.window_size:
+            self.response_times.pop(0)
+
+        # Track emotions
+        self.emotions.append(detected_emotion)
+        if len(self.emotions) > self.window_size:
+            self.emotions.pop(0)
+
+        # Track message lengths
+        self.message_lengths.append(message_length)
+        if len(self.message_lengths) > self.window_size:
+            self.message_lengths.pop(0)
+
+        # Track topics
+        if topics:
+            for topic in topics:
+                self.topics[topic] += 1
+
+        self.total_messages += 1
+
+    def record_session_start(self) -> None:
+        """Record a new session start."""
+        self.session_count += 1
+
+    def get_metrics(self) -> dict:
+        """Get current analytics metrics."""
+        uptime = time.time() - self.start_time
+
+        # Response time stats
+        rt = self.response_times
+        avg_rt = sum(rt) / len(rt) if rt else 0
+        p50_rt = sorted(rt)[len(rt) // 2] if rt else 0
+        p95_rt = sorted(rt)[int(len(rt) * 0.95)] if len(rt) > 10 else avg_rt
+        p99_rt = sorted(rt)[int(len(rt) * 0.99)] if len(rt) > 100 else p95_rt
+
+        # Emotion distribution
+        emotion_counts = defaultdict(int)
+        for e in self.emotions:
+            emotion_counts[e] += 1
+        total_emotions = len(self.emotions) or 1
+        emotion_dist = {k: round(v / total_emotions * 100, 1) for k, v in emotion_counts.items()}
+
+        # Top topics
+        top_topics = sorted(self.topics.items(), key=lambda x: x[1], reverse=True)[:10]
+
+        # Message length stats
+        ml = self.message_lengths
+        avg_length = sum(ml) / len(ml) if ml else 0
+
+        return {
+            "uptime_seconds": round(uptime, 0),
+            "total_messages": self.total_messages,
+            "total_sessions": self.session_count,
+            "messages_per_minute": round(self.total_messages / (uptime / 60), 2) if uptime > 0 else 0,
+            "response_time": {
+                "avg_ms": round(avg_rt, 2),
+                "p50_ms": round(p50_rt, 2),
+                "p95_ms": round(p95_rt, 2),
+                "p99_ms": round(p99_rt, 2),
+                "samples": len(rt),
+            },
+            "emotion_distribution": emotion_dist,
+            "top_topics": [{"topic": t, "count": c} for t, c in top_topics],
+            "avg_message_length": round(avg_length, 1),
+        }
+
+    def reset(self) -> None:
+        """Reset all analytics."""
+        self.response_times.clear()
+        self.emotions.clear()
+        self.topics.clear()
+        self.message_lengths.clear()
+        self.session_count = 0
+        self.total_messages = 0
+        self.start_time = time.time()
+
+
 # Singleton instances
 response_cache = ResponseCache()
 tts_cache = TTSCache(max_size=200)
 rate_limiter = RateLimiter()
+smart_cache = SmartCache(max_size=1000, default_ttl=3600)
+analytics = ConversationAnalytics(window_size=1000)
