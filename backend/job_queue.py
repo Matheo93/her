@@ -1,15 +1,14 @@
 """
-Job Queue - Sprint 625
+Job Queue - Sprint 645
 
 Background job processing system.
 
 Features:
-- Job scheduling
 - Priority queues
+- Job scheduling
 - Retry with backoff
 - Job dependencies
 - Dead letter queue
-- Worker pool
 """
 
 import time
@@ -19,8 +18,6 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, List, Any, Callable, Awaitable
 from enum import Enum
 from threading import Lock
-from heapq import heappush, heappop
-from collections import deque
 
 
 class JobStatus(str, Enum):
@@ -30,548 +27,374 @@ class JobStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     RETRYING = "retrying"
-    DEAD = "dead"
     CANCELLED = "cancelled"
+    DEAD = "dead"
 
 
 class JobPriority(int, Enum):
     """Job priority levels."""
-    CRITICAL = 0
-    HIGH = 1
-    NORMAL = 2
-    LOW = 3
-    BACKGROUND = 4
+    LOW = 1
+    NORMAL = 5
+    HIGH = 10
+    CRITICAL = 20
+
+
+@dataclass
+class JobResult:
+    """Result of job execution."""
+    success: bool
+    data: Optional[Any] = None
+    error: Optional[str] = None
+    duration_ms: float = 0
 
 
 @dataclass
 class Job:
-    """A job in the queue."""
+    """Job to be processed."""
     id: str
     name: str
-    handler: str
     payload: Dict[str, Any]
     priority: JobPriority = JobPriority.NORMAL
     status: JobStatus = JobStatus.PENDING
-    max_retries: int = 3
-    retry_count: int = 0
-    retry_delay: float = 1.0
-    timeout: float = 300.0
-    depends_on: List[str] = field(default_factory=list)
-    result: Optional[Any] = None
-    error: Optional[str] = None
     created_at: float = field(default_factory=time.time)
     started_at: Optional[float] = None
     completed_at: Optional[float] = None
-    scheduled_for: Optional[float] = None
+    attempts: int = 0
+    max_attempts: int = 3
+    result: Optional[JobResult] = None
+    error: Optional[str] = None
+    depends_on: List[str] = field(default_factory=list)
+    timeout: float = 300
+    delay: float = 0
 
     def to_dict(self) -> dict:
         return {
             "id": self.id,
             "name": self.name,
-            "handler": self.handler,
             "payload": self.payload,
-            "priority": self.priority.name,
+            "priority": self.priority.value,
             "status": self.status.value,
-            "max_retries": self.max_retries,
-            "retry_count": self.retry_count,
-            "timeout": self.timeout,
-            "depends_on": self.depends_on,
-            "result": self.result,
-            "error": self.error,
             "created_at": self.created_at,
             "started_at": self.started_at,
             "completed_at": self.completed_at,
-            "scheduled_for": self.scheduled_for,
+            "attempts": self.attempts,
+            "max_attempts": self.max_attempts,
+            "error": self.error,
+            "depends_on": self.depends_on,
         }
 
-    def __lt__(self, other):
-        """For priority queue comparison."""
-        if self.priority != other.priority:
-            return self.priority.value < other.priority.value
-        return self.created_at < other.created_at
+
+@dataclass
+class QueueStats:
+    """Queue statistics."""
+    pending: int = 0
+    running: int = 0
+    completed: int = 0
+    failed: int = 0
+    dead: int = 0
+    total_processed: int = 0
 
 
-JobHandler = Callable[[Dict[str, Any]], Awaitable[Any]]
+JobHandler = Callable[[Job], Awaitable[JobResult]]
 
 
 class JobQueue:
-    """Job queue system.
+    """Background job processing system.
 
     Usage:
         queue = JobQueue()
 
-        # Register a handler
         @queue.handler("send_email")
-        async def send_email(payload):
-            # Send email logic
-            return {"sent": True}
+        async def send_email(job):
+            return JobResult(success=True)
 
-        # Enqueue a job
-        job_id = await queue.enqueue(
-            "send_email",
-            payload={"to": "user@example.com"},
-            priority=JobPriority.HIGH
-        )
-
-        # Start processing
-        await queue.start_workers(num_workers=3)
-
-        # Get job status
-        job = queue.get_job(job_id)
+        job_id = queue.enqueue("send_email", {"to": "user@example.com"})
+        await queue.start()
     """
 
-    def __init__(self, max_jobs: int = 10000):
-        """Initialize job queue.
-
-        Args:
-            max_jobs: Maximum jobs to store
-        """
+    def __init__(self, concurrency: int = 5):
+        """Initialize job queue."""
         self._handlers: Dict[str, JobHandler] = {}
         self._jobs: Dict[str, Job] = {}
-        self._queue: List[Job] = []
-        self._dead_letter: deque = deque(maxlen=1000)
+        self._pending: List[str] = []
+        self._running: Dict[str, asyncio.Task] = {}
+        self._dead_letter: List[Job] = []
         self._lock = Lock()
-        self._max_jobs = max_jobs
-        self._workers: List[asyncio.Task] = []
-        self._running = False
-        self._processing = 0
+        self._concurrency = concurrency
+        self._running_flag = False
+        self._durations: List[float] = []
+        self._stats = QueueStats()
 
     def handler(self, name: str):
-        """Decorator to register a job handler.
-
-        Args:
-            name: Handler name
-        """
-        def decorator(func: JobHandler):
+        """Decorator to register job handler."""
+        def decorator(func: JobHandler) -> JobHandler:
             self._handlers[name] = func
             return func
         return decorator
 
     def register_handler(self, name: str, handler: JobHandler):
-        """Register a job handler.
-
-        Args:
-            name: Handler name
-            handler: Handler function
-        """
+        """Register job handler."""
         self._handlers[name] = handler
 
-    async def enqueue(
+    def enqueue(
         self,
-        handler: str,
-        payload: Optional[Dict[str, Any]] = None,
-        name: Optional[str] = None,
+        name: str,
+        payload: Dict[str, Any],
         priority: JobPriority = JobPriority.NORMAL,
-        max_retries: int = 3,
-        retry_delay: float = 1.0,
-        timeout: float = 300.0,
+        max_attempts: int = 3,
         depends_on: Optional[List[str]] = None,
-        delay: Optional[float] = None
+        delay: float = 0,
+        timeout: float = 300,
     ) -> str:
-        """Enqueue a job.
-
-        Args:
-            handler: Handler name
-            payload: Job payload
-            name: Optional job name
-            priority: Job priority
-            max_retries: Maximum retries
-            retry_delay: Delay between retries
-            timeout: Job timeout
-            depends_on: Job IDs this job depends on
-            delay: Delay before processing (seconds)
-
-        Returns:
-            Job ID
-        """
-        job_id = str(uuid.uuid4())[:12]
+        """Enqueue a job."""
+        job_id = str(uuid.uuid4())[:8]
 
         job = Job(
             id=job_id,
-            name=name or handler,
-            handler=handler,
-            payload=payload or {},
+            name=name,
+            payload=payload,
             priority=priority,
-            max_retries=max_retries,
-            retry_delay=retry_delay,
-            timeout=timeout,
+            max_attempts=max_attempts,
             depends_on=depends_on or [],
-            scheduled_for=time.time() + delay if delay else None,
+            delay=delay,
+            timeout=timeout,
         )
 
         with self._lock:
-            # Enforce max jobs
-            if len(self._jobs) >= self._max_jobs:
-                self._cleanup_completed()
-
             self._jobs[job_id] = job
-            heappush(self._queue, job)
+            self._add_to_pending(job_id)
+            self._stats.pending += 1
 
         return job_id
 
-    async def enqueue_batch(
-        self,
-        jobs: List[Dict[str, Any]]
-    ) -> List[str]:
-        """Enqueue multiple jobs.
+    def _add_to_pending(self, job_id: str):
+        """Add job to pending queue sorted by priority."""
+        job = self._jobs[job_id]
+        insert_pos = 0
+        for i, pending_id in enumerate(self._pending):
+            pending_job = self._jobs.get(pending_id)
+            if pending_job and pending_job.priority.value < job.priority.value:
+                break
+            insert_pos = i + 1
+        self._pending.insert(insert_pos, job_id)
 
-        Args:
-            jobs: List of job configs
-
-        Returns:
-            List of job IDs
-        """
-        job_ids = []
-        for job_config in jobs:
-            job_id = await self.enqueue(**job_config)
-            job_ids.append(job_id)
-        return job_ids
-
-    def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
-        """Get job by ID.
-
-        Args:
-            job_id: Job ID
-
-        Returns:
-            Job dict or None
-        """
-        with self._lock:
-            job = self._jobs.get(job_id)
-            return job.to_dict() if job else None
-
-    def get_jobs(
-        self,
-        status: Optional[JobStatus] = None,
-        handler: Optional[str] = None,
-        limit: int = 100
-    ) -> List[Dict[str, Any]]:
-        """Get jobs with filters.
-
-        Args:
-            status: Filter by status
-            handler: Filter by handler
-            limit: Maximum results
-
-        Returns:
-            List of jobs
-        """
-        with self._lock:
-            jobs = list(self._jobs.values())
-
-        if status:
-            jobs = [j for j in jobs if j.status == status]
-        if handler:
-            jobs = [j for j in jobs if j.handler == handler]
-
-        jobs.sort(key=lambda j: j.created_at, reverse=True)
-        return [j.to_dict() for j in jobs[:limit]]
-
-    def cancel_job(self, job_id: str) -> bool:
-        """Cancel a pending job.
-
-        Args:
-            job_id: Job ID
-
-        Returns:
-            True if cancelled
-        """
+    def cancel(self, job_id: str) -> bool:
+        """Cancel a job."""
         with self._lock:
             job = self._jobs.get(job_id)
             if not job:
                 return False
 
-            if job.status not in (JobStatus.PENDING, JobStatus.RETRYING):
-                return False
+            if job.status == JobStatus.PENDING:
+                job.status = JobStatus.CANCELLED
+                if job_id in self._pending:
+                    self._pending.remove(job_id)
+                    self._stats.pending -= 1
+                return True
 
-            job.status = JobStatus.CANCELLED
-            job.completed_at = time.time()
-            return True
+            if job.status == JobStatus.RUNNING:
+                task = self._running.get(job_id)
+                if task:
+                    task.cancel()
+                    job.status = JobStatus.CANCELLED
+                    return True
+        return False
 
-    async def retry_job(self, job_id: str) -> bool:
-        """Manually retry a failed job.
+    def get_job(self, job_id: str) -> Optional[Job]:
+        """Get job by ID."""
+        return self._jobs.get(job_id)
 
-        Args:
-            job_id: Job ID
-
-        Returns:
-            True if retried
-        """
-        with self._lock:
-            job = self._jobs.get(job_id)
-            if not job:
-                return False
-
-            if job.status not in (JobStatus.FAILED, JobStatus.DEAD):
-                return False
-
-            job.status = JobStatus.PENDING
-            job.retry_count = 0
-            job.error = None
-            heappush(self._queue, job)
-            return True
-
-    async def start_workers(self, num_workers: int = 3):
-        """Start worker pool.
-
-        Args:
-            num_workers: Number of workers
-        """
-        if self._running:
-            return
-
-        self._running = True
-
-        for i in range(num_workers):
-            worker = asyncio.create_task(self._worker_loop(i))
-            self._workers.append(worker)
-
-    async def stop_workers(self, wait: bool = True):
-        """Stop all workers.
-
-        Args:
-            wait: Wait for current jobs to finish
-        """
-        self._running = False
-
-        if wait:
-            while self._processing > 0:
-                await asyncio.sleep(0.1)
-
-        for worker in self._workers:
-            worker.cancel()
-            try:
-                await worker
-            except asyncio.CancelledError:
-                pass
-
-        self._workers.clear()
-
-    async def _worker_loop(self, worker_id: int):
-        """Worker processing loop.
-
-        Args:
-            worker_id: Worker identifier
-        """
-        while self._running:
-            job = self._get_next_job()
-
-            if not job:
-                await asyncio.sleep(0.1)
-                continue
-
-            await self._process_job(job, worker_id)
-
-    def _get_next_job(self) -> Optional[Job]:
-        """Get next job to process.
-
-        Returns:
-            Next job or None
-        """
-        with self._lock:
-            while self._queue:
-                job = heappop(self._queue)
-
-                # Skip cancelled/completed jobs
-                if job.status in (JobStatus.CANCELLED, JobStatus.COMPLETED, JobStatus.DEAD):
-                    continue
-
-                # Check scheduled time
-                if job.scheduled_for and time.time() < job.scheduled_for:
-                    heappush(self._queue, job)
-                    return None
-
-                # Check dependencies
-                if not self._dependencies_met(job):
-                    heappush(self._queue, job)
-                    return None
-
-                return job
-
-        return None
-
-    def _dependencies_met(self, job: Job) -> bool:
-        """Check if job dependencies are met.
-
-        Args:
-            job: Job to check
-
-        Returns:
-            True if all dependencies completed
-        """
+    def _can_run_job(self, job: Job) -> bool:
+        """Check if job can run."""
         for dep_id in job.depends_on:
-            dep = self._jobs.get(dep_id)
-            if not dep or dep.status != JobStatus.COMPLETED:
+            dep_job = self._jobs.get(dep_id)
+            if not dep_job or dep_job.status != JobStatus.COMPLETED:
                 return False
+        if job.delay > 0 and time.time() < job.created_at + job.delay:
+            return False
         return True
 
-    async def _process_job(self, job: Job, worker_id: int):
-        """Process a single job.
-
-        Args:
-            job: Job to process
-            worker_id: Worker identifier
-        """
-        handler = self._handlers.get(job.handler)
+    async def _process_job(self, job: Job):
+        """Process a single job."""
+        handler = self._handlers.get(job.name)
         if not handler:
             job.status = JobStatus.FAILED
-            job.error = f"Handler not found: {job.handler}"
-            job.completed_at = time.time()
+            job.error = f"No handler for job: {job.name}"
             return
 
+        job.status = JobStatus.RUNNING
+        job.started_at = time.time()
+        job.attempts += 1
+
         with self._lock:
-            job.status = JobStatus.RUNNING
-            job.started_at = time.time()
-            self._processing += 1
+            self._stats.pending -= 1
+            self._stats.running += 1
 
         try:
-            result = await asyncio.wait_for(
-                handler(job.payload),
-                timeout=job.timeout
-            )
+            result = await asyncio.wait_for(handler(job), timeout=job.timeout)
+            job.result = result
+            job.completed_at = time.time()
+            duration = (job.completed_at - job.started_at) * 1000
 
-            with self._lock:
+            if result.success:
                 job.status = JobStatus.COMPLETED
-                job.result = result
-                job.completed_at = time.time()
+                with self._lock:
+                    self._stats.completed += 1
+                    self._stats.total_processed += 1
+                    self._durations.append(duration)
+                    if len(self._durations) > 1000:
+                        self._durations = self._durations[-500:]
+            else:
+                job.error = result.error
+                await self._handle_failure(job)
 
         except asyncio.TimeoutError:
-            await self._handle_failure(job, "Job timed out")
-
+            job.error = f"Job timed out after {job.timeout}s"
+            await self._handle_failure(job)
+        except asyncio.CancelledError:
+            job.status = JobStatus.CANCELLED
+            with self._lock:
+                self._stats.running -= 1
         except Exception as e:
-            await self._handle_failure(job, str(e))
-
+            job.error = str(e)
+            await self._handle_failure(job)
         finally:
             with self._lock:
-                self._processing -= 1
+                if job.status == JobStatus.RUNNING:
+                    self._stats.running -= 1
+                if job.id in self._running:
+                    del self._running[job.id]
 
-    async def _handle_failure(self, job: Job, error: str):
-        """Handle job failure.
-
-        Args:
-            job: Failed job
-            error: Error message
-        """
+    async def _handle_failure(self, job: Job):
+        """Handle job failure with retry logic."""
         with self._lock:
-            job.error = error
-            job.retry_count += 1
-
-            if job.retry_count >= job.max_retries:
-                job.status = JobStatus.DEAD
-                job.completed_at = time.time()
-                self._dead_letter.append(job.to_dict())
-            else:
+            self._stats.running -= 1
+            if job.attempts < job.max_attempts:
                 job.status = JobStatus.RETRYING
-                job.scheduled_for = time.time() + (job.retry_delay * (2 ** job.retry_count))
-                heappush(self._queue, job)
+                delay = min(2 ** job.attempts, 60)
+                job.delay = delay
+                job.created_at = time.time()
+                self._add_to_pending(job.id)
+                self._stats.pending += 1
+            else:
+                job.status = JobStatus.DEAD
+                self._dead_letter.append(job)
+                self._stats.failed += 1
+                self._stats.dead += 1
+                if len(self._dead_letter) > 1000:
+                    self._dead_letter = self._dead_letter[-500:]
 
-    def _cleanup_completed(self):
-        """Remove old completed jobs."""
-        cutoff = time.time() - 3600  # 1 hour
+    async def _worker(self):
+        """Worker loop to process jobs."""
+        while self._running_flag:
+            job_to_run: Optional[Job] = None
+            with self._lock:
+                for job_id in list(self._pending):
+                    job = self._jobs.get(job_id)
+                    if job and self._can_run_job(job):
+                        job_to_run = job
+                        self._pending.remove(job_id)
+                        break
 
-        to_remove = [
-            job_id for job_id, job in self._jobs.items()
-            if job.status in (JobStatus.COMPLETED, JobStatus.CANCELLED, JobStatus.DEAD)
-            and job.completed_at and job.completed_at < cutoff
-        ]
+            if job_to_run:
+                task = asyncio.create_task(self._process_job(job_to_run))
+                with self._lock:
+                    self._running[job_to_run.id] = task
+            else:
+                await asyncio.sleep(0.1)
 
-        for job_id in to_remove:
-            del self._jobs[job_id]
+    async def start(self):
+        """Start processing jobs."""
+        if self._running_flag:
+            return
+        self._running_flag = True
+        workers = [asyncio.create_task(self._worker()) for _ in range(self._concurrency)]
+        await asyncio.gather(*workers, return_exceptions=True)
 
-    def get_dead_letter_jobs(self, limit: int = 100) -> List[Dict[str, Any]]:
-        """Get dead letter queue jobs.
+    async def stop(self, wait: bool = True):
+        """Stop processing jobs."""
+        self._running_flag = False
+        if wait:
+            tasks = list(self._running.values())
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
 
-        Args:
-            limit: Maximum results
-
-        Returns:
-            List of dead jobs
-        """
+    def get_stats(self) -> Dict[str, Any]:
+        """Get queue statistics."""
         with self._lock:
-            jobs = list(self._dead_letter)
-        return jobs[-limit:]
+            avg_duration = sum(self._durations) / len(self._durations) if self._durations else 0
+            return {
+                "pending": self._stats.pending,
+                "running": self._stats.running,
+                "completed": self._stats.completed,
+                "failed": self._stats.failed,
+                "dead": self._stats.dead,
+                "total_processed": self._stats.total_processed,
+                "avg_duration_ms": round(avg_duration, 2),
+                "handlers": list(self._handlers.keys()),
+                "concurrency": self._concurrency,
+            }
+
+    def get_dead_letter_jobs(self, limit: int = 50) -> List[dict]:
+        """Get dead letter jobs."""
+        with self._lock:
+            return [job.to_dict() for job in self._dead_letter[-limit:]]
+
+    def retry_dead_letter(self, job_id: str) -> bool:
+        """Retry a dead letter job."""
+        with self._lock:
+            for i, job in enumerate(self._dead_letter):
+                if job.id == job_id:
+                    job.status = JobStatus.PENDING
+                    job.attempts = 0
+                    job.error = None
+                    job.delay = 0
+                    job.created_at = time.time()
+                    self._dead_letter.pop(i)
+                    self._add_to_pending(job_id)
+                    self._stats.dead -= 1
+                    self._stats.pending += 1
+                    return True
+        return False
 
     def clear_dead_letter(self) -> int:
-        """Clear dead letter queue.
-
-        Returns:
-            Number cleared
-        """
+        """Clear all dead letter jobs."""
         with self._lock:
             count = len(self._dead_letter)
             self._dead_letter.clear()
-        return count
+            self._stats.dead = 0
+            return count
 
-    def get_stats(self) -> Dict[str, Any]:
-        """Get queue statistics.
-
-        Returns:
-            Statistics dict
-        """
+    def list_jobs(self, status: Optional[JobStatus] = None, limit: int = 50) -> List[dict]:
+        """List jobs."""
         with self._lock:
             jobs = list(self._jobs.values())
-
-        by_status = {}
-        for status in JobStatus:
-            by_status[status.value] = len([j for j in jobs if j.status == status])
-
-        by_handler = {}
-        for job in jobs:
-            by_handler[job.handler] = by_handler.get(job.handler, 0) + 1
-
-        return {
-            "total_jobs": len(jobs),
-            "queue_size": len(self._queue),
-            "processing": self._processing,
-            "workers": len(self._workers),
-            "running": self._running,
-            "by_status": by_status,
-            "by_handler": by_handler,
-            "dead_letter_count": len(self._dead_letter),
-            "registered_handlers": list(self._handlers.keys()),
-        }
-
-    def purge_queue(self, status: Optional[JobStatus] = None) -> int:
-        """Purge jobs from queue.
-
-        Args:
-            status: Only purge jobs with this status
-
-        Returns:
-            Number purged
-        """
-        with self._lock:
             if status:
-                to_remove = [
-                    job_id for job_id, job in self._jobs.items()
-                    if job.status == status
-                ]
-            else:
-                to_remove = [
-                    job_id for job_id, job in self._jobs.items()
-                    if job.status in (JobStatus.COMPLETED, JobStatus.CANCELLED)
-                ]
-
-            for job_id in to_remove:
-                del self._jobs[job_id]
-
-            return len(to_remove)
+                jobs = [j for j in jobs if j.status == status]
+            jobs.sort(key=lambda j: j.created_at, reverse=True)
+            return [j.to_dict() for j in jobs[:limit]]
 
 
 # Singleton instance
-job_queue = JobQueue()
+job_queue = JobQueue(concurrency=5)
 
 
-# Built-in test handlers
-@job_queue.handler("echo")
-async def echo_handler(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Echo handler for testing."""
-    return {"echoed": payload}
+@job_queue.handler("send_notification")
+async def handle_send_notification(job: Job) -> JobResult:
+    """Handle sending notifications."""
+    await asyncio.sleep(0.1)
+    return JobResult(success=True, data={"sent": True, "to": job.payload.get("user_id")})
 
 
-@job_queue.handler("delay")
-async def delay_handler(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Delay handler for testing."""
-    delay = payload.get("seconds", 1)
-    await asyncio.sleep(delay)
-    return {"delayed": delay}
+@job_queue.handler("process_audio")
+async def handle_process_audio(job: Job) -> JobResult:
+    """Handle audio processing."""
+    await asyncio.sleep(0.5)
+    return JobResult(success=True, data={"processed": True})
+
+
+@job_queue.handler("cleanup_sessions")
+async def handle_cleanup_sessions(job: Job) -> JobResult:
+    """Handle session cleanup."""
+    await asyncio.sleep(0.2)
+    return JobResult(success=True, data={"cleaned": 10})

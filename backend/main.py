@@ -8478,7 +8478,7 @@ async def stop_health_monitoring():
 @app.post("/jobs")
 async def enqueue_job(
     handler: str,
-    payload: Optional[Dict[str, Any]] = None,
+    payload: Optional[dict] = None,
     name: Optional[str] = None,
     priority: str = "NORMAL",
     max_retries: int = 3,
@@ -8757,7 +8757,7 @@ async def create_api_version(
     version: str,
     status: str = "supported",
     release_date: Optional[str] = None,
-    changelog: Optional[List[str]] = None
+    changelog: Optional[list] = None
 ):
     """Create a new API version.
 
@@ -8918,7 +8918,7 @@ async def get_plugin(name: str):
 @app.post("/plugins/{name}/load")
 async def load_plugin(
     name: str,
-    config: Optional[Dict[str, Any]] = None
+    config: Optional[dict] = None
 ):
     """Load a plugin.
 
@@ -9183,7 +9183,7 @@ async def create_feature_flag(
     description: str = "",
     flag_type: str = "boolean",
     default_value: bool = False,
-    tags: List[str] = []
+    tags: list = []
 ):
     """Create a new feature flag.
 
@@ -9333,7 +9333,7 @@ async def clear_flags_cache():
 async def register_webhook(
     url: str,
     secret: str,
-    events: List[str] = [],
+    events: list = [],
     description: str = ""
 ):
     """Register a webhook endpoint.
@@ -9402,7 +9402,7 @@ async def update_webhook(
     endpoint_id: str,
     url: Optional[str] = None,
     enabled: Optional[bool] = None,
-    events: Optional[List[str]] = None,
+    events: Optional[list] = None,
     description: Optional[str] = None
 ):
     """Update a webhook endpoint.
@@ -10126,3 +10126,9 @@ async def cleanup_rate_limit_state(max_age: float = 3600):
     """
     rate_limiter.cleanup(max_age)
     return {"status": "ok", "cleaned": True}
+
+
+# ═══════════════════════════════════════════════════════════════
+
+
+# ═══════════════════════════════════════════════════════════════
