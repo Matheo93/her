@@ -8595,3 +8595,25 @@ Système de retry avec stratégies de backoff configurables.
 - Convenience functions (emit, on_event decorator)
 - Cleanup des vieilles entrées
 - Manque: persistance réelle (in-memory seulement)
+
+---
+
+## Sprint 692 - Frontend Sortable
+**Score: 8.5/10**
+- SortableList avec Reorder de framer-motion
+- DragHandle pour drag sélectif
+- SortableGrid pour grilles réordonnables
+- RankingList avec numéros de position
+- useSortable hook pour état
+- Support touch et animations fluides
+
+---
+
+## Sprint 693 - Backend Process Manager
+**Score: 8.5/10**
+- ProcessBuilder avec fluent API
+- ProcessExecutor avec semaphore et concurrence
+- Lifecycle handlers (on_start, on_complete, on_error)
+- Timeout et retry par step
+- Tags et filtrage des processus
+- Statistiques d'exécution complètes
