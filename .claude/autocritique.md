@@ -10179,3 +10179,43 @@ PhoneInput - Système d'input téléphone international
 - Pas de support RTL
 
 ---
+
+---
+
+## Sprint 759 - Backend SearchEngine - Autocritique
+
+**Date:** 2026-01-27
+**Domaine:** Backend
+
+**Ce que j'ai fait:**
+SearchEngine - Moteur de recherche full-text
+- `TextAnalyzer` pour tokenization, lowercase, accents, stopwords
+- `InvertedIndex` avec positions pour phrase matching
+- BM25 scoring algorithm (meilleur que TF-IDF simple)
+- 4 types de matching: exact, prefix, contains, fuzzy (Levenshtein)
+- Field weighting pour boosting
+- Faceted search avec compteurs
+- Highlighting avec snippets et tags
+- Suggestions autocomplete par prefix
+- Pagination offset/limit
+- Filtres sur les valeurs de champs
+
+**Note: 9/10**
+
+**Points positifs:**
+- BM25 scoring professionnel
+- Fuzzy matching avec edit distance
+- Accents removal via unicode normalization
+- Stopwords filtering configurable
+- Field weights pour relevance tuning
+- Highlights avec context autour des matches
+- Facets pour filtering UI
+
+**Points négatifs:**
+- In-memory only (pas de persistence)
+- Pas d'indexation incrémentale optimisée
+- Fuzzy search O(n) sur tous les termes
+- Pas de phrase matching (quotes)
+- Pas de boosting par recency
+
+---
