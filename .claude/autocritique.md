@@ -10067,3 +10067,39 @@ Pagination - Système complet de pagination API
 - Max limit hardcodé (devrait être configurable)
 
 ---
+
+---
+
+## Sprint 756 - Frontend SegmentedControl - Autocritique
+
+**Date:** 2026-01-27
+**Domaine:** Frontend
+
+**Ce que j'ai fait:**
+SegmentedControl - Système de toggle buttons groupés
+- `SegmentedControl` - Sélection unique avec sliding indicator animé
+- `MultiSegmentedControl` - Sélection multiple avec min/max
+- `IconSegmentedControl` - Boutons icônes avec tooltips
+- `ButtonGroup` - Container horizontal/vertical
+- `GroupButton` - Bouton pour ButtonGroup
+- `ToggleButton` - Bouton toggle individuel
+- `TabSegmentedControl` - Tabs avec variants underline/pill et badges
+
+**Note: 9/10**
+
+**Points positifs:**
+- 7 composants variés pour tous les besoins
+- Sliding indicator avec spring animation
+- Support min/max pour multi-select
+- Tooltips animés pour icônes
+- Variants filled/outline/ghost
+- Badges numériques sur tabs
+- Orientation horizontal/vertical
+
+**Points négatifs:**
+- Pas de support keyboard (arrows, home/end)
+- Pas de focus visible styling
+- Indicator position calculé après mount (flash possible)
+- Pas de controlled width option pour options égales
+
+---
