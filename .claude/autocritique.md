@@ -12279,3 +12279,20 @@ Gestion complète du cycle de vie des ressources:
 - ResourceTracker: suivi des ressources par catégorie/propriétaire avec weakref
 
 Fonctionnalités avancées: stats, cleanup automatique, validation périodique, resize dynamique
+
+
+## Sprint 816 - FilterControls (Frontend)
+**Note**: 8/10
+
+Composants de filtres facettés:
+- FilterProvider/useFilters: Context pour gestion centralisée des filtres
+- CheckboxFilter: multi-sélection avec recherche et expansion
+- RadioFilter: sélection unique avec deselect optionnel
+- RangeFilter: slider double avec inputs numériques
+- DateRangeFilter: sélection de plage de dates
+- TagFilter: filtres en chips/tags
+- FilterGroup: groupe collapsible avec clear
+- ActiveFilters: affichage des filtres actifs
+- FilterPanel: panneau complet avec tous les groupes
+- MobileFilterDrawer: drawer pour mobile avec animation
+- FilterToggle: bouton avec badge de count
