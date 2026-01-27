@@ -12236,3 +12236,17 @@ Système complet de migration de base de données:
 - Pas d'accessibilité aria-live pour screen readers
 - Pas de hook useOnlineStatus intégré
 
+
+
+## Sprint 813 - RequestValidator (Backend)
+**Note**: 8/10
+
+Système complet de validation HTTP:
+- InputSanitizer: sanitize_string, sanitize_email, sanitize_filename, sanitize_url, check_sql_injection
+- 7 FieldValidators: Required, Type, String, Email, Number, Enum, URL
+- RequestValidator pour validation schéma
+- FileValidator avec magic bytes et vérification taille/extension
+- RequestSigner avec HMAC et constant-time comparison
+- CORSValidator pour validation CORS
+
+Bug trouvé et corrigé: sanitize_url appelait sanitize_string AVANT le check du protocole javascript:, ce qui faisait que le pattern SCRIPT_PATTERN supprimait 'javascript:' avant le test. Solution: vérifier les protocoles dangereux EN PREMIER.
