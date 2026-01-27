@@ -9943,3 +9943,21 @@ Points à améliorer:
 - Sendgrid/Mailgun integration
 - Bounce handling
 
+
+
+## Sprint 752 - Frontend ScrollArea
+**Note: 9/10**
+
+Points forts:
+- Scrollbar personnalisée avec drag
+- Scroll to top button animé
+- ScrollFadeIndicator pour effet de fondu
+- ScrollProgress bar (top/bottom)
+- VirtualScroll pour grandes listes
+- onReachEnd pour infinite scroll
+- ResizeObserver pour adaptation
+
+Points à améliorer:
+- Smooth scroll snap
+- Horizontal scroll support
+
