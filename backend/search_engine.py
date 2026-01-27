@@ -1,25 +1,28 @@
 """
-Search Engine - Sprint 721
+Search Engine - Sprint 759
 
-Full-text search implementation.
+Full-text search system.
 
 Features:
-- Text indexing
-- Tokenization
+- In-memory indexing
 - TF-IDF scoring
 - Fuzzy matching
 - Faceted search
+- Highlighting
 """
 
 import re
 import math
+import unicodedata
+from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import (
-    Dict, List, Any, Optional, Callable, TypeVar, Set, Tuple
+    Dict, List, Any, Optional, Callable, TypeVar, Set, Tuple, Generic
 )
-from collections import defaultdict
 from enum import Enum
-import threading
+
+
+T = TypeVar("T")
 
 
 class MatchType(str, Enum):
@@ -31,581 +34,503 @@ class MatchType(str, Enum):
 
 
 @dataclass
-class SearchResult:
-    """Single search result."""
+class SearchHit(Generic[T]):
+    """Search result hit."""
     id: str
+    document: T
     score: float
-    document: Dict[str, Any]
     highlights: Dict[str, List[str]] = field(default_factory=dict)
-    matched_fields: List[str] = field(default_factory=list)
+    matched_terms: List[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        """Convert to dictionary."""
         return {
             "id": self.id,
             "score": round(self.score, 4),
-            "document": self.document,
             "highlights": self.highlights,
-            "matched_fields": self.matched_fields,
+            "matched_terms": self.matched_terms,
         }
 
 
 @dataclass
-class SearchResponse:
-    """Search response with results and metadata."""
-    query: str
+class SearchResults(Generic[T]):
+    """Search results container."""
+    hits: List[SearchHit[T]]
     total: int
-    results: List[SearchResult]
-    took_ms: float
+    query: str
+    took_ms: float = 0
     facets: Dict[str, Dict[str, int]] = field(default_factory=dict)
-    suggestions: List[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        """Convert to dictionary."""
         return {
-            "query": self.query,
             "total": self.total,
-            "results": [r.to_dict() for r in self.results],
+            "query": self.query,
             "took_ms": round(self.took_ms, 2),
+            "hits": [h.to_dict() for h in self.hits],
             "facets": self.facets,
-            "suggestions": self.suggestions,
         }
 
 
-class Tokenizer:
-    """Text tokenizer."""
+@dataclass
+class FieldConfig:
+    """Field configuration for indexing."""
+    name: str
+    weight: float = 1.0
+    searchable: bool = True
+    facetable: bool = False
+    analyzer: Optional[Callable[[str], List[str]]] = None
+
+
+class TextAnalyzer:
+    """Text analyzer for tokenization and normalization."""
 
     def __init__(
         self,
         lowercase: bool = True,
-        strip_punctuation: bool = True,
-        min_length: int = 2,
-        stop_words: Optional[Set[str]] = None,
+        remove_accents: bool = True,
+        min_token_length: int = 2,
+        stopwords: Optional[Set[str]] = None,
     ):
-        """Initialize tokenizer."""
-        self.lowercase = lowercase
-        self.strip_punctuation = strip_punctuation
-        self.min_length = min_length
-        self.stop_words = stop_words or {
-            "a", "an", "the", "and", "or", "but", "in", "on", "at", "to",
-            "for", "of", "with", "by", "from", "is", "are", "was", "were",
-            "be", "been", "being", "have", "has", "had", "do", "does", "did",
-            "will", "would", "could", "should", "may", "might", "must",
-            "this", "that", "these", "those", "it", "its",
+        self._lowercase = lowercase
+        self._remove_accents = remove_accents
+        self._min_length = min_token_length
+        self._stopwords = stopwords or {
+            "a", "an", "and", "are", "as", "at", "be", "by", "for",
+            "from", "has", "he", "in", "is", "it", "its", "of", "on",
+            "that", "the", "to", "was", "were", "will", "with"
         }
 
-    def tokenize(self, text: str) -> List[str]:
-        """Tokenize text into terms."""
+    def analyze(self, text: str) -> List[str]:
+        """Analyze text into tokens."""
         if not text:
             return []
 
+        # Normalize unicode
+        if self._remove_accents:
+            text = unicodedata.normalize("NFKD", text)
+            text = "".join(c for c in text if not unicodedata.combining(c))
+
         # Lowercase
-        if self.lowercase:
+        if self._lowercase:
             text = text.lower()
 
-        # Strip punctuation
-        if self.strip_punctuation:
-            text = re.sub(r"[^\w\s]", " ", text)
-
-        # Split on whitespace
-        tokens = text.split()
+        # Tokenize (split on non-alphanumeric)
+        tokens = re.findall(r"\b\w+\b", text)
 
         # Filter
         tokens = [
             t for t in tokens
-            if len(t) >= self.min_length and t not in self.stop_words
+            if len(t) >= self._min_length
+            and t not in self._stopwords
         ]
 
         return tokens
 
 
-class Stemmer:
-    """Simple word stemmer."""
-
-    SUFFIX_RULES = [
-        ("ies", "y"),
-        ("es", "e"),
-        ("s", ""),
-        ("ing", ""),
-        ("ed", ""),
-        ("ly", ""),
-        ("ment", ""),
-        ("ness", ""),
-        ("tion", ""),
-        ("able", ""),
-        ("ible", ""),
-    ]
-
-    def stem(self, word: str) -> str:
-        """Stem a word to its root form."""
-        for suffix, replacement in self.SUFFIX_RULES:
-            if word.endswith(suffix) and len(word) > len(suffix) + 2:
-                return word[:-len(suffix)] + replacement
-        return word
-
-
 class InvertedIndex:
-    """Inverted index for full-text search."""
+    """Inverted index for search."""
 
-    def __init__(
-        self,
-        tokenizer: Optional[Tokenizer] = None,
-        use_stemming: bool = True,
-    ):
-        """Initialize index."""
-        self._tokenizer = tokenizer or Tokenizer()
-        self._stemmer = Stemmer() if use_stemming else None
-        self._index: Dict[str, Dict[str, List[int]]] = defaultdict(dict)
-        self._documents: Dict[str, Dict[str, Any]] = {}
-        self._field_lengths: Dict[str, Dict[str, int]] = defaultdict(dict)
-        self._doc_count = 0
-        self._term_doc_counts: Dict[str, int] = defaultdict(int)
-        self._lock = threading.Lock()
+    def __init__(self, analyzer: Optional[TextAnalyzer] = None):
+        self._analyzer = analyzer or TextAnalyzer()
+        self._index: Dict[str, Dict[str, List[int]]] = defaultdict(lambda: defaultdict(list))
+        self._doc_terms: Dict[str, Dict[str, List[str]]] = {}
+        self._doc_lengths: Dict[str, int] = {}
+        self._num_docs: int = 0
+        self._avg_doc_length: float = 0
 
     def add_document(
         self,
         doc_id: str,
-        document: Dict[str, Any],
-        searchable_fields: Optional[List[str]] = None,
+        fields: Dict[str, str],
+        analyzer: Optional[Callable[[str], List[str]]] = None,
     ) -> None:
-        """Add a document to the index.
+        """Index a document."""
+        analyze = analyzer or self._analyzer.analyze
 
-        Args:
-            doc_id: Document ID
-            document: Document content
-            searchable_fields: Fields to index (all if None)
-        """
-        with self._lock:
-            # Store document
-            self._documents[doc_id] = document
-            self._doc_count += 1
+        self._doc_terms[doc_id] = {}
+        total_tokens = 0
 
-            # Index each field
-            fields_to_index = searchable_fields or list(document.keys())
-
-            for field in fields_to_index:
-                value = document.get(field)
-                if not isinstance(value, str):
-                    continue
-
-                tokens = self._tokenizer.tokenize(value)
-                self._field_lengths[doc_id][field] = len(tokens)
-
-                # Track unique terms for IDF
-                unique_terms = set()
-
-                for position, token in enumerate(tokens):
-                    term = self._stemmer.stem(token) if self._stemmer else token
-
-                    if doc_id not in self._index[term]:
-                        self._index[term][doc_id] = []
-
-                    self._index[term][doc_id].append(position)
-                    unique_terms.add(term)
-
-                for term in unique_terms:
-                    self._term_doc_counts[term] += 1
-
-    def remove_document(self, doc_id: str) -> bool:
-        """Remove a document from the index."""
-        with self._lock:
-            if doc_id not in self._documents:
-                return False
-
-            # Remove from index
-            terms_to_remove = []
-            for term, docs in self._index.items():
-                if doc_id in docs:
-                    del docs[doc_id]
-                    self._term_doc_counts[term] -= 1
-                    if not docs:
-                        terms_to_remove.append(term)
-
-            for term in terms_to_remove:
-                del self._index[term]
-
-            # Remove document
-            del self._documents[doc_id]
-            if doc_id in self._field_lengths:
-                del self._field_lengths[doc_id]
-            self._doc_count -= 1
-
-            return True
-
-    def search(
-        self,
-        query: str,
-        limit: int = 10,
-        offset: int = 0,
-        fields: Optional[List[str]] = None,
-        match_type: MatchType = MatchType.CONTAINS,
-    ) -> List[Tuple[str, float]]:
-        """Search the index.
-
-        Args:
-            query: Search query
-            limit: Max results
-            offset: Results offset
-            fields: Fields to search
-            match_type: Match type
-
-        Returns:
-            List of (doc_id, score) tuples
-        """
-        tokens = self._tokenizer.tokenize(query)
-        if not tokens:
-            return []
-
-        # Stem tokens
-        if self._stemmer:
-            tokens = [self._stemmer.stem(t) for t in tokens]
-
-        # Find matching documents
-        doc_scores: Dict[str, float] = defaultdict(float)
-
-        for token in tokens:
-            if match_type == MatchType.EXACT:
-                matching_terms = [token] if token in self._index else []
-            elif match_type == MatchType.PREFIX:
-                matching_terms = [t for t in self._index if t.startswith(token)]
-            elif match_type == MatchType.FUZZY:
-                matching_terms = self._fuzzy_match(token)
-            else:  # CONTAINS
-                matching_terms = [t for t in self._index if token in t or t == token]
-
-            for term in matching_terms:
-                # Calculate IDF
-                doc_count = self._term_doc_counts.get(term, 0)
-                if doc_count == 0:
-                    continue
-
-                idf = math.log(self._doc_count / doc_count) + 1
-
-                # Score each document
-                for doc_id, positions in self._index[term].items():
-                    # TF
-                    tf = len(positions)
-                    doc_length = sum(self._field_lengths.get(doc_id, {}).values()) or 1
-                    normalized_tf = tf / doc_length
-
-                    # TF-IDF score
-                    score = normalized_tf * idf
-                    doc_scores[doc_id] += score
-
-        # Sort by score
-        sorted_docs = sorted(doc_scores.items(), key=lambda x: -x[1])
-
-        return sorted_docs[offset:offset + limit]
-
-    def _fuzzy_match(self, term: str, max_distance: int = 2) -> List[str]:
-        """Find fuzzy matches for a term."""
-        matches = []
-
-        for indexed_term in self._index:
-            if self._levenshtein_distance(term, indexed_term) <= max_distance:
-                matches.append(indexed_term)
-
-        return matches
-
-    def _levenshtein_distance(self, s1: str, s2: str) -> int:
-        """Calculate Levenshtein edit distance."""
-        if len(s1) < len(s2):
-            return self._levenshtein_distance(s2, s1)
-
-        if len(s2) == 0:
-            return len(s1)
-
-        previous_row = range(len(s2) + 1)
-
-        for i, c1 in enumerate(s1):
-            current_row = [i + 1]
-            for j, c2 in enumerate(s2):
-                insertions = previous_row[j + 1] + 1
-                deletions = current_row[j] + 1
-                substitutions = previous_row[j] + (c1 != c2)
-                current_row.append(min(insertions, deletions, substitutions))
-            previous_row = current_row
-
-        return previous_row[-1]
-
-    def get_document(self, doc_id: str) -> Optional[Dict[str, Any]]:
-        """Get document by ID."""
-        return self._documents.get(doc_id)
-
-    def get_stats(self) -> dict:
-        """Get index statistics."""
-        return {
-            "document_count": self._doc_count,
-            "term_count": len(self._index),
-            "avg_doc_length": sum(
-                sum(lengths.values())
-                for lengths in self._field_lengths.values()
-            ) / max(self._doc_count, 1),
-        }
-
-
-class SearchEngine:
-    """Full-text search engine.
-
-    Usage:
-        engine = SearchEngine()
-
-        # Add documents
-        engine.add({
-            "id": "1",
-            "title": "Python Programming",
-            "content": "Learn Python programming language",
-            "tags": ["python", "programming"]
-        })
-
-        # Search
-        results = engine.search("python", limit=10)
-
-        # Faceted search
-        results = engine.search("programming", facets=["tags"])
-    """
-
-    def __init__(
-        self,
-        tokenizer: Optional[Tokenizer] = None,
-        id_field: str = "id",
-        searchable_fields: Optional[List[str]] = None,
-        facet_fields: Optional[List[str]] = None,
-    ):
-        """Initialize search engine."""
-        self._index = InvertedIndex(tokenizer)
-        self._id_field = id_field
-        self._searchable_fields = searchable_fields
-        self._facet_fields = facet_fields or []
-        self._facet_values: Dict[str, Dict[str, Set[str]]] = defaultdict(lambda: defaultdict(set))
-
-    def add(self, document: Dict[str, Any]) -> str:
-        """Add a document.
-
-        Args:
-            document: Document to add
-
-        Returns:
-            Document ID
-        """
-        doc_id = str(document.get(self._id_field, id(document)))
-
-        self._index.add_document(
-            doc_id,
-            document,
-            self._searchable_fields,
-        )
-
-        # Index facets
-        for field in self._facet_fields:
-            value = document.get(field)
-            if value:
-                if isinstance(value, list):
-                    for v in value:
-                        self._facet_values[field][str(v)].add(doc_id)
-                else:
-                    self._facet_values[field][str(value)].add(doc_id)
-
-        return doc_id
-
-    def add_many(self, documents: List[Dict[str, Any]]) -> List[str]:
-        """Add multiple documents."""
-        return [self.add(doc) for doc in documents]
-
-    def remove(self, doc_id: str) -> bool:
-        """Remove a document."""
-        # Remove from facets
-        for field in self._facet_fields:
-            for value, doc_ids in self._facet_values[field].items():
-                doc_ids.discard(doc_id)
-
-        return self._index.remove_document(doc_id)
-
-    def search(
-        self,
-        query: str,
-        limit: int = 10,
-        offset: int = 0,
-        fields: Optional[List[str]] = None,
-        filters: Optional[Dict[str, Any]] = None,
-        facets: Optional[List[str]] = None,
-        match_type: MatchType = MatchType.CONTAINS,
-        highlight: bool = True,
-    ) -> SearchResponse:
-        """Search documents.
-
-        Args:
-            query: Search query
-            limit: Max results
-            offset: Results offset
-            fields: Fields to search
-            filters: Facet filters
-            facets: Facets to compute
-            match_type: Match type
-            highlight: Enable highlighting
-
-        Returns:
-            SearchResponse with results
-        """
-        import time
-        start_time = time.time()
-
-        # Search index
-        raw_results = self._index.search(
-            query,
-            limit=limit + offset,  # Get enough for offset
-            match_type=match_type,
-        )
-
-        # Apply filters
-        if filters:
-            filtered = []
-            for doc_id, score in raw_results:
-                include = True
-                for field, value in filters.items():
-                    if field in self._facet_values:
-                        if isinstance(value, list):
-                            if not any(doc_id in self._facet_values[field].get(v, set()) for v in value):
-                                include = False
-                                break
-                        else:
-                            if doc_id not in self._facet_values[field].get(str(value), set()):
-                                include = False
-                                break
-                if include:
-                    filtered.append((doc_id, score))
-            raw_results = filtered
-
-        # Apply offset
-        total = len(raw_results)
-        raw_results = raw_results[offset:offset + limit]
-
-        # Build results
-        results = []
-        query_tokens = set(self._index._tokenizer.tokenize(query))
-
-        for doc_id, score in raw_results:
-            document = self._index.get_document(doc_id)
-            if not document:
+        for field_name, field_value in fields.items():
+            if not field_value:
                 continue
 
-            # Find matched fields and highlights
-            matched_fields = []
-            highlights = {}
+            tokens = analyze(str(field_value))
+            self._doc_terms[doc_id][field_name] = tokens
+            total_tokens += len(tokens)
 
-            if highlight:
-                for field, value in document.items():
-                    if isinstance(value, str):
-                        field_tokens = set(self._index._tokenizer.tokenize(value))
-                        if field_tokens & query_tokens:
-                            matched_fields.append(field)
-                            highlights[field] = self._highlight(value, query_tokens)
+            for position, token in enumerate(tokens):
+                self._index[token][doc_id].append(position)
 
-            results.append(SearchResult(
-                id=doc_id,
-                score=score,
-                document=document,
-                highlights=highlights,
-                matched_fields=matched_fields,
-            ))
+        self._doc_lengths[doc_id] = total_tokens
+        self._num_docs += 1
+        self._avg_doc_length = sum(self._doc_lengths.values()) / self._num_docs
 
-        # Compute facets
-        facet_counts: Dict[str, Dict[str, int]] = {}
-        if facets:
-            result_ids = {r.id for r in results}
-            for facet_field in facets:
-                if facet_field in self._facet_values:
-                    facet_counts[facet_field] = {}
-                    for value, doc_ids in self._facet_values[facet_field].items():
-                        count = len(doc_ids & result_ids)
-                        if count > 0:
-                            facet_counts[facet_field][value] = count
+    def remove_document(self, doc_id: str) -> bool:
+        """Remove document from index."""
+        if doc_id not in self._doc_terms:
+            return False
 
-        took_ms = (time.time() - start_time) * 1000
+        for field_tokens in self._doc_terms[doc_id].values():
+            for token in set(field_tokens):
+                if token in self._index and doc_id in self._index[token]:
+                    del self._index[token][doc_id]
+                    if not self._index[token]:
+                        del self._index[token]
 
-        return SearchResponse(
-            query=query,
-            total=total,
-            results=results,
-            took_ms=took_ms,
-            facets=facet_counts,
+        del self._doc_terms[doc_id]
+        del self._doc_lengths[doc_id]
+        self._num_docs -= 1
+
+        if self._num_docs > 0:
+            self._avg_doc_length = sum(self._doc_lengths.values()) / self._num_docs
+        else:
+            self._avg_doc_length = 0
+
+        return True
+
+    def search(self, query: str, match_type: MatchType = MatchType.CONTAINS) -> Dict[str, float]:
+        """Search index and return doc_id -> score mapping."""
+        tokens = self._analyzer.analyze(query)
+        if not tokens:
+            return {}
+
+        scores: Dict[str, float] = defaultdict(float)
+
+        for token in tokens:
+            matching_terms = self._get_matching_terms(token, match_type)
+
+            for term in matching_terms:
+                if term not in self._index:
+                    continue
+
+                idf = math.log(1 + (self._num_docs / len(self._index[term])))
+
+                for doc_id, positions in self._index[term].items():
+                    tf = len(positions)
+                    doc_len = self._doc_lengths.get(doc_id, 1)
+                    k1 = 1.2
+                    b = 0.75
+                    tf_score = (tf * (k1 + 1)) / (
+                        tf + k1 * (1 - b + b * (doc_len / self._avg_doc_length))
+                    )
+                    scores[doc_id] += tf_score * idf
+
+        return dict(scores)
+
+    def _get_matching_terms(self, token: str, match_type: MatchType) -> List[str]:
+        """Get terms matching the query token."""
+        if match_type == MatchType.EXACT:
+            return [token] if token in self._index else []
+        elif match_type == MatchType.PREFIX:
+            return [t for t in self._index if t.startswith(token)]
+        elif match_type == MatchType.CONTAINS:
+            return [t for t in self._index if token in t]
+        elif match_type == MatchType.FUZZY:
+            matches = []
+            for term in self._index:
+                if self._edit_distance(token, term) <= 2:
+                    matches.append(term)
+            return matches
+        return []
+
+    def _edit_distance(self, s1: str, s2: str, max_dist: int = 2) -> int:
+        """Calculate Levenshtein edit distance."""
+        if abs(len(s1) - len(s2)) > max_dist:
+            return max_dist + 1
+
+        m, n = len(s1), len(s2)
+        dp = [[0] * (n + 1) for _ in range(m + 1)]
+
+        for i in range(m + 1):
+            dp[i][0] = i
+        for j in range(n + 1):
+            dp[0][j] = j
+
+        for i in range(1, m + 1):
+            for j in range(1, n + 1):
+                if s1[i-1] == s2[j-1]:
+                    dp[i][j] = dp[i-1][j-1]
+                else:
+                    dp[i][j] = 1 + min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])
+
+        return dp[m][n]
+
+    def get_document_terms(self, doc_id: str) -> Dict[str, List[str]]:
+        """Get indexed terms for a document."""
+        return self._doc_terms.get(doc_id, {})
+
+
+class SearchEngine(Generic[T]):
+    """Full-text search engine."""
+
+    def __init__(self):
+        self._analyzer = TextAnalyzer()
+        self._index = InvertedIndex(self._analyzer)
+        self._fields: Dict[str, FieldConfig] = {}
+        self._documents: Dict[str, T] = {}
+        self._field_values: Dict[str, Dict[str, Any]] = {}
+
+    def add_field(
+        self,
+        name: str,
+        weight: float = 1.0,
+        searchable: bool = True,
+        facetable: bool = False,
+    ) -> None:
+        """Configure a field for indexing."""
+        self._fields[name] = FieldConfig(
+            name=name,
+            weight=weight,
+            searchable=searchable,
+            facetable=facetable,
         )
 
-    def _highlight(
+    def index(
         self,
-        text: str,
+        doc_id: str,
+        fields: Dict[str, Any],
+        document: Optional[T] = None,
+    ) -> None:
+        """Index a document."""
+        if document is not None:
+            self._documents[doc_id] = document
+
+        self._field_values[doc_id] = fields
+
+        searchable_fields = {}
+        for field_name, value in fields.items():
+            config = self._fields.get(field_name)
+            if config and config.searchable and value:
+                searchable_fields[field_name] = str(value)
+
+        self._index.add_document(doc_id, searchable_fields)
+
+    def remove(self, doc_id: str) -> bool:
+        """Remove document from index."""
+        self._index.remove_document(doc_id)
+        if doc_id in self._documents:
+            del self._documents[doc_id]
+        if doc_id in self._field_values:
+            del self._field_values[doc_id]
+        return True
+
+    def search(
+        self,
+        query: str,
+        match_type: MatchType = MatchType.CONTAINS,
+        limit: int = 10,
+        offset: int = 0,
+        facet_fields: Optional[List[str]] = None,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> SearchResults[T]:
+        """Search the index."""
+        import time
+        start = time.time()
+
+        raw_scores = self._index.search(query, match_type)
+
+        if filters:
+            raw_scores = self._apply_filters(raw_scores, filters)
+
+        weighted_scores = self._apply_weights(raw_scores, query)
+
+        sorted_results = sorted(
+            weighted_scores.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )
+
+        total = len(sorted_results)
+        paginated = sorted_results[offset:offset + limit]
+
+        query_tokens = set(self._analyzer.analyze(query))
+        hits = []
+        for doc_id, score in paginated:
+            document = self._documents.get(doc_id)
+            highlights = self._generate_highlights(doc_id, query_tokens)
+            doc_terms = self._index.get_document_terms(doc_id)
+            all_terms = []
+            for terms in doc_terms.values():
+                all_terms.extend(terms)
+            matched = list(query_tokens & set(all_terms))
+
+            hits.append(SearchHit(
+                id=doc_id,
+                document=document,
+                score=score,
+                highlights=highlights,
+                matched_terms=matched,
+            ))
+
+        facets = {}
+        if facet_fields:
+            facets = self._calculate_facets(
+                [doc_id for doc_id, _ in sorted_results],
+                facet_fields
+            )
+
+        took_ms = (time.time() - start) * 1000
+
+        return SearchResults(
+            hits=hits,
+            total=total,
+            query=query,
+            took_ms=took_ms,
+            facets=facets,
+        )
+
+    def _apply_filters(
+        self,
+        scores: Dict[str, float],
+        filters: Dict[str, Any],
+    ) -> Dict[str, float]:
+        """Apply filters to search results."""
+        filtered = {}
+        for doc_id, score in scores.items():
+            field_values = self._field_values.get(doc_id, {})
+            match = True
+
+            for fld, expected in filters.items():
+                actual = field_values.get(fld)
+                if isinstance(expected, list):
+                    if actual not in expected:
+                        match = False
+                        break
+                elif actual != expected:
+                    match = False
+                    break
+
+            if match:
+                filtered[doc_id] = score
+
+        return filtered
+
+    def _apply_weights(
+        self,
+        scores: Dict[str, float],
+        query: str,
+    ) -> Dict[str, float]:
+        """Apply field weights to scores."""
+        weighted = {}
+        query_tokens = set(self._analyzer.analyze(query))
+
+        for doc_id, base_score in scores.items():
+            doc_terms = self._index.get_document_terms(doc_id)
+            weight_multiplier = 1.0
+
+            for field_name, tokens in doc_terms.items():
+                config = self._fields.get(field_name)
+                if config and config.weight != 1.0:
+                    overlap = len(query_tokens & set(tokens))
+                    if overlap > 0:
+                        weight_multiplier += (config.weight - 1.0) * overlap
+
+            weighted[doc_id] = base_score * weight_multiplier
+
+        return weighted
+
+    def _generate_highlights(
+        self,
+        doc_id: str,
         query_tokens: Set[str],
-        tag: str = "<mark>",
-        end_tag: str = "</mark>",
-    ) -> List[str]:
+        tag: str = "em",
+        max_length: int = 200,
+    ) -> Dict[str, List[str]]:
         """Generate highlighted snippets."""
-        snippets = []
-        words = text.split()
+        highlights = {}
+        field_values = self._field_values.get(doc_id, {})
 
-        for i, word in enumerate(words):
-            word_lower = word.lower().strip(".,!?;:")
-            if word_lower in query_tokens:
-                start = max(0, i - 5)
-                end = min(len(words), i + 6)
-                snippet_words = words[start:end]
+        for field_name, value in field_values.items():
+            if not isinstance(value, str):
+                continue
 
-                # Highlight matching word
-                for j, sw in enumerate(snippet_words):
-                    if sw.lower().strip(".,!?;:") in query_tokens:
-                        snippet_words[j] = f"{tag}{sw}{end_tag}"
+            pattern = "|".join(re.escape(t) for t in query_tokens if t)
+            if not pattern:
+                continue
 
-                snippet = " ".join(snippet_words)
+            matches = list(re.finditer(pattern, value, re.IGNORECASE))
+            if not matches:
+                continue
+
+            snippets = []
+            for match in matches[:3]:
+                start = max(0, match.start() - 50)
+                end = min(len(value), match.end() + 50)
+
+                snippet = value[start:end]
                 if start > 0:
                     snippet = "..." + snippet
-                if end < len(words):
+                if end < len(value):
                     snippet = snippet + "..."
+
+                snippet = re.sub(
+                    pattern,
+                    f"<{tag}>\\g<0></{tag}>",
+                    snippet,
+                    flags=re.IGNORECASE
+                )
 
                 snippets.append(snippet)
 
-                if len(snippets) >= 3:
-                    break
+            if snippets:
+                highlights[field_name] = snippets
 
-        return snippets
+        return highlights
 
-    def suggest(self, prefix: str, limit: int = 5) -> List[str]:
-        """Get search suggestions.
+    def _calculate_facets(
+        self,
+        doc_ids: List[str],
+        facet_fields: List[str],
+    ) -> Dict[str, Dict[str, int]]:
+        """Calculate facet counts."""
+        facets = {}
 
-        Args:
-            prefix: Search prefix
-            limit: Max suggestions
+        for fld in facet_fields:
+            config = self._fields.get(fld)
+            if not config or not config.facetable:
+                continue
 
-        Returns:
-            List of suggestions
-        """
+            counts: Dict[str, int] = defaultdict(int)
+            for doc_id in doc_ids:
+                value = self._field_values.get(doc_id, {}).get(fld)
+                if value:
+                    counts[str(value)] += 1
+
+            facets[fld] = dict(sorted(counts.items(), key=lambda x: -x[1]))
+
+        return facets
+
+    def suggest(
+        self,
+        prefix: str,
+        field: str = "title",
+        limit: int = 5,
+    ) -> List[str]:
+        """Get autocomplete suggestions."""
+        suggestions = set()
         prefix_lower = prefix.lower()
-        suggestions = []
 
-        for term in self._index._index:
-            if term.startswith(prefix_lower):
-                suggestions.append(term)
-                if len(suggestions) >= limit:
-                    break
+        for doc_id, fields in self._field_values.items():
+            value = fields.get(field)
+            if not isinstance(value, str):
+                continue
 
-        return sorted(suggestions)
+            tokens = self._analyzer.analyze(value)
+            for token in tokens:
+                if token.startswith(prefix_lower):
+                    suggestions.add(token)
 
-    def get_stats(self) -> dict:
-        """Get engine statistics."""
-        return {
-            **self._index.get_stats(),
-            "facet_fields": list(self._facet_fields),
-        }
+            if len(suggestions) >= limit * 2:
+                break
 
-
-# Singleton instance
-search_engine = SearchEngine()
+        return sorted(suggestions)[:limit]
 
 
-# Convenience functions
-def add_to_index(document: Dict[str, Any]) -> str:
-    """Add document to global search engine."""
-    return search_engine.add(document)
+_engine: Optional[SearchEngine] = None
 
 
-def search(query: str, **kwargs) -> SearchResponse:
-    """Search using global search engine."""
-    return search_engine.search(query, **kwargs)
+def get_search_engine() -> SearchEngine:
+    """Get global search engine."""
+    global _engine
+    if not _engine:
+        _engine = SearchEngine()
+    return _engine
