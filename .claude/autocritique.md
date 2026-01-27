@@ -11108,3 +11108,33 @@ EmptyState - Composants pour états vides et erreurs
 
 **Note**: 9/10
 
+
+
+## Sprint 782 - Snackbar (Frontend)
+**Date**: 2026-01-27
+**Fichier**: `frontend/src/components/Snackbar.tsx`
+
+### Réalisations
+- SnackbarContainer pour positionnement et queue
+- SnackbarProvider avec helpers success/error/warning/info
+- useSnackbar hook pour accès global
+- Toast composant standalone avec description
+- usePromiseToast pour feedback opérations async
+- 6 positions: top/bottom + left/center/right
+- Progress indicator avec auto-dismiss
+- Support snackbars persistants
+- Support boutons action
+
+### Points forts
+- Animation variants selon position
+- Progress bar avec interval timing
+- Queue avec maxVisible configurable
+- Promise toast pattern élégant
+- Variant styles cohérents
+
+### Axes amélioration
+- Pourrait avoir stacking animation
+- Support swipe to dismiss mobile
+
+**Note**: 9/10
+
