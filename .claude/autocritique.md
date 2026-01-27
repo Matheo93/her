@@ -12312,3 +12312,18 @@ Traitement batch et gestion de jobs:
 - BatchPipeline: chaînage de plusieurs étapes de traitement
 - Retry logic avec backoff
 - Rate limiting
+
+
+## Sprint 818 - PricingCards (Frontend)
+**Note**: 8/10
+
+Composants de pricing pour SaaS:
+- BillingToggle: switch monthly/yearly avec savings badge
+- PricingCard: carte de plan avec badge, features, prix, CTA
+- PricingGrid: grille responsive avec toggle de période
+- FeatureComparison: tableau comparatif par catégories
+- UsagePricing: tarification par paliers avec calcul de coût
+- AddOnCard/AddOnsGrid: sélection d'add-ons avec total
+- PricingSummary: récapitulatif de commande avec checkout
+
+Utilitaires: formatPrice (Intl.NumberFormat), formatDiscount
