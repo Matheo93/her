@@ -9727,3 +9727,21 @@ Points à améliorer:
 - Métriques de retry par opération
 - Dead letter queue pour les échecs définitifs
 
+
+
+## Sprint 740 - Frontend RichTextEditor
+**Note: 8/10**
+
+Points forts:
+- WYSIWYG avec execCommand natif
+- Toolbar complète (inline styles, block types, listes)
+- Raccourcis clavier (⌘B, ⌘I, ⌘U, ⌘K)
+- Modal de lien avec preview
+- Icons SVG personnalisées
+- Support lecture seule
+
+Points à améliorer:
+- Markdown parsing bidirectionnel
+- Drag & drop d'images
+- Historique undo/redo personnalisé
+

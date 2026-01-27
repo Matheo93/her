@@ -1,203 +1,186 @@
 """
-Job Scheduler - Sprint 699
+Job Scheduler - Sprint 741
 
-Background job scheduling system.
+Background job scheduling and execution.
 
 Features:
-- Cron-style scheduling
-- Interval scheduling
+- Cron-like scheduling
 - One-time jobs
-- Job queues
-- Retry policies
+- Recurring jobs
+- Job persistence
+- Priority queues
 """
 
 import time
-import asyncio
 import uuid
+import heapq
+import asyncio
+import threading
 from dataclasses import dataclass, field
 from typing import (
-    Dict, List, Any, Optional, Callable, TypeVar, Generic,
-    Awaitable, Union
+    Dict, List, Any, Optional, Callable, TypeVar, Union, Awaitable
 )
 from enum import Enum
-import threading
+from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-import heapq
-import re
+from functools import wraps
+
+
+T = TypeVar("T")
 
 
 class JobStatus(str, Enum):
-    """Job execution status."""
+    """Job statuses."""
     PENDING = "pending"
     SCHEDULED = "scheduled"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-    RETRYING = "retrying"
+    PAUSED = "paused"
 
 
 class JobPriority(int, Enum):
-    """Job priority levels."""
-    LOW = 1
-    NORMAL = 5
-    HIGH = 10
-    CRITICAL = 20
+    """Job priorities."""
+    LOW = 3
+    NORMAL = 2
+    HIGH = 1
+    CRITICAL = 0
 
 
 @dataclass
-class Job:
-    """Scheduled job definition."""
-    id: str
-    name: str
-    func: Callable[..., Awaitable[Any]]
-    args: tuple = field(default_factory=tuple)
-    kwargs: Dict[str, Any] = field(default_factory=dict)
-    status: JobStatus = JobStatus.PENDING
-    priority: JobPriority = JobPriority.NORMAL
-    scheduled_at: Optional[float] = None
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
-    result: Optional[Any] = None
-    error: Optional[str] = None
-    retries: int = 0
-    max_retries: int = 3
-    retry_delay: float = 5.0
-    timeout: Optional[float] = None
-    tags: List[str] = field(default_factory=list)
+class CronExpression:
+    """Cron expression parser.
 
-    def __lt__(self, other: "Job") -> bool:
-        """For heap comparison."""
-        if self.scheduled_at == other.scheduled_at:
-            return self.priority.value > other.priority.value
-        return (self.scheduled_at or 0) < (other.scheduled_at or 0)
+    Format: minute hour day_of_month month day_of_week
 
-    def to_dict(self) -> dict:
-        """Convert to dictionary."""
-        return {
-            "id": self.id,
-            "name": self.name,
-            "status": self.status.value,
-            "priority": self.priority.value,
-            "scheduled_at": self.scheduled_at,
-            "started_at": self.started_at,
-            "completed_at": self.completed_at,
-            "retries": self.retries,
-            "tags": self.tags,
-        }
+    Examples:
+        "*/5 * * * *"  - Every 5 minutes
+        "0 * * * *"    - Every hour
+        "0 0 * * *"    - Every day at midnight
+        "0 0 * * 0"    - Every Sunday at midnight
+        "0 0 1 * *"    - First day of every month
+    """
+    expression: str
 
-
-@dataclass
-class Schedule:
-    """Job schedule definition."""
-    type: str  # "cron", "interval", "once"
-    value: Any  # cron string, interval seconds, or timestamp
-    timezone: str = "UTC"
-    last_run: Optional[float] = None
-    next_run: Optional[float] = None
-
-
-class CronParser:
-    """Simple cron expression parser."""
-
-    @staticmethod
-    def parse(expression: str) -> Dict[str, List[int]]:
-        """Parse cron expression to field values."""
-        parts = expression.split()
+    def __post_init__(self) -> None:
+        """Parse cron expression."""
+        parts = self.expression.split()
         if len(parts) != 5:
-            raise ValueError(f"Invalid cron expression: {expression}")
+            raise ValueError(f"Invalid cron expression: {self.expression}")
 
-        fields = ["minute", "hour", "day", "month", "weekday"]
-        result = {}
+        self._minute = self._parse_field(parts[0], 0, 59)
+        self._hour = self._parse_field(parts[1], 0, 23)
+        self._day = self._parse_field(parts[2], 1, 31)
+        self._month = self._parse_field(parts[3], 1, 12)
+        self._weekday = self._parse_field(parts[4], 0, 6)
 
-        for i, (field, part) in enumerate(zip(fields, parts)):
-            result[field] = CronParser._parse_field(part, CronParser._field_range(field))
-
-        return result
-
-    @staticmethod
-    def _field_range(field: str) -> tuple:
-        """Get valid range for field."""
-        ranges = {
-            "minute": (0, 59),
-            "hour": (0, 23),
-            "day": (1, 31),
-            "month": (1, 12),
-            "weekday": (0, 6),
-        }
-        return ranges[field]
-
-    @staticmethod
-    def _parse_field(value: str, field_range: tuple) -> List[int]:
-        """Parse single cron field."""
-        min_val, max_val = field_range
-
-        if value == "*":
+    def _parse_field(self, field: str, min_val: int, max_val: int) -> List[int]:
+        """Parse a single cron field."""
+        if field == "*":
             return list(range(min_val, max_val + 1))
 
-        if "/" in value:
-            parts = value.split("/")
-            step = int(parts[1])
-            if parts[0] == "*":
-                return list(range(min_val, max_val + 1, step))
-            start = int(parts[0])
-            return list(range(start, max_val + 1, step))
+        if field.startswith("*/"):
+            step = int(field[2:])
+            return list(range(min_val, max_val + 1, step))
 
-        if "-" in value:
-            parts = value.split("-")
-            return list(range(int(parts[0]), int(parts[1]) + 1))
+        if "," in field:
+            return [int(x) for x in field.split(",")]
 
-        if "," in value:
-            return [int(v) for v in value.split(",")]
+        if "-" in field:
+            start, end = field.split("-")
+            return list(range(int(start), int(end) + 1))
 
-        return [int(value)]
+        return [int(field)]
 
-    @staticmethod
-    def get_next_run(expression: str, from_time: Optional[datetime] = None) -> datetime:
-        """Calculate next run time for cron expression."""
-        if from_time is None:
-            from_time = datetime.now()
+    def next_run(self, after: Optional[datetime] = None) -> datetime:
+        """Get next run time after given datetime."""
+        now = after or datetime.now()
+        candidate = now.replace(second=0, microsecond=0) + timedelta(minutes=1)
 
-        parsed = CronParser.parse(expression)
-        current = from_time + timedelta(minutes=1)
-        current = current.replace(second=0, microsecond=0)
-
-        for _ in range(365 * 24 * 60):  # Max 1 year
+        for _ in range(366 * 24 * 60):  # Max 1 year lookahead
             if (
-                current.minute in parsed["minute"]
-                and current.hour in parsed["hour"]
-                and current.day in parsed["day"]
-                and current.month in parsed["month"]
-                and current.weekday() in parsed["weekday"]
+                candidate.minute in self._minute
+                and candidate.hour in self._hour
+                and candidate.day in self._day
+                and candidate.month in self._month
+                and candidate.weekday() in self._weekday
             ):
-                return current
-            current += timedelta(minutes=1)
+                return candidate
+            candidate += timedelta(minutes=1)
 
         raise ValueError("Could not find next run time")
 
 
-class JobQueue:
-    """Priority-based job queue."""
+@dataclass(order=True)
+class Job:
+    """Scheduled job."""
+    next_run: float = field(compare=True)
+    id: str = field(default_factory=lambda: str(uuid.uuid4()), compare=False)
+    name: str = field(default="", compare=False)
+    func: Callable = field(default=lambda: None, compare=False)
+    args: tuple = field(default_factory=tuple, compare=False)
+    kwargs: dict = field(default_factory=dict, compare=False)
+    cron: Optional[CronExpression] = field(default=None, compare=False)
+    interval: Optional[float] = field(default=None, compare=False)
+    priority: JobPriority = field(default=JobPriority.NORMAL, compare=False)
+    status: JobStatus = field(default=JobStatus.PENDING, compare=False)
+    max_retries: int = field(default=0, compare=False)
+    retry_count: int = field(default=0, compare=False)
+    retry_delay: float = field(default=60.0, compare=False)
+    timeout: Optional[float] = field(default=None, compare=False)
+    created_at: float = field(default_factory=time.time, compare=False)
+    started_at: Optional[float] = field(default=None, compare=False)
+    completed_at: Optional[float] = field(default=None, compare=False)
+    result: Any = field(default=None, compare=False)
+    error: Optional[str] = field(default=None, compare=False)
+    metadata: Dict[str, Any] = field(default_factory=dict, compare=False)
 
-    def __init__(self, max_size: Optional[int] = None):
+    def is_recurring(self) -> bool:
+        """Check if job is recurring."""
+        return self.cron is not None or self.interval is not None
+
+    def calculate_next_run(self) -> Optional[float]:
+        """Calculate next run time."""
+        if self.cron:
+            return self.cron.next_run().timestamp()
+        elif self.interval:
+            return time.time() + self.interval
+        return None
+
+
+@dataclass
+class JobResult:
+    """Job execution result."""
+    job_id: str
+    success: bool
+    result: Any = None
+    error: Optional[str] = None
+    duration: float = 0.0
+
+
+class JobQueue:
+    """Priority job queue."""
+
+    def __init__(self):
         """Initialize queue."""
         self._heap: List[Job] = []
-        self._max_size = max_size
         self._lock = threading.Lock()
+        self._jobs: Dict[str, Job] = {}
 
-    def push(self, job: Job) -> bool:
+    def push(self, job: Job) -> None:
         """Add job to queue."""
         with self._lock:
-            if self._max_size and len(self._heap) >= self._max_size:
-                return False
             heapq.heappush(self._heap, job)
-            return True
+            self._jobs[job.id] = job
 
     def pop(self) -> Optional[Job]:
         """Get next job from queue."""
         with self._lock:
-            if self._heap:
-                return heapq.heappop(self._heap)
+            while self._heap:
+                job = heapq.heappop(self._heap)
+                if job.id in self._jobs and job.status != JobStatus.CANCELLED:
+                    return job
             return None
 
     def peek(self) -> Optional[Job]:
@@ -205,374 +188,350 @@ class JobQueue:
         with self._lock:
             return self._heap[0] if self._heap else None
 
-    def __len__(self) -> int:
-        return len(self._heap)
+    def remove(self, job_id: str) -> bool:
+        """Remove job from queue."""
+        with self._lock:
+            if job_id in self._jobs:
+                self._jobs[job_id].status = JobStatus.CANCELLED
+                del self._jobs[job_id]
+                return True
+            return False
 
-    def is_empty(self) -> bool:
-        return len(self._heap) == 0
+    def get(self, job_id: str) -> Optional[Job]:
+        """Get job by ID."""
+        return self._jobs.get(job_id)
+
+    def size(self) -> int:
+        """Get queue size."""
+        return len(self._jobs)
+
+    def clear(self) -> None:
+        """Clear all jobs."""
+        with self._lock:
+            self._heap.clear()
+            self._jobs.clear()
 
 
-class JobScheduler:
-    """Main job scheduler.
+class Scheduler:
+    """Job scheduler."""
 
-    Usage:
-        scheduler = JobScheduler()
-
-        # Schedule one-time job
-        scheduler.once(process_data, delay=60)
-
-        # Schedule recurring job
-        scheduler.every(5).seconds.do(check_health)
-        scheduler.every(1).hours.do(cleanup_cache)
-
-        # Cron scheduling
-        scheduler.cron("0 */2 * * *", generate_report)
-
-        # Start scheduler
-        await scheduler.start()
-    """
-
-    def __init__(self, max_concurrent: int = 10):
+    def __init__(self, max_workers: int = 4):
         """Initialize scheduler."""
         self._queue = JobQueue()
-        self._jobs: Dict[str, Job] = {}
-        self._schedules: Dict[str, Schedule] = {}
+        self._max_workers = max_workers
         self._running = False
-        self._semaphore = asyncio.Semaphore(max_concurrent)
+        self._thread: Optional[threading.Thread] = None
+        self._workers: List[threading.Thread] = []
+        self._results: Dict[str, JobResult] = {}
+        self._listeners: List[Callable[[Job, JobResult], None]] = []
         self._lock = threading.Lock()
-        self._stats = {
-            "total_scheduled": 0,
-            "total_executed": 0,
-            "successful": 0,
-            "failed": 0,
-            "retried": 0,
-        }
 
-    def once(
+    def schedule(
         self,
-        func: Callable[..., Awaitable[Any]],
-        *args,
+        func: Callable,
+        args: tuple = (),
+        kwargs: Optional[dict] = None,
         delay: float = 0,
-        at: Optional[datetime] = None,
         name: Optional[str] = None,
         priority: JobPriority = JobPriority.NORMAL,
+        max_retries: int = 0,
         timeout: Optional[float] = None,
-        max_retries: int = 3,
-        tags: Optional[List[str]] = None,
-        **kwargs,
+        metadata: Optional[Dict] = None,
     ) -> Job:
-        """Schedule one-time job."""
-        if at:
-            scheduled_at = at.timestamp()
-        else:
-            scheduled_at = time.time() + delay
-
+        """Schedule a one-time job."""
         job = Job(
-            id=str(uuid.uuid4()),
+            next_run=time.time() + delay,
             name=name or func.__name__,
             func=func,
             args=args,
-            kwargs=kwargs,
+            kwargs=kwargs or {},
             priority=priority,
-            scheduled_at=scheduled_at,
             status=JobStatus.SCHEDULED,
-            timeout=timeout,
             max_retries=max_retries,
-            tags=tags or [],
+            timeout=timeout,
+            metadata=metadata or {},
         )
 
-        with self._lock:
-            self._jobs[job.id] = job
-            self._queue.push(job)
-            self._stats["total_scheduled"] += 1
-
+        self._queue.push(job)
         return job
 
-    def every(self, interval: int) -> "IntervalBuilder":
-        """Start building interval schedule."""
-        return IntervalBuilder(self, interval)
-
-    def cron(
+    def schedule_interval(
         self,
-        expression: str,
-        func: Callable[..., Awaitable[Any]],
-        *args,
+        func: Callable,
+        interval: float,
+        args: tuple = (),
+        kwargs: Optional[dict] = None,
         name: Optional[str] = None,
         priority: JobPriority = JobPriority.NORMAL,
-        timeout: Optional[float] = None,
-        tags: Optional[List[str]] = None,
-        **kwargs,
-    ) -> str:
-        """Schedule cron job."""
-        schedule_id = str(uuid.uuid4())
-        next_run = CronParser.get_next_run(expression)
-
-        schedule = Schedule(
-            type="cron",
-            value=expression,
-            next_run=next_run.timestamp(),
-        )
+        start_immediately: bool = False,
+    ) -> Job:
+        """Schedule a recurring interval job."""
+        delay = 0 if start_immediately else interval
 
         job = Job(
-            id=schedule_id,
+            next_run=time.time() + delay,
             name=name or func.__name__,
             func=func,
             args=args,
-            kwargs=kwargs,
+            kwargs=kwargs or {},
+            interval=interval,
             priority=priority,
-            scheduled_at=next_run.timestamp(),
             status=JobStatus.SCHEDULED,
-            timeout=timeout,
-            tags=tags or [],
         )
 
-        with self._lock:
-            self._schedules[schedule_id] = schedule
-            self._jobs[job.id] = job
-            self._queue.push(job)
-            self._stats["total_scheduled"] += 1
+        self._queue.push(job)
+        return job
 
-        return schedule_id
+    def schedule_cron(
+        self,
+        func: Callable,
+        cron_expr: str,
+        args: tuple = (),
+        kwargs: Optional[dict] = None,
+        name: Optional[str] = None,
+        priority: JobPriority = JobPriority.NORMAL,
+    ) -> Job:
+        """Schedule a cron job."""
+        cron = CronExpression(cron_expr)
 
-    async def start(self) -> None:
-        """Start the scheduler."""
-        self._running = True
-        asyncio.create_task(self._run_loop())
-
-    async def stop(self) -> None:
-        """Stop the scheduler."""
-        self._running = False
-
-    async def _run_loop(self) -> None:
-        """Main scheduler loop."""
-        while self._running:
-            now = time.time()
-            job = self._queue.peek()
-
-            if job and (job.scheduled_at or 0) <= now:
-                job = self._queue.pop()
-                if job:
-                    asyncio.create_task(self._execute_job(job))
-            else:
-                await asyncio.sleep(0.1)
-
-    async def _execute_job(self, job: Job) -> None:
-        """Execute a job."""
-        async with self._semaphore:
-            job.status = JobStatus.RUNNING
-            job.started_at = time.time()
-            self._stats["total_executed"] += 1
-
-            try:
-                if job.timeout:
-                    result = await asyncio.wait_for(
-                        job.func(*job.args, **job.kwargs),
-                        timeout=job.timeout,
-                    )
-                else:
-                    result = await job.func(*job.args, **job.kwargs)
-
-                job.status = JobStatus.COMPLETED
-                job.result = result
-                job.completed_at = time.time()
-                self._stats["successful"] += 1
-
-            except Exception as e:
-                job.error = str(e)
-
-                if job.retries < job.max_retries:
-                    job.retries += 1
-                    job.status = JobStatus.RETRYING
-                    job.scheduled_at = time.time() + (job.retry_delay * job.retries)
-                    self._queue.push(job)
-                    self._stats["retried"] += 1
-                else:
-                    job.status = JobStatus.FAILED
-                    job.completed_at = time.time()
-                    self._stats["failed"] += 1
-
-            # Reschedule if recurring
-            if job.id in self._schedules:
-                await self._reschedule(job.id)
-
-    async def _reschedule(self, schedule_id: str) -> None:
-        """Reschedule a recurring job."""
-        schedule = self._schedules.get(schedule_id)
-        old_job = self._jobs.get(schedule_id)
-
-        if not schedule or not old_job:
-            return
-
-        if schedule.type == "cron":
-            next_run = CronParser.get_next_run(schedule.value)
-            scheduled_at = next_run.timestamp()
-        elif schedule.type == "interval":
-            scheduled_at = time.time() + schedule.value
-        else:
-            return
-
-        schedule.last_run = time.time()
-        schedule.next_run = scheduled_at
-
-        new_job = Job(
-            id=schedule_id,
-            name=old_job.name,
-            func=old_job.func,
-            args=old_job.args,
-            kwargs=old_job.kwargs,
-            priority=old_job.priority,
-            scheduled_at=scheduled_at,
+        job = Job(
+            next_run=cron.next_run().timestamp(),
+            name=name or func.__name__,
+            func=func,
+            args=args,
+            kwargs=kwargs or {},
+            cron=cron,
+            priority=priority,
             status=JobStatus.SCHEDULED,
-            timeout=old_job.timeout,
-            max_retries=old_job.max_retries,
-            tags=old_job.tags,
         )
 
-        with self._lock:
-            self._jobs[new_job.id] = new_job
-            self._queue.push(new_job)
-            self._stats["total_scheduled"] += 1
+        self._queue.push(job)
+        return job
 
     def cancel(self, job_id: str) -> bool:
         """Cancel a scheduled job."""
-        job = self._jobs.get(job_id)
-        if job and job.status == JobStatus.SCHEDULED:
-            job.status = JobStatus.CANCELLED
+        return self._queue.remove(job_id)
+
+    def pause(self, job_id: str) -> bool:
+        """Pause a job."""
+        job = self._queue.get(job_id)
+        if job:
+            job.status = JobStatus.PAUSED
+            return True
+        return False
+
+    def resume(self, job_id: str) -> bool:
+        """Resume a paused job."""
+        job = self._queue.get(job_id)
+        if job and job.status == JobStatus.PAUSED:
+            job.status = JobStatus.SCHEDULED
             return True
         return False
 
     def get_job(self, job_id: str) -> Optional[Job]:
         """Get job by ID."""
-        return self._jobs.get(job_id)
+        return self._queue.get(job_id)
 
-    def get_jobs(
-        self,
-        status: Optional[JobStatus] = None,
-        tag: Optional[str] = None,
-        limit: int = 100,
-    ) -> List[Job]:
-        """Get jobs with filters."""
-        jobs = list(self._jobs.values())
+    def get_result(self, job_id: str) -> Optional[JobResult]:
+        """Get job result."""
+        return self._results.get(job_id)
 
-        if status:
-            jobs = [j for j in jobs if j.status == status]
-        if tag:
-            jobs = [j for j in jobs if tag in j.tags]
+    def on_complete(self, callback: Callable[[Job, JobResult], None]) -> None:
+        """Register completion callback."""
+        self._listeners.append(callback)
 
-        jobs.sort(key=lambda j: j.scheduled_at or 0)
-        return jobs[:limit]
+    def _execute_job(self, job: Job) -> JobResult:
+        """Execute a job."""
+        job.status = JobStatus.RUNNING
+        job.started_at = time.time()
 
-    def get_stats(self) -> dict:
-        """Get scheduler statistics."""
-        return {
-            **self._stats,
-            "queued_jobs": len(self._queue),
-            "total_jobs": len(self._jobs),
-            "active_schedules": len(self._schedules),
-        }
+        try:
+            if asyncio.iscoroutinefunction(job.func):
+                loop = asyncio.new_event_loop()
+                try:
+                    result = loop.run_until_complete(
+                        asyncio.wait_for(
+                            job.func(*job.args, **job.kwargs),
+                            timeout=job.timeout
+                        )
+                    )
+                finally:
+                    loop.close()
+            else:
+                result = job.func(*job.args, **job.kwargs)
+
+            job.status = JobStatus.COMPLETED
+            job.completed_at = time.time()
+            job.result = result
+
+            return JobResult(
+                job_id=job.id,
+                success=True,
+                result=result,
+                duration=job.completed_at - job.started_at,
+            )
+
+        except Exception as e:
+            job.error = str(e)
+
+            if job.retry_count < job.max_retries:
+                job.retry_count += 1
+                job.next_run = time.time() + job.retry_delay
+                job.status = JobStatus.SCHEDULED
+                self._queue.push(job)
+
+                return JobResult(
+                    job_id=job.id,
+                    success=False,
+                    error=str(e),
+                    duration=time.time() - job.started_at,
+                )
+
+            job.status = JobStatus.FAILED
+            job.completed_at = time.time()
+
+            return JobResult(
+                job_id=job.id,
+                success=False,
+                error=str(e),
+                duration=job.completed_at - job.started_at,
+            )
+
+    def _reschedule_recurring(self, job: Job) -> None:
+        """Reschedule recurring job."""
+        next_run = job.calculate_next_run()
+        if next_run:
+            new_job = Job(
+                next_run=next_run,
+                name=job.name,
+                func=job.func,
+                args=job.args,
+                kwargs=job.kwargs,
+                cron=job.cron,
+                interval=job.interval,
+                priority=job.priority,
+                status=JobStatus.SCHEDULED,
+                max_retries=job.max_retries,
+                timeout=job.timeout,
+                metadata=job.metadata,
+            )
+            self._queue.push(new_job)
+
+    def _worker(self) -> None:
+        """Worker thread."""
+        while self._running:
+            job = self._queue.peek()
+
+            if job is None:
+                time.sleep(0.1)
+                continue
+
+            if job.status == JobStatus.PAUSED:
+                time.sleep(0.1)
+                continue
+
+            if job.next_run > time.time():
+                time.sleep(min(0.1, job.next_run - time.time()))
+                continue
+
+            job = self._queue.pop()
+            if job is None:
+                continue
+
+            result = self._execute_job(job)
+            self._results[job.id] = result
+
+            for listener in self._listeners:
+                try:
+                    listener(job, result)
+                except Exception:
+                    pass
+
+            if job.is_recurring() and result.success:
+                self._reschedule_recurring(job)
+
+    def start(self) -> None:
+        """Start the scheduler."""
+        if self._running:
+            return
+
+        self._running = True
+
+        for i in range(self._max_workers):
+            worker = threading.Thread(target=self._worker, daemon=True)
+            worker.start()
+            self._workers.append(worker)
+
+    def stop(self) -> None:
+        """Stop the scheduler."""
+        self._running = False
+
+        for worker in self._workers:
+            worker.join(timeout=1.0)
+
+        self._workers.clear()
+
+    def wait_for(self, job_id: str, timeout: Optional[float] = None) -> Optional[JobResult]:
+        """Wait for job completion."""
+        start = time.time()
+
+        while True:
+            result = self._results.get(job_id)
+            if result:
+                return result
+
+            job = self._queue.get(job_id)
+            if job and job.status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
+                return self._results.get(job_id)
+
+            if timeout and (time.time() - start) > timeout:
+                return None
+
+            time.sleep(0.1)
 
 
-class IntervalBuilder:
-    """Builder for interval-based schedules."""
+def scheduled(
+    cron: Optional[str] = None,
+    interval: Optional[float] = None,
+    delay: float = 0,
+    priority: JobPriority = JobPriority.NORMAL,
+) -> Callable:
+    """Decorator for scheduled functions."""
+    def decorator(func: Callable) -> Callable:
+        func._schedule_cron = cron
+        func._schedule_interval = interval
+        func._schedule_delay = delay
+        func._schedule_priority = priority
+        return func
 
-    def __init__(self, scheduler: JobScheduler, interval: int):
-        """Initialize builder."""
-        self._scheduler = scheduler
-        self._interval = interval
-        self._unit = "seconds"
-
-    @property
-    def seconds(self) -> "IntervalBuilder":
-        """Set unit to seconds."""
-        self._unit = "seconds"
-        return self
-
-    @property
-    def minutes(self) -> "IntervalBuilder":
-        """Set unit to minutes."""
-        self._unit = "minutes"
-        return self
-
-    @property
-    def hours(self) -> "IntervalBuilder":
-        """Set unit to hours."""
-        self._unit = "hours"
-        return self
-
-    @property
-    def days(self) -> "IntervalBuilder":
-        """Set unit to days."""
-        self._unit = "days"
-        return self
-
-    def do(
-        self,
-        func: Callable[..., Awaitable[Any]],
-        *args,
-        name: Optional[str] = None,
-        priority: JobPriority = JobPriority.NORMAL,
-        timeout: Optional[float] = None,
-        tags: Optional[List[str]] = None,
-        **kwargs,
-    ) -> str:
-        """Schedule the job."""
-        multipliers = {
-            "seconds": 1,
-            "minutes": 60,
-            "hours": 3600,
-            "days": 86400,
-        }
-        interval_seconds = self._interval * multipliers[self._unit]
-
-        schedule_id = str(uuid.uuid4())
-        schedule = Schedule(
-            type="interval",
-            value=interval_seconds,
-            next_run=time.time() + interval_seconds,
-        )
-
-        job = Job(
-            id=schedule_id,
-            name=name or func.__name__,
-            func=func,
-            args=args,
-            kwargs=kwargs,
-            priority=priority,
-            scheduled_at=time.time() + interval_seconds,
-            status=JobStatus.SCHEDULED,
-            timeout=timeout,
-            tags=tags or [],
-        )
-
-        with self._scheduler._lock:
-            self._scheduler._schedules[schedule_id] = schedule
-            self._scheduler._jobs[job.id] = job
-            self._scheduler._queue.push(job)
-            self._scheduler._stats["total_scheduled"] += 1
-
-        return schedule_id
+    return decorator
 
 
 # Singleton instance
-job_scheduler = JobScheduler()
+scheduler = Scheduler()
 
 
 # Convenience functions
-def schedule_once(
-    func: Callable[..., Awaitable[Any]],
-    *args,
+def schedule(
+    func: Callable,
+    *args: Any,
     delay: float = 0,
-    **kwargs,
+    **kwargs: Any,
 ) -> Job:
-    """Schedule one-time job on global scheduler."""
-    return job_scheduler.once(func, *args, delay=delay, **kwargs)
+    """Schedule a one-time job."""
+    return scheduler.schedule(func, args=args, kwargs=kwargs, delay=delay)
 
 
-def schedule_cron(
-    expression: str,
-    func: Callable[..., Awaitable[Any]],
-    *args,
-    **kwargs,
-) -> str:
-    """Schedule cron job on global scheduler."""
-    return job_scheduler.cron(expression, func, *args, **kwargs)
+def schedule_interval(
+    func: Callable,
+    interval: float,
+    *args: Any,
+    **kwargs: Any,
+) -> Job:
+    """Schedule an interval job."""
+    return scheduler.schedule_interval(func, interval, args=args, kwargs=kwargs)
+
+
+def schedule_cron(func: Callable, cron_expr: str, *args: Any, **kwargs: Any) -> Job:
+    """Schedule a cron job."""
+    return scheduler.schedule_cron(func, cron_expr, args=args, kwargs=kwargs)
