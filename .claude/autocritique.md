@@ -9709,3 +9709,21 @@ Good emoji picker implementation with all essential features. Would need a compl
 
 ### Note: 9/10
 Excellent query builder with dual SQL/in-memory execution. The fluent API makes complex queries readable.
+
+
+## Sprint 739 - Backend Retry Policy
+**Note: 8/10**
+
+Points forts:
+- 5 stratégies de retry (immediate, fixed, linear, exponential, fibonacci)
+- Budget de retry avec token bucket pour limiter les retries globaux
+- Support async natif
+- Décorateur @retry et context manager RetryContext
+- Jitter configurable pour éviter thundering herd
+- Callbacks on_retry pour monitoring
+
+Points à améliorer:
+- Pourrait ajouter circuit breaker integration
+- Métriques de retry par opération
+- Dead letter queue pour les échecs définitifs
+

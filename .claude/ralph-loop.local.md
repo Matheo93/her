@@ -1,9 +1,9 @@
 ---
 active: true
-iteration: 3
+iteration: 1
 max_iterations: 0
 completion_promise: null
-started_at: "2026-01-25T10:18:40Z"
+started_at: "2026-01-27T03:36:18Z"
 ---
 
-Sprint 643 Lis .claude/RALPH_DEV_PROMPT.md CREE des features pas de tests. GO.
+Sprint 740 CREE features. GO.
