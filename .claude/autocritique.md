@@ -12264,3 +12264,18 @@ Composants media complets:
 
 Composants utilitaires: ProgressBar, VolumeSlider, PlaybackSpeed
 Icons: Play, Pause, Volume, Skip, Shuffle, Repeat, Fullscreen
+
+
+## Sprint 815 - ResourceManager (Backend)
+**Note**: 9/10
+
+Gestion complète du cycle de vie des ressources:
+- ResourcePool: pool thread-safe avec FIFO/LIFO/Random/RoundRobin
+- AsyncResourcePool: version async avec semaphore
+- SimpleFactory: factory configurable avec create/destroy/validate/reset
+- ResourceManager: gestionnaire centralisé de pools multiples
+- LimitedResource: ressource avec limite d'utilisations ou d'âge
+- ResourceLease: ressource avec expiration et renouvellement
+- ResourceTracker: suivi des ressources par catégorie/propriétaire avec weakref
+
+Fonctionnalités avancées: stats, cleanup automatique, validation périodique, resize dynamique
