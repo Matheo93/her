@@ -11197,3 +11197,32 @@ EmptyState - Composants pour états vides et erreurs
 
 **Note**: 9/10
 
+
+
+## Sprint 785 - FeatureToggle (Backend)
+**Date**: 2026-01-27
+**Fichier**: `backend/feature_toggle.py`
+
+### Réalisations
+- Boolean toggles pour features simples on/off
+- Percentage rollouts avec bucketing consistant
+- User et group targeting avec user lists
+- Support expériences A/B avec variants
+- Scheduled toggles avec start/end times
+- Support overrides pour tests
+- Callbacks évaluation pour analytics
+- InMemoryStorage thread-safe
+
+### Points forts
+- MD5 hash pour bucketing consistant
+- Support multiple toggle types
+- Evaluation result avec raison détaillée
+- API fluent pour création toggles
+- Thread-safe avec locks
+
+### Axes amélioration
+- Pourrait avoir storage Redis/DB
+- Support règles custom avancées
+
+**Note**: 9/10
+
