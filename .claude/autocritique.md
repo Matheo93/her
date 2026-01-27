@@ -12296,3 +12296,19 @@ Composants de filtres facettés:
 - FilterPanel: panneau complet avec tous les groupes
 - MobileFilterDrawer: drawer pour mobile avec animation
 - FilterToggle: bouton avec badge de count
+
+
+## Sprint 817 - BatchProcessor (Backend)
+**Note**: 8/10
+
+Traitement batch et gestion de jobs:
+- BatchProcessor: traitement séquentiel, parallèle ou chunked
+- AsyncBatchProcessor: version async avec semaphore
+- ItemResult/BatchResult: résultats avec stats (success_rate, durations)
+- BatchProgress: suivi avec ETA et items/second
+- ProgressCallback: interface pour callbacks de progression
+- BatchJob: job avec état, start/wait/cancel
+- JobManager: gestionnaire de jobs avec queue et max_concurrent
+- BatchPipeline: chaînage de plusieurs étapes de traitement
+- Retry logic avec backoff
+- Rate limiting
