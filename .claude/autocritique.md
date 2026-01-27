@@ -10554,3 +10554,51 @@ EmptyState - Composants pour états vides et erreurs
 - Pas de transformations async
 - Pas de memoization
 
+
+---
+
+## Sprint 768 - Frontend ListBox - Autocritique
+
+**Date:** 2026-01-27
+**Domaine:** Frontend
+
+**Ce que j'ai fait:**
+1. **ListBox** - Liste sélectionnable complète
+   - Single/multi select avec checkboxes
+   - Groupement par catégorie
+   - Search filtering
+   - Keyboard navigation complète
+   - ARIA listbox pour accessibilité
+2. **VirtualList** - Virtualisation pour grandes listes
+   - Windowing avec overscan
+   - Scroll position tracking
+   - Generic type support
+3. **ReorderList** - Drag & drop réorganisation
+   - Framer Motion Reorder
+   - Visual feedback pendant le drag
+   - Custom render function
+4. **SelectableList** - Liste avec actions
+   - Select all/none
+   - Indeterminate state
+   - Click handler séparé
+5. **ActionList** - Menu items style
+   - Danger state (red)
+   - Disabled state
+   - Icons support
+6. **DescriptionList** - Term/description pairs
+   - Horizontal/vertical layout
+
+**Note: 9/10**
+
+**Points positifs:**
+- Virtualisation pour performance sur grandes listes
+- Accessibilité keyboard + ARIA
+- Reorder intuitif avec Framer Motion
+- Groupement avec sticky headers
+- Select all avec état indeterminate
+
+**Points négatifs:**
+- VirtualList ne supporte pas les hauteurs variables
+- Pas de lazy loading des items
+- Manque TreeList pour structures hiérarchiques
+
