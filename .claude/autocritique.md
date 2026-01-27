@@ -10259,3 +10259,42 @@ NumberInput - Système d'inputs numériques complet
 - Pas de marks/steps visuels sur sliders
 
 ---
+
+---
+
+## Sprint 761 - Backend TaskQueue - Autocritique
+
+**Date:** 2026-01-27
+**Domaine:** Backend
+
+**Ce que j'ai fait:**
+TaskQueue - Queue de tâches distribuée style Celery
+- `TaskStatus` enum avec tous les états (pending, queued, running, success, failed, retry, cancelled)
+- `TaskPriority` avec 4 niveaux (critical, high, normal, low)
+- `TaskResult` avec result, error, traceback, duration
+- `Task` dataclass avec func, args, kwargs, retries, timeout, dependencies
+- `TaskRegistry` pour @task decorator
+- `ResultBackend` ABC avec `MemoryResultBackend` implementation
+- `TaskQueue` avec workers asyncio, priority queues, dependency resolution
+- `@task` global decorator
+- Retry avec backoff configurable
+
+**Note: 9/10**
+
+**Points positifs:**
+- 4 priority levels avec queues séparées
+- Task dependencies avec DAG resolution
+- Retry automatique avec backoff
+- Timeout par task
+- Result backend abstrait (Redis possible)
+- Workers async avec graceful shutdown
+- Duration tracking
+
+**Points négatifs:**
+- Pas de persistence (perte au restart)
+- Pas de distributed workers (single process)
+- Dependencies checking incomplet (cycles possibles)
+- Pas de task chaining/pipeline
+- Pas de rate limiting par task
+
+---
