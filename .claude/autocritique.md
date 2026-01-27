@@ -11050,3 +11050,32 @@ EmptyState - Composants pour états vides et erreurs
 
 **Note**: 9/10
 
+
+
+## Sprint 780 - BottomSheet (Frontend)
+**Date**: 2026-01-27
+**Fichier**: `frontend/src/components/BottomSheet.tsx`
+
+### Réalisations
+- BottomSheet avec snap points et swipe dismiss
+- ActionSheet style iOS pour menus actions
+- ShareSheet grille pour options partage
+- BottomSheetMenu avec items personnalisables
+- BottomSheetMenuItem avec icône et description
+- Drawer pour navigation panneau latéral
+- BottomSheetProvider et useBottomSheet hook
+- Drag gestures Framer Motion
+
+### Points forts
+- Snap points multiples configurables
+- Velocity-based swipe detection
+- Prevention scroll body automatique
+- Context pour gestion sheets multiples
+- Support position gauche/droite drawer
+
+### Axes amélioration
+- Pourrait avoir keyboard escape handling
+- Support nested scrolling amélioré
+
+**Note**: 9/10
+
