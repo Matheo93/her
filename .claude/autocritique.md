@@ -10103,3 +10103,40 @@ SegmentedControl - Système de toggle buttons groupés
 - Pas de controlled width option pour options égales
 
 ---
+
+---
+
+## Sprint 757 - Backend Webhook - Autocritique
+
+**Date:** 2026-01-27
+**Domaine:** Backend
+
+**Ce que j'ai fait:**
+Webhook System - Système complet de webhooks sortants
+- `WebhookEndpoint` dataclass avec config (url, events, secret, headers)
+- `WebhookDelivery` pour tracking des livraisons avec status/retries
+- `WebhookSigner` pour HMAC-SHA256 signing et verification
+- `WebhookDeliveryService` avec aiohttp et exponential backoff
+- `WebhookManager` pour registration, dispatch, listing
+- `@webhook_trigger` decorator pour auto-dispatch
+- Background worker pour retries automatiques
+
+**Note: 9/10**
+
+**Points positifs:**
+- Signature HMAC-SHA256 avec timestamp (replay attack protection)
+- Exponential backoff sur retries (1m, 2m, 4m, 8m, 16m)
+- Support wildcard events (*) 
+- Headers custom par endpoint
+- Thread-safe avec locks
+- Decorator élégant pour auto-trigger
+- Tolerance configurable pour signature verification
+
+**Points négatifs:**
+- Pas de persistence (deliveries en mémoire)
+- Pas de dead letter queue
+- Pas de rate limiting par endpoint
+- Pas de bulk dispatch optimisé
+- Worker doit être démarré manuellement
+
+---
