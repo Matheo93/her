@@ -12569,3 +12569,43 @@ Moteur de recherche full-text:
 - Pas d'export PDF/PNG des charts
 - Pas de drag & drop pour réorganiser
 
+
+---
+
+## Sprint 827 - DataExport (Backend)
+
+**Date:** 2026-01-27
+**Domaine:** Backend
+
+### Ce que j'ai fait:
+1. **ExportColumn** - Définition colonne avec key, header, formatter, width, align
+2. **ExportOptions** - Options (format, compression, delimiter, encoding, pretty_print)
+3. **ExportResult** - Résultat avec success, data bytes, size, duration, to_base64()
+4. **Exporter ABC** - Base class avec export(), get_content_type(), get_file_extension()
+5. **CSVExporter** - Export CSV avec delimiter configurable
+6. **JSONExporter** - Export JSON avec pretty print
+7. **JSONLExporter** - Export JSON Lines (ndjson)
+8. **XMLExporter** - Export XML avec échappement
+9. **HTMLExporter** - Export table HTML avec styles inline
+10. **MarkdownExporter** - Export table Markdown avec alignement
+11. **YAMLExporter** - Export YAML
+12. **DataExportService** - Service principal avec compression ZIP/GZIP
+13. **ExportBuilder** - API fluent pour construire exports
+14. **ColumnFormatters** - Formatters préfaits (currency, percentage, date, boolean, number, truncate)
+
+**Note: 9/10**
+
+### Points positifs:
+- 7 formats supportés (CSV, JSON, JSONL, XML, HTML, Markdown, YAML)
+- Compression ZIP et GZIP intégrée
+- Formatters réutilisables pour colonnes
+- Streaming chunked pour gros exports
+- Auto-inférence des colonnes si non spécifiées
+- Base64 encoding pour transmission
+- 788 lignes bien structurées
+
+### Points négatifs:
+- Pas d'export Excel (XLSX) - nécessiterait openpyxl
+- Pas d'export PDF - nécessiterait reportlab
+- Pas de support streaming HTTP direct
+
