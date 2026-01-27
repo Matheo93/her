@@ -10602,3 +10602,46 @@ EmptyState - Composants pour états vides et erreurs
 - Pas de lazy loading des items
 - Manque TreeList pour structures hiérarchiques
 
+
+---
+
+## Sprint 769 - Backend ConnectionPool - Autocritique
+
+**Date:** 2026-01-27
+**Domaine:** Backend
+
+**Ce que j'ai fait:**
+1. **ConnectionPool** - Pool de connexions async
+   - min_size/max_size pour bounds
+   - acquire() avec context manager
+   - Validation avant utilisation
+   - max_idle_time pour cleanup
+   - max_lifetime pour rotation
+   - Background maintenance task
+2. **ConnectionFactory** - Abstraction pour création
+   - create(), validate(), close() methods
+   - SimpleConnectionFactory avec callables
+3. **PoolStats** - Métriques détaillées
+   - Acquisitions, releases, errors
+   - Wait times avg/max
+   - Connections created/closed
+4. **ResourcePool** - Pool sync pour non-connexions
+   - Thread-safe avec Lock
+   - Lazy cleanup des idle resources
+5. **create_pool()** - Helper simplifié
+
+**Note: 9/10**
+
+**Points positifs:**
+- API async-first avec context manager
+- Validation automatique des connexions
+- Maintenance background non-bloquante
+- Stats détaillées pour monitoring
+- Factory pattern extensible
+- Support pour timeout d'acquisition
+
+**Points négatifs:**
+- Pas de health check périodique proactif
+- Pas de connection warm-up async
+- Manque de support pour priority queue
+
