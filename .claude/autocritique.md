@@ -11226,3 +11226,32 @@ EmptyState - Composants pour états vides et erreurs
 
 **Note**: 9/10
 
+
+
+## Sprint 786 - MetricCard (Frontend)
+**Date**: 2026-01-27
+**Fichier**: `frontend/src/components/MetricCard.tsx`
+
+### Réalisations
+- MetricCard avec trend indicators et icônes
+- SparklineMetric avec SVG line chart
+- ProgressMetric avec progress bar animée
+- ComparisonMetric pour comparaisons périodes
+- MetricGrid layout responsive
+- AnimatedCounter avec easing animation
+- DonutMetric circular progress chart
+- Styling HER-themed avec coral accents
+
+### Points forts
+- SVG sparkline avec gradient fill
+- Counter animation avec easing cubic
+- Donut chart avec stroke-dasharray
+- Support loading state
+- Grid responsive 2/3/4 colonnes
+
+### Axes amélioration
+- Pourrait avoir plus de types de charts
+- Support thèmes multiples
+
+**Note**: 9/10
+
