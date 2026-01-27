@@ -11021,3 +11021,32 @@ EmptyState - Composants pour états vides et erreurs
 
 **Note**: 9/10
 
+
+
+## Sprint 779 - ServiceDiscovery (Backend)
+**Date**: 2026-01-27
+**Fichier**: `backend/service_discovery.py`
+
+### Réalisations
+- ServiceRegistry avec registration/deregistration
+- ServiceInstance avec status, weight, tags, metadata
+- Health checkers: HTTP et TCP
+- 5 load balancers: RoundRobin, Random, LeastConnections, Weighted, ConsistentHash
+- ServiceClient pour résolution service facile
+- Connection tracking pour LeastConnections
+- Watch mechanism pour changements services
+- TTL-based expiration des instances
+
+### Points forts
+- ConsistentHash avec virtual nodes
+- Thread-safe avec RLock
+- Graceful handling quand pas d event loop
+- Pattern factory pour balancers
+- Connection context manager
+
+### Axes amélioration
+- Pourrait avoir DNS-based discovery
+- Support multi-datacenter
+
+**Note**: 9/10
+
