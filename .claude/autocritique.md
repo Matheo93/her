@@ -9763,3 +9763,21 @@ Points à améliorer:
 - Persistance des jobs (actuellement in-memory)
 - Dead letter queue
 
+
+
+## Sprint 742 - Frontend DateRangePicker
+**Note: 8/10**
+
+Points forts:
+- Calendrier avec navigation mois/année
+- Presets rapides (Today, Last 7 days, This month, etc.)
+- Highlighting de la plage sélectionnée
+- Hover preview pendant la sélection
+- Support min/max date
+- Indicateur jour actuel
+
+Points à améliorer:
+- Sélection de l'heure (time picker complet)
+- Vue double calendrier (side by side)
+- Internationalisation des jours/mois
+

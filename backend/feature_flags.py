@@ -1,344 +1,496 @@
 """
-Feature Flags - Sprint 669
+Feature Flags - Sprint 743
 
 Feature flag management system.
 
 Features:
-- Boolean flags
-- Percentage rollout
+- Boolean and percentage flags
 - User targeting
-- Flag groups
-- Override support
+- Environment-based flags
+- A/B testing support
+- Flag persistence
 """
 
 import time
+import json
 import hashlib
-from dataclasses import dataclass, field
-from typing import Dict, List, Any, Optional, Set, Callable
-from enum import Enum
 import threading
-import random
+from dataclasses import dataclass, field
+from typing import (
+    Dict, List, Any, Optional, Callable, TypeVar, Union, Set
+)
+from enum import Enum
+from abc import ABC, abstractmethod
 
 
-class FlagStatus(str, Enum):
-    """Flag status."""
-    ENABLED = "enabled"
-    DISABLED = "disabled"
+T = TypeVar("T")
+
+
+class FlagType(str, Enum):
+    """Flag types."""
+    BOOLEAN = "boolean"
     PERCENTAGE = "percentage"
-    TARGETED = "targeted"
+    VARIANT = "variant"
+    USER_LIST = "user_list"
+    ENVIRONMENT = "environment"
+
+
+class Environment(str, Enum):
+    """Deployment environments."""
+    DEVELOPMENT = "development"
+    STAGING = "staging"
+    PRODUCTION = "production"
 
 
 @dataclass
 class FlagRule:
-    """Targeting rule."""
-    attribute: str
-    operator: str  # eq, ne, in, contains, gt, lt
+    """Targeting rule for a flag."""
+    type: str  # user_id, email, attribute, percentage
+    operator: str  # equals, contains, in, greater_than, etc.
     value: Any
+    enabled: bool = True
+
+
+@dataclass
+class FlagVariant:
+    """A/B test variant."""
+    name: str
+    weight: int = 1
+    payload: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class FeatureFlag:
     """Feature flag definition."""
+    key: str
     name: str
     description: str = ""
-    status: FlagStatus = FlagStatus.DISABLED
+    flag_type: FlagType = FlagType.BOOLEAN
+    enabled: bool = False
+    default_value: Any = None
     percentage: float = 0.0
+    variants: List[FlagVariant] = field(default_factory=list)
     rules: List[FlagRule] = field(default_factory=list)
-    enabled_users: Set[str] = field(default_factory=set)
-    disabled_users: Set[str] = field(default_factory=set)
+    environments: List[Environment] = field(default_factory=list)
+    user_whitelist: Set[str] = field(default_factory=set)
+    user_blacklist: Set[str] = field(default_factory=set)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            "key": self.key,
+            "name": self.name,
+            "description": self.description,
+            "flag_type": self.flag_type.value,
+            "enabled": self.enabled,
+            "default_value": self.default_value,
+            "percentage": self.percentage,
+            "variants": [{"name": v.name, "weight": v.weight, "payload": v.payload} for v in self.variants],
+            "environments": [e.value for e in self.environments],
+            "user_whitelist": list(self.user_whitelist),
+            "user_blacklist": list(self.user_blacklist),
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "metadata": self.metadata,
+        }
+
 
 @dataclass
 class FlagContext:
-    """Evaluation context."""
+    """Context for flag evaluation."""
     user_id: Optional[str] = None
+    email: Optional[str] = None
+    environment: Environment = Environment.DEVELOPMENT
     attributes: Dict[str, Any] = field(default_factory=dict)
 
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get context value."""
+        if key == "user_id":
+            return self.user_id
+        if key == "email":
+            return self.email
+        if key == "environment":
+            return self.environment
+        return self.attributes.get(key, default)
 
-class FeatureFlags:
-    """Feature flag management.
 
-    Usage:
-        flags = FeatureFlags()
+class FlagStore(ABC):
+    """Abstract flag storage."""
 
-        # Define flags
-        flags.create("dark_mode", status=FlagStatus.ENABLED)
-        flags.create("new_chat", status=FlagStatus.PERCENTAGE, percentage=50)
-        flags.create("beta_features", status=FlagStatus.TARGETED)
+    @abstractmethod
+    def get(self, key: str) -> Optional[FeatureFlag]:
+        """Get flag by key."""
+        pass
 
-        # Check flags
-        if flags.is_enabled("dark_mode"):
-            show_dark_mode()
+    @abstractmethod
+    def set(self, flag: FeatureFlag) -> None:
+        """Store flag."""
+        pass
 
-        # With context
-        ctx = FlagContext(user_id="user_123", attributes={"plan": "pro"})
-        if flags.is_enabled("beta_features", ctx):
-            show_beta()
+    @abstractmethod
+    def delete(self, key: str) -> bool:
+        """Delete flag."""
+        pass
 
-        # Overrides
-        flags.enable_for_user("new_chat", "user_123")
-    """
+    @abstractmethod
+    def list(self) -> List[FeatureFlag]:
+        """List all flags."""
+        pass
+
+
+class MemoryFlagStore(FlagStore):
+    """In-memory flag storage."""
 
     def __init__(self):
-        """Initialize feature flags."""
         self._flags: Dict[str, FeatureFlag] = {}
-        self._groups: Dict[str, List[str]] = {}
         self._lock = threading.Lock()
+
+    def get(self, key: str) -> Optional[FeatureFlag]:
+        return self._flags.get(key)
+
+    def set(self, flag: FeatureFlag) -> None:
+        with self._lock:
+            flag.updated_at = time.time()
+            self._flags[flag.key] = flag
+
+    def delete(self, key: str) -> bool:
+        with self._lock:
+            if key in self._flags:
+                del self._flags[key]
+                return True
+            return False
+
+    def list(self) -> List[FeatureFlag]:
+        return list(self._flags.values())
+
+
+class FeatureFlagManager:
+    """Feature flag manager.
+
+    Usage:
+        flags = FeatureFlagManager()
+
+        # Create flag
+        flags.create("new_feature", "New Feature", enabled=True)
+
+        # Check flag
+        if flags.is_enabled("new_feature"):
+            # New feature code
+            pass
+
+        # With context
+        ctx = FlagContext(user_id="user-123")
+        if flags.is_enabled("beta_feature", ctx):
+            # Beta feature for specific user
+            pass
+
+        # Percentage rollout
+        flags.create("gradual_rollout", "Gradual", flag_type=FlagType.PERCENTAGE, percentage=25.0)
+
+        # A/B testing
+        flags.create(
+            "experiment",
+            "A/B Test",
+            flag_type=FlagType.VARIANT,
+            variants=[
+                FlagVariant("control", weight=1),
+                FlagVariant("treatment", weight=1),
+            ]
+        )
+        variant = flags.get_variant("experiment", ctx)
+    """
+
+    def __init__(
+        self,
+        store: Optional[FlagStore] = None,
+        environment: Environment = Environment.DEVELOPMENT,
+    ):
+        """Initialize feature flag manager."""
+        self._store = store or MemoryFlagStore()
+        self._environment = environment
         self._listeners: List[Callable[[str, bool], None]] = []
+        self._cache: Dict[str, tuple] = {}
+        self._cache_ttl = 60.0
 
     def create(
         self,
+        key: str,
         name: str,
         description: str = "",
-        status: FlagStatus = FlagStatus.DISABLED,
+        flag_type: FlagType = FlagType.BOOLEAN,
+        enabled: bool = False,
+        default_value: Any = None,
         percentage: float = 0.0,
-        rules: Optional[List[FlagRule]] = None,
+        variants: Optional[List[FlagVariant]] = None,
+        environments: Optional[List[Environment]] = None,
     ) -> FeatureFlag:
-        """Create feature flag.
-
-        Args:
-            name: Flag name
-            description: Flag description
-            status: Initial status
-            percentage: Rollout percentage
-            rules: Targeting rules
-
-        Returns:
-            Created flag
-        """
+        """Create a feature flag."""
         flag = FeatureFlag(
+            key=key,
             name=name,
             description=description,
-            status=status,
+            flag_type=flag_type,
+            enabled=enabled,
+            default_value=default_value,
             percentage=percentage,
-            rules=rules or [],
+            variants=variants or [],
+            environments=environments or [Environment.DEVELOPMENT, Environment.STAGING, Environment.PRODUCTION],
         )
-
-        with self._lock:
-            self._flags[name] = flag
-
+        self._store.set(flag)
         return flag
 
-    def get(self, name: str) -> Optional[FeatureFlag]:
-        """Get flag by name."""
-        return self._flags.get(name)
+    def get_flag(self, key: str) -> Optional[FeatureFlag]:
+        """Get flag by key."""
+        return self._store.get(key)
 
-    def update(
-        self,
-        name: str,
-        status: Optional[FlagStatus] = None,
-        percentage: Optional[float] = None,
-        rules: Optional[List[FlagRule]] = None,
-    ) -> Optional[FeatureFlag]:
-        """Update flag."""
-        flag = self._flags.get(name)
+    def update(self, key: str, **kwargs: Any) -> Optional[FeatureFlag]:
+        """Update flag properties."""
+        flag = self._store.get(key)
         if not flag:
             return None
 
-        with self._lock:
-            if status is not None:
-                flag.status = status
-            if percentage is not None:
-                flag.percentage = percentage
-            if rules is not None:
-                flag.rules = rules
-            flag.updated_at = time.time()
+        for k, v in kwargs.items():
+            if hasattr(flag, k):
+                setattr(flag, k, v)
 
+        self._store.set(flag)
+        self._invalidate_cache(key)
         return flag
 
-    def delete(self, name: str) -> bool:
-        """Delete flag."""
-        with self._lock:
-            return self._flags.pop(name, None) is not None
+    def delete(self, key: str) -> bool:
+        """Delete a flag."""
+        self._invalidate_cache(key)
+        return self._store.delete(key)
+
+    def list_flags(self) -> List[FeatureFlag]:
+        """List all flags."""
+        return self._store.list()
 
     def is_enabled(
         self,
-        name: str,
+        key: str,
         context: Optional[FlagContext] = None,
+        default: bool = False,
     ) -> bool:
         """Check if flag is enabled.
 
         Args:
-            name: Flag name
+            key: Flag key
             context: Evaluation context
+            default: Default value if flag not found
 
         Returns:
-            True if enabled
+            Whether flag is enabled
         """
-        flag = self._flags.get(name)
+        flag = self._store.get(key)
         if not flag:
+            return default
+
+        # Check environment
+        ctx = context or FlagContext(environment=self._environment)
+        if flag.environments and ctx.environment not in flag.environments:
             return False
 
-        context = context or FlagContext()
+        # Check master switch
+        if not flag.enabled:
+            return False
 
-        # Check user overrides
-        if context.user_id:
-            if context.user_id in flag.disabled_users:
-                return False
-            if context.user_id in flag.enabled_users:
-                return True
+        # Check blacklist
+        if ctx.user_id and ctx.user_id in flag.user_blacklist:
+            return False
 
-        # Check status
-        if flag.status == FlagStatus.ENABLED:
+        # Check whitelist
+        if ctx.user_id and ctx.user_id in flag.user_whitelist:
             return True
 
-        if flag.status == FlagStatus.DISABLED:
+        # Evaluate by type
+        if flag.flag_type == FlagType.BOOLEAN:
+            return flag.enabled
+
+        if flag.flag_type == FlagType.PERCENTAGE:
+            return self._evaluate_percentage(flag, ctx)
+
+        if flag.flag_type == FlagType.USER_LIST:
+            return ctx.user_id in flag.user_whitelist if ctx.user_id else False
+
+        if flag.flag_type == FlagType.ENVIRONMENT:
+            return ctx.environment in flag.environments
+
+        return flag.enabled
+
+    def get_value(
+        self,
+        key: str,
+        context: Optional[FlagContext] = None,
+        default: Any = None,
+    ) -> Any:
+        """Get flag value."""
+        flag = self._store.get(key)
+        if not flag or not self.is_enabled(key, context):
+            return default
+        return flag.default_value if flag.default_value is not None else default
+
+    def get_variant(
+        self,
+        key: str,
+        context: Optional[FlagContext] = None,
+    ) -> Optional[FlagVariant]:
+        """Get variant for A/B test."""
+        flag = self._store.get(key)
+        if not flag or flag.flag_type != FlagType.VARIANT:
+            return None
+
+        if not self.is_enabled(key, context):
+            return None
+
+        return self._select_variant(flag, context)
+
+    def _evaluate_percentage(self, flag: FeatureFlag, context: FlagContext) -> bool:
+        """Evaluate percentage-based flag."""
+        if flag.percentage <= 0:
             return False
+        if flag.percentage >= 100:
+            return True
 
-        if flag.status == FlagStatus.PERCENTAGE:
-            return self._check_percentage(flag, context)
+        # Consistent hashing based on user_id or random
+        hash_key = f"{flag.key}:{context.user_id or ''}"
+        hash_value = int(hashlib.md5(hash_key.encode()).hexdigest()[:8], 16)
+        bucket = hash_value % 100
 
-        if flag.status == FlagStatus.TARGETED:
-            return self._check_rules(flag, context)
+        return bucket < flag.percentage
 
-        return False
+    def _select_variant(
+        self,
+        flag: FeatureFlag,
+        context: Optional[FlagContext],
+    ) -> Optional[FlagVariant]:
+        """Select variant based on weights."""
+        if not flag.variants:
+            return None
 
-    def _check_percentage(self, flag: FeatureFlag, context: FlagContext) -> bool:
-        """Check percentage rollout."""
-        if not context.user_id:
-            return random.random() * 100 < flag.percentage
+        total_weight = sum(v.weight for v in flag.variants)
+        if total_weight == 0:
+            return flag.variants[0] if flag.variants else None
 
-        # Consistent hashing for user
-        hash_input = f"{flag.name}:{context.user_id}"
-        hash_value = int(hashlib.md5(hash_input.encode()).hexdigest()[:8], 16)
-        user_percentage = (hash_value % 100)
-        return user_percentage < flag.percentage
+        # Consistent hashing
+        ctx = context or FlagContext()
+        hash_key = f"{flag.key}:{ctx.user_id or ''}"
+        hash_value = int(hashlib.md5(hash_key.encode()).hexdigest()[:8], 16)
+        bucket = hash_value % total_weight
 
-    def _check_rules(self, flag: FeatureFlag, context: FlagContext) -> bool:
-        """Check targeting rules."""
-        if not flag.rules:
-            return False
+        cumulative = 0
+        for variant in flag.variants:
+            cumulative += variant.weight
+            if bucket < cumulative:
+                return variant
 
-        for rule in flag.rules:
-            attr_value = context.attributes.get(rule.attribute)
-            if not self._evaluate_rule(rule, attr_value):
-                return False
+        return flag.variants[-1]
 
-        return True
+    def _invalidate_cache(self, key: str) -> None:
+        """Invalidate cache for key."""
+        if key in self._cache:
+            del self._cache[key]
 
-    def _evaluate_rule(self, rule: FlagRule, value: Any) -> bool:
-        """Evaluate single rule."""
-        if value is None:
-            return False
-
-        op = rule.operator
-        target = rule.value
-
-        if op == "eq":
-            return value == target
-        elif op == "ne":
-            return value != target
-        elif op == "in":
-            return value in target
-        elif op == "contains":
-            return target in str(value)
-        elif op == "gt":
-            return value > target
-        elif op == "lt":
-            return value < target
-        elif op == "gte":
-            return value >= target
-        elif op == "lte":
-            return value <= target
-
-        return False
-
-    def enable(self, name: str):
-        """Enable flag globally."""
-        self.update(name, status=FlagStatus.ENABLED)
-        self._notify(name, True)
-
-    def disable(self, name: str):
-        """Disable flag globally."""
-        self.update(name, status=FlagStatus.DISABLED)
-        self._notify(name, False)
-
-    def enable_for_user(self, name: str, user_id: str):
-        """Enable flag for specific user."""
-        flag = self._flags.get(name)
-        if flag:
-            with self._lock:
-                flag.enabled_users.add(user_id)
-                flag.disabled_users.discard(user_id)
-
-    def disable_for_user(self, name: str, user_id: str):
-        """Disable flag for specific user."""
-        flag = self._flags.get(name)
-        if flag:
-            with self._lock:
-                flag.disabled_users.add(user_id)
-                flag.enabled_users.discard(user_id)
-
-    def set_percentage(self, name: str, percentage: float):
-        """Set rollout percentage."""
-        self.update(name, status=FlagStatus.PERCENTAGE, percentage=percentage)
-
-    def create_group(self, group_name: str, flag_names: List[str]):
-        """Create flag group."""
-        with self._lock:
-            self._groups[group_name] = flag_names
-
-    def enable_group(self, group_name: str):
-        """Enable all flags in group."""
-        flags = self._groups.get(group_name, [])
-        for name in flags:
-            self.enable(name)
-
-    def disable_group(self, group_name: str):
-        """Disable all flags in group."""
-        flags = self._groups.get(group_name, [])
-        for name in flags:
-            self.disable(name)
-
-    def list_flags(self) -> List[FeatureFlag]:
-        """List all flags."""
-        return list(self._flags.values())
-
-    def on_change(self, callback: Callable[[str, bool], None]):
-        """Register change listener."""
+    def on_change(self, callback: Callable[[str, bool], None]) -> None:
+        """Register change callback."""
         self._listeners.append(callback)
 
-    def _notify(self, name: str, enabled: bool):
-        """Notify listeners."""
-        for listener in self._listeners:
-            try:
-                listener(name, enabled)
-            except Exception:
-                pass
+    def enable(self, key: str) -> bool:
+        """Enable a flag."""
+        flag = self.update(key, enabled=True)
+        if flag:
+            for listener in self._listeners:
+                listener(key, True)
+            return True
+        return False
 
-    def export(self) -> Dict[str, dict]:
-        """Export all flags."""
-        return {
-            name: {
-                "description": flag.description,
-                "status": flag.status.value,
-                "percentage": flag.percentage,
-                "rules": [
-                    {"attribute": r.attribute, "operator": r.operator, "value": r.value}
-                    for r in flag.rules
-                ],
-            }
-            for name, flag in self._flags.items()
-        }
+    def disable(self, key: str) -> bool:
+        """Disable a flag."""
+        flag = self.update(key, enabled=False)
+        if flag:
+            for listener in self._listeners:
+                listener(key, False)
+            return True
+        return False
 
-    def import_flags(self, data: Dict[str, dict]):
-        """Import flags from dict."""
-        for name, config in data.items():
-            status = FlagStatus(config.get("status", "disabled"))
-            rules = [
-                FlagRule(**r) for r in config.get("rules", [])
-            ]
-            self.create(
-                name=name,
-                description=config.get("description", ""),
-                status=status,
-                percentage=config.get("percentage", 0),
-                rules=rules,
-            )
+    def add_to_whitelist(self, key: str, user_id: str) -> bool:
+        """Add user to whitelist."""
+        flag = self._store.get(key)
+        if flag:
+            flag.user_whitelist.add(user_id)
+            self._store.set(flag)
+            return True
+        return False
+
+    def remove_from_whitelist(self, key: str, user_id: str) -> bool:
+        """Remove user from whitelist."""
+        flag = self._store.get(key)
+        if flag and user_id in flag.user_whitelist:
+            flag.user_whitelist.remove(user_id)
+            self._store.set(flag)
+            return True
+        return False
+
+    def add_to_blacklist(self, key: str, user_id: str) -> bool:
+        """Add user to blacklist."""
+        flag = self._store.get(key)
+        if flag:
+            flag.user_blacklist.add(user_id)
+            self._store.set(flag)
+            return True
+        return False
+
+    def set_percentage(self, key: str, percentage: float) -> bool:
+        """Set percentage for gradual rollout."""
+        if not 0 <= percentage <= 100:
+            return False
+        flag = self.update(key, percentage=percentage)
+        return flag is not None
 
 
 # Singleton instance
-feature_flags = FeatureFlags()
+feature_flags = FeatureFlagManager()
+
+
+# Convenience functions
+def create_flag(
+    key: str,
+    name: str,
+    enabled: bool = False,
+    **kwargs: Any,
+) -> FeatureFlag:
+    """Create a feature flag."""
+    return feature_flags.create(key, name, enabled=enabled, **kwargs)
+
+
+def is_enabled(key: str, context: Optional[FlagContext] = None) -> bool:
+    """Check if flag is enabled."""
+    return feature_flags.is_enabled(key, context)
+
+
+def get_variant(key: str, context: Optional[FlagContext] = None) -> Optional[FlagVariant]:
+    """Get A/B test variant."""
+    return feature_flags.get_variant(key, context)
+
+
+def flag(key: str, default: bool = False) -> Callable:
+    """Decorator for feature-flagged functions.
+
+    Usage:
+        @flag("new_algorithm")
+        def process_data(data):
+            # New algorithm
+            pass
+
+        # Falls back to default behavior if flag is disabled
+    """
+    def decorator(func: Callable) -> Callable:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            if is_enabled(key):
+                return func(*args, **kwargs)
+            return None
+        return wrapper
+    return decorator
