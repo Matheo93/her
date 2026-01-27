@@ -12327,3 +12327,20 @@ Composants de pricing pour SaaS:
 - PricingSummary: récapitulatif de commande avec checkout
 
 Utilitaires: formatPrice (Intl.NumberFormat), formatDiscount
+
+
+## Sprint 819 - NotificationSystem (Backend)
+**Note**: 9/10
+
+Système de notifications multi-canal:
+- NotificationChannel: EMAIL, SMS, PUSH, WEBHOOK, IN_APP, SLACK
+- NotificationRecipient: destinataire avec préférences par canal
+- NotificationTemplate: templates avec variables {name} et rendering
+- Notification: avec priority, status, scheduling, retry
+- NotificationProvider: interface abstraite + mocks (Email, SMS, Webhook, Console)
+- TemplateRegistry: registre de templates
+- NotificationQueue: priority queue (URGENT > HIGH > NORMAL > LOW)
+- RateLimiter: global et par destinataire
+- NotificationService: service principal avec queue, providers, templates
+- NotificationBuilder: fluent builder pattern
+- Fonctionnalités: send_immediate, send (queued), send_bulk, stats
