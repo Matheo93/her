@@ -12344,3 +12344,29 @@ Système de notifications multi-canal:
 - NotificationService: service principal avec queue, providers, templates
 - NotificationBuilder: fluent builder pattern
 - Fonctionnalités: send_immediate, send (queued), send_bulk, stats
+
+
+## Sprint 820 - Wizard (Frontend) - MILESTONE 813-820
+**Note**: 9/10
+
+Composants wizard multi-étapes:
+- WizardProvider/useWizard: Context avec steps, data, navigation
+- StepIndicator: indicateurs horizontal (default, compact, dots)
+- VerticalStepIndicator: indicateurs vertical avec lignes
+- WizardContent: affichage du contenu avec animations
+- WizardNavigation: contrôles Back/Next/Complete avec loading
+- WizardStep: wrapper de step
+- WizardSummary: récapitulatif des données
+- Wizard: composant complet avec header/footer
+- MultiPanelWizard: layout deux colonnes
+- useFormWizard: hook pour formulaires avec updateField, setField
+
+Milestone Sprint 813-820:
+- 813: RequestValidator (backend)
+- 814: MediaPlayer (frontend)
+- 815: ResourceManager (backend)
+- 816: FilterControls (frontend)
+- 817: BatchProcessor (backend)
+- 818: PricingCards (frontend)
+- 819: NotificationSystem (backend)
+- 820: Wizard (frontend)
