@@ -1,515 +1,592 @@
 """
-API Versioning - Sprint 627
+API Versioning - Sprint 809
 
-API versioning system for backwards compatibility.
+API versioning utilities with routing and deprecation.
 
 Features:
-- Version detection (header/path/query)
-- Version deprecation
-- Migration helpers
+- URL-based versioning
+- Header-based versioning
+- Query param versioning
+- Version negotiation
+- Deprecation warnings
 - Version routing
-- Changelog tracking
 """
 
-import time
+import functools
+import re
+import warnings
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Optional, List, Any, Callable
+from datetime import datetime, timedelta
 from enum import Enum
-from functools import wraps
-from fastapi import Request, HTTPException
-from threading import Lock
+from typing import (
+    Any, Callable, Dict, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
+)
+
+T = TypeVar("T")
 
 
-class VersionStatus(str, Enum):
-    """API version status."""
-    CURRENT = "current"
-    SUPPORTED = "supported"
-    DEPRECATED = "deprecated"
-    SUNSET = "sunset"
+class VersionFormat(str, Enum):
+    """Version format types."""
+    SEMVER = "semver"  # v1.2.3
+    MAJOR = "major"    # v1
+    DATE = "date"      # 2024-01-15
 
 
-class VersionSource(str, Enum):
-    """Where to extract version from."""
-    HEADER = "header"
-    PATH = "path"
-    QUERY = "query"
-
-
-@dataclass
-class APIVersion:
-    """An API version definition."""
-    version: str
-    status: VersionStatus = VersionStatus.CURRENT
-    release_date: Optional[str] = None
-    deprecation_date: Optional[str] = None
-    sunset_date: Optional[str] = None
-    changelog: List[str] = field(default_factory=list)
-    breaking_changes: List[str] = field(default_factory=list)
-    migrations: Dict[str, str] = field(default_factory=dict)
-
-    def to_dict(self) -> dict:
-        return {
-            "version": self.version,
-            "status": self.status.value,
-            "release_date": self.release_date,
-            "deprecation_date": self.deprecation_date,
-            "sunset_date": self.sunset_date,
-            "changelog": self.changelog,
-            "breaking_changes": self.breaking_changes,
-        }
-
-
-@dataclass
-class VersionedResponse:
-    """Response wrapper with version info."""
-    data: Any
-    version: str
-    deprecated: bool = False
-    sunset_date: Optional[str] = None
-    warnings: List[str] = field(default_factory=list)
-
-    def to_dict(self) -> dict:
-        result = {
-            "data": self.data,
-            "_meta": {
-                "api_version": self.version,
-            }
-        }
-
-        if self.deprecated:
-            result["_meta"]["deprecated"] = True
-        if self.sunset_date:
-            result["_meta"]["sunset_date"] = self.sunset_date
-        if self.warnings:
-            result["_meta"]["warnings"] = self.warnings
-
-        return result
-
-
-class APIVersionManager:
-    """API versioning manager.
+@dataclass(frozen=True, order=True)
+class Version:
+    """API version representation.
 
     Usage:
-        versioning = APIVersionManager()
+        v1 = Version(1, 0, 0)
+        v2 = Version(2, 0, 0)
+        assert v2 > v1
 
-        # Define versions
-        versioning.add_version(
-            "v1",
-            status=VersionStatus.DEPRECATED,
-            deprecation_date="2024-01-01",
-            sunset_date="2024-07-01"
+        v = Version.parse("v1.2.3")
+        assert v.major == 1
+    """
+    major: int
+    minor: int = 0
+    patch: int = 0
+
+    def __str__(self) -> str:
+        if self.minor == 0 and self.patch == 0:
+            return "v" + str(self.major)
+        if self.patch == 0:
+            return "v" + str(self.major) + "." + str(self.minor)
+        return "v" + str(self.major) + "." + str(self.minor) + "." + str(self.patch)
+
+    @classmethod
+    def parse(cls, version_str: str) -> "Version":
+        """Parse version from string."""
+        if not version_str:
+            raise ValueError("Empty version string")
+
+        # Remove 'v' prefix if present
+        clean = version_str.lower().strip()
+        if clean.startswith("v"):
+            clean = clean[1:]
+
+        parts = clean.split(".")
+
+        try:
+            major = int(parts[0])
+            minor = int(parts[1]) if len(parts) > 1 else 0
+            patch = int(parts[2]) if len(parts) > 2 else 0
+            return cls(major, minor, patch)
+        except (ValueError, IndexError) as e:
+            raise ValueError("Invalid version format: " + version_str) from e
+
+    def is_compatible_with(self, other: "Version") -> bool:
+        """Check if versions are compatible (same major version)."""
+        return self.major == other.major
+
+    def to_tuple(self) -> Tuple[int, int, int]:
+        """Convert to tuple."""
+        return (self.major, self.minor, self.patch)
+
+
+@dataclass
+class DeprecationInfo:
+    """Deprecation information for an endpoint."""
+    deprecated_at: datetime
+    sunset_at: Optional[datetime] = None
+    replacement: Optional[str] = None
+    message: Optional[str] = None
+
+    @property
+    def is_sunset(self) -> bool:
+        """Check if the endpoint is past sunset date."""
+        if self.sunset_at:
+            return datetime.now() >= self.sunset_at
+        return False
+
+    @property
+    def days_until_sunset(self) -> Optional[int]:
+        """Days until sunset, or None if no sunset date."""
+        if self.sunset_at:
+            delta = self.sunset_at - datetime.now()
+            return max(0, delta.days)
+        return None
+
+
+@dataclass
+class VersionedEndpoint:
+    """Endpoint with version information."""
+    path: str
+    method: str
+    handler: Callable
+    version: Version
+    deprecated: Optional[DeprecationInfo] = None
+    description: str = ""
+    tags: List[str] = field(default_factory=list)
+
+    @property
+    def is_deprecated(self) -> bool:
+        return self.deprecated is not None
+
+    def get_deprecation_headers(self) -> Dict[str, str]:
+        """Get HTTP headers for deprecation."""
+        headers = {}
+        if self.deprecated:
+            headers["Deprecation"] = self.deprecated.deprecated_at.isoformat()
+            if self.deprecated.sunset_at:
+                headers["Sunset"] = self.deprecated.sunset_at.isoformat()
+            if self.deprecated.replacement:
+                headers["Link"] = '<' + self.deprecated.replacement + '>; rel="successor-version"'
+        return headers
+
+
+class VersionExtractor(ABC):
+    """Abstract version extractor."""
+
+    @abstractmethod
+    def extract(self, request: Any) -> Optional[Version]:
+        """Extract version from request."""
+        pass
+
+
+class URLVersionExtractor(VersionExtractor):
+    """Extract version from URL path.
+
+    Usage:
+        extractor = URLVersionExtractor()
+        version = extractor.extract_from_path("/api/v1/users")
+        assert version == Version(1, 0, 0)
+    """
+
+    def __init__(self, pattern: str = r"/v(\d+(?:\.\d+(?:\.\d+)?)?)"):
+        self.pattern = re.compile(pattern)
+
+    def extract(self, request: Any) -> Optional[Version]:
+        """Extract version from request path."""
+        path = getattr(request, "path", "") or getattr(request, "url", {}).get("path", "")
+        return self.extract_from_path(path)
+
+    def extract_from_path(self, path: str) -> Optional[Version]:
+        """Extract version from path string."""
+        match = self.pattern.search(path)
+        if match:
+            return Version.parse(match.group(1))
+        return None
+
+
+class HeaderVersionExtractor(VersionExtractor):
+    """Extract version from HTTP header.
+
+    Usage:
+        extractor = HeaderVersionExtractor("X-API-Version")
+        # Extracts from X-API-Version: v1.2.3
+    """
+
+    def __init__(self, header_name: str = "X-API-Version"):
+        self.header_name = header_name
+
+    def extract(self, request: Any) -> Optional[Version]:
+        """Extract version from request headers."""
+        headers = getattr(request, "headers", {})
+        version_str = headers.get(self.header_name)
+        if version_str:
+            try:
+                return Version.parse(version_str)
+            except ValueError:
+                return None
+        return None
+
+
+class AcceptHeaderVersionExtractor(VersionExtractor):
+    """Extract version from Accept header.
+
+    Usage:
+        extractor = AcceptHeaderVersionExtractor()
+        # Extracts from Accept: application/vnd.api.v1+json
+    """
+
+    def __init__(self, vendor: str = "api", pattern: Optional[str] = None):
+        self.vendor = vendor
+        self.pattern = re.compile(
+            pattern or r"application/vnd\." + vendor + r"\.v(\d+(?:\.\d+(?:\.\d+)?)?)\+\w+"
         )
 
-        versioning.add_version(
-            "v2",
-            status=VersionStatus.CURRENT,
-            release_date="2024-01-01",
-            changelog=["New endpoints", "Better performance"]
+    def extract(self, request: Any) -> Optional[Version]:
+        """Extract version from Accept header."""
+        headers = getattr(request, "headers", {})
+        accept = headers.get("Accept", "")
+        match = self.pattern.search(accept)
+        if match:
+            return Version.parse(match.group(1))
+        return None
+
+
+class QueryParamVersionExtractor(VersionExtractor):
+    """Extract version from query parameter.
+
+    Usage:
+        extractor = QueryParamVersionExtractor("version")
+        # Extracts from ?version=1.2.3
+    """
+
+    def __init__(self, param_name: str = "version"):
+        self.param_name = param_name
+
+    def extract(self, request: Any) -> Optional[Version]:
+        """Extract version from query params."""
+        params = getattr(request, "query_params", {})
+        if not params:
+            params = getattr(request, "args", {})
+
+        version_str = params.get(self.param_name)
+        if version_str:
+            try:
+                return Version.parse(version_str)
+            except ValueError:
+                return None
+        return None
+
+
+class VersionNegotiator:
+    """Negotiate API version from request.
+
+    Usage:
+        negotiator = VersionNegotiator(
+            extractors=[
+                HeaderVersionExtractor(),
+                URLVersionExtractor(),
+                QueryParamVersionExtractor(),
+            ],
+            default_version=Version(1, 0, 0),
+            supported_versions=[Version(1, 0, 0), Version(2, 0, 0)]
         )
-
-        # Get version from request
-        version = versioning.get_version(request)
-
-        # Check if version is valid
-        if not versioning.is_valid(version):
-            raise HTTPException(status_code=400, detail="Invalid API version")
+        version = negotiator.negotiate(request)
     """
 
     def __init__(
         self,
-        default_version: str = "v1",
-        header_name: str = "X-API-Version",
-        query_param: str = "api_version",
-        version_source: VersionSource = VersionSource.HEADER
+        extractors: List[VersionExtractor],
+        default_version: Version,
+        supported_versions: List[Version],
     ):
-        """Initialize version manager.
+        self.extractors = extractors
+        self.default_version = default_version
+        self.supported_versions = set(supported_versions)
 
-        Args:
-            default_version: Default version if not specified
-            header_name: Header name for version
-            query_param: Query parameter for version
-            version_source: Where to look for version
-        """
-        self._versions: Dict[str, APIVersion] = {}
-        self._default_version = default_version
-        self._header_name = header_name
-        self._query_param = query_param
-        self._version_source = version_source
-        self._lock = Lock()
-        self._transformers: Dict[str, Dict[str, Callable]] = {}
+    def negotiate(self, request: Any) -> Version:
+        """Negotiate version from request."""
+        for extractor in self.extractors:
+            version = extractor.extract(request)
+            if version:
+                # Find best matching supported version
+                best_match = self._find_best_match(version)
+                if best_match:
+                    return best_match
 
-    def add_version(
-        self,
-        version: str,
-        status: VersionStatus = VersionStatus.CURRENT,
-        release_date: Optional[str] = None,
-        deprecation_date: Optional[str] = None,
-        sunset_date: Optional[str] = None,
-        changelog: Optional[List[str]] = None,
-        breaking_changes: Optional[List[str]] = None
-    ) -> APIVersion:
-        """Add a new API version.
+        return self.default_version
 
-        Args:
-            version: Version string (e.g., "v1", "v2")
-            status: Version status
-            release_date: Release date
-            deprecation_date: Deprecation date
-            sunset_date: Sunset date
-            changelog: List of changes
-            breaking_changes: List of breaking changes
+    def _find_best_match(self, requested: Version) -> Optional[Version]:
+        """Find best matching supported version."""
+        # Exact match
+        if requested in self.supported_versions:
+            return requested
 
-        Returns:
-            Created version
-        """
-        api_version = APIVersion(
-            version=version,
-            status=status,
-            release_date=release_date,
-            deprecation_date=deprecation_date,
-            sunset_date=sunset_date,
-            changelog=changelog or [],
-            breaking_changes=breaking_changes or [],
-        )
+        # Find compatible versions (same major)
+        compatible = [v for v in self.supported_versions if v.major == requested.major]
+        if compatible:
+            # Return highest compatible version
+            return max(compatible)
 
-        with self._lock:
-            self._versions[version] = api_version
-
-        return api_version
-
-    def get_version_info(self, version: str) -> Optional[Dict[str, Any]]:
-        """Get version information.
-
-        Args:
-            version: Version string
-
-        Returns:
-            Version info or None
-        """
-        with self._lock:
-            v = self._versions.get(version)
-            return v.to_dict() if v else None
-
-    def get_version(self, request: Request) -> str:
-        """Extract version from request.
-
-        Args:
-            request: FastAPI request
-
-        Returns:
-            Version string
-        """
-        version = None
-
-        # Try header first
-        if self._version_source == VersionSource.HEADER:
-            version = request.headers.get(self._header_name)
-
-        # Try query parameter
-        elif self._version_source == VersionSource.QUERY:
-            version = request.query_params.get(self._query_param)
-
-        # Try path (e.g., /v1/users)
-        elif self._version_source == VersionSource.PATH:
-            path = request.url.path
-            parts = path.split("/")
-            for part in parts:
-                if part.startswith("v") and part[1:].isdigit():
-                    version = part
-                    break
-
-        return version or self._default_version
-
-    def is_valid(self, version: str) -> bool:
-        """Check if version is valid (exists and not sunset).
-
-        Args:
-            version: Version string
-
-        Returns:
-            True if valid
-        """
-        with self._lock:
-            v = self._versions.get(version)
-            if not v:
-                return False
-            return v.status != VersionStatus.SUNSET
-
-    def is_deprecated(self, version: str) -> bool:
-        """Check if version is deprecated.
-
-        Args:
-            version: Version string
-
-        Returns:
-            True if deprecated
-        """
-        with self._lock:
-            v = self._versions.get(version)
-            return v.status == VersionStatus.DEPRECATED if v else False
-
-    def is_current(self, version: str) -> bool:
-        """Check if version is current.
-
-        Args:
-            version: Version string
-
-        Returns:
-            True if current
-        """
-        with self._lock:
-            v = self._versions.get(version)
-            return v.status == VersionStatus.CURRENT if v else False
-
-    def get_current_version(self) -> Optional[str]:
-        """Get current version.
-
-        Returns:
-            Current version string
-        """
-        with self._lock:
-            for version, v in self._versions.items():
-                if v.status == VersionStatus.CURRENT:
-                    return version
         return None
 
-    def list_versions(
+    def is_supported(self, version: Version) -> bool:
+        """Check if version is supported."""
+        return version in self.supported_versions
+
+
+class VersionRouter:
+    """Route requests to versioned handlers.
+
+    Usage:
+        router = VersionRouter()
+
+        @router.route("/users", method="GET", version=Version(1))
+        def get_users_v1():
+            return {"users": [...]}
+
+        @router.route("/users", method="GET", version=Version(2))
+        def get_users_v2():
+            return {"data": {"users": [...]}, "meta": {...}}
+
+        handler = router.resolve("/users", "GET", Version(2))
+    """
+
+    def __init__(self, default_version: Optional[Version] = None):
+        self.default_version = default_version or Version(1, 0, 0)
+        self._routes: Dict[str, Dict[str, Dict[Version, VersionedEndpoint]]] = {}
+        self._deprecations: Dict[Tuple[str, str, Version], DeprecationInfo] = {}
+
+    def route(
         self,
-        include_sunset: bool = False
-    ) -> List[Dict[str, Any]]:
-        """List all versions.
+        path: str,
+        method: str = "GET",
+        version: Optional[Version] = None,
+        deprecated: Optional[DeprecationInfo] = None,
+        description: str = "",
+        tags: Optional[List[str]] = None,
+    ) -> Callable:
+        """Decorator to register a versioned route."""
+        def decorator(func: Callable) -> Callable:
+            v = version or self.default_version
+            self.add_route(
+                path=path,
+                method=method.upper(),
+                handler=func,
+                version=v,
+                deprecated=deprecated,
+                description=description,
+                tags=tags or [],
+            )
+            return func
+        return decorator
 
-        Args:
-            include_sunset: Include sunset versions
-
-        Returns:
-            List of version info
-        """
-        with self._lock:
-            versions = list(self._versions.values())
-
-        if not include_sunset:
-            versions = [v for v in versions if v.status != VersionStatus.SUNSET]
-
-        return [v.to_dict() for v in versions]
-
-    def deprecate_version(
+    def add_route(
         self,
-        version: str,
-        deprecation_date: str,
-        sunset_date: Optional[str] = None
-    ) -> bool:
-        """Mark a version as deprecated.
+        path: str,
+        method: str,
+        handler: Callable,
+        version: Version,
+        deprecated: Optional[DeprecationInfo] = None,
+        description: str = "",
+        tags: Optional[List[str]] = None,
+    ) -> None:
+        """Add a versioned route."""
+        if path not in self._routes:
+            self._routes[path] = {}
+        if method not in self._routes[path]:
+            self._routes[path][method] = {}
 
-        Args:
-            version: Version to deprecate
-            deprecation_date: Deprecation date
-            sunset_date: Optional sunset date
-
-        Returns:
-            True if deprecated
-        """
-        with self._lock:
-            v = self._versions.get(version)
-            if not v:
-                return False
-
-            v.status = VersionStatus.DEPRECATED
-            v.deprecation_date = deprecation_date
-            if sunset_date:
-                v.sunset_date = sunset_date
-            return True
-
-    def sunset_version(self, version: str) -> bool:
-        """Mark a version as sunset (no longer available).
-
-        Args:
-            version: Version to sunset
-
-        Returns:
-            True if sunset
-        """
-        with self._lock:
-            v = self._versions.get(version)
-            if not v:
-                return False
-
-            v.status = VersionStatus.SUNSET
-            return True
-
-    def register_transformer(
-        self,
-        endpoint: str,
-        from_version: str,
-        to_version: str,
-        transformer: Callable[[Dict[str, Any]], Dict[str, Any]]
-    ):
-        """Register a response transformer for version migration.
-
-        Args:
-            endpoint: Endpoint pattern
-            from_version: Source version
-            to_version: Target version
-            transformer: Transformation function
-        """
-        key = f"{endpoint}:{from_version}->{to_version}"
-        with self._lock:
-            self._transformers[key] = transformer
-
-    def transform_response(
-        self,
-        endpoint: str,
-        from_version: str,
-        to_version: str,
-        data: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Transform response between versions.
-
-        Args:
-            endpoint: Endpoint
-            from_version: Source version
-            to_version: Target version
-            data: Response data
-
-        Returns:
-            Transformed data
-        """
-        key = f"{endpoint}:{from_version}->{to_version}"
-        with self._lock:
-            transformer = self._transformers.get(key)
-
-        if transformer:
-            return transformer(data)
-        return data
-
-    def wrap_response(
-        self,
-        data: Any,
-        version: str
-    ) -> Dict[str, Any]:
-        """Wrap response with version metadata.
-
-        Args:
-            data: Response data
-            version: API version
-
-        Returns:
-            Wrapped response
-        """
-        with self._lock:
-            v = self._versions.get(version)
-
-        response = VersionedResponse(
-            data=data,
+        endpoint = VersionedEndpoint(
+            path=path,
+            method=method,
+            handler=handler,
             version=version,
-            deprecated=v.status == VersionStatus.DEPRECATED if v else False,
-            sunset_date=v.sunset_date if v else None,
+            deprecated=deprecated,
+            description=description,
+            tags=tags or [],
         )
 
-        if v and v.status == VersionStatus.DEPRECATED:
-            response.warnings.append(
-                f"API version {version} is deprecated. "
-                f"Please migrate to the current version."
+        self._routes[path][method][version] = endpoint
+
+        if deprecated:
+            self._deprecations[(path, method, version)] = deprecated
+
+    def resolve(
+        self,
+        path: str,
+        method: str,
+        version: Optional[Version] = None,
+    ) -> Optional[VersionedEndpoint]:
+        """Resolve handler for path, method, and version."""
+        method = method.upper()
+        v = version or self.default_version
+
+        if path not in self._routes:
+            return None
+        if method not in self._routes[path]:
+            return None
+
+        versions = self._routes[path][method]
+
+        # Exact match
+        if v in versions:
+            return versions[v]
+
+        # Find closest compatible version
+        compatible = [ver for ver in versions.keys() if ver.major == v.major and ver <= v]
+        if compatible:
+            return versions[max(compatible)]
+
+        return None
+
+    def get_all_versions(self, path: str, method: str) -> List[Version]:
+        """Get all versions for a path/method."""
+        method = method.upper()
+        if path in self._routes and method in self._routes[path]:
+            return sorted(self._routes[path][method].keys())
+        return []
+
+    def deprecate(
+        self,
+        path: str,
+        method: str,
+        version: Version,
+        sunset_days: int = 90,
+        replacement: Optional[str] = None,
+        message: Optional[str] = None,
+    ) -> None:
+        """Mark a version as deprecated."""
+        method = method.upper()
+        if path in self._routes and method in self._routes[path] and version in self._routes[path][method]:
+            deprecation = DeprecationInfo(
+                deprecated_at=datetime.now(),
+                sunset_at=datetime.now() + timedelta(days=sunset_days),
+                replacement=replacement,
+                message=message,
             )
+            self._routes[path][method][version].deprecated = deprecation
+            self._deprecations[(path, method, version)] = deprecation
 
-        return response.to_dict()
-
-    def get_deprecation_headers(self, version: str) -> Dict[str, str]:
-        """Get deprecation headers for response.
-
-        Args:
-            version: API version
-
-        Returns:
-            Headers dict
-        """
-        headers = {}
-
-        with self._lock:
-            v = self._versions.get(version)
-
-        if v and v.status == VersionStatus.DEPRECATED:
-            headers["Deprecation"] = v.deprecation_date or "true"
-            if v.sunset_date:
-                headers["Sunset"] = v.sunset_date
-            current = self.get_current_version()
-            if current:
-                headers["Link"] = f'</api/{current}>; rel="successor-version"'
-
-        return headers
+    def get_deprecations(self) -> List[Tuple[str, str, Version, DeprecationInfo]]:
+        """Get all deprecated endpoints."""
+        result = []
+        for (path, method, version), info in self._deprecations.items():
+            result.append((path, method, version, info))
+        return result
 
 
-def version_required(
-    manager: APIVersionManager,
-    min_version: Optional[str] = None,
-    max_version: Optional[str] = None
-):
-    """Decorator to enforce version requirements.
+def versioned(
+    version: Union[Version, str],
+    deprecated: bool = False,
+    sunset_days: int = 90,
+    replacement: Optional[str] = None,
+) -> Callable:
+    """Decorator to mark a function with version info.
 
-    Args:
-        manager: Version manager
-        min_version: Minimum required version
-        max_version: Maximum supported version
+    Usage:
+        @versioned("v1")
+        def get_users():
+            ...
+
+        @versioned("v2", deprecated=True, replacement="/api/v3/users")
+        def get_users_v2():
+            ...
     """
-    def decorator(func: Callable):
-        @wraps(func)
-        async def wrapper(*args, request: Request = None, **kwargs):
-            if request is None:
-                # Try to find request in args
-                for arg in args:
-                    if isinstance(arg, Request):
-                        request = arg
-                        break
+    def decorator(func: Callable) -> Callable:
+        v = Version.parse(version) if isinstance(version, str) else version
 
-            if request:
-                version = manager.get_version(request)
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            if deprecated:
+                warnings.warn(
+                    "This endpoint is deprecated" +
+                    (". Use " + replacement + " instead" if replacement else ""),
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+            return func(*args, **kwargs)
 
-                if not manager.is_valid(version):
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Invalid API version: {version}"
-                    )
+        # Attach version metadata
+        wrapper._api_version = v
+        wrapper._deprecated = deprecated
+        wrapper._replacement = replacement
+        wrapper._sunset_days = sunset_days
 
-                # Version comparison (simple string comparison)
-                if min_version and version < min_version:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Minimum API version required: {min_version}"
-                    )
-
-                if max_version and version > max_version:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Maximum API version supported: {max_version}"
-                    )
-
-            return await func(*args, request=request, **kwargs)
         return wrapper
     return decorator
 
 
-# Singleton instance
-api_versioning = APIVersionManager()
+class VersionedAPI:
+    """API with version management.
 
-# Define default versions
-api_versioning.add_version(
-    "v1",
-    status=VersionStatus.SUPPORTED,
-    release_date="2024-01-01",
-    changelog=["Initial API release", "Core endpoints"],
-)
+    Usage:
+        api = VersionedAPI(
+            name="MyAPI",
+            current_version=Version(2, 0, 0),
+            supported_versions=[Version(1), Version(2)],
+        )
 
-api_versioning.add_version(
-    "v2",
-    status=VersionStatus.CURRENT,
-    release_date="2024-06-01",
-    changelog=[
-        "Improved response format",
-        "Better error handling",
-        "New streaming endpoints",
-    ],
-    breaking_changes=[
-        "Response envelope format changed",
-        "Authentication token format updated",
-    ],
-)
+        api.deprecate_version(Version(1), sunset_days=30)
+
+        @api.endpoint("/users", methods=["GET"])
+        def get_users(version: Version):
+            if version.major == 1:
+                return v1_response()
+            return v2_response()
+    """
+
+    def __init__(
+        self,
+        name: str,
+        current_version: Version,
+        supported_versions: List[Version],
+        default_version: Optional[Version] = None,
+    ):
+        self.name = name
+        self.current_version = current_version
+        self.supported_versions = set(supported_versions)
+        self.default_version = default_version or min(supported_versions)
+        self.router = VersionRouter(self.default_version)
+        self._version_deprecations: Dict[Version, DeprecationInfo] = {}
+
+    def deprecate_version(
+        self,
+        version: Version,
+        sunset_days: int = 90,
+        message: Optional[str] = None,
+    ) -> None:
+        """Deprecate an entire API version."""
+        self._version_deprecations[version] = DeprecationInfo(
+            deprecated_at=datetime.now(),
+            sunset_at=datetime.now() + timedelta(days=sunset_days),
+            message=message,
+        )
+
+    def is_version_deprecated(self, version: Version) -> bool:
+        """Check if a version is deprecated."""
+        return version in self._version_deprecations
+
+    def get_version_info(self, version: Version) -> Dict[str, Any]:
+        """Get information about a version."""
+        deprecated_info = self._version_deprecations.get(version)
+        return {
+            "version": str(version),
+            "supported": version in self.supported_versions,
+            "current": version == self.current_version,
+            "deprecated": deprecated_info is not None,
+            "deprecation_info": {
+                "deprecated_at": deprecated_info.deprecated_at.isoformat(),
+                "sunset_at": deprecated_info.sunset_at.isoformat() if deprecated_info.sunset_at else None,
+                "message": deprecated_info.message,
+            } if deprecated_info else None,
+        }
+
+    def endpoint(
+        self,
+        path: str,
+        methods: List[str] = None,
+        versions: Optional[List[Version]] = None,
+    ) -> Callable:
+        """Decorator to register an endpoint for multiple versions."""
+        methods = methods or ["GET"]
+        versions = versions or list(self.supported_versions)
+
+        def decorator(func: Callable) -> Callable:
+            for method in methods:
+                for version in versions:
+                    deprecated = self._version_deprecations.get(version)
+                    self.router.add_route(
+                        path=path,
+                        method=method,
+                        handler=func,
+                        version=version,
+                        deprecated=deprecated,
+                    )
+            return func
+        return decorator
+
+    def get_supported_versions(self) -> List[Version]:
+        """Get list of supported versions."""
+        return sorted(self.supported_versions)
+
+    def get_deprecated_versions(self) -> List[Tuple[Version, DeprecationInfo]]:
+        """Get list of deprecated versions with info."""
+        return [(v, info) for v, info in self._version_deprecations.items()]
+
+
+# Convenience functions
+def parse_version(version_str: str) -> Version:
+    """Parse version string."""
+    return Version.parse(version_str)
+
+
+def v(major: int, minor: int = 0, patch: int = 0) -> Version:
+    """Create version shorthand."""
+    return Version(major, minor, patch)
