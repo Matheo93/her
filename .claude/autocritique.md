@@ -9853,3 +9853,20 @@ Points à améliorer:
 - Emoji confetti
 - Sound effects
 
+
+
+## Sprint 747 - Backend Rate Limiter
+**Note: 9/10**
+
+Points forts:
+- 4 algorithmes (token bucket, sliding window, fixed window, leaky bucket)
+- Manager pour gérer plusieurs limiteurs
+- Décorateur @rate_limit
+- RateLimitResult avec retry_after et remaining
+- Thread-safe avec locks
+- Exception RateLimitExceeded
+
+Points à améliorer:
+- Support Redis pour distribution
+- Headers HTTP standard (X-RateLimit-*)
+
