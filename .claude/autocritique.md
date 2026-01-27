@@ -10739,3 +10739,51 @@ EmptyState - Composants pour états vides et erreurs
 - Pas de validation conditionnelle (when)
 - Manque de i18n pour messages
 
+
+---
+
+## Sprint 772 - Frontend AlertDialog - Autocritique
+
+**Date:** 2026-01-27
+**Domaine:** Frontend
+
+**Ce que j'ai fait:**
+1. **AlertDialog** - Dialog d'alerte principal
+   - Variants: info, warning, error, success
+   - Destructive mode (red)
+   - Async onConfirm avec loading
+   - Escape key pour fermer
+   - Focus automatique sur confirm
+   - ARIA alertdialog
+2. **ConfirmDialog** - Simple confirmation
+   - Wrapper simplifié d'AlertDialog
+3. **DeleteDialog** - Actions destructives
+   - Message par défaut
+   - Item name optionnel
+4. **InputConfirmDialog** - Type to confirm
+   - Validation de valeur requise
+   - Feedback visuel d'erreur
+   - Enter pour confirmer
+5. **AlertBanner** - Alerte inline
+   - Dismiss button
+   - Action optionnelle
+   - Border-left colorée
+6. **AlertProvider + useAlert** - API impérative
+   - confirm() retourne Promise<boolean>
+   - alert() retourne Promise<void>
+
+**Note: 9/10**
+
+**Points positifs:**
+- API déclarative et impérative (hook)
+- Async support avec loading state
+- Accessibilité complète
+- Variants visuels distincts
+- InputConfirmDialog pour sécurité
+- Animation fluide
+
+**Points négatifs:**
+- Pas de stacking (multiple dialogs)
+- Pas de custom footer slots
+- Manque de size variants
+
