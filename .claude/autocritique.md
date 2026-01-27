@@ -12250,3 +12250,17 @@ Système complet de validation HTTP:
 - CORSValidator pour validation CORS
 
 Bug trouvé et corrigé: sanitize_url appelait sanitize_string AVANT le check du protocole javascript:, ce qui faisait que le pattern SCRIPT_PATTERN supprimait 'javascript:' avant le test. Solution: vérifier les protocoles dangereux EN PREMIER.
+
+
+## Sprint 814 - MediaPlayer (Frontend)
+**Note**: 8/10
+
+Composants media complets:
+- AudioPlayer: lecteur audio avec couverture, progress bar, volume
+- VideoPlayer: lecteur vidéo avec overlay controls, fullscreen
+- PlaylistPlayer: playlist avec shuffle, repeat, sélection de pistes
+- MiniPlayer: lecteur compact fixe en bas de page
+- AudioRecorder: enregistrement audio avec durée max et prévisualisation
+
+Composants utilitaires: ProgressBar, VolumeSlider, PlaybackSpeed
+Icons: Play, Pause, Volume, Skip, Shuffle, Repeat, Fullscreen
