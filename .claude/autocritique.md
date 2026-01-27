@@ -12370,3 +12370,51 @@ Milestone Sprint 813-820:
 - 818: PricingCards (frontend)
 - 819: NotificationSystem (backend)
 - 820: Wizard (frontend)
+
+
+## Sprint 821 - SearchEngine (Backend)
+**Note**: 9/10
+
+Moteur de recherche full-text:
+- Tokenizers: Simple (stop words), Whitespace, NGram, EdgeNGram (autocomplete)
+- Analyzer: combinaison tokenizer + filters
+- InvertedIndex: index inversé avec positions pour phrase match
+- MatchMode: ALL, ANY, PHRASE (positions adjacentes)
+- Scoring BM25: TF-IDF avec normalisation longueur document
+- FacetConfig: recherche facettée avec counts
+- FuzzyMatcher: distance de Levenshtein
+- QueryParser: terms, phrases, +required, -excluded, field:value
+- SearchEngine: API haut niveau avec suggest (autocomplete)
+- Highlights: snippets avec **terme** marqués
+
+---
+
+## Sprint 822 - AuthForms (Frontend)
+
+**Date:** 2026-01-27
+**Domaine:** Frontend
+
+### Ce que j'ai fait:
+1. **PasswordInput** - Champ mot de passe avec toggle show/hide et indicateur de force
+2. **SocialButton/SocialLoginGroup** - Boutons connexion sociale (Google, GitHub, Apple)
+3. **AuthDivider** - Séparateur "ou" animé
+4. **LoginForm** - Formulaire connexion avec validation, remember me
+5. **SignupForm** - Inscription avec confirmation mot de passe, acceptation CGU
+6. **ForgotPasswordForm** - Récupération mot de passe avec état succès
+7. **TwoFactorForm** - Code 2FA 6 chiffres avec auto-focus entre inputs
+
+**Note: 8.5/10**
+
+### Points positifs:
+- Calcul force mot de passe en temps réel (très faible → très fort)
+- Auto-focus intelligent sur inputs 2FA
+- Validation comprehensive (email, passwords match, terms accepted)
+- Support social login avec icônes animées
+- États de chargement et erreurs bien gérés
+- 896 lignes bien structurées
+
+### Points négatifs:
+- Pas de vrai appel API (mock onSubmit)
+- Pas de captcha/rate limiting côté client
+- Manque la gestion du state "locked account"
+
