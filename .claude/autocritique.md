@@ -9888,3 +9888,22 @@ Points à améliorer:
 - QR code génération
 - More social platforms
 
+
+
+## Sprint 749 - Backend Health Check
+**Note: 9/10**
+
+Points forts:
+- Liveness et readiness checks Kubernetes-ready
+- Checks spécialisés (Database, Disk, Memory)
+- FunctionCheck pour checks personnalisés
+- Exécution parallèle avec asyncio.gather
+- Statuts agrégés (healthy, degraded, unhealthy)
+- Distinction critical vs non-critical
+- Serialisation JSON complète
+- Uptime tracking
+
+Points à améliorer:
+- HTTP endpoint integration
+- Prometheus metrics export
+
