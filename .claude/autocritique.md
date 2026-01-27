@@ -11079,3 +11079,32 @@ EmptyState - Composants pour états vides et erreurs
 
 **Note**: 9/10
 
+
+
+## Sprint 781 - RequestThrottle (Backend)
+**Date**: 2026-01-27
+**Fichier**: `backend/request_throttle.py`
+
+### Réalisations
+- TokenBucketThrottle pour rate limiting avec bursts
+- SlidingWindowThrottle pour rate limiting lissé
+- ConcurrencyThrottle pour limiter requêtes parallèles
+- AdaptiveThrottle qui s ajuste selon taux erreurs
+- CompositeThrottle pour combiner throttles
+- ThrottleManager pour gestion par route
+- ThrottleContext async context manager
+- Fonctions pratiques: token_bucket, sliding_window, etc.
+
+### Points forts
+- Token bucket avec refill automatique
+- Sliding window avec sub-windows pour précision
+- Adaptive avec recovery et reduction rates
+- Thread-safe avec locks
+- ThrottleState complet avec retry_after
+
+### Axes amélioration
+- Pourrait avoir storage Redis distribué
+- Support cluster multi-instance
+
+**Note**: 9/10
+
