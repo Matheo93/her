@@ -9835,3 +9835,21 @@ Points à améliorer:
 - Push vers serveur de métriques distant
 - Retention policy pour time-series
 
+
+
+## Sprint 746 - Frontend Confetti
+**Note: 9/10**
+
+Points forts:
+- 4 effets: Confetti explosion, ConfettiButton, FireworksShow, ParticleRain
+- Canvas API performant pour confettis
+- Formes variées (square, circle, star)
+- Gravité et physique réalistes
+- ConfettiButton avec position automatique
+- Fireworks avec particules animées
+- Couleurs HER thématiques par défaut
+
+Points à améliorer:
+- Emoji confetti
+- Sound effects
+
