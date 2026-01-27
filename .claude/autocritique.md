@@ -11138,3 +11138,32 @@ EmptyState - Composants pour états vides et erreurs
 
 **Note**: 9/10
 
+
+
+## Sprint 783 - Telemetry (Backend)
+**Date**: 2026-01-27
+**Fichier**: `backend/telemetry.py`
+
+### Réalisations
+- Counter, Gauge, Histogram métriques avec labels
+- Tracer pour tracing distribué avec spans
+- SpanContext pour propagation trace
+- TelemetryProvider pour gestion centralisée
+- MetricExporter et SpanExporter abstractions
+- ConsoleExporter et InMemoryExporter
+- Export loop automatique périodique
+- Context managers pour spans et timing
+
+### Points forts
+- Histogram buckets configurables
+- Thread-safe avec locks
+- API fluent pour spans
+- Support labels dynamiques
+- Pattern collector Prometheus-like
+
+### Axes amélioration
+- Pourrait avoir export OTLP/OpenTelemetry
+- Support sampling configurable
+
+**Note**: 9/10
+
