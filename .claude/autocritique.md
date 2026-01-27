@@ -12418,3 +12418,39 @@ Moteur de recherche full-text:
 - Pas de captcha/rate limiting côté client
 - Manque la gestion du state "locked account"
 
+
+---
+
+## Sprint 823 - RuleEngine (Backend)
+
+**Date:** 2026-01-27
+**Domaine:** Backend
+
+### Ce que j'ai fait:
+1. **RuleContext** - Conteneur de facts avec accès dot-notation (user.email)
+2. **SimpleCondition** - Conditions simples (equals, greater_than, contains, matches...)
+3. **CompositeCondition** - Combinaison AND/OR/NOT/XOR avec opérateurs &, |, ~
+4. **FunctionCondition** - Conditions personnalisées via lambda
+5. **Actions** - SetFactAction, FunctionAction, CompositeAction
+6. **RuleBuilder** - API fluent pour construire des règles
+7. **RuleSet** - Collection de règles avec évaluation par priorité
+8. **DecisionTable** - Table de décision tabulaire avec wildcards et comparaisons (>=, >, <, <=)
+9. **RuleEngine** - Moteur principal avec hooks, facts globaux, stratégies d'évaluation
+10. **FactExpression** - API fluent fact('age').between(18, 65)
+
+**Note: 9/10**
+
+### Points positifs:
+- API fluent très expressive et Pythonic
+- Support complet des opérateurs logiques (&, |, ~)
+- Decision tables avec wildcards et comparateurs
+- Hooks pour intercepter les événements (before_evaluate, on_match, on_error)
+- Thread-safe avec RLock
+- Serialization vers dict pour persistence
+- 890 lignes bien structurées
+
+### Points négatifs:
+- Pas de persistence automatique (JSON/DB)
+- Pas d'évaluation asynchrone
+- Pas de cache pour les règles fréquentes
+
