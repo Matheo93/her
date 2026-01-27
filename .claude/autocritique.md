@@ -12609,3 +12609,43 @@ Moteur de recherche full-text:
 - Pas d'export PDF - nécessiterait reportlab
 - Pas de support streaming HTTP direct
 
+
+---
+
+## Sprint 828 - AppShell (Frontend)
+
+**Date:** 2026-01-27
+**Domaine:** Frontend
+
+### Ce que j'ai fait:
+1. **AppShellProvider** - Context avec sidebar open/collapsed, mobile menu state
+2. **AppShell** - Layout principal avec header, sidebar, main, footer zones
+3. **AppHeader** - Header fixe avec logo, titre, actions, collapse/menu toggles
+4. **AppSidebar** - Sidebar avec header, footer, scrollable content
+5. **SidebarNav** - Navigation avec items récursifs, badges, icons, expand/collapse
+6. **SidebarNavItem** - Item de navigation avec children, depth indentation
+7. **AppFooter** - Footer qui s'adapte à la sidebar width
+8. **AppBreadcrumb** - Fil d'Ariane avec séparateur customisable
+9. **UserMenu** - Menu utilisateur dropdown avec avatar, infos, actions
+10. **NotificationBell** - Bouton notifications avec badge count
+11. **SearchButton** - Bouton recherche avec shortcut keyboard hint
+12. **PageHeader** - Header de page avec title, description, actions, breadcrumb
+13. **ContentCard** - Card container avec padding configurable
+
+**Note: 9/10**
+
+### Points positifs:
+- 811 lignes pour layout complet d'application
+- Sidebar collapsible avec animation smooth
+- Mobile menu avec overlay et slide-in
+- Navigation récursive multi-niveau
+- Dark mode complet
+- Responsive design (mobile-first)
+- Escape key pour fermer mobile menu
+- Click outside pour fermer dropdowns
+
+### Points négatifs:
+- Pas de resize drag pour sidebar
+- Pas de support RTL (right-to-left)
+- Pas de persist state dans localStorage
+
