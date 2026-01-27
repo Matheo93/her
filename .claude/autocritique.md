@@ -10884,3 +10884,82 @@ EmptyState - Composants pour états vides et erreurs
 - Pas de gesture swipe
 - Manque de ripple effect
 
+
+---
+
+## Sprint 775 - Backend AccessLogger - Autocritique
+
+**Date:** 2026-01-27
+**Domaine:** Backend
+
+**Ce que j'ai fait:**
+1. **AccessLogEntry** - Entrée de log structurée
+   - Méthode, path, status, duration
+   - Client IP, User Agent, User ID
+   - Request/response size
+   - Trace ID pour corrélation
+   - to_json(), to_common_log_format()
+2. **LogWriters** - Écrivains de logs
+   - ConsoleLogWriter (stdout)
+   - MemoryLogWriter (in-memory)
+   - FileLogWriter (fichier avec buffer)
+3. **AccessLogFilter** - Filtrage
+   - include/exclude paths
+   - min/max status codes
+   - min_duration_ms pour slow queries
+   - include_methods
+4. **AccessLogStats** - Statistiques
+   - Percentiles p50/p95/p99
+   - Requests by status/method/path
+   - Slowest paths ranking
+   - Error rate
+5. **Middleware Helper**
+   - create_access_log_middleware() pour FastAPI
+   - Capture automatique request/response
+6. **Global Logger**
+   - get_access_logger(), configure_access_logger()
+
+**Note: 9/10**
+
+**Points positifs:**
+- Format CLF standard compatible
+- JSON structuré pour parsing
+- Filtering flexible
+- Stats avec percentiles
+- Trace ID pour distributed tracing
+- Buffer pour FileLogWriter
+
+**Points négatifs:**
+- Pas de rotation de fichiers
+- Pas de compression
+- Manque d'export vers services externes (ELK)
+
+
+
+## Sprint 776 - AvatarGroup (Frontend)
+**Date**: 2026-01-27
+**Fichier**: `frontend/src/components/AvatarGroup.tsx`
+
+### Réalisations
+- AvatarGroup avec stacking et overlap négatif
+- AvatarStack pour empilement directionnel
+- AvatarList avec sélection et statut
+- AvatarPicker pour sélection multiple avec max
+- UserPresence pour indicateur présence en ligne
+- Tooltips animés avec Framer Motion
+- Génération couleurs cohérentes depuis nom
+- Status indicators (online/offline/busy/away)
+
+### Points forts
+- Memoization avec React.memo
+- Calcul dynamique du z-index pour stacking
+- Set pour performance sur selectedIds
+- 5 variantes de taille (xs à xl)
+- 3 niveaux d espacement
+
+### Axes amélioration
+- Pourrait avoir accessibilité ARIA groupes
+- Lazy loading images avatars
+
+**Note**: 9/10
+
