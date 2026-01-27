@@ -10298,3 +10298,43 @@ TaskQueue - Queue de tâches distribuée style Celery
 - Pas de rate limiting par task
 
 ---
+
+---
+
+## Sprint 762 - Frontend KBD - Autocritique
+
+**Date:** 2026-01-27
+**Domaine:** Frontend
+
+**Ce que j'ai fait:**
+KBD - Composants d'affichage de raccourcis clavier
+- `KBD` - Badge pour une touche unique
+- `Shortcut` - Combinaison de touches avec séparateur
+- `ShortcutHint` - Label + raccourci alignés
+- `ShortcutList` - Liste groupée par catégorie
+- `HotkeyBadge` - Badge positionné sur éléments
+- `KeyCombo` - Parse string "Cmd+Shift+K"
+- `PlatformShortcut` - Détecte mac/windows/linux
+- `ShortcutCard` - Card avec titre et shortcuts
+- `ShortcutOverlay` - Modal de tous les raccourcis
+- `formatKey()` - Traduit en symboles (⌘, ⇧, ⌥, etc.)
+
+**Note: 9/10**
+
+**Points positifs:**
+- 10 composants variés pour tous les cas
+- Platform detection automatique
+- Symboles Mac élégants (⌘⇧⌥⌃)
+- Variants default/outline/ghost
+- Groupement par catégorie
+- Overlay modal complet
+- Tailles xs/sm/md/lg
+
+**Points négatifs:**
+- Pas de useHotkey hook pour binding
+- Pas de highlight quand touche pressée
+- Platform detection SSR unsafe (window check)
+- Pas de support accessibilité screen readers
+- Overlay pas animé avec AnimatePresence
+
+---
