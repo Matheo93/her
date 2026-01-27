@@ -9961,3 +9961,38 @@ Points à améliorer:
 - Smooth scroll snap
 - Horizontal scroll support
 
+
+---
+
+## Sprint 753 - Backend File Storage - Autocritique
+
+**Date:** 2026-01-27
+**Domaine:** Backend
+
+**Ce que j'ai fait:**
+File Storage - Abstraction layer pour stockage de fichiers
+- `FileMetadata` dataclass avec checksum, mime_type, timestamps
+- `StorageDriver` ABC avec put/get/stream/delete/exists/url/metadata/list/copy/move
+- `LocalStorageDriver` pour filesystem avec path traversal protection
+- `MemoryStorageDriver` pour tests
+- `FileStorage` facade avec upload/download/stream/copy/move
+- Singleton pattern avec `configure_storage()` et `get_storage()`
+
+**Note: 9/10**
+
+**Points positifs:**
+- Abstraction propre avec interface claire
+- Protection path traversal (security check)
+- Support streaming pour gros fichiers
+- Checksum MD5 pour intégrité
+- Metadata files .meta pour persistence
+- Méthodes copy/move complètes
+- Upload unique avec UUID
+
+**Points négatifs:**
+- Pas de cloud storage driver (S3, GCS)
+- MD5 checksum pas cryptographiquement sécurisé (devrait être SHA256)
+- Pas de compression optionnelle
+- Pas de signature d'URL expirante réelle
+
+---
