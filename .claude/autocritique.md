@@ -11167,3 +11167,33 @@ EmptyState - Composants pour états vides et erreurs
 
 **Note**: 9/10
 
+
+
+## Sprint 784 - CodeBlock (Frontend)
+**Date**: 2026-01-27
+**Fichier**: `frontend/src/components/CodeBlock.tsx`
+
+### Réalisations
+- CodeBlock avec syntax highlighting et line numbers
+- InlineCode pour snippets inline
+- CodeDiff pour comparaison côte à côte
+- CodeTabs pour fichiers multiples avec onglets
+- TerminalBlock pour affichage commandes shell
+- Copy to clipboard fonctionnel
+- Blocs de code collapsibles
+- Support highlighting lignes spécifiques
+- Dark theme avec couleurs HER accent
+
+### Points forts
+- Regex tokenizer pour syntax highlighting
+- Window buttons macOS style
+- Diff view avec +/- markers
+- Animation collapse fluide
+- Support multi-langages basique
+
+### Axes amélioration
+- Pourrait avoir highlighting plus complet (Prism/Shiki)
+- Support theme light/dark
+
+**Note**: 9/10
+
