@@ -9745,3 +9745,21 @@ Points à améliorer:
 - Drag & drop d'images
 - Historique undo/redo personnalisé
 
+
+
+## Sprint 741 - Backend Job Scheduler
+**Note: 9/10**
+
+Points forts:
+- Expressions cron complètes (minute, hour, day, month, weekday)
+- Priority queue avec heapq
+- Jobs one-time, interval et cron
+- Retry automatique avec délai configurable
+- Support async natif
+- Callbacks de completion
+- Pause/resume des jobs
+
+Points à améliorer:
+- Persistance des jobs (actuellement in-memory)
+- Dead letter queue
+
