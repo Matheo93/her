@@ -9799,3 +9799,21 @@ Points à améliorer:
 - Interface admin web
 - Analytics d'utilisation des flags
 
+
+
+## Sprint 744 - Frontend ImageGallery
+**Note: 9/10**
+
+Points forts:
+- Grille responsive avec colonnes configurables
+- Lightbox avec zoom (molette et boutons)
+- Pan/drag quand zoomé
+- Navigation clavier (flèches, Escape, +/-)
+- Thumbnails en bas du lightbox
+- Animations Framer Motion fluides
+- Loader de chargement des images
+
+Points à améliorer:
+- Touch gestures pour mobile (pinch to zoom)
+- Slideshow automatique
+
