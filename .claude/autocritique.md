@@ -10963,3 +10963,32 @@ EmptyState - Composants pour états vides et erreurs
 
 **Note**: 9/10
 
+
+
+## Sprint 777 - RequestContext (Backend)
+**Date**: 2026-01-27
+**Fichier**: `backend/request_context.py`
+
+### Réalisations
+- RequestContext avec async context manager
+- RequestInfo et UserInfo dataclasses
+- ContextVar wrapper typé pour contextvars
+- ContextPropagator pour propagation contexte async
+- Span pour tracing distribué
+- ContextMiddleware pour intégration FastAPI
+- ThreadLocalContext pour code synchrone
+- Fonctions utilitaires (require_user, require_permission, require_role)
+
+### Points forts
+- Utilisation native de contextvars Python
+- Support complet async/sync
+- Cleanup handlers automatiques
+- Export contexte vers dict pour logging
+- Pattern span pour tracing
+
+### Axes amélioration
+- Pourrait avoir intégration OpenTelemetry
+- Sampling pour tracing haute charge
+
+**Note**: 9/10
+
