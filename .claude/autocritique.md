@@ -12491,3 +12491,38 @@ Moteur de recherche full-text:
 - Pas de gestion d'erreur upload
 - Manque ActivityItem pagination
 
+
+---
+
+## Sprint 825 - ABTesting (Backend)
+
+**Date:** 2026-01-27
+**Domaine:** Backend
+
+### Ce que j'ai fait:
+1. **Variant** - Configuration de variante avec poids, config, contrôle flag
+2. **MetricResult** - Statistiques (mean, variance, std_dev, min, max)
+3. **Metric** - Tracking métriques (conversion, count, duration, revenue, ratio)
+4. **Experiment** - Expérience complète avec variants, metrics, allocation, targeting
+5. **StatisticalAnalyzer** - Analyse statistique (chi-square, t-test, p-value, CI)
+6. **ABTestingEngine** - Moteur principal (create, start, pause, resume, complete)
+7. **ExperimentBuilder** - API fluent pour construire des expériences
+8. **Assignment** - Enregistrement des affectations utilisateur
+9. **Calcul sample size** - Estimation taille échantillon pour puissance statistique
+
+**Note: 9.5/10**
+
+### Points positifs:
+- Allocation déterministe par hash MD5 (sticky sessions)
+- Analyse statistique complète (p-value, confidence intervals)
+- Support targeting rules par lambda
+- Traffic percentage pour rollouts progressifs
+- 967 lignes de calculs statistiques robustes
+- Approximations norm_ppf, t_cdf, incomplete_beta implementées from scratch
+- Thread-safe avec RLock
+
+### Points négatifs:
+- Pas de persistence (tout en mémoire)
+- Pas de bayesian analysis (fréquentiste uniquement)
+- Pas de multi-armed bandit (allocation fixe)
+
