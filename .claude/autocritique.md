@@ -11255,3 +11255,33 @@ EmptyState - Composants pour états vides et erreurs
 
 **Note**: 9/10
 
+
+
+## Sprint 787 - ContentNegotiation (Backend)
+**Date**: 2026-01-27
+**Fichier**: `backend/content_negotiation.py`
+
+### Réalisations
+- MediaType parsing avec quality values et params
+- Accept header parsing avec tri quality/specificity
+- ContentNegotiator pour sélection serializer
+- JsonSerializer avec encoding custom
+- XmlSerializer pour output XML basique
+- PlainTextSerializer et HtmlSerializer
+- CharsetNegotiator pour sélection charset
+- LanguageNegotiator avec prefix matching
+- Factory function et instance globale
+
+### Points forts
+- Wildcard matching (* et type/*)
+- Suffix parsing (vnd.api+json)
+- Tri par qualité et spécificité
+- Serializers extensibles
+- Prefix matching langues (en-US -> en)
+
+### Axes amélioration
+- Pourrait avoir XML deserialization
+- Support encodings plus avancés
+
+**Note**: 9/10
+
